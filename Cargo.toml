@@ -1,0 +1,22 @@
+[package]
+name = "crud"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# Internal
+crud-shared-types = {path = "../crud-shared-types"}
+chrono-serde = {path = "../chrono-serde"}
+
+# External
+serde = { version = "1.0.137", features = ["derive"] }
+serde_json = "1.0.80"
+chrono = "0.4.19"
+axum = "0.5.4"
+indexmap = { version = "1.8.1", features = ["serde"] }
+
+sea-orm = { version = "0.7.1", default-features = false, features = [ "macros", "debug-print", "runtime-tokio-rustls", "sqlx-postgres" ] }
+sea-query = { version = "0.24.4" }
+sea-schema = { version = "0.7.1", default-features = false, features = [ "migration", "debug-print" ] }
