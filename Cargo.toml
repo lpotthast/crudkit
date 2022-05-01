@@ -17,8 +17,8 @@ yew = { git = "https://github.com/yewstack/yew", features = ["tokio", "csr"] }
 yew-router = { git = "https://github.com/yewstack/yew.git" }
 yewdux = { git = "https://github.com/intendednull/yewdux" }
 log = "0.4.16"
-serde = "1.0.136"
-serde_json = "1.0.79"
+serde = "1.0.137"
+serde_json = "1.0.80"
 web-sys = { version = "0.3.57", features = ["Document", "Element", "HtmlInputElement", "DomTokenList", "Event", "EventTarget", "DomRect"] }
 wasm-bindgen = "0.2.80"
 wasm-bindgen-futures = "0.4.30"
@@ -30,4 +30,4 @@ uuid = { version = "1.0.0", features = ["js", "v4"], default-features = false }
 lazy_static = "1.4.0"
 parking_lot = "0.12.0"
 dotenv_codegen = "0.15.0"
-thiserror = "1.0.30"
+thiserror = "1.0.31"
