@@ -1,4 +1,4 @@
-use chrono_serde::prelude::*;
+use chrono_utc_date_time::prelude::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 use types::RequestError;

@@ -7,9 +7,9 @@ edition = "2021"
 
 [dependencies]
 # Internal
-yewbi = {path = "../yewbi"}
-yewdux-global-stores = {path = "../yewdux-global-stores"}
-chrono-serde = {path = "../chrono-serde"}
+yewbi = { path = "../yewbi" }
+yewdux-global-stores = { path = "../yewdux-global-stores" }
+chrono-utc-date-time = { path = "../chrono-utc-date-time" }
 crud-shared-types = { path = "../crud-shared-types" }
 
 # External
@@ -19,7 +19,15 @@ yewdux = { git = "https://github.com/intendednull/yewdux" }
 log = "0.4.16"
 serde = "1.0.137"
 serde_json = "1.0.80"
-web-sys = { version = "0.3.57", features = ["Document", "Element", "HtmlInputElement", "DomTokenList", "Event", "EventTarget", "DomRect"] }
+web-sys = { version = "0.3.57", features = [
+    "Document",
+    "Element",
+    "HtmlInputElement",
+    "DomTokenList",
+    "Event",
+    "EventTarget",
+    "DomRect",
+] }
 wasm-bindgen = "0.2.80"
 wasm-bindgen-futures = "0.4.30"
 indexmap = { version = "1.8.1", features = ["serde"] }
