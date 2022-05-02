@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 # Internal
 crud-shared-types = {path = "../crud-shared-types"}
-chrono-serde = {path = "../chrono-serde"}
+chrono-utc-date-time = {path = "../chrono-utc-date-time"}
 
 # External
 serde = { version = "1.0.137", features = ["derive"] }

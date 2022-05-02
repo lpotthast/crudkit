@@ -379,16 +379,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "chrono-serde"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "chrono-tz",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "chrono-tz"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -408,6 +398,16 @@ dependencies = [
  "parse-zoneinfo",
  "phf",
  "phf_codegen",
+]
+
+[[package]]
+name = "chrono-utc-date-time"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "chrono-tz",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -490,7 +490,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "chrono",
- "chrono-serde",
+ "chrono-utc-date-time",
  "crud-shared-types",
  "indexmap",
  "sea-orm",
