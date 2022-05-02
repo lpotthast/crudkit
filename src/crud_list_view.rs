@@ -64,6 +64,20 @@ impl<T: CrudDataTrait> CrudListView<T> {
             Msg::CountRead(read_count::<T>(ReadCount { condition: None }).await)
         });
     }
+
+    fn get_data(&self) -> Option<Rc<Vec<T>>> {
+        match &self.data {
+            Ok(data) => Some(data.clone()),
+            Err(_) => None,
+        }
+    }
+
+    fn get_data_error(&self) -> Option<NoData> {
+        match &self.data {
+            Ok(_) => None,
+            Err(err) => Some(err.clone()),
+        }
+    }
 }
 
 impl<T: 'static + CrudDataTrait> Component for CrudListView<T> {
@@ -159,7 +173,8 @@ impl<T: 'static + CrudDataTrait> Component for CrudListView<T> {
                 </div>
 
                 <CrudTable<T>
-                    data={self.data.clone()}
+                    data={self.get_data()}
+                    no_data={self.get_data_error()}
                     headers={ctx.props().config.headers.iter()
                         .map(|(field, options)| (field.clone(), options.clone(), ctx.props().config.order_by.get(field).cloned()))
                         .collect::<Vec<(T::FieldType, HeaderOptions, Option<Order>)>>()}

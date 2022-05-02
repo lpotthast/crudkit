@@ -1,8 +1,9 @@
-use super::prelude::*;
 use crud_shared_types::Order;
-use yewbi::Bi;
 use std::{marker::PhantomData, rc::Rc};
 use yew::prelude::*;
+use yewbi::Bi;
+
+use super::prelude::*;
 
 pub enum Msg<T: CrudDataTrait> {
     OrderBy((T::FieldType, OrderByUpdateOptions)),
@@ -17,7 +18,8 @@ pub struct Props<T>
 where
     T: CrudDataTrait,
 {
-    pub data: Result<Rc<Vec<T>>, NoData>,
+    pub data: Option<Rc<Vec<T>>>,
+    pub no_data: Option<NoData>,
     pub headers: Vec<(T::FieldType, HeaderOptions, Option<Order>)>,
     pub on_order_by: Callback<(T::FieldType, OrderByUpdateOptions)>,
     pub read_allowed: bool,
@@ -111,83 +113,84 @@ where
                 />
                 <tbody>
                     {
-                        match &ctx.props().data {
-                            Ok(data) => {
-                                data.iter().map(|entity| {
-                                    html! {
-                                        <tr>
-                                            {
-                                                ctx.props().headers.iter().map(|(field, _options, _order)| {
-                                                    html! {
-                                                        <td>
-                                                            <CrudField<T>
-                                                                field_type={field.clone()}
-                                                                field_options={FieldOptions { disabled: false, label: "".to_owned() }}
-                                                                entity={entity.clone()}
-                                                                field_mode={FieldMode::Display}
-                                                                value_changed={|_| {}}
-                                                            />
-                                                        </td>
-                                                    }
-                                                }).collect::<Html>()
-                                            }
-                                            if has_actions {
-                                                <td>
-                                                    <div class={"action-icons"}>
-                                                        if ctx.props().read_allowed {
-                                                            <div
-                                                                class={"action-icon"}
-                                                                onclick={link.callback(CrudTable::<T>::create_read_callback(entity.clone()))}
-                                                            >
-                                                                <CrudIcon variant={Bi::Eye}/>
-                                                            </div>
-                                                        }
-                                                        if ctx.props().edit_allowed {
-                                                            <div
-                                                                class={"action-icon"}
-                                                                onclick={link.callback(CrudTable::<T>::create_edit_callback(entity.clone()))}
-                                                            >
-                                                                <CrudIcon variant={Bi::Pencil}/>
-                                                            </div>
-                                                        }
-                                                        if ctx.props().delete_allowed {
-                                                            <div
-                                                                class={"action-icon"}
-                                                                onclick={link.callback(CrudTable::<T>::create_delete_callback(entity.clone()))}
-                                                            >
-                                                                <CrudIcon variant={Bi::Trash}/>
-                                                            </div>
-                                                        }
-                                                    {
-                                                        ctx.props().additional_item_actions.iter().map(|action| {
-                                                            // TODO: can we eliminate some clone()'s?
-                                                            let cloned_action = action.clone();
-                                                            let cloned_entity = entity.clone();
-                                                            html! {
-                                                                <div
-                                                                    class={"action-icon"}
-                                                                    onclick={link.callback(move |_| Msg::ActionTriggered((cloned_action.clone(), cloned_entity.clone())))}>
-                                                                    <CrudIcon variant={action.get_icon().unwrap_or(Bi::Question)}/>
-                                                                </div>
-                                                            }
-                                                        }).collect::<Html>()
-                                                    }
-                                                    </div>
-                                                </td>
-                                            }
-                                        </tr>
-                                    }
-                                }).collect::<Html>()
-                            }
-                            Err(no_data) => {
+                        if let Some(data) = &ctx.props().data {
+                            data.iter().map(|entity| {
                                 html! {
                                     <tr>
-                                        <td colspan={"100%"}>
-                                            {format!("No data available: {:?}", no_data)}
-                                        </td>
+                                        {
+                                            ctx.props().headers.iter().map(|(field, _options, _order)| {
+                                                html! {
+                                                    <td>
+                                                        <CrudField<T>
+                                                            field_type={field.clone()}
+                                                            field_options={FieldOptions { disabled: false, label: "".to_owned() }}
+                                                            entity={entity.clone()}
+                                                            field_mode={FieldMode::Display}
+                                                            value_changed={|_| {}}
+                                                        />
+                                                    </td>
+                                                }
+                                            }).collect::<Html>()
+                                        }
+                                        if has_actions {
+                                            <td>
+                                                <div class={"action-icons"}>
+                                                    if ctx.props().read_allowed {
+                                                        <div
+                                                            class={"action-icon"}
+                                                            onclick={link.callback(CrudTable::<T>::create_read_callback(entity.clone()))}
+                                                        >
+                                                            <CrudIcon variant={Bi::Eye}/>
+                                                        </div>
+                                                    }
+                                                    if ctx.props().edit_allowed {
+                                                        <div
+                                                            class={"action-icon"}
+                                                            onclick={link.callback(CrudTable::<T>::create_edit_callback(entity.clone()))}
+                                                        >
+                                                            <CrudIcon variant={Bi::Pencil}/>
+                                                        </div>
+                                                    }
+                                                    if ctx.props().delete_allowed {
+                                                        <div
+                                                            class={"action-icon"}
+                                                            onclick={link.callback(CrudTable::<T>::create_delete_callback(entity.clone()))}
+                                                        >
+                                                            <CrudIcon variant={Bi::Trash}/>
+                                                        </div>
+                                                    }
+                                                {
+                                                    ctx.props().additional_item_actions.iter().map(|action| {
+                                                        // TODO: can we eliminate some clone()'s?
+                                                        let cloned_action = action.clone();
+                                                        let cloned_entity = entity.clone();
+                                                        html! {
+                                                            <div
+                                                                class={"action-icon"}
+                                                                onclick={link.callback(move |_| Msg::ActionTriggered((cloned_action.clone(), cloned_entity.clone())))}>
+                                                                <CrudIcon variant={action.get_icon().unwrap_or(Bi::Question)}/>
+                                                            </div>
+                                                        }
+                                                    }).collect::<Html>()
+                                                }
+                                                </div>
+                                            </td>
+                                        }
                                     </tr>
                                 }
+                            }).collect::<Html>()
+                        }
+                        else if let Some(no_data) = &ctx.props().no_data {
+                            html! {
+                                <tr>
+                                    <td colspan={"100%"}>
+                                        {format!("No data available: {:?}", no_data)}
+                                    </td>
+                                </tr>
                             }
+                        }
+                        else {
+                            html! { "Component misconfigured: Either pass some data or an error, not both." }
                         }
                     }
                 </tbody>
