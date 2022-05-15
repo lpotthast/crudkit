@@ -3,12 +3,10 @@ name = "crud"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 # Internal
 crud-shared-types = {path = "../crud-shared-types"}
-chrono-utc-date-time = {path = "../chrono-utc-date-time"}
+chrono-utc-date-time = {path = "../chrono-utc-date-time", features = [ "sea-orm" ]}
 
 # External
 serde = { version = "1.0.137", features = ["derive"] }
