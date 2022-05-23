@@ -14,6 +14,7 @@ pub enum Msg<T: CrudDataTrait> {
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
+    pub base_url: String,
     pub config: CrudInstanceConfig<T>,
     pub id: u32,
     pub list_view_available: bool,
@@ -29,9 +30,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
     type Properties = Props<T>;
 
     fn create(ctx: &Context<Self>) -> Self {
+        let base_url = ctx.props().base_url.clone();
         let id = ctx.props().id;
         ctx.link()
-            .send_future(async move { Msg::LoadedEntity(load_entity(id).await) });
+            .send_future(async move { Msg::LoadedEntity(load_entity(&base_url, id).await) });
         Self {
             entity: Err(NoData::NotYetLoaded),
         }
@@ -108,8 +110,8 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
     }
 }
 
-pub async fn load_entity<T: CrudDataTrait>(id: u32) -> Result<Option<T>, RequestError> {
-    read_one::<T>(ReadOne {
+pub async fn load_entity<T: CrudDataTrait>(base_url: &str, id: u32) -> Result<Option<T>, RequestError> {
+    read_one::<T>(base_url, ReadOne {
         skip: None,
         order_by: None,
         condition: Some(vec![ConditionElement::Clause(ConditionClause {

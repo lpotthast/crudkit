@@ -22,6 +22,7 @@ pub enum Msg<T: CrudDataTrait> {
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
+    pub base_url: String,
     pub config: CrudInstanceConfig<T>,
     pub id: u32,
     pub list_view_available: bool,
@@ -65,11 +66,12 @@ impl<T: 'static + CrudDataTrait> CrudEditView<T> {
     }
 
     fn save(&self, ctx: &Context<Self>) {
+        let base_url = ctx.props().base_url.clone();
         let ent = self.input.clone();
         let id = ctx.props().id;
         ctx.link().send_future(async move {
             Msg::UpdatedEntity(
-                update_one::<T>(UpdateOne {
+                update_one::<T>(&base_url, UpdateOne {
                     entity: ent,
                     condition: Some(vec![ConditionElement::Clause(ConditionClause {
                         column_name: T::get_id_field_name(),
@@ -88,9 +90,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
     type Properties = Props<T>;
 
     fn create(ctx: &Context<Self>) -> Self {
+        let base_url = ctx.props().base_url.clone();
         let id = ctx.props().id;
         ctx.link()
-            .send_future(async move { Msg::LoadedEntity(load_entity(id).await) });
+            .send_future(async move { Msg::LoadedEntity(load_entity(&base_url, id).await) });
         Self {
             input: Default::default(),
             input_dirty: false,
@@ -235,8 +238,8 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
     }
 }
 
-pub async fn load_entity<T: CrudDataTrait>(id: u32) -> Result<Option<T>, RequestError> {
-    read_one::<T>(ReadOne {
+pub async fn load_entity<T: CrudDataTrait>(base_url: &str, id: u32) -> Result<Option<T>, RequestError> {
+    read_one::<T>(base_url, ReadOne {
         skip: None,
         order_by: None,
         condition: Some(vec![ConditionElement::Clause(ConditionClause {

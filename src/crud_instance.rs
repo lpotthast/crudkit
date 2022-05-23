@@ -83,6 +83,7 @@ impl<T: CrudDataTrait> CrudInstanceConfig<T> {
 #[derive(PartialEq, Properties)]
 pub struct Props<T: CrudDataTrait> {
     pub name: String,
+    pub base_url: String,
     pub config: CrudInstanceConfig<T>,
 }
 
@@ -176,9 +177,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
             Msg::DeleteApproved => {
                 match &self.entity_to_delete {
                     Some(entity) => {
+                        let base_url = ctx.props().base_url.clone();
                         let id = entity.get_id();
                         ctx.link().send_future(async move {
-                            Msg::Deleted(delete_by_id::<T>(DeleteById { id }).await)
+                            Msg::Deleted(delete_by_id::<T>(&base_url, DeleteById { id }).await)
                         });
                     },
                     None => log::warn!("Delete was approved, but instance already lost track of the 'entity_to_delete'!"),
@@ -243,6 +245,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                             CrudView::List => {
                                 html! {
                                     <CrudListView<T>
+                                        base_url={ctx.props().base_url.clone()}
                                         config={self.config.clone()}
                                         on_create={ctx.link().callback(|_| Msg::Create)}
                                         on_read={ctx.link().callback(Msg::Read)}
@@ -257,6 +260,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                             CrudView::Create => {
                                 html! {
                                     <CrudCreateView<T>
+                                        base_url={ctx.props().base_url.clone()}
                                         config={self.config.clone()}
                                         list_view_available={true}
                                         on_list_view={ctx.link().callback(|_| Msg::List)}
@@ -267,6 +271,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                             CrudView::Read(id) => {
                                 html! {
                                     <CrudReadView<T>
+                                        base_url={ctx.props().base_url.clone()}
                                         config={self.config.clone()}
                                         id={id}
                                         list_view_available={true}
@@ -277,6 +282,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                             CrudView::Edit(id) => {
                                 html! {
                                     <CrudEditView<T>
+                                        base_url={ctx.props().base_url.clone()}
                                         config={self.config.clone()}
                                         id={id}
                                         list_view_available={true}

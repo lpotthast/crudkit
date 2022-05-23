@@ -25,6 +25,7 @@ pub enum Msg<T: CrudDataTrait> {
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
+    pub base_url: String,
     pub config: CrudInstanceConfig<T>,
     pub on_create: Callback<()>,
     pub on_read: Callback<T>,
@@ -43,12 +44,13 @@ pub struct CrudListView<T: 'static + CrudDataTrait> {
 
 impl<T: CrudDataTrait> CrudListView<T> {
     fn load_page(&self, ctx: &Context<CrudListView<T>>) {
+        let base_url = ctx.props().base_url.clone();
         let order_by = ctx.props().config.order_by.clone();
         let page = ctx.props().config.page as u64;
         let items_per_page = ctx.props().config.items_per_page as u64;
         ctx.link().send_future(async move {
             Msg::PageLoaded(
-                read_many::<T>(ReadMany {
+                read_many::<T>(&base_url, ReadMany {
                     limit: Some(items_per_page),
                     skip: Some(items_per_page * (page - 1)),
                     order_by: Some(order_by),
@@ -60,8 +62,9 @@ impl<T: CrudDataTrait> CrudListView<T> {
     }
 
     fn load_count(&self, ctx: &Context<CrudListView<T>>) {
+        let base_url = ctx.props().base_url.clone();
         ctx.link().send_future(async move {
-            Msg::CountRead(read_count::<T>(ReadCount { condition: None }).await)
+            Msg::CountRead(read_count::<T>(&base_url, ReadCount { condition: None }).await)
         });
     }
 

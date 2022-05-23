@@ -17,6 +17,7 @@ pub enum Msg<T: CrudDataTrait> {
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
+    pub base_url: String,
     pub config: CrudInstanceConfig<T>,
     pub list_view_available: bool,
     pub on_list_view: Callback<()>,
@@ -46,9 +47,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudCreateView<T> {
                 false
             }
             Msg::Save => {
+                let base_url = ctx.props().base_url.clone();
                 let ent = self.input.clone();
                 ctx.link().send_future(async move {
-                    Msg::CreatedEntity(create_one::<T>(CreateOne { entity: ent }).await)
+                    Msg::CreatedEntity(create_one::<T>(&base_url, CreateOne { entity: ent }).await)
                 });
                 false
             }

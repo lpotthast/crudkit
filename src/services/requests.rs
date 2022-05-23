@@ -5,9 +5,6 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::types::{ErrorInfo, RequestError};
 
-// TODO: Make this read an environment variable at runtime.
-//const API_ROOT: &str = dotenv!("API_ROOT");
-const API_ROOT: &str = "http://127.0.0.1:4000/api";
 const TOKEN_KEY: &str = "yew.token";
 
 lazy_static! {
@@ -39,14 +36,13 @@ pub fn get_token() -> Option<String> {
 }
 
 /// build all kinds of http request: post/get/delete etc.
-pub async fn request<S, B, T>(method: reqwest::Method, url: S, body: B) -> Result<T, RequestError>
+pub async fn request<B, T>(method: reqwest::Method, url: String, body: B) -> Result<T, RequestError>
 where
-    S: AsRef<str>,
     T: DeserializeOwned + std::fmt::Debug,
     B: Serialize + std::fmt::Debug,
 {
+    // ASSUMPTION: The given url is complete, meaning nothing hast to be added to it to work!
     let allow_body = method == reqwest::Method::POST || method == reqwest::Method::PUT;
-    let url = format!("{}{}", API_ROOT, url.as_ref());
     let mut builder = reqwest::Client::new()
         .request(method, url)
         .header("Content-Type", "application/json");
@@ -93,9 +89,8 @@ where
 
 #[allow(dead_code)]
 /// Delete request
-pub async fn request_delete<S, T>(url: S) -> Result<T, RequestError>
+pub async fn request_delete<T>(url: String) -> Result<T, RequestError>
 where
-    S: AsRef<str>,
     T: DeserializeOwned + std::fmt::Debug,
 {
     request(reqwest::Method::DELETE, url, ()).await
@@ -103,9 +98,8 @@ where
 
 /// Get request
 #[allow(dead_code)]
-pub async fn request_get<S, T>(url: S) -> Result<T, RequestError>
+pub async fn request_get<T>(url: String) -> Result<T, RequestError>
 where
-    S: AsRef<str>,
     T: DeserializeOwned + std::fmt::Debug,
 {
     request(reqwest::Method::GET, url, ()).await
@@ -113,9 +107,8 @@ where
 
 /// Post request with a body
 #[allow(dead_code)]
-pub async fn request_post<S, B, T>(url: S, body: B) -> Result<T, RequestError>
+pub async fn request_post<B, T>(url: String, body: B) -> Result<T, RequestError>
 where
-    S: AsRef<str>,
     T: DeserializeOwned + std::fmt::Debug,
     B: Serialize + std::fmt::Debug,
 {
@@ -124,9 +117,8 @@ where
 
 /// Put request with a body
 #[allow(dead_code)]
-pub async fn request_put<S, B, T>(url: S, body: B) -> Result<T, RequestError>
+pub async fn request_put<B, T>(url: String, body: B) -> Result<T, RequestError>
 where
-    S: AsRef<str>,
     T: DeserializeOwned + std::fmt::Debug,
     B: Serialize + std::fmt::Debug,
 {
