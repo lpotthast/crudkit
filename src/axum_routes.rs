@@ -17,7 +17,7 @@ use serde_json::json;
 // https://github.com/tokio-rs/axum/discussions/358
 // states which requirements R must meet in order for this to compile!
 pub fn add_crud_routes<R: CrudResource + Sync + Send + 'static>(
-    root: &'static str,
+    root: &str,
     resource: &'static str,
     router: Router,
 ) -> Router {
