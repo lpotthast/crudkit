@@ -16,7 +16,7 @@ pub enum Msg<T: CrudDataTrait> {
     InstanceConfigStoreUpdated(Rc<stores::instance::InstanceStore<T>>),
     List,
     Create,
-    EntityCreated(T),
+    EntityCreated((T, Option<CrudView>)),
     Read(T),
     Edit(T),
     Delete(T),
@@ -151,8 +151,12 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                 self.store_config(ctx);
                 true
             }
-            Msg::EntityCreated(entity) => {
-                self.set_view(CrudView::Edit(entity.get_id()));
+            Msg::EntityCreated((entity, suggested_view)) => {
+                if let Some(suggested_view) = suggested_view {
+                    self.set_view(suggested_view);
+                } else {
+                    self.set_view(CrudView::Edit(entity.get_id()));
+                }
                 self.store_config(ctx);
                 true
             }

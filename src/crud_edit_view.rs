@@ -65,10 +65,11 @@ impl<T: 'static + CrudDataTrait> CrudEditView<T> {
         }
     }
 
-    fn save(&self, ctx: &Context<Self>) {
+    fn save_entity(&self, ctx: &Context<Self>) {
         let base_url = ctx.props().base_url.clone();
         let ent = self.input.clone();
         let id = ctx.props().id;
+        // TODO: Like in create_view, store ongoing_save!!
         ctx.link().send_future(async move {
             Msg::UpdatedEntity(
                 update_one::<T>(&base_url, UpdateOne {
@@ -135,16 +136,16 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
                 true
             }
             Msg::Save => {
-                self.save(ctx);
+                self.save_entity(ctx);
                 true
             }
             Msg::SaveAndReturn => {
-                self.save(ctx);
+                self.save_entity(ctx);
                 ctx.props().on_list.emit(());
                 false
             }
             Msg::SaveAndNew => {
-                self.save(ctx);
+                self.save_entity(ctx);
                 ctx.props().on_create.emit(());
                 false
             }

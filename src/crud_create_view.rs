@@ -12,7 +12,13 @@ pub enum Msg<T: CrudDataTrait> {
     SaveAndReturn,
     SaveAndNew,
     ValueChanged((T::FieldType, String)),
-    CreatedEntity(Result<Option<T>, RequestError>),
+    CreatedEntity(Result<Option<T>, RequestError>, Then),
+}
+
+pub enum Then {
+    DoNothing,
+    OpenListView,
+    Reset,
 }
 
 #[derive(Properties, PartialEq)]
@@ -21,12 +27,27 @@ pub struct Props<T: CrudDataTrait> {
     pub config: CrudInstanceConfig<T>,
     pub list_view_available: bool,
     pub on_list_view: Callback<()>,
-    pub on_entity_created: Callback<T>,
+    pub on_entity_created: Callback<(T, Option<CrudView>)>,
 }
 
 pub struct CrudCreateView<T: CrudDataTrait> {
     input: T,
     ongoing_save: bool,
+}
+
+impl<T: 'static + CrudDataTrait> CrudCreateView<T> {
+    fn create_entity(&mut self, ctx: &Context<Self>, then: Then) {
+        let base_url = ctx.props().base_url.clone();
+        let ent = self.input.clone();
+        self.ongoing_save = true;
+        ctx.link().send_future(async move {
+            Msg::CreatedEntity(create_one::<T>(&base_url, CreateOne { entity: ent }).await, then)
+        });
+    }
+
+    fn reset(&mut self) {
+        self.input = Default::default();
+    }
 }
 
 impl<T: 'static + CrudDataTrait> Component for CrudCreateView<T> {
@@ -47,23 +68,39 @@ impl<T: 'static + CrudDataTrait> Component for CrudCreateView<T> {
                 false
             }
             Msg::Save => {
-                let base_url = ctx.props().base_url.clone();
-                let ent = self.input.clone();
-                ctx.link().send_future(async move {
-                    Msg::CreatedEntity(create_one::<T>(&base_url, CreateOne { entity: ent }).await)
-                });
+                self.create_entity(ctx, Then::DoNothing);
                 false
             }
-            Msg::SaveAndReturn => todo!(),
-            Msg::SaveAndNew => todo!(),
+            Msg::SaveAndReturn => {
+                self.create_entity(ctx, Then::OpenListView);
+                false
+            }
+            Msg::SaveAndNew => {
+                self.create_entity(ctx, Then::Reset);
+                false
+            }
             Msg::ValueChanged((field, value)) => {
                 field.set_value(&mut self.input, value);
                 false
             }
-            Msg::CreatedEntity(result) => {
+            Msg::CreatedEntity(result, then) => {
+                self.ongoing_save = false;
                 match result {
                     Ok(data) => match data {
-                        Some(entity) => ctx.props().on_entity_created.emit(entity),
+                        Some(entity) => {
+                            match then {
+                                Then::DoNothing => {
+                                    ctx.props().on_entity_created.emit((entity, None));
+                                },
+                                Then::OpenListView => {
+                                    ctx.props().on_entity_created.emit((entity, Some(CrudView::List)));
+                                },
+                                Then::Reset => {
+                                    ctx.props().on_entity_created.emit((entity, Some(CrudView::Create)));
+                                    self.reset();
+                                },
+                            }
+                        },
                         None => log::error!(
                             "Entity creation failed: {:?}",
                             NoData::FetchReturnedNothing
