@@ -8,6 +8,7 @@ pub enum Msg<T: CrudDataTrait> {
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
+    pub api_base_url: String,
     pub elements: Vec<Elem<T>>,
     pub entity: Option<T>,
     pub mode: FieldMode,
@@ -46,6 +47,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                             match enclosing {
                                 Enclosing::None(group) => html! {
                                     <CrudFields<T>
+                                        api_base_url={ctx.props().api_base_url.clone()}
                                         elements={group.children.clone()}
                                         entity={ctx.props().entity.clone()}
                                         mode={ctx.props().mode.clone()}
@@ -59,6 +61,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                                 html_nested! {
                                                     <CrudTab name={tab_name.clone()}>
                                                         <CrudFields<T>
+                                                            api_base_url={ctx.props().api_base_url.clone()}
                                                             elements={group.children.clone()}
                                                             entity={ctx.props().entity.clone()}
                                                             mode={ctx.props().mode.clone()}
@@ -73,6 +76,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                 Enclosing::Card(group) => html! {
                                     <div class={"crud-card"}>
                                         <CrudFields<T>
+                                            api_base_url={ctx.props().api_base_url.clone()}
                                             elements={group.children.clone()}
                                             entity={ctx.props().entity.clone()}
                                             mode={ctx.props().mode.clone()}
@@ -85,6 +89,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                         Elem::Field((field_type, field_options)) => {
                             html! {
                                 <CrudField<T>
+                                    api_base_url={ctx.props().api_base_url.clone()}
                                     field_type={field_type.clone()}
                                     field_options={field_options.clone()}
                                     field_mode={ctx.props().mode.clone()}

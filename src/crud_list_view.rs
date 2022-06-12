@@ -25,7 +25,7 @@ pub enum Msg<T: CrudDataTrait> {
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
-    pub base_url: String,
+    pub api_base_url: String,
     pub config: CrudInstanceConfig<T>,
     pub on_create: Callback<()>,
     pub on_read: Callback<T>,
@@ -44,7 +44,7 @@ pub struct CrudListView<T: 'static + CrudDataTrait> {
 
 impl<T: CrudDataTrait> CrudListView<T> {
     fn load_page(&self, ctx: &Context<CrudListView<T>>) {
-        let base_url = ctx.props().base_url.clone();
+        let base_url = ctx.props().api_base_url.clone();
         let order_by = ctx.props().config.order_by.clone();
         let page = ctx.props().config.page as u64;
         let items_per_page = ctx.props().config.items_per_page as u64;
@@ -62,7 +62,7 @@ impl<T: CrudDataTrait> CrudListView<T> {
     }
 
     fn load_count(&self, ctx: &Context<CrudListView<T>>) {
-        let base_url = ctx.props().base_url.clone();
+        let base_url = ctx.props().api_base_url.clone();
         ctx.link().send_future(async move {
             Msg::CountRead(read_count::<T>(&base_url, ReadCount { condition: None }).await)
         });
@@ -176,6 +176,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudListView<T> {
                 </div>
 
                 <CrudTable<T>
+                    api_base_url={ctx.props().api_base_url.clone()}
                     data={self.get_data()}
                     no_data={self.get_data_error()}
                     headers={ctx.props().config.headers.iter()

@@ -22,6 +22,10 @@ impl From<Size> for Classes {
     }
 }
 
+pub enum Msg {
+    Clicked(MouseEvent),
+}
+
 #[derive(Debug, PartialEq, Properties)]
 pub struct CrudBtnProps {
     pub name: String,
@@ -44,15 +48,22 @@ pub struct CrudBtnProps {
 pub struct CrudBtn {}
 
 impl Component for CrudBtn {
-    type Message = ();
+    type Message = Msg;
     type Properties = CrudBtnProps;
 
     fn create(_ctx: &Context<Self>) -> Self {
         Self {}
     }
 
-    fn update(&mut self, _ctx: &Context<Self>, _msg: Self::Message) -> bool {
-        false
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+        match msg {
+            Msg::Clicked(mouse_event) => {
+                if !ctx.props().disabled {
+                    ctx.props().onclick.emit(mouse_event);
+                }
+                false
+            },
+        }
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
@@ -66,7 +77,7 @@ impl Component for CrudBtn {
                     ctx.props().active.then(|| "active"),
                     ctx.props().disabled.then(|| "disabled")
                 )}
-                onclick={&ctx.props().onclick}
+                onclick={ctx.link().callback(|mouse_event| Msg::Clicked(mouse_event))}
             >
                 if let Some(bi) = ctx.props().icon {
                     <CrudIcon variant={bi}/>

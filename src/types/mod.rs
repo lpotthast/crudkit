@@ -1,25 +1,28 @@
-//! Error type for error handling
+pub mod files;
 
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error as ThisError;
 
-/// Define all possible errors
 #[derive(ThisError, Clone, Debug, PartialEq)]
 #[allow(clippy::enum_variant_names)]
 pub enum RequestError {
+    /// 400
+    #[error("BadRequest")]
+    BadRequest(String),
+
     /// 401
     #[error("Unauthorized")]
-    Unauthorized,
+    Unauthorized(String),
 
     /// 403
     #[error("Forbidden")]
-    Forbidden,
+    Forbidden(String),
 
     /// 404
     #[error("Not Found")]
-    NotFound,
+    NotFound(String),
 
     /// 422
     #[error("Unprocessable Entity: {0:?}")]
@@ -27,15 +30,15 @@ pub enum RequestError {
 
     /// 500
     #[error("Internal Server Error")]
-    InternalServerError,
+    InternalServerError(String),
 
     /// serde deserialize error
     #[error("Deserialize Error")]
-    Deserialize,
+    Deserialize(String),
 
     /// request error
     #[error("Http Request Error")]
-    Request,
+    Request(String),
 }
 
 /// Conduit api error info for Unprocessable Entity error

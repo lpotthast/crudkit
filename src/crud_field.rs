@@ -1,17 +1,20 @@
 use std::marker::PhantomData;
 
 use super::prelude::*;
+use uuid::Uuid;
 use wasm_bindgen::JsCast;
 use yew::prelude::*;
 
 pub enum Msg {
     KeyUp(KeyboardEvent),
     InputChanged(Event),
+    TextInputChanged(String),
     BoolChanged(bool),
 }
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
+    pub api_base_url: String,
     pub field_type: T::FieldType,
     pub field_options: FieldOptions,
     pub field_mode: FieldMode,
@@ -22,6 +25,13 @@ pub struct Props<T: CrudDataTrait> {
 pub struct CrudField<T> {
     phantom_data: PhantomData<T>,
     entity: T,
+    id: Uuid,
+}
+
+impl<T: CrudDataTrait> CrudField<T> {
+    fn format_id(&self) -> String {
+        format!("f{}", self.id.to_string())
+    }
 }
 
 impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
@@ -36,6 +46,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                 .entity
                 .clone()
                 .unwrap_or_else(|| Default::default()),
+            id: Uuid::new_v4(),
         }
     }
 
@@ -76,6 +87,12 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     false
                 }
             },
+            Msg::TextInputChanged(text) => {
+                ctx.props()
+                    .value_changed
+                    .emit((ctx.props().field_type.clone(), text));
+                false
+            },
             Msg::BoolChanged(value) => {
                 ctx.props()
                     .value_changed
@@ -96,11 +113,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         <div class="crud-field">
                             <CrudFieldLabel label={ctx.props().field_options.label.clone()} />
                             <input
+                                id={self.format_id()}
                                 class={"crud-input-field"}
                                 type={"text"}
                                 value={value}
-                                onkeyup={ctx.link().callback(Msg::KeyUp)}
-                                onchange={ctx.link().callback(Msg::InputChanged)}
                                 disabled={true}
                             />
                         </div>
@@ -109,11 +125,42 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         <div class="crud-field">
                             <CrudFieldLabel label={ctx.props().field_options.label.clone()} />
                             <input
+                                id={self.format_id()}
                                 class={"crud-input-field"}
                                 type={"text"}
                                 value={value}
                                 onkeyup={ctx.link().callback(Msg::KeyUp)}
                                 onchange={ctx.link().callback(Msg::InputChanged)}
+                                disabled={ctx.props().field_options.disabled}
+                            />
+                        </div>
+                    },
+                },
+                Value::Text(value) => match &ctx.props().field_mode {
+                    FieldMode::Display => html! {
+                        <div>{value}</div>
+                    },
+                    FieldMode::Readable => html! {
+                        <div class="crud-field">
+                            <CrudFieldLabel label={ctx.props().field_options.label.clone()} />
+                            <CrudTipTapEditor 
+                                api_base_url={ctx.props().api_base_url.clone()}
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                value={value}
+                                disabled={true}
+                            />
+                        </div>
+                    },
+                    FieldMode::Editable => html! {
+                        <div class="crud-field">
+                            <CrudFieldLabel label={ctx.props().field_options.label.clone()} />
+                            <CrudTipTapEditor 
+                                api_base_url={ctx.props().api_base_url.clone()}
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                value={value}
+                                onchange={ctx.link().callback(Msg::TextInputChanged)}
                                 disabled={ctx.props().field_options.disabled}
                             />
                         </div>
@@ -127,11 +174,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         <div class="crud-field">
                             <CrudFieldLabel label={ctx.props().field_options.label.clone()} />
                             <input
+                                id={self.format_id()}
                                 class={"crud-input-field"}
                                 type={"number"}
                                 value={format!("{}", value)}
-                                onkeyup={ctx.link().callback(Msg::KeyUp)}
-                                onchange={ctx.link().callback(Msg::InputChanged)}
                                 disabled={true}
                             />
                         </div>
@@ -140,6 +186,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         <div class="crud-field">
                             <CrudFieldLabel label={ctx.props().field_options.label.clone()} />
                             <input
+                                id={self.format_id()}
                                 class={"crud-input-field"}
                                 type={"number"}
                                 value={format!("{}", value)}
@@ -157,10 +204,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     FieldMode::Readable => html! {
                         <div class="crud-field">
                             <CrudFieldLabel label={ctx.props().field_options.label.clone()} />
-                            <div class={"crud-input-field"}>
+                            <div id={self.format_id()} class={"crud-input-field"}>
                                 <CrudToggle
                                     state={value}
-                                    on_toggle={ctx.link().callback(Msg::BoolChanged)}
                                     disabled={true}
                                 />
                             </div>
@@ -169,7 +215,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     FieldMode::Editable => html! {
                         <div class="crud-field">
                             <CrudFieldLabel label={ctx.props().field_options.label.clone()} />
-                            <div class={"crud-input-field"}>
+                            <div id={self.format_id()} class={"crud-input-field"}>
                                 <CrudToggle
                                     state={value}
                                     on_toggle={ctx.link().callback(Msg::BoolChanged)}
@@ -187,11 +233,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         <div class="crud-field">
                             <CrudFieldLabel label={ctx.props().field_options.label.clone()} />
                             <input
+                                id={self.format_id()}
                                 class={"crud-input-field"}
                                 type={"text"}
                                 value={date_time.to_rfc3339()}
-                                onkeyup={ctx.link().callback(Msg::KeyUp)}
-                                onchange={ctx.link().callback(Msg::InputChanged)}
                                 disabled={true}
                             />
                         </div>
@@ -200,6 +245,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         <div class="crud-field">
                             <CrudFieldLabel label={ctx.props().field_options.label.clone()} />
                             <input
+                                id={self.format_id()}
                                 class={"crud-input-field"}
                                 type={"text"}
                                 value={date_time.to_rfc3339()}

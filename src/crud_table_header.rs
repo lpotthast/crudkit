@@ -86,8 +86,8 @@ impl<T: 'static + CrudDataTrait> Component for CrudTableHeader<T> {
                         }).collect::<Html>()
                     }
                     if ctx.props().with_actions {
-                        <th>
-                            {"Actions"}
+                        <th class={"actions"}>
+                            {"Aktionen"}
                         </th>
                     }
                 </tr>

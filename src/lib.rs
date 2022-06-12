@@ -16,6 +16,8 @@ pub mod crud_field;
 pub mod crud_field_label;
 pub mod crud_fields;
 pub mod crud_icon;
+pub mod crud_image_chooser_modal;
+pub mod crud_image_gallery;
 pub mod crud_instance;
 pub mod crud_leave_modal;
 pub mod crud_list_view;
@@ -33,10 +35,12 @@ pub mod crud_table_body;
 pub mod crud_table_footer;
 pub mod crud_table_header;
 pub mod crud_tabs;
+pub mod crud_tiptap_editor;
 pub mod crud_toast;
 pub mod crud_toasts;
 pub mod crud_toggle;
 pub mod crud_tree;
+pub mod js_tiptap;
 
 pub mod services;
 pub mod stores;
@@ -56,6 +60,8 @@ pub mod prelude {
     pub use super::crud_field_label::CrudFieldLabel;
     pub use super::crud_fields::CrudFields;
     pub use super::crud_icon::CrudIcon;
+    pub use super::crud_image_chooser_modal::CrudImageChooserModal;
+    pub use super::crud_image_gallery::CrudImageGallery;
     pub use super::crud_instance::CrudInstance;
     pub use super::crud_instance::CrudInstanceConfig;
     pub use super::crud_leave_modal::CrudLeaveModal;
@@ -74,6 +80,7 @@ pub mod prelude {
     pub use super::crud_table_footer::CrudTableFooter;
     pub use super::crud_table_header::CrudTableHeader;
     pub use super::crud_tabs::CrudTabs;
+    pub use super::crud_tiptap_editor::CrudTipTapEditor;
     pub use super::crud_toast::CrudToast;
     pub use super::crud_toasts::CrudToasts;
     pub use super::crud_toggle::{CrudToggle, CrudToggleIcons};
@@ -168,6 +175,7 @@ pub trait CrudResourceTrait {
 #[derive(Debug)]
 pub enum Value {
     String(String),
+    Text(String),
     U32(u32),
     Bool(bool),
     UtcDateTime(UtcDateTime),

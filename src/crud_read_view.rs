@@ -14,7 +14,7 @@ pub enum Msg<T: CrudDataTrait> {
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
-    pub base_url: String,
+    pub api_base_url: String,
     pub config: CrudInstanceConfig<T>,
     pub id: u32,
     pub list_view_available: bool,
@@ -30,7 +30,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
     type Properties = Props<T>;
 
     fn create(ctx: &Context<Self>) -> Self {
-        let base_url = ctx.props().base_url.clone();
+        let base_url = ctx.props().api_base_url.clone();
         let id = ctx.props().id;
         ctx.link()
             .send_future(async move { Msg::LoadedEntity(load_entity(&base_url, id).await) });
@@ -77,6 +77,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
                                 </div>
 
                                 <CrudFields<T>
+                                    api_base_url={ctx.props().api_base_url.clone()}
                                     elements={ctx.props().config.elements.clone()}
                                     entity={entity.clone()}
                                     mode={FieldMode::Readable}

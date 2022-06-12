@@ -18,6 +18,7 @@ pub struct Props<T>
 where
     T: CrudDataTrait,
 {
+    pub api_base_url: String,
     pub data: Option<Rc<Vec<T>>>,
     pub no_data: Option<NoData>,
     pub headers: Vec<(T::FieldType, HeaderOptions, Option<Order>)>,
@@ -122,6 +123,7 @@ where
                                                 html! {
                                                     <td>
                                                         <CrudField<T>
+                                                            api_base_url={ctx.props().api_base_url.clone()}
                                                             field_type={field.clone()}
                                                             field_options={FieldOptions { disabled: false, label: "".to_owned() }}
                                                             entity={entity.clone()}

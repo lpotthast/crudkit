@@ -35,7 +35,7 @@ pub fn get_token() -> Option<String> {
     token_lock.clone()
 }
 
-/// build all kinds of http request: post/get/delete etc.
+/// build all kinds of http requests: post/get/delete etc.
 pub async fn request<B, T>(method: reqwest::Method, url: String, body: B) -> Result<T, RequestError>
 where
     T: DeserializeOwned + std::fmt::Debug,
@@ -43,47 +43,100 @@ where
 {
     // ASSUMPTION: The given url is complete, meaning nothing hast to be added to it to work!
     let allow_body = method == reqwest::Method::POST || method == reqwest::Method::PUT;
-    let mut builder = reqwest::Client::new()
-        .request(method, url)
-        .header("Content-Type", "application/json");
-    if let Some(token) = get_token() {
-        builder = builder.bearer_auth(token);
-    }
+
+    let mut builder = request_builder(method, url);
+    builder = builder.header("Content-Type", "application/json");
 
     if allow_body {
         builder = builder.json(&body);
     }
 
-    let response = builder.send().await;
+    let result = builder.send().await;
 
-    if let Ok(data) = response {
-        if data.status().is_success() {
-            let data: Result<T, _> = data.json::<T>().await;
-            if let Ok(data) = data {
-                //log::debug!("Response: {:?}", data);
-                Ok(data)
-            } else {
-                Err(RequestError::Deserialize)
-            }
-        } else {
-            match data.status().as_u16() {
-                401 => Err(RequestError::Unauthorized),
-                403 => Err(RequestError::Forbidden),
-                404 => Err(RequestError::NotFound),
-                500 => Err(RequestError::InternalServerError),
-                422 => {
-                    let data: Result<ErrorInfo, _> = data.json::<ErrorInfo>().await;
-                    if let Ok(data) = data {
-                        Err(RequestError::UnprocessableEntity(data))
-                    } else {
-                        Err(RequestError::Deserialize)
-                    }
+    process_json_response(result).await
+}
+
+fn request_builder<U>(method: reqwest::Method, url: U) -> reqwest::RequestBuilder
+where
+    U: reqwest::IntoUrl,
+{
+    let mut builder = reqwest::Client::new().request(method, url);
+    if let Some(token) = get_token() {
+        builder = builder.bearer_auth(token);
+    }
+    builder
+}
+
+async fn process_json_response<T>(
+    result: Result<reqwest::Response, reqwest::Error>,
+) -> Result<T, RequestError>
+where
+    T: DeserializeOwned + std::fmt::Debug,
+{
+    match result {
+        Ok(response) => {
+            if response.status().is_success() {
+                match response.json::<T>().await {
+                    Ok(data) => Ok(data),
+                    Err(err) => Err(RequestError::Deserialize(err.to_string())),
                 }
-                _ => Err(RequestError::Request),
+            } else {
+                Err(error_response_to_request_error(response).await)
             }
         }
-    } else {
-        Err(RequestError::Request)
+        Err(err) => Err(RequestError::Request(err.to_string())),
+    }
+}
+
+async fn error_response_to_request_error(response: reqwest::Response) -> RequestError {
+    let status = response.status().as_u16();
+    assert!(status != 200);
+    match status {
+        400 => RequestError::BadRequest(
+            response
+                .text()
+                .await
+                .unwrap_or_else(|error| error.to_string()),
+        ),
+        401 => RequestError::Unauthorized(
+            response
+                .text()
+                .await
+                .unwrap_or_else(|error| error.to_string()),
+        ),
+        403 => RequestError::Forbidden(
+            response
+                .text()
+                .await
+                .unwrap_or_else(|error| error.to_string()),
+        ),
+        404 => RequestError::NotFound(
+            response
+                .text()
+                .await
+                .unwrap_or_else(|error| error.to_string()),
+        ),
+        500 => RequestError::InternalServerError(
+            response
+                .text()
+                .await
+                .unwrap_or_else(|error| error.to_string()),
+        ),
+        422 => {
+            let data = response.json::<ErrorInfo>().await;
+            match data {
+                Ok(error_info) => RequestError::UnprocessableEntity(error_info),
+                Err(err) => RequestError::Deserialize(err.to_string()),
+            }
+        }
+        code => RequestError::Request(format!(
+            "Code: {}, Text: {}",
+            code,
+            response
+                .text()
+                .await
+                .unwrap_or_else(|error| error.to_string())
+        )),
     }
 }
 
@@ -113,6 +166,24 @@ where
     B: Serialize + std::fmt::Debug,
 {
     request(reqwest::Method::POST, url, body).await
+}
+
+/// Post request with a body
+#[allow(dead_code)]
+pub async fn request_post_multipart<T>(
+    url: String,
+    form: reqwest::multipart::Form,
+) -> Result<T, RequestError>
+where
+    T: DeserializeOwned + std::fmt::Debug,
+{
+    let builder = request_builder(reqwest::Method::POST, url)
+        //.header("Content-Type", "application/json");
+        .multipart(form);
+
+    let result = builder.send().await;
+
+    process_json_response(result).await
 }
 
 /// Put request with a body

@@ -23,7 +23,7 @@ pub enum Then {
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
-    pub base_url: String,
+    pub api_base_url: String,
     pub config: CrudInstanceConfig<T>,
     pub list_view_available: bool,
     pub on_list_view: Callback<()>,
@@ -37,7 +37,7 @@ pub struct CrudCreateView<T: CrudDataTrait> {
 
 impl<T: 'static + CrudDataTrait> CrudCreateView<T> {
     fn create_entity(&mut self, ctx: &Context<Self>, then: Then) {
-        let base_url = ctx.props().base_url.clone();
+        let base_url = ctx.props().api_base_url.clone();
         let ent = self.input.clone();
         self.ongoing_save = true;
         ctx.link().send_future(async move {
@@ -135,6 +135,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudCreateView<T> {
             </div>
 
             <CrudFields<T>
+                api_base_url={ctx.props().api_base_url.clone()}
                 elements={ctx.props().config.elements.clone()}
                 entity={None}
                 mode={FieldMode::Editable}

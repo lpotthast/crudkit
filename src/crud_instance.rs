@@ -249,7 +249,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                             CrudView::List => {
                                 html! {
                                     <CrudListView<T>
-                                        base_url={ctx.props().base_url.clone()}
+                                        api_base_url={ctx.props().base_url.clone()}
                                         config={self.config.clone()}
                                         on_create={ctx.link().callback(|_| Msg::Create)}
                                         on_read={ctx.link().callback(Msg::Read)}
@@ -264,7 +264,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                             CrudView::Create => {
                                 html! {
                                     <CrudCreateView<T>
-                                        base_url={ctx.props().base_url.clone()}
+                                        api_base_url={ctx.props().base_url.clone()}
                                         config={self.config.clone()}
                                         list_view_available={true}
                                         on_list_view={ctx.link().callback(|_| Msg::List)}
@@ -275,7 +275,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                             CrudView::Read(id) => {
                                 html! {
                                     <CrudReadView<T>
-                                        base_url={ctx.props().base_url.clone()}
+                                        api_base_url={ctx.props().base_url.clone()}
                                         config={self.config.clone()}
                                         id={id}
                                         list_view_available={true}
@@ -286,7 +286,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                             CrudView::Edit(id) => {
                                 html! {
                                     <CrudEditView<T>
-                                        base_url={ctx.props().base_url.clone()}
+                                        api_base_url={ctx.props().base_url.clone()}
                                         config={self.config.clone()}
                                         id={id}
                                         list_view_available={true}
