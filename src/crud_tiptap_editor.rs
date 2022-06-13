@@ -88,8 +88,10 @@ impl Component for CrudTipTapEditor {
                 self.choose_image = false;
                 js_tiptap::set_image(
                     ctx.props().id.clone(),
+                    // TODO: Consolidate /public resource url creations in one place...
                     format!(
-                        "http://127.0.0.1:8080/api/public/{}",
+                        "{}/public/{}",
+                        ctx.props().api_base_url,
                         urlencoding::encode(resource.name.as_str())
                     ),
                     // TODO: Define proper
