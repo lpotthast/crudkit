@@ -156,18 +156,18 @@ impl<T: 'static + CrudDataTrait> Component for CrudListView<T> {
                     <div class={"crud-col"}>
                         <CrudBtnWrapper>
                             <CrudBtn name={""} variant={Variant::Success} icon={Bi::Plus} onclick={ctx.link().callback(|_| Msg::Create)}>
-                                <span style="text-decoration: underline">{"A"}</span>{"dd"}
+                                <span style="text-decoration: underline">{"N"}</span>{"eu"}
                             </CrudBtn>
                         </CrudBtnWrapper>
                     </div>
 
                     <div class={"crud-col crud-col-flex-end"}>
                         <CrudBtnWrapper>
-                            <CrudBtn name={""} variant={Variant::Primary} icon={Bi::Search} onclick={ctx.link().callback(|_| Msg::ToggleFilter)}>
+                            <CrudBtn name={""} variant={Variant::Primary} icon={Bi::Search} disabled={true} onclick={ctx.link().callback(|_| Msg::ToggleFilter)}>
                                 {"Filter"}
                                 if self.filter.is_some() {
                                     <div style={"font-size: 0.5em; font-weight: bold; margin-left: 0.3em;"}>
-                                        {"active"}
+                                        {"aktiv"}
                                     </div>
                                 }
                             </CrudBtn>
@@ -204,7 +204,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudListView<T> {
                             />
                         },
                         Err(no_data) => html! {
-                            <div>{format!("Item count: {:?}", no_data)}</div>
+                            <div>{format!("Keine Daten verfügbar: {:?}", no_data)}</div>
                         },
                     }
                 }

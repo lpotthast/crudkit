@@ -181,17 +181,17 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
                                 <div class={"crud-row crud-nav"}>
                                     <div class={"crud-col"}>
                                         <CrudBtnWrapper>
-                                            <CrudBtn name={"Save"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::Save)} />
-                                            <CrudBtn name={"Save and return"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::SaveAndReturn)} />
-                                            <CrudBtn name={"Save and new"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::SaveAndNew)} />
-                                            <CrudBtn name={"Delete"} variant={Variant::Danger} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::Delete)} />
+                                            <CrudBtn name={"Speichern"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::Save)} />
+                                            <CrudBtn name={"Speichern und zurück"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::SaveAndReturn)} />
+                                            <CrudBtn name={"Speichern und neu"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::SaveAndNew)} />
+                                            <CrudBtn name={"Löschen"} variant={Variant::Danger} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::Delete)} />
                                         </CrudBtnWrapper>
                                     </div>
 
                                     <div class={"crud-col crud-col-flex-end"}>
                                         <CrudBtnWrapper>
                                             <CrudBtn name={"_back"} variant={Variant::Default} onclick={ctx.link().callback(|_| Msg::Back)}>
-                                                <span style="text-decoration: underline;">{"L"}</span>{"ist view"}
+                                                <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
                                             </CrudBtn>
                                         </CrudBtnWrapper>
                                     </div>
@@ -214,13 +214,13 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
                                     <div class={"crud-col crud-col-flex-end"}>
                                         <CrudBtnWrapper>
                                             <CrudBtn name={"_back"} variant={Variant::Default} onclick={ctx.link().callback(|_| Msg::Back)}>
-                                                <span style="text-decoration: underline;">{"L"}</span>{"ist view"}
+                                                <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
                                             </CrudBtn>
                                         </CrudBtnWrapper>
                                     </div>
                                 </div>
                                 <div>
-                                    {format!("Data not available: {:?}", reason)}
+                                    {format!("Daten nicht verfügbar: {:?}", reason)}
                                 </div>
                                 </>
                             }

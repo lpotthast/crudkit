@@ -57,21 +57,22 @@ impl<T: 'static + CrudDataTrait> Component for CrudDeleteModal<T> {
             <div class={"crud-modal"}>
                 <div class={"crud-modal-header"}>
                     <div class={"crud-modal-title"}>
-                        {format!("Delete - {}", ctx.props().entity.get_id())}
+                        {format!("Löschen - {}", ctx.props().entity.get_id())}
                         //TODO: Consider using an "EntryVisualizer" of some sort...
                     </div>
                 </div>
 
                 <div class={"crud-modal-body"}>
-                    {"Are you sure? This operation can not be undone!"}
+                    {"Bist du dir sicher?"}<br />
+                    {"Dieser Eintrag kann nicht wiederhergestellt werden!"}
                 </div>
 
                 <div class={"crud-modal-footer"}>
                     <div class={"crud-row"}>
                     <div class={"crud-col crud-col-flex-end"}>
                         <CrudBtnWrapper>
-                            <CrudBtn name={"Cancel"} variant={Variant::Default} onclick={&ctx.link().callback(|_| Msg::OnCancel)}/>
-                            <CrudBtn name={"Delete"} variant={Variant::Danger} onclick={&ctx.link().callback(|_| Msg::OnDelete)}/>
+                            <CrudBtn name={"Zurück"} variant={Variant::Default} onclick={&ctx.link().callback(|_| Msg::OnCancel)}/>
+                            <CrudBtn name={"Löschen"} variant={Variant::Danger} onclick={&ctx.link().callback(|_| Msg::OnDelete)}/>
                         </CrudBtnWrapper>
                     </div>
                     </div>

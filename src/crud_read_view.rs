@@ -70,7 +70,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
                                     <div class={"crud-col crud-col-flex-end"}>
                                         <CrudBtnWrapper>
                                             <CrudBtn name={"_back"} variant={Variant::Default} onclick={ctx.link().callback(|_| Msg::Back)}>
-                                                <span style="text-decoration: underline;">{"L"}</span>{"ist view"}
+                                                <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
                                             </CrudBtn>
                                         </CrudBtnWrapper>
                                     </div>
@@ -93,13 +93,13 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
                                     <div class={"crud-col crud-col-flex-end"}>
                                         <CrudBtnWrapper>
                                             <CrudBtn name={"_back"} variant={Variant::Default} onclick={ctx.link().callback(|_| Msg::Back)}>
-                                                <span style="text-decoration: underline;">{"L"}</span>{"ist view"}
+                                                <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
                                             </CrudBtn>
                                         </CrudBtnWrapper>
                                     </div>
                                 </div>
                                 <div>
-                                    {format!("Data not available: {:?}", reason)}
+                                    {format!("Keine Daten verfügbar: {:?}", reason)}
                                 </div>
                                 </>
                             }

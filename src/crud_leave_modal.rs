@@ -54,22 +54,22 @@ impl Component for CrudLeaveModal {
             <div class={"crud-modal"}>
                 <div class={"crud-modal-header"}>
                     <div class={"crud-modal-title"}>
-                        {"Unsaved modification detected"}
+                        {"Ungespeicherte Änderungen"}
                     </div>
                 </div>
 
                 <div class={"crud-modal-body"} style={"text-align: center;"}>
-                    {"You have unsaved changes."}<br/>
-                    {"Do you really want to leave?"}<br/>
-                    {"Unsaved data will be lost!"}
+                    {"Du hast deine Änderungen noch nicht gespeichert."}<br/>
+                    {"Möchtest du den Bereich wirklich verlassen?"}<br/>
+                    {"Ungespeicherte Änderungen gehen verloren!"}
                 </div>
 
                 <div class={"crud-modal-footer"}>
                     <div class={"crud-row"}>
                         <div class={"crud-col crud-col-flex-end"}>
                             <CrudBtnWrapper>
-                                <CrudBtn name={"Cancel"} variant={Variant::Default} onclick={&ctx.link().callback(|_| Msg::OnCancel)}/>
-                                <CrudBtn name={"Leave"} variant={Variant::Warn} onclick={&ctx.link().callback(|_| Msg::OnLeave)}/>
+                                <CrudBtn name={"Zurück"} variant={Variant::Default} onclick={&ctx.link().callback(|_| Msg::OnCancel)}/>
+                                <CrudBtn name={"Verlassen"} variant={Variant::Warn} onclick={&ctx.link().callback(|_| Msg::OnLeave)}/>
                             </CrudBtnWrapper>
                         </div>
                     </div>
