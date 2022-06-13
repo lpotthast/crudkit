@@ -1,9 +1,12 @@
-use yew::{prelude::*, html::Scope};
+use yew::{html::Scope, prelude::*};
 
-use crate::{types::{
-    files::{FileResource, ListFilesResponse},
-    RequestError,
-}, services::requests::request_get};
+use crate::{
+    services::requests::request_get,
+    types::{
+        files::{FileResource, ListFilesResponse},
+        RequestError,
+    },
+};
 
 pub enum Msg {
     ListFiles,
@@ -44,8 +47,7 @@ impl Component for CrudImageGallery {
                 let base = ctx.props().api_base_url.clone();
                 ctx.link().send_future(async move {
                     Msg::ListFilesResponse(
-                        request_get::<ListFilesResponse>(format!("{}/list", base))
-                            .await,
+                        request_get::<ListFilesResponse>(format!("{}/public", base)).await,
                     )
                 });
                 false
@@ -72,7 +74,7 @@ impl Component for CrudImageGallery {
             Msg::Reload => {
                 ctx.link().send_message(Msg::ListFiles);
                 false
-            },
+            }
         }
     }
 
@@ -86,7 +88,7 @@ impl Component for CrudImageGallery {
                             html! {
                                 <div class={"img-wrapper"}>
                                     <img
-                                        src={format!("http://127.0.0.1:8080/api/public/{}", urlencoding::encode(resource.name.as_str()))}
+                                        src={format!("{}/public/{}", ctx.props().api_base_url.clone(), urlencoding::encode(resource.name.as_str()))}
                                         alt={resource.name.clone()}
                                         onclick={ctx.link().callback(move |_| Msg::Selected(cloned.clone()))}/>
                                     if ctx.props().show_file_names {
