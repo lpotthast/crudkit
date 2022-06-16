@@ -1,5 +1,7 @@
 use crud_shared_types::{ConditionClause, ConditionElement};
-use yew::prelude::*;
+use yew::{prelude::*, html::ChildrenRenderer};
+
+use crate::crud_instance::Item;
 
 use super::{
     prelude::*,
@@ -14,6 +16,7 @@ pub enum Msg<T: CrudDataTrait> {
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
+    pub children: ChildrenRenderer<Item>,
     pub api_base_url: String,
     pub config: CrudInstanceConfig<T>,
     pub id: u32,
@@ -70,7 +73,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
                                     <div class={"crud-col crud-col-flex-end"}>
                                         <CrudBtnWrapper>
                                             <CrudBtn name={"_back"} variant={Variant::Default} onclick={ctx.link().callback(|_| Msg::Back)}>
-                                                <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
+                                                <CrudBtnName>
+                                                    <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
+                                                </CrudBtnName>
                                             </CrudBtn>
                                         </CrudBtnWrapper>
                                     </div>
@@ -78,6 +83,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
 
                                 <CrudFields<T>
                                     api_base_url={ctx.props().api_base_url.clone()}
+                                    children={ctx.props().children.clone()}
                                     elements={ctx.props().config.elements.clone()}
                                     entity={entity.clone()}
                                     mode={FieldMode::Readable}
@@ -93,7 +99,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
                                     <div class={"crud-col crud-col-flex-end"}>
                                         <CrudBtnWrapper>
                                             <CrudBtn name={"_back"} variant={Variant::Default} onclick={ctx.link().callback(|_| Msg::Back)}>
-                                                <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
+                                                <CrudBtnName>
+                                                    <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
+                                                </CrudBtnName>
                                             </CrudBtn>
                                         </CrudBtnWrapper>
                                     </div>

@@ -1,6 +1,8 @@
+use crate::crud_instance::Item;
+
 use super::prelude::*;
 use std::marker::PhantomData;
-use yew::prelude::*;
+use yew::{prelude::*, html::ChildrenRenderer};
 
 pub enum Msg<T: CrudDataTrait> {
     ValueChanged((T::FieldType, String)),
@@ -8,6 +10,7 @@ pub enum Msg<T: CrudDataTrait> {
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
+    pub children: ChildrenRenderer<Item>,
     pub api_base_url: String,
     pub elements: Vec<Elem<T>>,
     pub entity: Option<T>,
@@ -47,6 +50,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                             match enclosing {
                                 Enclosing::None(group) => html! {
                                     <CrudFields<T>
+                                        children={ctx.props().children.clone()}
                                         api_base_url={ctx.props().api_base_url.clone()}
                                         elements={group.children.clone()}
                                         entity={ctx.props().entity.clone()}
@@ -61,6 +65,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                                 html_nested! {
                                                     <CrudTab name={tab_name.clone()}>
                                                         <CrudFields<T>
+                                                            children={ctx.props().children.clone()}
                                                             api_base_url={ctx.props().api_base_url.clone()}
                                                             elements={group.children.clone()}
                                                             entity={ctx.props().entity.clone()}
@@ -76,6 +81,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                 Enclosing::Card(group) => html! {
                                     <div class={"crud-card"}>
                                         <CrudFields<T>
+                                            children={ctx.props().children.clone()}
                                             api_base_url={ctx.props().api_base_url.clone()}
                                             elements={group.children.clone()}
                                             entity={ctx.props().entity.clone()}
@@ -89,6 +95,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                         Elem::Field((field_type, field_options)) => {
                             html! {
                                 <CrudField<T>
+                                    children={ctx.props().children.clone()}
                                     api_base_url={ctx.props().api_base_url.clone()}
                                     field_type={field_type.clone()}
                                     field_options={field_options.clone()}

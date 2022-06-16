@@ -1,7 +1,9 @@
 use crud_shared_types::Order;
 use std::rc::Rc;
-use yew::prelude::*;
+use yew::{prelude::*, html::ChildrenRenderer};
 use yewbi::Bi;
+
+use crate::crud_instance::Item;
 
 use super::{
     prelude::*,
@@ -25,6 +27,7 @@ pub enum Msg<T: CrudDataTrait> {
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
+    pub children: ChildrenRenderer<Item>,
     pub api_base_url: String,
     pub config: CrudInstanceConfig<T>,
     pub on_create: Callback<()>,
@@ -156,7 +159,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudListView<T> {
                     <div class={"crud-col"}>
                         <CrudBtnWrapper>
                             <CrudBtn name={""} variant={Variant::Success} icon={Bi::Plus} onclick={ctx.link().callback(|_| Msg::Create)}>
-                                <span style="text-decoration: underline">{"N"}</span>{"eu"}
+                                <CrudBtnName>
+                                    <span style="text-decoration: underline">{"N"}</span>{"eu"}
+                                </CrudBtnName>
                             </CrudBtn>
                         </CrudBtnWrapper>
                     </div>
@@ -164,18 +169,21 @@ impl<T: 'static + CrudDataTrait> Component for CrudListView<T> {
                     <div class={"crud-col crud-col-flex-end"}>
                         <CrudBtnWrapper>
                             <CrudBtn name={""} variant={Variant::Primary} icon={Bi::Search} disabled={true} onclick={ctx.link().callback(|_| Msg::ToggleFilter)}>
-                                {"Filter"}
-                                if self.filter.is_some() {
-                                    <div style={"font-size: 0.5em; font-weight: bold; margin-left: 0.3em;"}>
-                                        {"aktiv"}
-                                    </div>
-                                }
+                                <CrudBtnName>
+                                    {"Filter"}
+                                    if self.filter.is_some() {
+                                        <div style={"font-size: 0.5em; font-weight: bold; margin-left: 0.3em;"}>
+                                            {"aktiv"}
+                                        </div>
+                                    }
+                                </CrudBtnName>
                             </CrudBtn>
                         </CrudBtnWrapper>
                     </div>
                 </div>
 
                 <CrudTable<T>
+                    children={ctx.props().children.clone()}
                     api_base_url={ctx.props().api_base_url.clone()}
                     data={self.get_data()}
                     no_data={self.get_data_error()}

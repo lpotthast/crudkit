@@ -7,6 +7,7 @@ use yewbi::Bi;
 
 pub mod crud_btn;
 pub mod crud_btn_group;
+pub mod crud_btn_name;
 pub mod crud_btn_wrapper;
 pub mod crud_collapsible;
 pub mod crud_create_view;
@@ -23,6 +24,7 @@ pub mod crud_leave_modal;
 pub mod crud_list_view;
 pub mod crud_modal;
 pub mod crud_modal_host;
+pub mod crud_nested_instance;
 pub mod crud_pagination;
 pub mod crud_progress_bar;
 pub mod crud_read_view;
@@ -51,6 +53,7 @@ mod event_functions;
 pub mod prelude {
     pub use super::crud_btn::CrudBtn;
     pub use super::crud_btn_group::CrudBtnGroup;
+    pub use super::crud_btn_name::CrudBtnName;
     pub use super::crud_btn_wrapper::CrudBtnWrapper;
     pub use super::crud_collapsible::CrudCollapsible;
     pub use super::crud_create_view::CrudCreateView;
@@ -68,6 +71,7 @@ pub mod prelude {
     pub use super::crud_list_view::CrudListView;
     pub use super::crud_modal::CrudModal;
     pub use super::crud_modal_host::CrudModalHost;
+    pub use super::crud_nested_instance::CrudNestedInstance;
     pub use super::crud_pagination::CrudPagination;
     pub use super::crud_progress_bar::CrudProgressBar;
     pub use super::crud_read_view::CrudReadView;
@@ -87,6 +91,7 @@ pub mod prelude {
     pub use super::crud_tree::CrudTree;
     pub use super::CrudActionTrait;
     pub use super::CrudDataTrait;
+    pub use super::CrudFieldTrait;
     pub use super::CrudFieldValueTrait;
     pub use super::CrudIdTrait;
     pub use super::CrudResourceTrait;
@@ -142,7 +147,8 @@ impl From<Variant> for Classes {
 }
 
 pub trait CrudDataTrait:
-    CrudIdTrait<Self::FieldType, Self>
+    CrudFieldTrait<Self::FieldType, Self>
+    + CrudIdTrait<Self::FieldType, Self>
     + CrudResourceTrait
     + Default
     + PartialEq
@@ -162,6 +168,10 @@ pub trait CrudDataTrait:
         + DeserializeOwned;
 }
 
+pub trait CrudFieldTrait<F: CrudFieldValueTrait<C>, C: CrudDataTrait> {
+    fn get_field(field_name: &str) -> F;
+}
+
 pub trait CrudIdTrait<F: CrudFieldValueTrait<C>, C: CrudDataTrait> {
     fn get_id_field_name() -> String;
     fn get_id_field() -> F;
@@ -179,6 +189,7 @@ pub enum Value {
     U32(u32),
     Bool(bool),
     UtcDateTime(UtcDateTime),
+    NestedTable(u32),
 }
 
 pub trait CrudFieldValueTrait<T> {
@@ -211,12 +222,20 @@ impl Default for CrudView {
 pub struct HeaderOptions {
     pub display_name: String,
     pub ordering_allowed: bool,
+    pub date_time_display: DateTimeDisplay,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub enum DateTimeDisplay {
+    IsoUtc,
+    LocalizedLocal,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FieldOptions {
     pub disabled: bool,
     pub label: String,
+    pub date_time_display: DateTimeDisplay,
     //validations: Vec<u32>,
 }
 

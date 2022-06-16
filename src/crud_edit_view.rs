@@ -1,5 +1,7 @@
 use crud_shared_types::{ConditionClause, ConditionClauseValue, ConditionElement, Operator};
-use yew::prelude::*;
+use yew::{prelude::*, html::ChildrenRenderer};
+
+use crate::crud_instance::Item;
 
 use super::{
     prelude::*,
@@ -22,6 +24,7 @@ pub enum Msg<T: CrudDataTrait> {
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
+    pub children: ChildrenRenderer<Item>,
     pub api_base_url: String,
     pub config: CrudInstanceConfig<T>,
     pub id: u32,
@@ -181,9 +184,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
                                 <div class={"crud-row crud-nav"}>
                                     <div class={"crud-col"}>
                                         <CrudBtnWrapper>
-                                            <CrudBtn name={"Speichern"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::Save)} />
-                                            <CrudBtn name={"Speichern und zurück"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::SaveAndReturn)} />
-                                            <CrudBtn name={"Speichern und neu"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::SaveAndNew)} />
+                                            <CrudBtn name={"Speichern"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::Save)}>
+                                                <CrudBtn name={"Speichern und zurück"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::SaveAndReturn)} />
+                                                <CrudBtn name={"Speichern und neu"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::SaveAndNew)} />
+                                            </CrudBtn>
                                             <CrudBtn name={"Löschen"} variant={Variant::Danger} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::Delete)} />
                                         </CrudBtnWrapper>
                                     </div>
@@ -191,7 +195,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
                                     <div class={"crud-col crud-col-flex-end"}>
                                         <CrudBtnWrapper>
                                             <CrudBtn name={"_back"} variant={Variant::Default} onclick={ctx.link().callback(|_| Msg::Back)}>
-                                                <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
+                                                <CrudBtnName>
+                                                    <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
+                                                </CrudBtnName>
                                             </CrudBtn>
                                         </CrudBtnWrapper>
                                     </div>
@@ -199,6 +205,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
 
                                 <CrudFields<T>
                                     api_base_url={ctx.props().api_base_url.clone()}
+                                    children={ctx.props().children.clone()}
                                     elements={ctx.props().config.elements.clone()}
                                     entity={self.input.clone()}
                                     mode={FieldMode::Editable}
@@ -214,7 +221,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
                                     <div class={"crud-col crud-col-flex-end"}>
                                         <CrudBtnWrapper>
                                             <CrudBtn name={"_back"} variant={Variant::Default} onclick={ctx.link().callback(|_| Msg::Back)}>
-                                                <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
+                                                <CrudBtnName>
+                                                    <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
+                                                </CrudBtnName>
                                             </CrudBtn>
                                         </CrudBtnWrapper>
                                     </div>
