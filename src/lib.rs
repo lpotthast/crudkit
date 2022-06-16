@@ -104,6 +104,7 @@ where
     string.parse::<T>().map_err(|e| format!("{}", e))
 }
 
+/// This trait is used to convert from column names (for example parsed from a request) to actual entity columns.
 pub trait MaybeColumnTrait {
     type Column: ColumnTrait + AsColType;
     fn get_col(name: &str) -> Option<Self::Column>;
