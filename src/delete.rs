@@ -1,6 +1,6 @@
 use crate::{CrudColumns, CrudResource, DeleteById, DeleteMany, DeleteOne};
 use crud_shared_types::{
-    ConditionClause, ConditionClauseValue, ConditionElement, CrudError, Operator,
+    Condition, ConditionClause, ConditionClauseValue, ConditionElement, CrudError, Operator,
 };
 use sea_orm::{JsonValue, ModelTrait};
 use serde_json::json;
@@ -19,11 +19,13 @@ pub async fn delete_by_id<R: CrudResource>(
         None,
         None,
         None,
-        Some(vec![ConditionElement::Clause(ConditionClause {
-            column_name: R::CrudColumn::get_id_field_name(),
-            operator: Operator::Equal,
-            value: ConditionClauseValue::I32(body.id.try_into().unwrap()),
-        })]),
+        Some(Condition::All(vec![ConditionElement::Clause(
+            ConditionClause {
+                column_name: R::CrudColumn::get_id_field_name(),
+                operator: Operator::Equal,
+                value: ConditionClauseValue::I32(body.id.try_into().unwrap()),
+            },
+        )])),
     )?;
     let data = select
         .one(controller.db.as_ref())

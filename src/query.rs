@@ -2,7 +2,7 @@ use crate::{
     AsColType, CreateModelTrait, CrudColumns, ExcludingColumnsOnInsert, FieldValidatorTrait,
     MaybeColumnTrait,
 };
-use crud_shared_types::{ConditionElement, ConditionOperator, CrudError, Operator, Order, Value};
+use crud_shared_types::{ConditionElement, CrudError, Operator, Order, Value, Condition};
 use indexmap::IndexMap;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DeleteMany, EntityTrait, FromQueryResult, Insert, ModelTrait,
@@ -67,12 +67,12 @@ where
 */
 
 pub fn build_delete_many_query<T: EntityTrait + MaybeColumnTrait>(
-    condition: Option<Vec<ConditionElement>>,
+    condition: Option<Condition>,
 ) -> Result<DeleteMany<T>, CrudError> {
     let mut delete_many = T::delete_many();
 
-    if let Some(elements) = condition {
-        delete_many = delete_many.filter(build_condition_tree::<T>(elements)?);
+    if let Some(condition) = condition {
+        delete_many = delete_many.filter(build_condition_tree::<T>(condition)?);
     }
 
     Ok(delete_many)
@@ -87,7 +87,7 @@ pub fn build_select_query<
     limit: Option<u64>,
     skip: Option<u64>,
     order_by: Option<IndexMap<CC, Order>>,
-    condition: Option<Vec<ConditionElement>>,
+    condition: Option<Condition>,
 ) -> Result<Select<E>, CrudError> {
     let mut select = E::find();
 
@@ -103,8 +103,8 @@ pub fn build_select_query<
         select = apply_order_by::<E, C, CC>(select, map)?;
     }
 
-    if let Some(elements) = condition {
-        select = select.filter(build_condition_tree::<E>(elements)?);
+    if let Some(condition) = condition {
+        select = select.filter(build_condition_tree::<E>(condition)?);
     }
 
     Ok(select)
@@ -146,33 +146,44 @@ pub fn apply_order_by<
     Ok(select)
 }
 
+// TODO: Implement this with the Into trait!
 pub fn build_condition_tree<T: MaybeColumnTrait>(
-    elements: Vec<ConditionElement>,
+    condition: Condition,
 ) -> Result<sea_orm::sea_query::Condition, CrudError> {
-    let mut tree = sea_orm::sea_query::Condition::any();
-    for element in elements {
-        match element {
-            ConditionElement::Clause(clause) => match T::get_col(&clause.column_name) {
-                Some(col) => {
-                    match col.as_col_type(clause.value).map_err(|err| {
-                        CrudError::UnableToParseValueAsColType(clause.column_name, err)
-                    })? {
-                        Value::String(val) => tree = add_condition(tree, col, clause.operator, val),
-                        Value::I32(val) => tree = add_condition(tree, col, clause.operator, val),
-                        Value::Bool(val) => tree = add_condition(tree, col, clause.operator, val),
-                        Value::DateTime(val) => {
-                            tree = add_condition(tree, col, clause.operator, val)
+
+    let mut tree = match &condition {
+        Condition::All(_) => sea_orm::sea_query::Condition::all(),
+        Condition::Any(_) => sea_orm::sea_query::Condition::any(),
+    };
+
+    match condition {
+        Condition::All(elements) | Condition::Any(elements) => {
+            for element in elements {
+                match element {
+                    ConditionElement::Clause(clause) => match T::get_col(&clause.column_name) {
+                        Some(col) => {
+                            match col.as_col_type(clause.value).map_err(|err| {
+                                CrudError::UnableToParseValueAsColType(clause.column_name, err)
+                            })? {
+                                Value::String(val) => tree = add_condition(tree, col, clause.operator, val),
+                                Value::I32(val) => tree = add_condition(tree, col, clause.operator, val),
+                                Value::Bool(val) => tree = add_condition(tree, col, clause.operator, val),
+                                Value::DateTime(val) => {
+                                    tree = add_condition(tree, col, clause.operator, val)
+                                }
+                            }
                         }
-                    }
+                        None => return Err(CrudError::UnknownColumnSpecified(clause.column_name)),
+                    },
+                    ConditionElement::Condition(nested_condition) => {
+                        let nested_condition: Condition = *nested_condition;
+                        tree = tree.add(build_condition_tree::<T>(nested_condition)?);
+                    },
                 }
-                None => return Err(CrudError::UnknownColumnSpecified(clause.column_name)),
-            },
-            ConditionElement::Operator(operator) => match operator {
-                ConditionOperator::And => {}
-                ConditionOperator::Or => {}
-            },
-        }
+            }
+        },
     }
+
     Ok(tree)
 }
 

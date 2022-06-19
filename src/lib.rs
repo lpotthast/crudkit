@@ -1,4 +1,4 @@
-use crud_shared_types::{ConditionClauseValue, ConditionElement, Order, Value};
+use crud_shared_types::{Condition, ConditionClauseValue, Order, Value};
 use indexmap::IndexMap;
 use sea_orm::{ColumnTrait, DatabaseConnection};
 use serde::Deserialize;
@@ -28,7 +28,7 @@ impl CrudController {
 
 #[derive(Deserialize)]
 pub struct ReadCount {
-    pub condition: Option<Vec<ConditionElement>>,
+    pub condition: Option<Condition>,
 }
 
 #[derive(Deserialize)]
@@ -36,7 +36,7 @@ pub struct ReadOne<R: CrudResource> {
     pub skip: Option<u64>,
     #[serde(bound = "")]
     pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
-    pub condition: Option<Vec<ConditionElement>>,
+    pub condition: Option<Condition>,
 }
 
 #[derive(Deserialize)]
@@ -45,7 +45,7 @@ pub struct ReadMany<R: CrudResource> {
     pub skip: Option<u64>,
     #[serde(bound = "")]
     pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
-    pub condition: Option<Vec<ConditionElement>>,
+    pub condition: Option<Condition>,
 }
 
 #[derive(Deserialize)]
@@ -55,7 +55,7 @@ pub struct CreateOne {
 
 #[derive(Deserialize)]
 pub struct UpdateOne {
-    pub condition: Option<Vec<ConditionElement>>,
+    pub condition: Option<Condition>,
     pub entity: Box<serde_json::value::RawValue>,
 }
 
@@ -68,12 +68,12 @@ pub struct DeleteById {
 pub struct DeleteOne<R: CrudResource> {
     pub skip: Option<u64>,
     pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
-    pub condition: Option<Vec<ConditionElement>>,
+    pub condition: Option<Condition>,
 }
 
 #[derive(Deserialize)]
 pub struct DeleteMany {
-    pub condition: Option<Vec<ConditionElement>>,
+    pub condition: Option<Condition>,
 }
 
 pub trait CrudColumns<C: ColumnTrait> {
