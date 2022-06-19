@@ -1,4 +1,6 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+
+// TODO: implement prelude
 
 pub enum CrudError {
     UnknownColumnSpecified(String),
@@ -28,24 +30,6 @@ pub enum Order {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
-pub enum ConditionOperator {
-    #[serde(rename(
-        serialize = "and",
-        deserialize = "and",
-        deserialize = "AND",
-        deserialize = "And"
-    ))]
-    And,
-    #[serde(rename(
-        serialize = "or",
-        deserialize = "or",
-        deserialize = "OR",
-        deserialize = "Or"
-    ))]
-    Or,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub enum Operator {
     #[serde(rename = "=")]
     Equal,
@@ -61,7 +45,7 @@ pub enum Operator {
     GreaterOrEqual,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConditionClause {
     pub column_name: String,
     pub operator: Operator,
@@ -69,7 +53,7 @@ pub struct ConditionClause {
 }
 
 // TODO: Drop in favor of "Value" type
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ConditionClauseValue {
     String(String),
@@ -82,13 +66,49 @@ pub enum ConditionClauseValue {
     F64(f64),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ConditionElement {
     Clause(ConditionClause),
-    Operator(ConditionOperator),
+    Condition(Box<Condition>),
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Condition {
+    All(Vec<ConditionElement>),
+    Any(Vec<ConditionElement>),
+}
+
+impl Condition {
+    pub fn all() -> Self {
+        Self::All(Vec::new())
+    }
+
+    pub fn any() -> Self {
+        Self::Any(Vec::new())
+    }
+
+    pub fn push_elements(&mut self, mut elements: Vec<ConditionElement>) {
+        match self {
+            Condition::All(vec) | Condition::Any(vec) => vec.append(&mut elements),
+        }
+    }
+
+    pub fn push_condition(&mut self, condition: Condition) {
+        match self {
+            Condition::All(vec) | Condition::Any(vec) => {
+                vec.push(ConditionElement::Condition(Box::new(condition)))
+            }
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Condition::All(vec) | Condition::Any(vec) => vec.is_empty(),
+        }
+    }
+}
 
 pub enum Value {
     String(String),
