@@ -28,7 +28,10 @@ pub mod crud_nested_instance;
 pub mod crud_pagination;
 pub mod crud_progress_bar;
 pub mod crud_read_view;
+pub mod crud_related_field;
+pub mod crud_relation;
 pub mod crud_safe_html;
+pub mod crud_select;
 pub mod crud_separator;
 pub mod crud_slider;
 pub mod crud_tab;
@@ -75,7 +78,10 @@ pub mod prelude {
     pub use super::crud_pagination::CrudPagination;
     pub use super::crud_progress_bar::CrudProgressBar;
     pub use super::crud_read_view::CrudReadView;
+    pub use super::crud_related_field::CrudRelatedField;
+    pub use super::crud_relation::CrudRelation;
     pub use super::crud_safe_html::CrudSafeHtml;
+    pub use super::crud_select::CrudSelect;
     pub use super::crud_separator::CrudSeparator;
     pub use super::crud_slider::CrudSlider;
     pub use super::crud_tab::CrudTab;
@@ -179,17 +185,37 @@ pub trait CrudIdTrait<F: CrudFieldValueTrait<C>, C: CrudDataTrait> {
 }
 
 pub trait CrudResourceTrait {
-    fn get_resource_name() -> &'static str;
+    fn get_resource_name() -> &'static str
+    where
+        Self: Sized;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Value {
     String(String),
     Text(String),
     U32(u32),
     Bool(bool),
     UtcDateTime(UtcDateTime),
+    OneToOneRelation(Option<u32>),
     NestedTable(u32),
+}
+
+impl Value {
+    pub fn to_string(self) -> String {
+        match self {
+            Value::String(string) => string,
+            Value::Text(string) => string,
+            Value::U32(u32) => u32.to_string(),
+            Value::Bool(bool) => bool.to_string(),
+            Value::UtcDateTime(utc_date_time) => utc_date_time.to_rfc3339(),
+            Value::OneToOneRelation(option_u32) => match option_u32 {
+                Some(u32) => u32.to_string(),
+                None => "".to_owned(),
+            },
+            Value::NestedTable(u32) => u32.to_string(),
+        }
+    }
 }
 
 pub trait CrudFieldValueTrait<T> {

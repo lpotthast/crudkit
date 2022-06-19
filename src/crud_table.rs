@@ -129,6 +129,7 @@ where
                                                             <CrudField<T>
                                                                 children={ctx.props().children.clone()}
                                                                 api_base_url={ctx.props().api_base_url.clone()}
+                                                                current_view={CrudView::List}
                                                                 field_type={field.clone()}
                                                                 field_options={FieldOptions { disabled: false, label: "".to_owned(), date_time_display: options.date_time_display }}
                                                                 entity={entity.clone()}

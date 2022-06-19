@@ -1,13 +1,14 @@
-use crud_shared_types::{ConditionClause, ConditionClauseValue, ConditionElement, Operator};
-use yew::{prelude::*, html::ChildrenRenderer};
+use crud_shared_types::{ConditionClause, ConditionClauseValue, ConditionElement, Operator, Condition};
+use yew::{html::{ChildrenRenderer, Scope}, prelude::*};
 
-use crate::crud_instance::Item;
-
-use super::{
-    prelude::*,
-    services::controller::{read_one, update_one, ReadOne, UpdateOne},
-    types::RequestError,
+use crate::{
+    crud_instance::Item,
+    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne, UpdateOne},
 };
+
+use super::{prelude::*, types::RequestError};
+
+// TODO: CrudEditView tracks changes, but CrudCreateView does not. Consolidate this logic into a shared component.
 
 pub enum Msg<T: CrudDataTrait> {
     Back,
@@ -19,13 +20,16 @@ pub enum Msg<T: CrudDataTrait> {
     SaveAndReturn,
     SaveAndNew,
     Delete,
+    // TODO: Why take String instead of Value?
     ValueChanged((T::FieldType, String)),
+    GetInput((T::FieldType, Box<dyn FnOnce(Value)>)),
 }
 
 #[derive(Properties, PartialEq)]
-pub struct Props<T: CrudDataTrait> {
+pub struct Props<T: 'static + CrudDataTrait> {
+    pub on_link: Callback<Option<Scope<CrudEditView<T>>>>,
     pub children: ChildrenRenderer<Item>,
-    pub api_base_url: String,
+    pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
     pub id: u32,
     pub list_view_available: bool,
@@ -69,21 +73,24 @@ impl<T: 'static + CrudDataTrait> CrudEditView<T> {
     }
 
     fn save_entity(&self, ctx: &Context<Self>) {
-        let base_url = ctx.props().api_base_url.clone();
         let ent = self.input.clone();
         let id = ctx.props().id;
+        let data_provider = ctx.props().data_provider.clone();
         // TODO: Like in create_view, store ongoing_save!!
         ctx.link().send_future(async move {
             Msg::UpdatedEntity(
-                update_one::<T>(&base_url, UpdateOne {
-                    entity: ent,
-                    condition: Some(vec![ConditionElement::Clause(ConditionClause {
-                        column_name: T::get_id_field_name(),
-                        operator: Operator::Equal,
-                        value: ConditionClauseValue::U32(id),
-                    })]),
-                })
-                .await,
+                data_provider
+                    .update_one(UpdateOne {
+                        entity: ent,
+                        condition: Some(Condition::All(vec![
+                            ConditionElement::Clause(ConditionClause {
+                                column_name: T::get_id_field_name(),
+                                operator: Operator::Equal,
+                                value: ConditionClauseValue::U32(id),
+                            })
+                        ])),
+                    })
+                    .await,
             )
         });
     }
@@ -94,10 +101,11 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
     type Properties = Props<T>;
 
     fn create(ctx: &Context<Self>) -> Self {
-        let base_url = ctx.props().api_base_url.clone();
+        ctx.props().on_link.emit(Some(ctx.link().clone()));
         let id = ctx.props().id;
+        let data_provider = ctx.props().data_provider.clone();
         ctx.link()
-            .send_future(async move { Msg::LoadedEntity(load_entity(&base_url, id).await) });
+            .send_future(async move { Msg::LoadedEntity(load_entity(data_provider, id).await) });
         Self {
             input: Default::default(),
             input_dirty: false,
@@ -105,6 +113,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
             entity: Err(NoData::NotYetLoaded),
             ongoing_save: false,
         }
+    }
+
+    fn destroy(&mut self, ctx: &Context<Self>) {
+        ctx.props().on_link.emit(None);
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -170,6 +182,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
                 }
                 false
             }
+            Msg::GetInput((field, receiver)) => {
+                receiver(field.get_value(&self.input));
+                false
+            }
         }
     }
 
@@ -204,11 +220,12 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
                                 </div>
 
                                 <CrudFields<T>
-                                    api_base_url={ctx.props().api_base_url.clone()}
+                                    api_base_url={ctx.props().config.api_base_url.clone()}
                                     children={ctx.props().children.clone()}
                                     elements={ctx.props().config.elements.clone()}
                                     entity={self.input.clone()}
                                     mode={FieldMode::Editable}
+                                    current_view={CrudView::Edit(ctx.props().id)}
                                     value_changed={ctx.link().callback(Msg::ValueChanged)}
                                 />
                                 </>
@@ -249,15 +266,21 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
     }
 }
 
-pub async fn load_entity<T: CrudDataTrait>(base_url: &str, id: u32) -> Result<Option<T>, RequestError> {
-    read_one::<T>(base_url, ReadOne {
-        skip: None,
-        order_by: None,
-        condition: Some(vec![ConditionElement::Clause(ConditionClause {
-            column_name: T::get_id_field_name(),
-            operator: crud_shared_types::Operator::Equal,
-            value: crud_shared_types::ConditionClauseValue::U32(id),
-        })]),
-    })
-    .await
+pub async fn load_entity<T: CrudDataTrait>(
+    data_provider: CrudRestDataProvider<T>,
+    id: u32,
+) -> Result<Option<T>, RequestError> {
+    data_provider
+        .read_one(ReadOne {
+            skip: None,
+            order_by: None,
+            condition: Some(Condition::All(vec![
+                ConditionElement::Clause(ConditionClause {
+                    column_name: T::get_id_field_name(),
+                    operator: crud_shared_types::Operator::Equal,
+                    value: crud_shared_types::ConditionClauseValue::U32(id),
+                })
+            ])),
+        })
+        .await
 }

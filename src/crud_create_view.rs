@@ -1,10 +1,9 @@
-use yew::{html::ChildrenRenderer, prelude::*};
+use yew::{html::{ChildrenRenderer, Scope}, prelude::*};
 
-use crate::crud_instance::Item;
+use crate::{crud_instance::Item, services::crud_rest_data_provider::{CrudRestDataProvider, CreateOne}};
 
 use super::{
     prelude::*,
-    services::controller::{create_one, CreateOne},
     types::RequestError,
 };
 
@@ -15,6 +14,7 @@ pub enum Msg<T: CrudDataTrait> {
     SaveAndNew,
     ValueChanged((T::FieldType, String)),
     CreatedEntity(Result<Option<T>, RequestError>, Then),
+    GetInput((T::FieldType, Box<dyn FnOnce(Value)>)),
 }
 
 pub enum Then {
@@ -24,9 +24,10 @@ pub enum Then {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct Props<T: CrudDataTrait> {
+pub struct Props<T: 'static + CrudDataTrait> {
+    pub on_link: Callback<Option<Scope<CrudCreateView<T>>>>,
     pub children: ChildrenRenderer<Item>,
-    pub api_base_url: String,
+    pub data_provider: CrudRestDataProvider<T>,
     pub parent_id: Option<u32>,
     pub config: CrudInstanceConfig<T>,
     pub list_view_available: bool,
@@ -42,12 +43,12 @@ pub struct CrudCreateView<T: CrudDataTrait> {
 
 impl<T: 'static + CrudDataTrait> CrudCreateView<T> {
     fn create_entity(&mut self, ctx: &Context<Self>, then: Then) {
-        let base_url = ctx.props().api_base_url.clone();
         let ent = self.input.clone();
+        let data_provider = ctx.props().data_provider.clone();
         self.ongoing_save = true;
         ctx.link().send_future(async move {
             Msg::CreatedEntity(
-                create_one::<T>(&base_url, CreateOne { entity: ent }).await,
+                data_provider.create_one(CreateOne { entity: ent }).await,
                 then,
             )
         });
@@ -63,6 +64,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudCreateView<T> {
     type Properties = Props<T>;
 
     fn create(ctx: &Context<Self>) -> Self {
+        ctx.props().on_link.emit(Some(ctx.link().clone()));
         let mut entity: T = Default::default();
         if let Some(nested) = &ctx.props().config.nested {
             if let Some(parent_id) = ctx.props().parent_id {
@@ -80,6 +82,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudCreateView<T> {
             input: entity,
             ongoing_save: false,
         }
+    }
+
+    fn destroy(&mut self, ctx: &Context<Self>) {
+        ctx.props().on_link.emit(None);
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -133,6 +139,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudCreateView<T> {
                 }
                 false
             }
+            Msg::GetInput((field, receiver)) => {
+                receiver(field.get_value(&self.input));
+                false
+            }
         }
     }
 
@@ -161,11 +171,12 @@ impl<T: 'static + CrudDataTrait> Component for CrudCreateView<T> {
             </div>
 
             <CrudFields<T>
-                api_base_url={ctx.props().api_base_url.clone()}
+                api_base_url={ctx.props().config.api_base_url.clone()}
                 children={ctx.props().children.clone()}
                 elements={ctx.props().config.elements.clone()}
                 entity={self.initial_data.clone()}
                 mode={FieldMode::Editable}
+                current_view={CrudView::Create}
                 value_changed={ctx.link().callback(Msg::ValueChanged)}
             />
             </>

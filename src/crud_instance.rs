@@ -1,22 +1,24 @@
-use crud_shared_types::Order;
+use crud_shared_types::{
+    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Order,
+};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
-use yew::{html::ChildrenRenderer, prelude::*, virtual_dom::VChild};
+use yew::{html::{ChildrenRenderer, Scope}, prelude::*, virtual_dom::VChild};
 use yewdux::prelude::*;
 
-use crate::DateTimeDisplay;
-
-use super::{
-    prelude::*,
-    services::controller::{delete_by_id, DeleteById},
-    stores,
-    types::RequestError,
+use crate::{
+    services::crud_rest_data_provider::{CrudRestDataProvider, DeleteById},
+    DateTimeDisplay,
 };
 
-pub enum Msg<T: CrudDataTrait> {
+use super::{prelude::*, stores, types::RequestError};
+
+pub enum Msg<T: 'static + CrudDataTrait> {
     InstanceConfigStoreUpdated(Rc<stores::instance::InstanceStore<T>>),
     InstanceViewsStoreUpdated(Rc<stores::instance_views::InstanceViewsStore>),
+    CreateViewLinked(Option<Scope<CrudCreateView<T>>>),
+    EditViewLinked(Option<Scope<CrudEditView<T>>>),
     List,
     Create,
     EntityCreated((T, Option<CrudView>)),
@@ -29,6 +31,8 @@ pub enum Msg<T: CrudDataTrait> {
     OrderBy((T::FieldType, OrderByUpdateOptions)),
     PageSelected(u64),
     Action((Rc<Box<dyn CrudActionTrait>>, T)),
+    SaveInput((T::FieldType, Value)),
+    GetInput((T::FieldType, Box<dyn FnOnce(Value)>)),
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 
@@ -45,6 +49,7 @@ pub struct NestedConfig {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CrudInstanceConfig<T: CrudDataTrait> {
+    pub api_base_url: String,
     pub view: CrudView,
     pub headers: Vec<(T::FieldType, HeaderOptions)>,
     // serde bound used as described in: https://github.com/serde-rs/serde/issues/1296
@@ -61,6 +66,7 @@ impl<T: CrudDataTrait> Default for CrudInstanceConfig<T> {
         let mut order_by = IndexMap::default();
         order_by.insert(T::get_id_field(), Order::Asc);
         Self {
+            api_base_url: "".to_owned(),
             view: CrudView::default(),
             headers: vec![(
                 T::get_id_field(),
@@ -101,6 +107,7 @@ impl<T: CrudDataTrait> CrudInstanceConfig<T> {
 #[derive(Clone, derive_more::From, PartialEq)]
 pub enum Item {
     NestedInstance(VChild<CrudNestedInstance>),
+    Relation(VChild<CrudRelation>),
 }
 
 // Now, we implement `Into<Html>` so that yew knows how to render `Item`.
@@ -109,6 +116,7 @@ impl Into<Html> for Item {
     fn into(self) -> Html {
         match self {
             Item::NestedInstance(child) => child.into(),
+            Item::Relation(child) => child.into(),
         }
     }
 }
@@ -118,7 +126,6 @@ pub struct Props<T: CrudDataTrait> {
     #[prop_or_default]
     pub children: ChildrenRenderer<Item>,
     pub name: String,
-    pub base_url: String,
     pub config: CrudInstanceConfig<T>,
     pub portal_target: Option<String>,
 }
@@ -128,8 +135,13 @@ pub struct CrudInstance<T: 'static + CrudDataTrait> {
     instance_dispatch: Dispatch<stores::instance::InstanceStore<T>>,
     instance_views_store: Rc<stores::instance_views::InstanceViewsStore>,
     instance_views_dispatch: Dispatch<stores::instance_views::InstanceViewsStore>,
+    instance_links_dispatch: Dispatch<stores::instance_links::InstanceLinksStore<T>>,
+    create_view_link: Option<Scope<CrudCreateView<T>>>,
+    edit_view_link: Option<Scope<CrudEditView<T>>>,
     config: CrudInstanceConfig<T>,
+    data_provider: CrudRestDataProvider<T>,
     entity_to_delete: Option<T>,
+    parent_id: Option<u32>,
 }
 
 impl<T: 'static + CrudDataTrait> CrudInstance<T> {
@@ -158,7 +170,7 @@ impl<T: 'static + CrudDataTrait> CrudInstance<T> {
                             CrudView::List => {
                                 html! {
                                     <CrudListView<T>
-                                        api_base_url={ctx.props().base_url.clone()}
+                                        data_provider={self.data_provider.clone()}
                                         children={ctx.props().children.clone()}
                                         config={self.config.clone()}
                                         on_create={ctx.link().callback(|_| Msg::Create)}
@@ -174,36 +186,21 @@ impl<T: 'static + CrudDataTrait> CrudInstance<T> {
                             CrudView::Create => {
                                 html! {
                                     <CrudCreateView<T>
-                                        api_base_url={ctx.props().base_url.clone()}
-                                        parent_id={if let Some(nested) = &ctx.props().config.nested {
-                                            match self.instance_views_store.get(nested.parent_instance.as_str()) {
-                                                Some(parent_view) => match parent_view {
-                                                    CrudView::List => None,
-                                                    CrudView::Create => None,
-                                                    CrudView::Read(id) => Some(id),
-                                                    CrudView::Edit(id) => Some(id),
-                                                },
-                                                None => {
-                                                    log::info!("no parent config");
-                                                    None
-                                                },
-                                            }
-                                        } else {
-                                            log::info!("not nested");
-                                            None
-                                        }}
+                                        data_provider={self.data_provider.clone()}
+                                        parent_id={self.parent_id.clone()}
                                         children={ctx.props().children.clone()}
                                         config={self.config.clone()}
                                         list_view_available={true}
                                         on_list_view={ctx.link().callback(|_| Msg::List)}
                                         on_entity_created={ctx.link().callback(Msg::EntityCreated)}
+                                        on_link={ctx.link().callback(|link| Msg::CreateViewLinked(link))}
                                     />
                                 }
                             },
                             CrudView::Read(id) => {
                                 html! {
                                     <CrudReadView<T>
-                                        api_base_url={ctx.props().base_url.clone()}
+                                        data_provider={self.data_provider.clone()}
                                         children={ctx.props().children.clone()}
                                         config={self.config.clone()}
                                         id={id}
@@ -215,7 +212,7 @@ impl<T: 'static + CrudDataTrait> CrudInstance<T> {
                             CrudView::Edit(id) => {
                                 html! {
                                     <CrudEditView<T>
-                                        api_base_url={ctx.props().base_url.clone()}
+                                        data_provider={self.data_provider.clone()}
                                         children={ctx.props().children.clone()}
                                         config={self.config.clone()}
                                         id={id}
@@ -223,6 +220,7 @@ impl<T: 'static + CrudDataTrait> CrudInstance<T> {
                                         on_list={ctx.link().callback(|_| Msg::List)}
                                         on_create={ctx.link().callback(|_| Msg::Create)}
                                         on_delete={ctx.link().callback(Msg::Delete)}
+                                        on_link={ctx.link().callback(|link| Msg::EditViewLinked(link))}
                                     />
                                 }
                             },
@@ -254,11 +252,26 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
     type Properties = Props<T>;
 
     fn create(ctx: &Context<Self>) -> Self {
+        if ctx.props().config.api_base_url.is_empty() {
+            panic!(
+                "api_base_url was not configured for crud instance '{}'",
+                ctx.props().name
+            );
+        }
         //let actions: Vec<Rc<Box<dyn CrudActionTrait>>> = vec![
         //    Rc::new(Box::new(ShowReadViewAction::default())),
         //    Rc::new(Box::new(ShowEditViewAction::default())),
         //    Rc::new(Box::new(DeleteAction::default())),
         //];
+
+        let instance_links_dispatch: Dispatch<stores::instance_links::InstanceLinksStore<T>> =
+            Dispatch::new();
+
+        let name = ctx.props().name.clone();
+        let link = ctx.link().clone();
+        instance_links_dispatch
+            .reduce(|state| state.save(name, Some(link)));
+
         Self {
             instance_dispatch: Dispatch::subscribe(
                 ctx.link().callback(Msg::InstanceConfigStoreUpdated),
@@ -268,10 +281,21 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                 ctx.link().callback(Msg::InstanceViewsStoreUpdated),
             ),
             instance_views_store: Default::default(),
+            instance_links_dispatch,
+
+            create_view_link: None,
+            edit_view_link: None,
 
             config: ctx.props().config.clone(),
+            data_provider: CrudRestDataProvider::new(ctx.props().config.api_base_url.clone()),
             entity_to_delete: None,
+            parent_id: None,
         }
+    }
+
+    fn destroy(&mut self, ctx: &Context<Self>) {
+        let name = ctx.props().name.clone();
+        self.instance_links_dispatch.reduce(|state| state.save(name, None));
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -287,9 +311,53 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                 }
             }
             Msg::InstanceViewsStoreUpdated(store) => {
+                // TODO: Do we really need to store this?
                 self.instance_views_store = store;
-                // TODO: Check if we really need to always rerender. Only CreateView needs this...
-                true
+
+                if let Some(nested) = &ctx.props().config.nested {
+                    match self
+                        .instance_views_store
+                        .get(nested.parent_instance.as_str())
+                    {
+                        Some(parent_view) => {
+                            let parent_id = match parent_view {
+                                CrudView::List => None,
+                                CrudView::Create => None,
+                                CrudView::Read(id) => Some(id),
+                                CrudView::Edit(id) => Some(id),
+                            };
+                            if let Some(id) = parent_id {
+                                self.data_provider
+                                    .set_base_condition(Some(Condition::All(vec![
+                                        ConditionElement::Clause(ConditionClause {
+                                            column_name: nested.reference_field.clone(),
+                                            operator: crud_shared_types::Operator::Equal,
+                                            value: ConditionClauseValue::U32(id),
+                                        }),
+                                    ])));
+                            } else {
+                                self.data_provider.set_base_condition(None);
+                            }
+                            self.parent_id = parent_id;
+                            true
+                        }
+                        None => {
+                            log::info!("no parent config");
+                            false
+                        }
+                    }
+                } else {
+                    log::info!("not nested");
+                    false
+                }
+            }
+            Msg::CreateViewLinked(link) => {
+                self.create_view_link = link;
+                false
+            }
+            Msg::EditViewLinked(link) => {
+                self.edit_view_link = link;
+                false
             }
             Msg::Action((action, _entity)) => {
                 log::warn!(
@@ -338,10 +406,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
             Msg::DeleteApproved => {
                 match &self.entity_to_delete {
                     Some(entity) => {
-                        let base_url = ctx.props().base_url.clone();
                         let id = entity.get_id();
+                        let data_provider = self.data_provider.clone();
                         ctx.link().send_future(async move {
-                            Msg::Deleted(delete_by_id::<T>(&base_url, DeleteById { id }).await)
+                            Msg::Deleted(data_provider.delete_by_id(DeleteById { id }).await)
                         });
                     },
                     None => log::warn!("Delete was approved, but instance already lost track of the 'entity_to_delete'!"),
@@ -393,6 +461,39 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
             Msg::PageSelected(page) => {
                 self.config.page = page;
                 self.store_config(ctx);
+                false
+            }
+            Msg::SaveInput((field, value)) => {
+                log::info!(
+                    "CrudInstance should save value '{:?}' for field '{:?}'",
+                    value,
+                    field
+                );
+                if let Some(link) = &self.create_view_link {
+                    // TODO: pass value as Value not as String.
+                    link.send_message(<CrudCreateView<T> as Component>::Message::ValueChanged((field, value.to_string())));
+                    log::info!("Sent ValueChanged message to create view...");
+                } else if let Some(link) = &self.edit_view_link {
+                    // TODO: pass value as Value not as String.
+                    link.send_message(<CrudEditView<T> as Component>::Message::ValueChanged((field, value.to_string())));
+                    log::info!("Sent ValueChanged message to edit view...");
+                } else {
+                    log::warn!("Could not forward SaveInput message, as neither a create view nor an edit view registered.");
+                }
+                false
+            }
+            Msg::GetInput((field, receiver)) => {
+                if let Some(link) = &self.create_view_link {
+                    // TODO: pass value as Value not as String.
+                    link.send_message(<CrudCreateView<T> as Component>::Message::GetInput((field.clone(), receiver)));
+                    log::info!("Sent GetInput message to create view...");
+                } else if let Some(link) = &self.edit_view_link {
+                    // TODO: pass value as Value not as String.
+                    link.send_message(<CrudEditView<T> as Component>::Message::GetInput((field.clone(), receiver)));
+                    log::info!("Sent GetInput message to edit view...");
+                } else {
+                    log::warn!("Could not forward GetInput message, as neither a create view nor an edit view registered.");
+                }
                 false
             }
         }

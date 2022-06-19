@@ -3,11 +3,10 @@ use std::rc::Rc;
 use yew::{prelude::*, html::ChildrenRenderer};
 use yewbi::Bi;
 
-use crate::crud_instance::Item;
+use crate::{crud_instance::Item, services::crud_rest_data_provider::{CrudRestDataProvider, ReadMany, ReadCount}};
 
 use super::{
     prelude::*,
-    services::controller::{read_count, read_many, ReadCount, ReadMany},
     types::RequestError,
 };
 
@@ -28,7 +27,7 @@ pub enum Msg<T: CrudDataTrait> {
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
     pub children: ChildrenRenderer<Item>,
-    pub api_base_url: String,
+    pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
     pub on_create: Callback<()>,
     pub on_read: Callback<T>,
@@ -47,13 +46,13 @@ pub struct CrudListView<T: 'static + CrudDataTrait> {
 
 impl<T: CrudDataTrait> CrudListView<T> {
     fn load_page(&self, ctx: &Context<CrudListView<T>>) {
-        let base_url = ctx.props().api_base_url.clone();
         let order_by = ctx.props().config.order_by.clone();
         let page = ctx.props().config.page as u64;
         let items_per_page = ctx.props().config.items_per_page as u64;
+        let data_provider = ctx.props().data_provider.clone();
         ctx.link().send_future(async move {
             Msg::PageLoaded(
-                read_many::<T>(&base_url, ReadMany {
+                data_provider.read_many(ReadMany {
                     limit: Some(items_per_page),
                     skip: Some(items_per_page * (page - 1)),
                     order_by: Some(order_by),
@@ -65,9 +64,9 @@ impl<T: CrudDataTrait> CrudListView<T> {
     }
 
     fn load_count(&self, ctx: &Context<CrudListView<T>>) {
-        let base_url = ctx.props().api_base_url.clone();
+        let data_provider = ctx.props().data_provider.clone();
         ctx.link().send_future(async move {
-            Msg::CountRead(read_count::<T>(&base_url, ReadCount { condition: None }).await)
+            Msg::CountRead(data_provider.read_count(ReadCount { condition: None }).await)
         });
     }
 
@@ -184,7 +183,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudListView<T> {
 
                 <CrudTable<T>
                     children={ctx.props().children.clone()}
-                    api_base_url={ctx.props().api_base_url.clone()}
+                    api_base_url={ctx.props().config.api_base_url.clone()}
                     data={self.get_data()}
                     no_data={self.get_data_error()}
                     headers={ctx.props().config.headers.iter()

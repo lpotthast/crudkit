@@ -1,2 +1,2 @@
 pub mod requests;
-pub mod controller;
+pub mod crud_rest_data_provider;

@@ -15,6 +15,7 @@ pub struct Props<T: CrudDataTrait> {
     pub elements: Vec<Elem<T>>,
     pub entity: Option<T>,
     pub mode: FieldMode,
+    pub current_view: CrudView,
     pub value_changed: Callback<(T::FieldType, String)>,
 }
 
@@ -55,6 +56,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                         elements={group.children.clone()}
                                         entity={ctx.props().entity.clone()}
                                         mode={ctx.props().mode.clone()}
+                                        current_view={ctx.props().current_view.clone()}
                                         value_changed={ctx.props().value_changed.clone()}
                                     />
                                 },
@@ -70,6 +72,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                                             elements={group.children.clone()}
                                                             entity={ctx.props().entity.clone()}
                                                             mode={ctx.props().mode.clone()}
+                                                            current_view={ctx.props().current_view.clone()}
                                                             value_changed={ctx.props().value_changed.clone()}
                                                         />
                                                     </CrudTab>
@@ -86,6 +89,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                             elements={group.children.clone()}
                                             entity={ctx.props().entity.clone()}
                                             mode={ctx.props().mode.clone()}
+                                            current_view={ctx.props().current_view.clone()}
                                             value_changed={ctx.props().value_changed.clone()}
                                         />
                                     </div>
@@ -97,6 +101,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                 <CrudField<T>
                                     children={ctx.props().children.clone()}
                                     api_base_url={ctx.props().api_base_url.clone()}
+                                    current_view={ctx.props().current_view.clone()}
                                     field_type={field_type.clone()}
                                     field_options={field_options.clone()}
                                     field_mode={ctx.props().mode.clone()}

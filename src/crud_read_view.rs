@@ -1,13 +1,12 @@
-use crud_shared_types::{ConditionClause, ConditionElement};
-use yew::{prelude::*, html::ChildrenRenderer};
+use crud_shared_types::{Condition, ConditionClause, ConditionElement};
+use yew::{html::ChildrenRenderer, prelude::*};
 
-use crate::crud_instance::Item;
-
-use super::{
-    prelude::*,
-    services::controller::{read_one, ReadOne},
-    types::RequestError,
+use crate::{
+    crud_instance::Item,
+    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne},
 };
+
+use super::{prelude::*, types::RequestError};
 
 pub enum Msg<T: CrudDataTrait> {
     Back,
@@ -17,7 +16,7 @@ pub enum Msg<T: CrudDataTrait> {
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
     pub children: ChildrenRenderer<Item>,
-    pub api_base_url: String,
+    pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
     pub id: u32,
     pub list_view_available: bool,
@@ -33,10 +32,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
     type Properties = Props<T>;
 
     fn create(ctx: &Context<Self>) -> Self {
-        let base_url = ctx.props().api_base_url.clone();
         let id = ctx.props().id;
+        let data_provider = ctx.props().data_provider.clone();
         ctx.link()
-            .send_future(async move { Msg::LoadedEntity(load_entity(&base_url, id).await) });
+            .send_future(async move { Msg::LoadedEntity(load_entity(data_provider, id).await) });
         Self {
             entity: Err(NoData::NotYetLoaded),
         }
@@ -82,11 +81,12 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
                                 </div>
 
                                 <CrudFields<T>
-                                    api_base_url={ctx.props().api_base_url.clone()}
+                                    api_base_url={ctx.props().config.api_base_url.clone()}
                                     children={ctx.props().children.clone()}
                                     elements={ctx.props().config.elements.clone()}
                                     entity={entity.clone()}
                                     mode={FieldMode::Readable}
+                                    current_view={CrudView::Read(ctx.props().id)}
                                     value_changed={|_| {}}
                                 />
                                 </>
@@ -119,15 +119,21 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
     }
 }
 
-pub async fn load_entity<T: CrudDataTrait>(base_url: &str, id: u32) -> Result<Option<T>, RequestError> {
-    read_one::<T>(base_url, ReadOne {
-        skip: None,
-        order_by: None,
-        condition: Some(vec![ConditionElement::Clause(ConditionClause {
-            column_name: T::get_id_field_name(),
-            operator: crud_shared_types::Operator::Equal,
-            value: crud_shared_types::ConditionClauseValue::U32(id),
-        })]),
-    })
-    .await
+pub async fn load_entity<T: CrudDataTrait>(
+    data_provider: CrudRestDataProvider<T>,
+    id: u32,
+) -> Result<Option<T>, RequestError> {
+    data_provider
+        .read_one(ReadOne {
+            skip: None,
+            order_by: None,
+            condition: Some(Condition::All(vec![ConditionElement::Clause(
+                ConditionClause {
+                    column_name: T::get_id_field_name(),
+                    operator: crud_shared_types::Operator::Equal,
+                    value: crud_shared_types::ConditionClauseValue::U32(id),
+                },
+            )])),
+        })
+        .await
 }

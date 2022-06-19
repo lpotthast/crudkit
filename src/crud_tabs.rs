@@ -65,8 +65,15 @@ impl Component for CrudTabs {
                     {
                         for ctx.props().children.iter().map(|tab| tab.props.name.clone()).map(|tab_name| {
                             let tab_clone = tab_name.clone();
+                            let is_active = match &self.active_tab {
+                                Some(active_tab_name) => active_tab_name == &tab_name,
+                                None => false,
+                            };
                             html! {
-                                <div class={"crud-tab-selector"} onclick={ctx.link().callback(move |_| Msg::TabSelected(tab_clone.clone()))}>{tab_name.clone()}</div>
+                                <div class={classes!("crud-tab-selector", is_active.then(|| "active"))} 
+                                     onclick={ctx.link().callback(move |_| Msg::TabSelected(tab_clone.clone()))}>
+                                    {tab_name.clone()}
+                                </div>
                             }
                         })
                     }

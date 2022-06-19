@@ -18,6 +18,7 @@ pub enum Msg {
 pub struct Props<T: CrudDataTrait> {
     pub children: ChildrenRenderer<Item>,
     pub api_base_url: String,
+    pub current_view: CrudView,
     pub field_type: T::FieldType,
     pub field_options: FieldOptions,
     pub field_mode: FieldMode,
@@ -109,19 +110,19 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
         let options = &ctx.props().field_options;
         html! {
             match ctx.props().field_type.get_value(&self.entity) {
-                Value::NestedTable(key) => match &ctx.props().field_mode {
+                Value::OneToOneRelation(_referenced_id) => match &ctx.props().field_mode {
                     FieldMode::Display => html! {
-                        <div>{key}</div>
+                        <div>{"FieldMode::Display wird von Feldern des Typs OneToOneRelation aktuell nicht unterstützt."}</div>
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
                             <CrudFieldLabel label={options.label.clone()} />
                             { ctx.props().children.iter().filter(|child| {
                                 match child {
-                                    Item::NestedInstance(nested_instance) => nested_instance.props.name == options.label,
+                                    Item::NestedInstance(_) => false,
+                                    Item::Relation(related_field) => related_field.props.name == options.label,
                                 }
                             }).collect::<Html>() }
-                            <div id={format!("{}-portal", options.label)} />
                         </div>
                     },
                     FieldMode::Editable => html! {
@@ -129,12 +130,52 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                             <CrudFieldLabel label={options.label.clone()} />
                             { ctx.props().children.iter().filter(|child| {
                                 match child {
-                                    Item::NestedInstance(nested_instance) => nested_instance.props.name == options.label,
+                                    Item::NestedInstance(_) => false,
+                                    Item::Relation(related_field) => related_field.props.name == options.label,
                                 }
                             }).collect::<Html>() }
-                            <div id={format!("{}-portal", options.label)} />
                         </div>
                     },
+                },
+                Value::NestedTable(_referenced_id) => {
+                    match ctx.props().current_view {
+                        CrudView::List => html! {
+                            <div>{"Felder des Typs NestedTable können aktuell nicht in der Listenansicht dargestellt werden."}</div>
+                        },
+                        CrudView::Create => html! {
+                            <>
+                                <CrudFieldLabel label={options.label.clone()} />
+                                <div>{"Diese Informationen können erst bearbeitet werden, nachdem der Eintrag gespeichert wurde."}</div>
+                            </>
+                        },
+                        CrudView::Read(_) | CrudView::Edit(_) => match &ctx.props().field_mode {
+                            FieldMode::Display => html! {
+                                <div>{"FieldMode::Display wird von Feldern des Typs NestedTable aktuell nicht unterstützt."}</div>
+                            },
+                            FieldMode::Readable => html! {
+                                <div class="crud-field">
+                                    <CrudFieldLabel label={options.label.clone()} />
+                                    { ctx.props().children.iter().filter(|child| {
+                                        match child {
+                                            Item::NestedInstance(nested_instance) => nested_instance.props.name == options.label,
+                                            Item::Relation(_) => false,
+                                        }
+                                    }).collect::<Html>() }
+                                </div>
+                            },
+                            FieldMode::Editable => html! {
+                                <div class="crud-field">
+                                    <CrudFieldLabel label={options.label.clone()} />
+                                    { ctx.props().children.iter().filter(|child| {
+                                        match child {
+                                            Item::NestedInstance(nested_instance) => nested_instance.props.name == options.label,
+                                            Item::Relation(_) => false,
+                                        }
+                                    }).collect::<Html>() }
+                                </div>
+                            },
+                        },
+                    }
                 },
                 Value::String(value) => match &ctx.props().field_mode {
                     FieldMode::Display => html! {
