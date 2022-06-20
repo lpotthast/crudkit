@@ -4,7 +4,7 @@ use wasm_bindgen::{prelude::Closure};
 mod js {
     use wasm_bindgen::prelude::*;
 
-    #[wasm_bindgen(raw_module = "./res/tiptap.js")]
+    #[wasm_bindgen(raw_module = "./js/tiptap.js")]
     extern "C" {
         pub fn create(id: String, content: String, editable: bool, onchange: &Closure<dyn Fn(String)>);
         pub fn isEditable(id: String) -> bool;
