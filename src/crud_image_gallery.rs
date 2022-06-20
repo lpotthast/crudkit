@@ -19,7 +19,7 @@ pub enum Msg {
 pub struct Props {
     pub api_base_url: String,
     pub show_file_names: bool,
-    pub on_link: Option<Callback<Scope<CrudImageGallery>>>,
+    pub on_link: Option<Callback<Option<Scope<CrudImageGallery>>>>,
     pub on_select: Option<Callback<FileResource>>,
 }
 
@@ -33,12 +33,18 @@ impl Component for CrudImageGallery {
 
     fn create(ctx: &Context<Self>) -> Self {
         if let Some(on_link) = &ctx.props().on_link {
-            on_link.emit(ctx.link().clone());
+            on_link.emit(Some(ctx.link().clone()));
         };
         ctx.link().send_message(Msg::ListFiles);
         Self {
             resources: Vec::new(),
         }
+    }
+
+    fn destroy(&mut self, ctx: &Context<Self>) {
+        if let Some(on_link) = &ctx.props().on_link {
+            on_link.emit(None);
+        };
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {

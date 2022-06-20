@@ -29,14 +29,11 @@ pub struct Props<P: CrudDataTrait> {
 }
 
 pub struct CrudRelatedField<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> {
-    parent_instance_links_store: Rc<stores::instance_links::InstanceLinksStore<P>>,
-    parent_instance_links_dispatch: Dispatch<stores::instance_links::InstanceLinksStore<P>>,
-    instance_views_store: Rc<stores::instance_views::InstanceViewsStore>,
-    instance_views_dispatch: Dispatch<stores::instance_views::InstanceViewsStore>,
+    _parent_instance_links_dispatch: Dispatch<stores::instance_links::InstanceLinksStore<P>>,
+    _instance_views_dispatch: Dispatch<stores::instance_views::InstanceViewsStore>,
 
     parent: Option<Scope<CrudInstance<P>>>,
     current_field_value: Option<Value>,
-    data_provider: CrudRestDataProvider<T>,
     data: Option<Result<Vec<T>, RequestError>>,
     selected: Selection<T>,
 }
@@ -61,7 +58,8 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> CrudRelatedField<P,
                     Ok(data) => {
                         let mut s = Vec::new();
                         for entity in data {
-                            let ent_id = value_as_u32(&T::get_id_field().get_value(entity)).unwrap();
+                            let ent_id =
+                                value_as_u32(&T::get_id_field().get_value(entity)).unwrap();
                             for selected_id in &selected_ids {
                                 log::info!("comparing {ent_id} - {selected_id}");
                                 if selected_id == &ent_id {
@@ -76,7 +74,7 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> CrudRelatedField<P,
                         } else {
                             Selection::Multiple(s)
                         }
-                    },
+                    }
                     Err(_) => Selection::None,
                 }
             } else {
@@ -121,18 +119,15 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> Component for CrudR
 
     fn create(ctx: &Context<Self>) -> Self {
         Self {
-            parent_instance_links_dispatch: Dispatch::subscribe(
+            _parent_instance_links_dispatch: Dispatch::subscribe(
                 ctx.link().callback(Msg::ParentInstanceLinksStoreUpdated),
             ),
-            parent_instance_links_store: Default::default(),
-            instance_views_dispatch: Dispatch::subscribe(
+            _instance_views_dispatch: Dispatch::subscribe(
                 ctx.link().callback(Msg::InstanceViewsStoreUpdated),
             ),
-            instance_views_store: Default::default(),
 
             parent: None,
             current_field_value: None,
-            data_provider: CrudRestDataProvider::new(ctx.props().api_base_url.clone()),
             data: None,
             selected: Selection::None,
         }
@@ -142,24 +137,23 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> Component for CrudR
         match msg {
             Msg::ParentInstanceLinksStoreUpdated(store) => {
                 self.parent = store.get(ctx.props().nested.parent_instance.as_str());
-                
+
                 // Whenever out parent changes, we need to fetch the current value for this field.
                 if let Some(parent) = &self.parent {
                     let link = ctx.link().clone();
                     let receiver: Box<dyn FnOnce(Value)> = Box::new(move |value| {
                         link.send_message(Msg::CurrentValue(value));
                     });
-                    parent.send_message(<CrudInstance<P> as Component>::Message::GetInput((ctx.props().field.clone(), receiver)));
+                    parent.send_message(<CrudInstance<P> as Component>::Message::GetInput((
+                        ctx.props().field.clone(),
+                        receiver,
+                    )));
                 }
                 false
             }
             Msg::InstanceViewsStoreUpdated(store) => {
                 // TODO: Do we really need to store this?
-                self.instance_views_store = store;
-                match self
-                    .instance_views_store
-                    .get(ctx.props().nested.parent_instance.as_str())
-                {
+                match store.get(ctx.props().nested.parent_instance.as_str()) {
                     Some(parent_view) => match parent_view {
                         crate::CrudView::List | crate::CrudView::Create => {
                             log::warn!("Cannot show this field in List or Create view...");
