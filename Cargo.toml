@@ -16,10 +16,10 @@ crud-shared-types = { path = "../crud-shared-types" }
 yew = { git = "https://github.com/yewstack/yew", features = ["tokio", "csr"] }
 yew-router = { git = "https://github.com/yewstack/yew.git" }
 yewdux = { git = "https://github.com/intendednull/yewdux" }
-log = "0.4.16"
+log = "0.4.17"
 serde = "1.0.137"
-serde_json = "1.0.80"
-web-sys = { version = "0.3.57", features = [
+serde_json = "1.0.81"
+web-sys = { version = "0.3.58", features = [
     "Document",
     "Element",
     "HtmlInputElement",
@@ -30,13 +30,13 @@ web-sys = { version = "0.3.57", features = [
 ] }
 wasm-bindgen = "0.2.80"
 wasm-bindgen-futures = "0.4.30"
-indexmap = { version = "1.8.1", features = ["serde"] }
+indexmap = { version = "1.8.2", features = ["serde"] }
 js-sys = "0.3.57"
 gloo = "0.7.0"
-reqwest = { version = "0.11.10", features = ["json", "multipart"] }
-uuid = { version = "1.0.0", features = ["js", "v4"], default-features = false }
+reqwest = { version = "0.11.11", features = ["json", "multipart"] }
+uuid = { version = "1.1.2", features = ["js", "v4"], default-features = false }
 lazy_static = "1.4.0"
-parking_lot = "0.12.0"
+parking_lot = "0.12.1"
 dotenv_codegen = "0.15.0"
 thiserror = "1.0.31"
 urlencoding = "2.1.0"
