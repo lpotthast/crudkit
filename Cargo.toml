@@ -13,8 +13,8 @@ serde = { version = "1.0.137", features = ["derive"] }
 serde_json = "1.0.80"
 chrono = "0.4.19"
 axum = "0.5.4"
-indexmap = { version = "1.8.1", features = ["serde"] }
+indexmap = { version = "1.9.0", features = ["serde"] }
 
-sea-orm = { version = "0.7.1", default-features = false, features = [ "macros", "debug-print", "runtime-tokio-rustls", "sqlx-postgres" ] }
-sea-query = { version = "0.24.4" }
-sea-schema = { version = "0.7.1", default-features = false, features = [ "migration", "debug-print" ] }
+sea-orm = { version = "0.8.0", default-features = false, features = [ "macros", "debug-print", "runtime-tokio-rustls", "sqlx-postgres" ] }
+sea-query = { version = "0.25.0" }
+sea-schema = { version = "0.8.1", default-features = false, features = [ "debug-print" ] }
