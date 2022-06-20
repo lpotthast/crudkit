@@ -61,7 +61,6 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> CrudRelatedField<P,
                             let ent_id =
                                 value_as_u32(&T::get_id_field().get_value(entity)).unwrap();
                             for selected_id in &selected_ids {
-                                log::info!("comparing {ent_id} - {selected_id}");
                                 if selected_id == &ent_id {
                                     s.push(entity.clone());
                                 }
@@ -78,11 +77,11 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> CrudRelatedField<P,
                     Err(_) => Selection::None,
                 }
             } else {
-                log::info!("data not yet loaded");
+                //log::info!("data not yet loaded");
                 Selection::None
             }
         } else {
-            log::info!("current_field_value is not set");
+            //log::info!("current_field_value is not set");
             Selection::None
         };
     }
@@ -109,7 +108,6 @@ TODO:
 - Only displayable if parent has an id. Relation can not be resolved otherwise
 - Load list of relatable entries
 - Display based on current view
-- Pass data events through global store...
 
 */
 

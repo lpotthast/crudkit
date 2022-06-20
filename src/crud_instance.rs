@@ -4,7 +4,11 @@ use crud_shared_types::{
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
-use yew::{html::{ChildrenRenderer, Scope}, prelude::*, virtual_dom::VChild};
+use yew::{
+    html::{ChildrenRenderer, Scope},
+    prelude::*,
+    virtual_dom::VChild,
+};
 use yewdux::prelude::*;
 
 use crate::{
@@ -269,8 +273,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
 
         let name = ctx.props().name.clone();
         let link = ctx.link().clone();
-        instance_links_dispatch
-            .reduce(|state| state.save(name, Some(link)));
+        instance_links_dispatch.reduce(|state| state.save(name, Some(link)));
 
         Self {
             instance_dispatch: Dispatch::subscribe(
@@ -295,7 +298,8 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
 
     fn destroy(&mut self, ctx: &Context<Self>) {
         let name = ctx.props().name.clone();
-        self.instance_links_dispatch.reduce(|state| state.save(name, None));
+        self.instance_links_dispatch
+            .reduce(|state| state.save(name, None));
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -342,12 +346,12 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                             true
                         }
                         None => {
-                            log::info!("no parent config");
+                            // log::info!("no parent config");
                             false
                         }
                     }
                 } else {
-                    log::info!("not nested");
+                    // log::info!("not nested");
                     false
                 }
             }
@@ -471,11 +475,17 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                 );
                 if let Some(link) = &self.create_view_link {
                     // TODO: pass value as Value not as String.
-                    link.send_message(<CrudCreateView<T> as Component>::Message::ValueChanged((field, value.to_string())));
+                    link.send_message(<CrudCreateView<T> as Component>::Message::ValueChanged((
+                        field,
+                        value.to_string(),
+                    )));
                     log::info!("Sent ValueChanged message to create view...");
                 } else if let Some(link) = &self.edit_view_link {
                     // TODO: pass value as Value not as String.
-                    link.send_message(<CrudEditView<T> as Component>::Message::ValueChanged((field, value.to_string())));
+                    link.send_message(<CrudEditView<T> as Component>::Message::ValueChanged((
+                        field,
+                        value.to_string(),
+                    )));
                     log::info!("Sent ValueChanged message to edit view...");
                 } else {
                     log::warn!("Could not forward SaveInput message, as neither a create view nor an edit view registered.");
@@ -485,11 +495,17 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
             Msg::GetInput((field, receiver)) => {
                 if let Some(link) = &self.create_view_link {
                     // TODO: pass value as Value not as String.
-                    link.send_message(<CrudCreateView<T> as Component>::Message::GetInput((field.clone(), receiver)));
+                    link.send_message(<CrudCreateView<T> as Component>::Message::GetInput((
+                        field.clone(),
+                        receiver,
+                    )));
                     log::info!("Sent GetInput message to create view...");
                 } else if let Some(link) = &self.edit_view_link {
                     // TODO: pass value as Value not as String.
-                    link.send_message(<CrudEditView<T> as Component>::Message::GetInput((field.clone(), receiver)));
+                    link.send_message(<CrudEditView<T> as Component>::Message::GetInput((
+                        field.clone(),
+                        receiver,
+                    )));
                     log::info!("Sent GetInput message to edit view...");
                 } else {
                     log::warn!("Could not forward GetInput message, as neither a create view nor an edit view registered.");
