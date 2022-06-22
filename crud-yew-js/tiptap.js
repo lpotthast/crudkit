@@ -6,7 +6,7 @@ function getEditor(id) {
 
 export function create(id, content, editable, onchange) {
   var editor = new window.TipTap.Editor({
-    element: document.querySelector('#' + id),
+    element: document.getElementById(id),
     editable: editable,
     extensions: [
       window.TipTapStarterKit,
