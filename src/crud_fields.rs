@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use yew::{prelude::*, html::ChildrenRenderer};
 
 pub enum Msg<T: CrudDataTrait> {
-    ValueChanged((T::FieldType, String)),
+    ValueChanged((T::FieldType, Value)),
 }
 
 #[derive(Properties, PartialEq)]
@@ -16,7 +16,7 @@ pub struct Props<T: CrudDataTrait> {
     pub entity: Option<T>,
     pub mode: FieldMode,
     pub current_view: CrudView,
-    pub value_changed: Callback<(T::FieldType, String)>,
+    pub value_changed: Callback<(T::FieldType, Value)>,
 }
 
 pub struct CrudFields<T> {
@@ -63,13 +63,13 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                 Enclosing::Tabs(tabs) => html! {
                                     <CrudTabs>
                                         {
-                                            for tabs.iter().map(|(tab_name, group)| {
+                                            for tabs.iter().map(|tab| {
                                                 html_nested! {
-                                                    <CrudTab name={tab_name.clone()}>
+                                                    <CrudTab label={tab.label.clone()}>
                                                         <CrudFields<T>
                                                             children={ctx.props().children.clone()}
                                                             api_base_url={ctx.props().api_base_url.clone()}
-                                                            elements={group.children.clone()}
+                                                            elements={tab.group.children.clone()}
                                                             entity={ctx.props().entity.clone()}
                                                             mode={ctx.props().mode.clone()}
                                                             current_view={ctx.props().current_view.clone()}

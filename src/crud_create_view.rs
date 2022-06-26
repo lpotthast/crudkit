@@ -12,7 +12,7 @@ pub enum Msg<T: CrudDataTrait> {
     Save,
     SaveAndReturn,
     SaveAndNew,
-    ValueChanged((T::FieldType, String)),
+    ValueChanged((T::FieldType, Value)),
     CreatedEntity(Result<Option<T>, RequestError>, Then),
     GetInput((T::FieldType, Box<dyn FnOnce(Value)>)),
 }
@@ -69,7 +69,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudCreateView<T> {
         if let Some(nested) = &ctx.props().config.nested {
             if let Some(parent_id) = ctx.props().parent_id {
                 T::get_field(nested.reference_field.as_str())
-                    .set_value(&mut entity, format!("{}", parent_id));
+                    .set_value(&mut entity, Value::U32(parent_id));
                 log::info!("successfully set parent id to reference field");
             } else {
                 log::error!("CrudInstance is configured to be a nested instance but no parent id was passed down!");

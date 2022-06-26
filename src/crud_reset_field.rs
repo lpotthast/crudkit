@@ -1,17 +1,17 @@
 use yew::prelude::*;
 
-use crate::Label;
-
-pub enum Msg {}
+pub enum Msg {
+}
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
-    pub label: Label,
+    pub children: Children,
+    pub name: String,
 }
 
-pub struct CrudFieldLabel {}
+pub struct CrudResetField {}
 
-impl Component for CrudFieldLabel {
+impl Component for CrudResetField {
     type Message = Msg;
     type Properties = Props;
 
@@ -25,9 +25,7 @@ impl Component for CrudFieldLabel {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
-            <span class={"crud-field-label"}>
-                {ctx.props().label.name.clone()}
-            </span>
+            { for ctx.props().children.iter() }
         }
     }
 }

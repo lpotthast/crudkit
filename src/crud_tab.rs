@@ -1,8 +1,10 @@
 use yew::prelude::*;
 
+use crate::Label;
+
 #[derive(Properties, PartialEq)]
 pub struct Props {
-    pub name: String,
+    pub label: Label,
     pub children: Children,
 }
 

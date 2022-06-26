@@ -112,6 +112,7 @@ impl<T: CrudDataTrait> CrudInstanceConfig<T> {
 pub enum Item {
     NestedInstance(VChild<CrudNestedInstance>),
     Relation(VChild<CrudRelation>),
+    Select(VChild<CrudResetField>),
 }
 
 // Now, we implement `Into<Html>` so that yew knows how to render `Item`.
@@ -121,6 +122,7 @@ impl Into<Html> for Item {
         match self {
             Item::NestedInstance(child) => child.into(),
             Item::Relation(child) => child.into(),
+            Item::Select(child) => child.into(),
         }
     }
 }
@@ -477,16 +479,16 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                     // TODO: pass value as Value not as String.
                     link.send_message(<CrudCreateView<T> as Component>::Message::ValueChanged((
                         field,
-                        value.to_string(),
+                        value,
                     )));
-                    log::info!("Sent ValueChanged message to create view...");
+                    //log::info!("Sent ValueChanged message to create view...");
                 } else if let Some(link) = &self.edit_view_link {
                     // TODO: pass value as Value not as String.
                     link.send_message(<CrudEditView<T> as Component>::Message::ValueChanged((
                         field,
-                        value.to_string(),
+                        value,
                     )));
-                    log::info!("Sent ValueChanged message to edit view...");
+                    //log::info!("Sent ValueChanged message to edit view...");
                 } else {
                     log::warn!("Could not forward SaveInput message, as neither a create view nor an edit view registered.");
                 }
@@ -499,14 +501,14 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                         field.clone(),
                         receiver,
                     )));
-                    log::info!("Sent GetInput message to create view...");
+                    //log::info!("Sent GetInput message to create view...");
                 } else if let Some(link) = &self.edit_view_link {
                     // TODO: pass value as Value not as String.
                     link.send_message(<CrudEditView<T> as Component>::Message::GetInput((
                         field.clone(),
                         receiver,
                     )));
-                    log::info!("Sent GetInput message to edit view...");
+                    //log::info!("Sent GetInput message to edit view...");
                 } else {
                     log::warn!("Could not forward GetInput message, as neither a create view nor an edit view registered.");
                 }

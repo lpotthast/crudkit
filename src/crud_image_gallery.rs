@@ -25,6 +25,7 @@ pub struct Props {
 
 pub struct CrudImageGallery {
     resources: Vec<FileResource>,
+    selected: Option<FileResource>,
 }
 
 impl Component for CrudImageGallery {
@@ -38,6 +39,7 @@ impl Component for CrudImageGallery {
         ctx.link().send_message(Msg::ListFiles);
         Self {
             resources: Vec::new(),
+            selected: None,
         }
     }
 
@@ -72,10 +74,11 @@ impl Component for CrudImageGallery {
                 true
             }
             Msg::Selected(resource) => {
+                self.selected = Some(resource.clone());
                 if let Some(on_select) = &ctx.props().on_select {
                     on_select.emit(resource);
                 }
-                false
+                true
             }
             Msg::Reload => {
                 ctx.link().send_message(Msg::ListFiles);
@@ -90,13 +93,20 @@ impl Component for CrudImageGallery {
                 {
                     self.resources.iter()
                         .map(|resource| {
+                            let is_selected = match &self.selected {
+                                Some(selected) => selected == resource,
+                                None => false,
+                            };
                             let cloned = resource.clone();
                             html! {
-                                <div class={"img-wrapper"}>
+                                <div
+                                    class={classes!("img-wrapper", is_selected.then(|| "selected"))}
+                                    onclick={ctx.link().callback(move |_| Msg::Selected(cloned.clone()))}
+                                >
                                     <img
                                         src={format!("{}/public/{}", ctx.props().api_base_url.clone(), urlencoding::encode(resource.name.as_str()))}
                                         alt={resource.name.clone()}
-                                        onclick={ctx.link().callback(move |_| Msg::Selected(cloned.clone()))}/>
+                                    />
                                     if ctx.props().show_file_names {
                                         <span>{resource.name.clone()}</span>
                                     }

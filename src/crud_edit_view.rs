@@ -20,8 +20,7 @@ pub enum Msg<T: CrudDataTrait> {
     SaveAndReturn,
     SaveAndNew,
     Delete,
-    // TODO: Why take String instead of Value?
-    ValueChanged((T::FieldType, String)),
+    ValueChanged((T::FieldType, Value)),
     GetInput((T::FieldType, Box<dyn FnOnce(Value)>)),
 }
 

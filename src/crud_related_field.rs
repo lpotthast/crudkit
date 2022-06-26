@@ -6,7 +6,6 @@ use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
 
 use crate::{
-    crud_instance::NestedConfig,
     services::crud_rest_data_provider::{CrudRestDataProvider, ReadMany},
     stores,
     types::RequestError,
@@ -21,11 +20,19 @@ pub enum Msg<P: 'static + CrudDataTrait, T: CrudDataTrait> {
     SelectionChanged(Selection<T>),
 }
 
+/// P: The parent entity
+/// T: The own entity
 #[derive(Properties, PartialEq)]
-pub struct Props<P: CrudDataTrait> {
+pub struct Props<P: CrudDataTrait, T: CrudDataTrait> {
     pub api_base_url: String,
-    pub nested: NestedConfig,
-    pub field: P::FieldType,
+    /// The name of the parent instance from which the referenced id should be loaded.
+    pub parent_instance: String,
+    /// The field of the parent, where another entry is reference.
+    pub parent_field: P::FieldType,
+    /// The field of the related entry whose value is stored in the parent. 
+    pub connect_field: T::FieldType,
+    /// The field in which the reference to the parent is store.
+    pub parent_reverse_field: T::FieldType,
 }
 
 pub struct CrudRelatedField<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> {
@@ -39,7 +46,7 @@ pub struct CrudRelatedField<P: 'static + CrudDataTrait, T: 'static + CrudDataTra
 }
 
 impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> CrudRelatedField<P, T> {
-    fn compute_selected(&mut self) {
+    fn compute_selected(&mut self, ctx: &Context<Self>) {
         self.selected = if let Some(value) = &self.current_field_value {
             let selected_ids = match value {
                 Value::String(_) => panic!("unsupported"),
@@ -47,11 +54,13 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> CrudRelatedField<P,
                 Value::U32(u32) => vec![*u32],
                 Value::Bool(_) => panic!("unsupported"),
                 Value::UtcDateTime(_) => panic!("unsupported"),
+                Value::OptionalUtcDateTime(_) => panic!("unsupported"),
                 Value::OneToOneRelation(some_u32) => match some_u32 {
                     Some(u32) => vec![*u32],
                     None => vec![],
                 },
                 Value::NestedTable(_) => panic!("unsupported"),
+                Value::Select(_) => panic!("unsupported"),
             };
             if let Some(data) = &self.data {
                 match data {
@@ -59,7 +68,7 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> CrudRelatedField<P,
                         let mut s = Vec::new();
                         for entity in data {
                             let ent_id =
-                                value_as_u32(&T::get_id_field().get_value(entity)).unwrap();
+                                value_as_u32(&ctx.props().connect_field.get_value(entity)).unwrap();
                             for selected_id in &selected_ids {
                                 if selected_id == &ent_id {
                                     s.push(entity.clone());
@@ -94,11 +103,13 @@ fn value_as_u32(value: &Value) -> Option<u32> {
         Value::U32(u32) => Some(*u32),
         Value::Bool(_) => panic!("unsupported"),
         Value::UtcDateTime(_) => panic!("unsupported"),
+        Value::OptionalUtcDateTime(_) => panic!("unsupported"),
         Value::OneToOneRelation(some_u32) => match some_u32 {
             Some(u32) => Some(*u32),
             None => None,
         },
         Value::NestedTable(_) => panic!("unsupported"),
+        Value::Select(_) => panic!("unsupported"),
     }
 }
 
@@ -113,7 +124,7 @@ TODO:
 
 impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> Component for CrudRelatedField<P, T> {
     type Message = Msg<P, T>;
-    type Properties = Props<P>;
+    type Properties = Props<P, T>;
 
     fn create(ctx: &Context<Self>) -> Self {
         Self {
@@ -134,16 +145,16 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> Component for CrudR
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::ParentInstanceLinksStoreUpdated(store) => {
-                self.parent = store.get(ctx.props().nested.parent_instance.as_str());
+                self.parent = store.get(ctx.props().parent_instance.as_str());
 
-                // Whenever out parent changes, we need to fetch the current value for this field.
+                // Whenever our parent changes, we need to fetch the current value for this field.
                 if let Some(parent) = &self.parent {
                     let link = ctx.link().clone();
                     let receiver: Box<dyn FnOnce(Value)> = Box::new(move |value| {
                         link.send_message(Msg::CurrentValue(value));
                     });
                     parent.send_message(<CrudInstance<P> as Component>::Message::GetInput((
-                        ctx.props().field.clone(),
+                        ctx.props().parent_field.clone(),
                         receiver,
                     )));
                 }
@@ -151,7 +162,7 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> Component for CrudR
             }
             Msg::InstanceViewsStoreUpdated(store) => {
                 // TODO: Do we really need to store this?
-                match store.get(ctx.props().nested.parent_instance.as_str()) {
+                match store.get(ctx.props().parent_instance.as_str()) {
                     Some(parent_view) => match parent_view {
                         crate::CrudView::List | crate::CrudView::Create => {
                             log::warn!("Cannot show this field in List or Create view...");
@@ -161,7 +172,7 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> Component for CrudR
                                 CrudRestDataProvider::new(ctx.props().api_base_url.clone());
                             data_provider.set_base_condition(Some(Condition::All(vec![
                                 ConditionElement::Clause(ConditionClause {
-                                    column_name: ctx.props().nested.reference_field.clone(),
+                                    column_name: ctx.props().parent_reverse_field.get_name().to_owned(),
                                     operator: crud_shared_types::Operator::Equal,
                                     value: ConditionClauseValue::U32(id),
                                 }),
@@ -186,14 +197,14 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> Component for CrudR
                 false
             }
             Msg::CurrentValue(value) => {
-                log::info!("Received current value: {:?}", value);
+                //log::info!("Received current value: {:?}", value);
                 self.current_field_value = Some(value);
-                self.compute_selected();
+                self.compute_selected(ctx);
                 true
             }
             Msg::LoadedData(result) => {
                 self.data = Some(result);
-                self.compute_selected();
+                self.compute_selected(ctx);
                 true
             }
             Msg::SelectionChanged(selected) => {
@@ -203,8 +214,7 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> Component for CrudR
                         let value = match selected {
                             Selection::None => Value::OneToOneRelation(None),
                             Selection::Single(entity) => {
-                                T::get_field(ctx.props().nested.parent_field.as_str())
-                                    .get_value(&entity)
+                                ctx.props().connect_field.get_value(&entity)
                             }
                             Selection::Multiple(_entities) => {
                                 log::warn!("TODO: needs implementation...");
@@ -213,7 +223,7 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> Component for CrudR
                         };
 
                         link.send_message(<CrudInstance<P> as Component>::Message::SaveInput((
-                            ctx.props().field.clone(),
+                            ctx.props().parent_field.clone(),
                             value,
                         )));
                     }

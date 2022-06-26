@@ -1,6 +1,10 @@
 use chrono_utc_date_time::prelude::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{fmt::Debug, hash::Hash};
+use std::{
+    any::Any,
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 use types::RequestError;
 use yew::{classes, Classes};
 use yewbi::Bi;
@@ -30,8 +34,10 @@ pub mod crud_progress_bar;
 pub mod crud_read_view;
 pub mod crud_related_field;
 pub mod crud_relation;
+pub mod crud_reset_field;
 pub mod crud_safe_html;
 pub mod crud_select;
+pub mod crud_select_field;
 pub mod crud_separator;
 pub mod crud_slider;
 pub mod crud_tab;
@@ -80,8 +86,10 @@ pub mod prelude {
     pub use super::crud_read_view::CrudReadView;
     pub use super::crud_related_field::CrudRelatedField;
     pub use super::crud_relation::CrudRelation;
+    pub use super::crud_reset_field::CrudResetField;
     pub use super::crud_safe_html::CrudSafeHtml;
     pub use super::crud_select::CrudSelect;
+    pub use super::crud_select_field::CrudSelectField;
     pub use super::crud_separator::CrudSeparator;
     pub use super::crud_slider::CrudSlider;
     pub use super::crud_tab::CrudTab;
@@ -101,6 +109,7 @@ pub mod prelude {
     pub use super::CrudFieldValueTrait;
     pub use super::CrudIdTrait;
     pub use super::CrudResourceTrait;
+    pub use super::CrudSelectableTrait;
     pub use super::CrudView;
     pub use super::Elem;
     pub use super::Enclosing;
@@ -108,9 +117,11 @@ pub mod prelude {
     pub use super::FieldOptions;
     pub use super::Group;
     pub use super::HeaderOptions;
+    pub use super::Label;
     pub use super::Layout;
     pub use super::NoData;
     pub use super::OrderByUpdateOptions;
+    pub use super::Tab;
     pub use super::Value;
     pub use super::Variant;
 }
@@ -190,15 +201,21 @@ pub trait CrudResourceTrait {
         Self: Sized;
 }
 
-#[derive(Debug, Clone)]
+pub trait CrudSelectableTrait: Debug + Display {
+    fn as_any(&self) -> &dyn Any;
+}
+
+#[derive(Debug)]
 pub enum Value {
     String(String),
     Text(String),
     U32(u32),
     Bool(bool),
     UtcDateTime(UtcDateTime),
+    OptionalUtcDateTime(Option<UtcDateTime>),
     OneToOneRelation(Option<u32>),
     NestedTable(u32),
+    Select(Option<Box<dyn CrudSelectableTrait>>),
 }
 
 impl Value {
@@ -209,18 +226,27 @@ impl Value {
             Value::U32(u32) => u32.to_string(),
             Value::Bool(bool) => bool.to_string(),
             Value::UtcDateTime(utc_date_time) => utc_date_time.to_rfc3339(),
+            Value::OptionalUtcDateTime(optional_utc_date_time) => match optional_utc_date_time {
+                Some(utc_date_time) => utc_date_time.to_rfc3339(),
+                None => "".to_owned(),
+            },
             Value::OneToOneRelation(option_u32) => match option_u32 {
                 Some(u32) => u32.to_string(),
                 None => "".to_owned(),
             },
             Value::NestedTable(u32) => u32.to_string(),
+            Value::Select(optional_value) => match optional_value {
+                Some(value) => value.to_string(),
+                None => "NULL".to_owned(),
+            },
         }
     }
 }
 
 pub trait CrudFieldValueTrait<T> {
+    fn get_name(&self) -> &'static str;
     fn get_value(&self, entity: &T) -> Value;
-    fn set_value(&self, entity: &mut T, value: String);
+    fn set_value(&self, entity: &mut T, value: Value);
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -258,9 +284,20 @@ pub enum DateTimeDisplay {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Label {
+    name: String,
+}
+
+impl Label {
+    pub fn new<S: Into<String>>(name: S) -> Self {
+        Self { name: name.into() }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FieldOptions {
     pub disabled: bool,
-    pub label: String,
+    pub label: Option<Label>,
     pub date_time_display: DateTimeDisplay,
     //validations: Vec<u32>,
 }
@@ -414,11 +451,18 @@ pub enum Elem<T: CrudDataTrait> {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Tab<T: CrudDataTrait> {
+    pub label: Label,
+    #[serde(bound = "")]
+    pub group: Group<T>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Enclosing<T: CrudDataTrait> {
     #[serde(bound = "")]
     None(Group<T>),
     #[serde(bound = "")]
-    Tabs(Vec<(String, Group<T>)>),
+    Tabs(Vec<Tab<T>>),
     #[serde(bound = "")]
     Card(Group<T>),
 }

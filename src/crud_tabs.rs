@@ -1,36 +1,38 @@
 use yew::prelude::*;
 
+use crate::Label;
+
 use super::prelude::CrudTab;
 
 pub enum Msg {
-    TabSelected(String),
+    TabSelected(Label),
 }
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
     #[prop_or_default]
-    pub active_tab_name: Option<String>,
+    pub active_tab_name: Option<Label>,
     pub children: ChildrenWithProps<CrudTab>,
 }
 
 pub struct CrudTabs {
-    pub active_tab: Option<String>,
+    pub active_tab: Option<Label>,
 }
 
 impl CrudTabs {
-    fn compute_active_tab_name(ctx: &Context<Self>) -> Option<String> {
+    fn compute_active_tab_label(ctx: &Context<Self>) -> Option<Label> {
         ctx.props()
             .active_tab_name
             .clone()
-            .or_else(|| CrudTabs::get_first_tab_name(ctx))
+            .or_else(|| CrudTabs::get_first_tab_label(ctx))
     }
 
-    fn get_first_tab_name(ctx: &Context<Self>) -> Option<String> {
+    fn get_first_tab_label(ctx: &Context<Self>) -> Option<Label> {
         ctx.props()
             .children
             .iter()
             .next()
-            .map(|tab| tab.props.name.clone())
+            .map(|tab| tab.props.label.clone())
     }
 }
 
@@ -40,21 +42,21 @@ impl Component for CrudTabs {
 
     fn create(ctx: &Context<Self>) -> Self {
         Self {
-            active_tab: CrudTabs::compute_active_tab_name(ctx),
+            active_tab: CrudTabs::compute_active_tab_label(ctx),
         }
     }
 
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::TabSelected(tab_name) => {
-                self.active_tab = Some(tab_name);
+            Msg::TabSelected(tab_label) => {
+                self.active_tab = Some(tab_label);
                 true
             }
         }
     }
 
     fn changed(&mut self, ctx: &Context<Self>) -> bool {
-        self.active_tab = CrudTabs::compute_active_tab_name(ctx);
+        self.active_tab = CrudTabs::compute_active_tab_label(ctx);
         true
     }
 
@@ -63,16 +65,16 @@ impl Component for CrudTabs {
             <div class={"crud-tabs"}>
                 <div class={"crud-tab-selectors"}>
                     {
-                        for ctx.props().children.iter().map(|tab| tab.props.name.clone()).map(|tab_name| {
-                            let tab_clone = tab_name.clone();
+                        for ctx.props().children.iter().map(|tab| tab.props.label.clone()).map(|tab_label| {
+                            let tab_clone = tab_label.clone();
                             let is_active = match &self.active_tab {
-                                Some(active_tab_name) => active_tab_name == &tab_name,
+                                Some(active_tab_label) => active_tab_label == &tab_label,
                                 None => false,
                             };
                             html! {
                                 <div class={classes!("crud-tab-selector", is_active.then(|| "active"))} 
                                      onclick={ctx.link().callback(move |_| Msg::TabSelected(tab_clone.clone()))}>
-                                    {tab_name.clone()}
+                                    {tab_label.name.clone()}
                                 </div>
                             }
                         })
@@ -80,8 +82,8 @@ impl Component for CrudTabs {
                 </div>
                 {
                     match &self.active_tab {
-                        Some(active_tab_name) => html! {
-                            for ctx.props().children.iter().filter(|tab| &tab.props.name == active_tab_name)
+                        Some(active_tab_label) => html! {
+                            for ctx.props().children.iter().filter(|tab| &tab.props.label == active_tab_label)
                         },
                         None => html! {
                             <div>{"No tab selected..."}</div>

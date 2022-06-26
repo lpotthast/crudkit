@@ -23,7 +23,7 @@ pub struct Props<T: CrudDataTrait> {
     pub field_options: FieldOptions,
     pub field_mode: FieldMode,
     pub entity: Option<T>,
-    pub value_changed: Callback<(T::FieldType, String)>, // how can we handle all possible types? serialization?
+    pub value_changed: Callback<(T::FieldType, Value)>, // how can we handle all possible types? serialization?
 }
 
 pub struct CrudField<T> {
@@ -65,25 +65,25 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::KeyUp(event) => {
-                match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
-                    Ok(input) => {
-                        ctx.props()
-                            .value_changed
-                            .emit((ctx.props().field_type.clone(), input.value()));
-                        false
-                    }
-                    Err(err) => {
-                        log::error!("Could not get input value: {}", err);
-                        false
-                    }
+            // Store the current input value at every keystroke.
+            Msg::KeyUp(event) => match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
+                Ok(input) => {
+                    ctx.props()
+                        .value_changed
+                        .emit((ctx.props().field_type.clone(), Value::String(input.value())));
+                    false
+                }
+                Err(err) => {
+                    log::error!("Could not get input value: {}", err);
+                    false
                 }
             }
+            // Store the current input on every input-change event.
             Msg::InputChanged(event) => match event_target_as::<web_sys::HtmlInputElement>(event) {
                 Ok(input) => {
                     ctx.props()
                         .value_changed
-                        .emit((ctx.props().field_type.clone(), input.value()));
+                        .emit((ctx.props().field_type.clone(), Value::String(input.value())));
                     false
                 }
                 Err(err) => {
@@ -94,13 +94,13 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
             Msg::TextInputChanged(text) => {
                 ctx.props()
                     .value_changed
-                    .emit((ctx.props().field_type.clone(), text));
+                    .emit((ctx.props().field_type.clone(), Value::String(text)));
                 false
             },
             Msg::BoolChanged(value) => {
                 ctx.props()
                     .value_changed
-                    .emit((ctx.props().field_type.clone(), format!("{}", value)));
+                    .emit((ctx.props().field_type.clone(), Value::Bool(value)));
                 false
             }
         }
@@ -116,22 +116,28 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            <CrudFieldLabel label={options.label.clone()} />
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
                             { ctx.props().children.iter().filter(|child| {
                                 match child {
                                     Item::NestedInstance(_) => false,
-                                    Item::Relation(related_field) => related_field.props.name == options.label,
+                                    Item::Relation(related_field) => related_field.props.name == ctx.props().field_type.get_name(),
+                                    Item::Select(_) => false,
                                 }
                             }).collect::<Html>() }
                         </div>
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            <CrudFieldLabel label={options.label.clone()} />
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
                             { ctx.props().children.iter().filter(|child| {
                                 match child {
                                     Item::NestedInstance(_) => false,
-                                    Item::Relation(related_field) => related_field.props.name == options.label,
+                                    Item::Relation(related_field) => related_field.props.name == ctx.props().field_type.get_name(),
+                                    Item::Select(_) => false,
                                 }
                             }).collect::<Html>() }
                         </div>
@@ -144,7 +150,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         },
                         CrudView::Create => html! {
                             <>
-                                <CrudFieldLabel label={options.label.clone()} />
+                                if let Some(label) = &options.label {
+                                    <CrudFieldLabel label={label.clone()} />
+                                }
                                 <div>{"Diese Informationen können erst bearbeitet werden, nachdem der Eintrag gespeichert wurde."}</div>
                             </>
                         },
@@ -154,22 +162,28 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                             },
                             FieldMode::Readable => html! {
                                 <div class="crud-field">
-                                    <CrudFieldLabel label={options.label.clone()} />
+                                    if let Some(label) = &options.label {
+                                        <CrudFieldLabel label={label.clone()} />
+                                    }
                                     { ctx.props().children.iter().filter(|child| {
                                         match child {
-                                            Item::NestedInstance(nested_instance) => nested_instance.props.name == options.label,
+                                            Item::NestedInstance(nested_instance) => nested_instance.props.name == ctx.props().field_type.get_name(),
                                             Item::Relation(_) => false,
+                                            Item::Select(_) => false,
                                         }
                                     }).collect::<Html>() }
                                 </div>
                             },
                             FieldMode::Editable => html! {
                                 <div class="crud-field">
-                                    <CrudFieldLabel label={options.label.clone()} />
+                                    if let Some(label) = &options.label {
+                                        <CrudFieldLabel label={label.clone()} />
+                                    }
                                     { ctx.props().children.iter().filter(|child| {
                                         match child {
-                                            Item::NestedInstance(nested_instance) => nested_instance.props.name == options.label,
+                                            Item::NestedInstance(nested_instance) => nested_instance.props.name == ctx.props().field_type.get_name(),
                                             Item::Relation(_) => false,
+                                            Item::Select(_) => false,
                                         }
                                     }).collect::<Html>() }
                                 </div>
@@ -183,7 +197,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            <CrudFieldLabel label={options.label.clone()} />
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
@@ -195,7 +211,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            <CrudFieldLabel label={options.label.clone()} />
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
@@ -214,7 +232,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            <CrudFieldLabel label={options.label.clone()} />
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
                             <CrudTipTapEditor 
                                 api_base_url={ctx.props().api_base_url.clone()}
                                 id={self.format_id()}
@@ -226,7 +246,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            <CrudFieldLabel label={options.label.clone()} />
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
                             <CrudTipTapEditor 
                                 api_base_url={ctx.props().api_base_url.clone()}
                                 id={self.format_id()}
@@ -244,7 +266,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            <CrudFieldLabel label={options.label.clone()} />
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
@@ -256,7 +280,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            <CrudFieldLabel label={options.label.clone()} />
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
@@ -275,7 +301,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            <CrudFieldLabel label={options.label.clone()} />
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
                             <div id={self.format_id()} class={"crud-input-field"}>
                                 <CrudToggle
                                     state={value}
@@ -286,7 +314,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            <CrudFieldLabel label={options.label.clone()} />
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
                             <div id={self.format_id()} class={"crud-input-field"}>
                                 <CrudToggle
                                     state={value}
@@ -308,7 +338,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            <CrudFieldLabel label={options.label.clone()} />
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
@@ -320,7 +352,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            <CrudFieldLabel label={options.label.clone()} />
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
@@ -330,6 +364,96 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                                 onchange={ctx.link().callback(Msg::InputChanged)}
                                 disabled={options.disabled}
                             />
+                        </div>
+                    },
+                },
+                Value::OptionalUtcDateTime(optional_date_time) => match &ctx.props().field_mode {
+                    FieldMode::Display => match options.date_time_display {
+                        DateTimeDisplay::IsoUtc => match optional_date_time {
+                            Some(date_time) => html! {
+                                <div>{date_time.to_rfc3339()}</div>
+                            },
+                            None => html! {
+                                <div>{"NULL"}</div>
+                            },
+                        },
+                        DateTimeDisplay::LocalizedLocal => match optional_date_time {
+                            Some(date_time) => html! {
+                                <div>{date_time.format_local("%d.%m.%Y %H:%M")}</div>
+                            },
+                            None => html! {
+                                <div>{"NULL"}</div>
+                            },
+                        },
+                    },
+                    FieldMode::Readable => html! {
+                        <div class="crud-field">
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
+                            <input
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                type={"text"}
+                                value={match optional_date_time {
+                                    Some(date_time) => date_time.to_rfc3339(),
+                                    None => "NULL".to_owned(),
+                                }}
+                                disabled={true}
+                            />
+                        </div>
+                    },
+                    FieldMode::Editable => html! {
+                        <div class="crud-field">
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
+                            <input
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                type={"text"}
+                                value={match optional_date_time {
+                                    Some(date_time) => date_time.to_rfc3339(),
+                                    None => "NULL".to_owned(),
+                                }}
+                                onkeyup={ctx.link().callback(Msg::KeyUp)}
+                                onchange={ctx.link().callback(Msg::InputChanged)}
+                                disabled={options.disabled}
+                            />
+                        </div>
+                    },
+                },
+                Value::Select(optional_value) => match &ctx.props().field_mode {
+                    FieldMode::Display => match optional_value {
+                        Some(value) => html! { format!("{:?}", value) },
+                        None => html! {"NULL"},
+                    },
+                    FieldMode::Readable => html! {
+                        <div class="crud-field">
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
+                            { ctx.props().children.iter().filter(|child| {
+                                match child {
+                                    Item::NestedInstance(_) => false,
+                                    Item::Relation(_) => false,
+                                    Item::Select(select) => select.props.name == ctx.props().field_type.get_name(),
+                                }
+                            }).collect::<Html>() }
+                        </div>
+                    },
+                    FieldMode::Editable => html! {
+                        <div class="crud-field">
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
+                            { ctx.props().children.iter().filter(|child| {
+                                match child {
+                                    Item::NestedInstance(_) => false,
+                                    Item::Relation(_) => false,
+                                    Item::Select(select) => select.props.name == ctx.props().field_type.get_name(),
+                                }
+                            }).collect::<Html>() }
                         </div>
                     },
                 },

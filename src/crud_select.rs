@@ -1,8 +1,8 @@
 use yew::prelude::*;
 
-use crate::CrudDataTrait;
+use std::fmt::Debug;
 
-pub enum Msg<T: CrudDataTrait> {
+pub enum Msg<T> {
     ToggleOptionsMenu,
     OptionSelected(T),
 }
@@ -15,7 +15,7 @@ pub enum Selection<T> {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct Props<T: CrudDataTrait> {
+pub struct Props<T: Debug + Clone + PartialEq> {
     pub options: Vec<T>,
     pub selected: Selection<T>,
     #[prop_or(true)]
@@ -23,12 +23,12 @@ pub struct Props<T: CrudDataTrait> {
     pub selection_changed: Callback<Selection<T>>,
 }
 
-pub struct CrudSelect<T> {
+pub struct CrudSelect<T: Debug + Clone + PartialEq> {
     show_options: bool,
     selected: Selection<T>,
 }
 
-impl<T: 'static + CrudDataTrait> Component for CrudSelect<T> {
+impl<T: 'static + Debug + Clone + PartialEq> Component for CrudSelect<T> {
     type Message = Msg<T>;
     type Properties = Props<T>;
 
@@ -37,6 +37,11 @@ impl<T: 'static + CrudDataTrait> Component for CrudSelect<T> {
             show_options: false,
             selected: ctx.props().selected.clone(),
         }
+    }
+    
+    fn changed(&mut self, ctx: &Context<Self>) -> bool {
+        self.selected = ctx.props().selected.clone();
+        true
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
