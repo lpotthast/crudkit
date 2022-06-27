@@ -53,7 +53,6 @@ impl Component for CrudTipTapEditor {
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Changed(text) => {
-                log::info!("text: {}", text);
                 if let Some(onchange) = &ctx.props().onchange {
                     onchange.emit(text);
                 }
