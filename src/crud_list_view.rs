@@ -157,7 +157,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudListView<T> {
                 <div class={"crud-row crud-nav"}>
                     <div class={"crud-col"}>
                         <CrudBtnWrapper>
-                            <CrudBtn name={""} variant={Variant::Success} icon={Bi::Plus} onclick={ctx.link().callback(|_| Msg::Create)}>
+                            <CrudBtn name={""} variant={Variant::Success} icon={Bi::PlusCircle} onclick={ctx.link().callback(|_| Msg::Create)}>
                                 <CrudBtnName>
                                     <span style="text-decoration: underline">{"N"}</span>{"eu"}
                                 </CrudBtnName>

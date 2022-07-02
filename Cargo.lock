@@ -162,11 +162,12 @@ dependencies = [
 name = "crud-yew"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "chrono-utc-date-time",
  "crud-shared-types",
  "derive_more",
  "dotenv_codegen",
- "gloo",
+ "gloo 0.8.0",
  "indexmap",
  "js-sys",
  "lazy_static",
@@ -382,7 +383,26 @@ dependencies = [
  "gloo-storage",
  "gloo-timers",
  "gloo-utils",
- "gloo-worker",
+ "gloo-worker 0.1.0",
+]
+
+[[package]]
+name = "gloo"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a4bef6b277b3ab073253d4bca60761240cf8d6998f4bd142211957b69a61b20"
+dependencies = [
+ "gloo-console",
+ "gloo-dialogs",
+ "gloo-events",
+ "gloo-file",
+ "gloo-history",
+ "gloo-net",
+ "gloo-render",
+ "gloo-storage",
+ "gloo-timers",
+ "gloo-utils",
+ "gloo-worker 0.2.0",
 ]
 
 [[package]]
@@ -528,6 +548,23 @@ dependencies = [
  "serde",
  "slab",
  "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "gloo-worker"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9caac1b89bbe1e1454bb23e4d046a3fc92438ae2e95fb429c41685789e1fcbaa"
+dependencies = [
+ "anymap2",
+ "bincode",
+ "gloo-console",
+ "gloo-utils",
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 
@@ -1700,7 +1737,7 @@ version = "0.19.3"
 source = "git+https://github.com/yewstack/yew#653aa542b37459436d0a9a2e5e28e2e614497d96"
 dependencies = [
  "console_error_panic_hook",
- "gloo",
+ "gloo 0.7.0",
  "gloo-utils",
  "indexmap",
  "js-sys",
@@ -1733,7 +1770,7 @@ name = "yew-router"
 version = "0.16.0"
 source = "git+https://github.com/yewstack/yew#653aa542b37459436d0a9a2e5e28e2e614497d96"
 dependencies = [
- "gloo",
+ "gloo 0.7.0",
  "js-sys",
  "route-recognizer",
  "serde",
@@ -1756,7 +1793,7 @@ dependencies = [
 
 [[package]]
 name = "yewbi"
-version = "0.1.0"
+version = "1.8.3"
 dependencies = [
  "yew",
 ]

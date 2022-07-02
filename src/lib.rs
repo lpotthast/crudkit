@@ -1,12 +1,14 @@
 use chrono_utc_date_time::prelude::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use wasm_bindgen::JsCast;
+use web_sys::KeyboardEvent;
 use std::{
     any::Any,
     fmt::{Debug, Display},
     hash::Hash,
 };
 use types::RequestError;
-use yew::{classes, Classes};
+use yew::prelude::*;
 use yewbi::Bi;
 
 pub mod crud_btn;
@@ -15,6 +17,9 @@ pub mod crud_btn_name;
 pub mod crud_btn_wrapper;
 pub mod crud_collapsible;
 pub mod crud_create_view;
+pub mod crud_datetime;
+pub mod crud_datetime_date_selector;
+pub mod crud_datetime_time_selector;
 pub mod crud_delete_modal;
 pub mod crud_edit_view;
 pub mod crud_field;
@@ -31,6 +36,7 @@ pub mod crud_modal_host;
 pub mod crud_nested_instance;
 pub mod crud_pagination;
 pub mod crud_progress_bar;
+pub mod crud_quicksearch;
 pub mod crud_read_view;
 pub mod crud_related_field;
 pub mod crud_relation;
@@ -66,6 +72,9 @@ pub mod prelude {
     pub use super::crud_btn_wrapper::CrudBtnWrapper;
     pub use super::crud_collapsible::CrudCollapsible;
     pub use super::crud_create_view::CrudCreateView;
+    pub use super::crud_datetime::CrudDatetime;
+    pub use super::crud_datetime_date_selector::CrudDatetimeDateSelector;
+    pub use super::crud_datetime_time_selector::CrudDatetimeTimeSelector;
     pub use super::crud_delete_modal::CrudDeleteModal;
     pub use super::crud_edit_view::CrudEditView;
     pub use super::crud_field::CrudField;
@@ -83,6 +92,8 @@ pub mod prelude {
     pub use super::crud_nested_instance::CrudNestedInstance;
     pub use super::crud_pagination::CrudPagination;
     pub use super::crud_progress_bar::CrudProgressBar;
+    pub use super::crud_quicksearch::CrudQuickSearch;
+    pub use super::crud_quicksearch::CrudQuickSearchOption;
     pub use super::crud_read_view::CrudReadView;
     pub use super::crud_related_field::CrudRelatedField;
     pub use super::crud_relation::CrudRelation;
@@ -487,4 +498,26 @@ pub struct Group<T: CrudDataTrait> {
     // serde bound used as described in: https://github.com/serde-rs/serde/issues/1296
     #[serde(bound = "")]
     pub children: Vec<Elem<T>>,
+}
+
+pub fn event_target_as<T: JsCast>(event: Event) -> Result<T, String> {
+    event
+        .target()
+        .ok_or_else(|| format!("Unable to obtain target from event: {:?}", event))
+        .and_then(|event_target| {
+            event_target
+                .dyn_into::<T>()
+                .map_err(|err| format!("Unable to cast event_target to T: {:?}", err.to_string()))
+        })
+}
+
+pub fn keyboard_event_target_as<T: JsCast>(event: KeyboardEvent) -> Result<T, String> {
+    event
+        .target()
+        .ok_or_else(|| format!("Unable to obtain target from event: {:?}", event))
+        .and_then(|event_target| {
+            event_target
+                .dyn_into::<T>()
+                .map_err(|err| format!("Unable to cast event_target to T: {:?}", err.to_string()))
+        })
 }

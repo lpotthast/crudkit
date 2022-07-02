@@ -1,8 +1,9 @@
 use std::marker::PhantomData;
 
-use crate::{crud_instance::Item, DateTimeDisplay};
+use crate::{crud_instance::Item, DateTimeDisplay, keyboard_event_target_as, event_target_as};
 
 use super::prelude::*;
+use chrono_utc_date_time::UtcDateTime;
 use uuid::Uuid;
 use wasm_bindgen::JsCast;
 use yew::{prelude::*, html::ChildrenRenderer};
@@ -11,6 +12,8 @@ pub enum Msg {
     KeyUp(KeyboardEvent),
     InputChanged(Event),
     TextInputChanged(String),
+    DatetimeInputChanged(UtcDateTime),
+    OptionalDatetimeInputChanged(Option<UtcDateTime>),
     BoolChanged(bool),
 }
 
@@ -95,6 +98,18 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                 ctx.props()
                     .value_changed
                     .emit((ctx.props().field_type.clone(), Value::String(text)));
+                false
+            },
+            Msg::DatetimeInputChanged(datetime) => {
+                ctx.props()
+                    .value_changed
+                    .emit((ctx.props().field_type.clone(), Value::UtcDateTime(datetime)));
+                false
+            },
+            Msg::OptionalDatetimeInputChanged(datetime) => {
+                ctx.props()
+                    .value_changed
+                    .emit((ctx.props().field_type.clone(), Value::OptionalUtcDateTime(datetime)));
                 false
             },
             Msg::BoolChanged(value) => {
@@ -341,11 +356,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                             if let Some(label) = &options.label {
                                 <CrudFieldLabel label={label.clone()} />
                             }
-                            <input
+                            <CrudDatetime
                                 id={self.format_id()}
-                                class={"crud-input-field"}
-                                type={"text"}
-                                value={date_time.to_rfc3339()}
+                                value={date_time.clone()}
                                 disabled={true}
                             />
                         </div>
@@ -355,13 +368,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                             if let Some(label) = &options.label {
                                 <CrudFieldLabel label={label.clone()} />
                             }
-                            <input
+                            <CrudDatetime
                                 id={self.format_id()}
-                                class={"crud-input-field"}
-                                type={"text"}
-                                value={date_time.to_rfc3339()}
-                                onkeyup={ctx.link().callback(Msg::KeyUp)}
-                                onchange={ctx.link().callback(Msg::InputChanged)}
+                                value={date_time.clone()}
+                                onchange={ctx.link().callback(|datetime: Option<UtcDateTime>| Msg::DatetimeInputChanged(datetime.unwrap()))}
                                 disabled={options.disabled}
                             />
                         </div>
@@ -374,7 +384,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                                 <div>{date_time.to_rfc3339()}</div>
                             },
                             None => html! {
-                                <div>{"NULL"}</div>
+                                <div>{""}</div>
                             },
                         },
                         DateTimeDisplay::LocalizedLocal => match optional_date_time {
@@ -382,7 +392,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                                 <div>{date_time.format_local("%d.%m.%Y %H:%M")}</div>
                             },
                             None => html! {
-                                <div>{"NULL"}</div>
+                                <div>{""}</div>
                             },
                         },
                     },
@@ -391,14 +401,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                             if let Some(label) = &options.label {
                                 <CrudFieldLabel label={label.clone()} />
                             }
-                            <input
+                            <CrudDatetime
                                 id={self.format_id()}
-                                class={"crud-input-field"}
-                                type={"text"}
-                                value={match optional_date_time {
-                                    Some(date_time) => date_time.to_rfc3339(),
-                                    None => "NULL".to_owned(),
-                                }}
+                                value={optional_date_time.clone()}
                                 disabled={true}
                             />
                         </div>
@@ -408,16 +413,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                             if let Some(label) = &options.label {
                                 <CrudFieldLabel label={label.clone()} />
                             }
-                            <input
+                            <CrudDatetime
                                 id={self.format_id()}
-                                class={"crud-input-field"}
-                                type={"text"}
-                                value={match optional_date_time {
-                                    Some(date_time) => date_time.to_rfc3339(),
-                                    None => "NULL".to_owned(),
-                                }}
-                                onkeyup={ctx.link().callback(Msg::KeyUp)}
-                                onchange={ctx.link().callback(Msg::InputChanged)}
+                                value={optional_date_time.clone()}
+                                onchange={ctx.link().callback(Msg::OptionalDatetimeInputChanged)}
                                 disabled={options.disabled}
                             />
                         </div>
@@ -460,26 +459,4 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
             }
         }
     }
-}
-
-fn event_target_as<T: JsCast>(event: Event) -> Result<T, String> {
-    event
-        .target()
-        .ok_or_else(|| format!("Unable to obtain target from event: {:?}", event))
-        .and_then(|event_target| {
-            event_target
-                .dyn_into::<T>()
-                .map_err(|err| format!("Unable to cast event_target to T: {:?}", err.to_string()))
-        })
-}
-
-fn keyboard_event_target_as<T: JsCast>(event: KeyboardEvent) -> Result<T, String> {
-    event
-        .target()
-        .ok_or_else(|| format!("Unable to obtain target from event: {:?}", event))
-        .and_then(|event_target| {
-            event_target
-                .dyn_into::<T>()
-                .map_err(|err| format!("Unable to cast event_target to T: {:?}", err.to_string()))
-        })
 }

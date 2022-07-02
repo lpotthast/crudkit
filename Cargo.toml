@@ -22,6 +22,7 @@ serde_json = "1.0.81"
 web-sys = { version = "0.3.58", features = [
     "Document",
     "Element",
+    "HtmlElement",
     "HtmlInputElement",
     "DomTokenList",
     "Event",
@@ -32,7 +33,7 @@ wasm-bindgen = "0.2.81"
 wasm-bindgen-futures = "0.4.31"
 indexmap = { version = "1.9.0", features = ["serde"] }
 js-sys = "0.3.58"
-gloo = "0.7.0"
+gloo = "0.8.0"
 reqwest = { version = "0.11.11", features = ["json", "multipart"] }
 uuid = { version = "1.1.2", features = ["js", "v4"], default-features = false }
 lazy_static = "1.4.0"
@@ -41,3 +42,6 @@ dotenv_codegen = "0.15.0"
 thiserror = "1.0.31"
 urlencoding = "2.1.0"
 derive_more = "0.99.17"
+
+# Only used in crud-datetime
+chrono = "0.4.19"

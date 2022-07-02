@@ -152,44 +152,6 @@ pub fn set_image(id: String, src: String, alt: String, title: String) {
 }
 
 pub fn get_state(id: String) -> State {
-    let x: State = js::getState(id).into_serde().unwrap();
-    x
+    let state: State = js::getState(id).into_serde().unwrap();
+    state
 }
-
-//pub fn get_state(id: String) -> Result<State, String> {
-//    let js_value = js::getState(id);
-//
-//    let iterator = js_sys::try_iter(&js_value)
-//        .map_err(|err| format!("Unable to iterate over JsValue: {:?}", err))?
-//        .ok_or_else(|| "need to pass iterable JS values!")?;
-//
-//    for x in iterator {
-//        // If the iterator's `next` method throws an error, propagate it
-//        // up to the caller.
-//        let x = x.map_err(|err| format!("Key was not iterable: {:?}", err))?;
-//
-//        // If `x` is a number, add it to our array of numbers!
-//        if x.as_f64().is_some() {
-//            nums.push(&x);
-//        }
-//    }
-//
-//    State {
-//        h1: false,
-//        h2: false,
-//        h3: false,
-//        h4: false,
-//        h5: false,
-//        h6: false,
-//        paragraph: false,
-//        bold: false,
-//        italic: false,
-//        strike: false,
-//        blockquote: false,
-//        highlight: false,
-//        align_left: false,
-//        align_center: false,
-//        align_right: false,
-//        align_justify: false,
-//    }
-//}

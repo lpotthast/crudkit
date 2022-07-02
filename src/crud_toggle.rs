@@ -1,4 +1,3 @@
-use log::trace;
 use yew::prelude::*;
 use yewbi::Bi;
 
@@ -78,7 +77,6 @@ impl Component for CrudToggle {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        trace!("render");
         html! {
             <div class="crud-toggle-wrapper">
                 <label

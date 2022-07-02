@@ -1,4 +1,3 @@
-use log::trace;
 use yew::{html::ChildrenRenderer, prelude::*, virtual_dom::VChild};
 
 use super::prelude::*;
@@ -136,7 +135,6 @@ impl Component for CrudBtn {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        trace!("render");
         html! {
             <div
                 class={classes!(
