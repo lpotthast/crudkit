@@ -67,18 +67,20 @@ impl<T: 'static + CrudDataTrait> Component for CrudTableHeader<T> {
                                 >
                                     <div class={"crud-row"}>
                                         <div class={"crud-col crud-col-flex-start crud-col-flex-top crud-column-header-main-row"}>
-                                            {match order {
-                                                Some(order) => html! {
-                                                    <span class="crud-order-by-sign">
-                                                        {match order {
-                                                            Order::Asc => html!{ <CrudSafeHtml html={"&uarr;"} /> },
-                                                            Order::Desc => html!{ <CrudSafeHtml html={"&darr;"} /> },
-                                                        }}
-                                                    </span>
-                                                },
-                                                None => html!{},
-                                            }}
                                             {options.display_name.clone()}
+
+                                            <span class={classes!("crud-order-by-sign", order.is_some().then(|| "active"))}>
+                                                <CrudSafeHtml html={
+                                                    match order {
+                                                        Some(order) => match order {
+                                                            Order::Asc => "&uarr;",
+                                                            Order::Desc => "&darr;",
+                                                        },
+                                                        None => "&uarr;",
+                                                    }
+                                                } />
+                                            </span>
+
                                         </div>
                                     </div>
                                 </th>
