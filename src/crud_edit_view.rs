@@ -1,5 +1,10 @@
-use crud_shared_types::{ConditionClause, ConditionClauseValue, ConditionElement, Operator, Condition};
-use yew::{html::{ChildrenRenderer, Scope}, prelude::*};
+use crud_shared_types::{
+    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Operator,
+};
+use yew::{
+    html::{ChildrenRenderer, Scope},
+    prelude::*,
+};
 
 use crate::{
     crud_instance::Item,
@@ -15,7 +20,7 @@ pub enum Msg<T: CrudDataTrait> {
     BackCanceled,
     BackApproved,
     LoadedEntity(Result<Option<T>, RequestError>),
-    UpdatedEntity(Result<Option<T>, RequestError>),
+    UpdatedEntity((Result<Option<T>, RequestError>, Then)),
     Save,
     SaveAndReturn,
     SaveAndNew,
@@ -32,6 +37,7 @@ pub struct Props<T: 'static + CrudDataTrait> {
     pub config: CrudInstanceConfig<T>,
     pub id: u32,
     pub list_view_available: bool,
+    pub on_saved: Callback<T>,
     pub on_list: Callback<()>,
     pub on_create: Callback<()>,
     pub on_delete: Callback<T>,
@@ -48,6 +54,12 @@ pub struct CrudEditView<T: CrudDataTrait> {
 enum SetFrom {
     Fetch,
     Update,
+}
+
+pub enum Then {
+    DoNothing,
+    OpenListView,
+    OpenCreateView,
 }
 
 impl<T: 'static + CrudDataTrait> CrudEditView<T> {
@@ -71,26 +83,27 @@ impl<T: 'static + CrudDataTrait> CrudEditView<T> {
         }
     }
 
-    fn save_entity(&self, ctx: &Context<Self>) {
-        let ent = self.input.clone();
+    fn save_entity(&self, ctx: &Context<Self>, and_then: Then) {
+        let entity = self.input.clone();
         let id = ctx.props().id;
         let data_provider = ctx.props().data_provider.clone();
         // TODO: Like in create_view, store ongoing_save!!
         ctx.link().send_future(async move {
-            Msg::UpdatedEntity(
+            Msg::UpdatedEntity((
                 data_provider
                     .update_one(UpdateOne {
-                        entity: ent,
-                        condition: Some(Condition::All(vec![
-                            ConditionElement::Clause(ConditionClause {
+                        entity,
+                        condition: Some(Condition::All(vec![ConditionElement::Clause(
+                            ConditionClause {
                                 column_name: T::get_id_field_name(),
                                 operator: Operator::Equal,
                                 value: ConditionClauseValue::U32(id),
-                            })
-                        ])),
+                            },
+                        )])),
                     })
                     .await,
-            )
+                and_then,
+            ))
         });
     }
 }
@@ -145,22 +158,37 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
                 self.set_entity(data, SetFrom::Fetch);
                 true
             }
-            Msg::UpdatedEntity(data) => {
-                self.set_entity(data, SetFrom::Update);
+            Msg::UpdatedEntity((data, and_then)) => {
+                self.set_entity(data.clone(), SetFrom::Update);
+                match data {
+                    Ok(data) => match data {
+                        Some(data) => {
+                            ctx.props().on_saved.emit(data);
+                            match and_then {
+                                Then::DoNothing => {}
+                                Then::OpenListView => ctx.props().on_list.emit(()),
+                                Then::OpenCreateView => ctx.props().on_create.emit(()),
+                            }
+                        }
+                        None => log::warn!("Could not update entity. Request returned nothing."),
+                    },
+                    Err(err) => log::warn!(
+                        "Could not update entity due to RequestError: {}",
+                        err.to_string()
+                    ),
+                }
                 true
             }
             Msg::Save => {
-                self.save_entity(ctx);
+                self.save_entity(ctx, Then::DoNothing);
                 true
             }
             Msg::SaveAndReturn => {
-                self.save_entity(ctx);
-                ctx.props().on_list.emit(());
+                self.save_entity(ctx, Then::OpenListView);
                 false
             }
             Msg::SaveAndNew => {
-                self.save_entity(ctx);
-                ctx.props().on_create.emit(());
+                self.save_entity(ctx, Then::OpenCreateView);
                 false
             }
             Msg::Delete => {
@@ -273,13 +301,13 @@ pub async fn load_entity<T: CrudDataTrait>(
         .read_one(ReadOne {
             skip: None,
             order_by: None,
-            condition: Some(Condition::All(vec![
-                ConditionElement::Clause(ConditionClause {
+            condition: Some(Condition::All(vec![ConditionElement::Clause(
+                ConditionClause {
                     column_name: T::get_id_field_name(),
                     operator: crud_shared_types::Operator::Equal,
                     value: crud_shared_types::ConditionClauseValue::U32(id),
-                })
-            ])),
+                },
+            )])),
         })
         .await
 }

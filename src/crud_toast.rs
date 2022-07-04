@@ -1,6 +1,6 @@
 use yew::prelude::*;
 
-use crate::stores::Toast;
+use crate::stores::toasts::Toast;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
@@ -23,7 +23,8 @@ impl Component for CrudToast {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
-            <div class={"crud-toast"}>
+            <div id={format!("id-{}", ctx.props().toast.id)}
+                class={classes!("crud-toast", ctx.props().toast.variant)}>
                 <div class={"crud-toast-heading"}>
                     {ctx.props().toast.heading.clone()}
                 </div>

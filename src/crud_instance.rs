@@ -1,9 +1,11 @@
+use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::{
     Condition, ConditionClause, ConditionClauseValue, ConditionElement, Order,
 };
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
+use uuid::Uuid;
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,
@@ -13,6 +15,7 @@ use yewdux::prelude::*;
 
 use crate::{
     services::crud_rest_data_provider::{CrudRestDataProvider, DeleteById},
+    stores::toasts::prelude::*,
     DateTimeDisplay,
 };
 
@@ -26,6 +29,7 @@ pub enum Msg<T: 'static + CrudDataTrait> {
     List,
     Create,
     EntityCreated((T, Option<CrudView>)),
+    EntityUpdated(T),
     Read(T),
     Edit(T),
     Delete(T),
@@ -142,6 +146,7 @@ pub struct CrudInstance<T: 'static + CrudDataTrait> {
     instance_views_store: Rc<stores::instance_views::InstanceViewsStore>,
     instance_views_dispatch: Dispatch<stores::instance_views::InstanceViewsStore>,
     instance_links_dispatch: Dispatch<stores::instance_links::InstanceLinksStore<T>>,
+    toasts_dispatch: Dispatch<stores::toasts::Toasts>,
     create_view_link: Option<Scope<CrudCreateView<T>>>,
     edit_view_link: Option<Scope<CrudEditView<T>>>,
     config: CrudInstanceConfig<T>,
@@ -223,6 +228,7 @@ impl<T: 'static + CrudDataTrait> CrudInstance<T> {
                                         config={self.config.clone()}
                                         id={id}
                                         list_view_available={true}
+                                        on_saved={ctx.link().callback(Msg::EntityUpdated)}
                                         on_list={ctx.link().callback(|_| Msg::List)}
                                         on_create={ctx.link().callback(|_| Msg::Create)}
                                         on_delete={ctx.link().callback(Msg::Delete)}
@@ -287,6 +293,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
             ),
             instance_views_store: Default::default(),
             instance_links_dispatch,
+            toasts_dispatch: Dispatch::new(),
 
             create_view_link: None,
             edit_view_link: None,
@@ -389,6 +396,33 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                     self.set_view(CrudView::Edit(entity.get_id()));
                 }
                 self.store_config(ctx);
+                self.toasts_dispatch.reduce(|state| {
+                    state.push_toast(Toast {
+                        id: Uuid::new_v4(),
+                        created_at: UtcDateTime::now(),
+                        variant: ToastVariant::Success,
+                        heading: "Erstellt".to_owned(),
+                        message: "Der Eintrag wurde erfolgreich erstellt.".to_owned(),
+                        dismissible: false,
+                        automatically_closing: AutomaticallyClosing::WithDefaultDelay,
+                        close_callback: None,
+                    })
+                });
+                true
+            }
+            Msg::EntityUpdated(_entity) => {
+                self.toasts_dispatch.reduce(|state| {
+                    state.push_toast(Toast {
+                        id: Uuid::new_v4(),
+                        created_at: UtcDateTime::now(),
+                        variant: ToastVariant::Success,
+                        heading: "Gespeichert".to_owned(),
+                        message: "Der Eintrag wurde erfolgreich gespeichert.".to_owned(),
+                        dismissible: false,
+                        automatically_closing: AutomaticallyClosing::WithDefaultDelay,
+                        close_callback: None,
+                    })
+                });
                 true
             }
             Msg::Read(entity) => {
@@ -478,15 +512,13 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                 if let Some(link) = &self.create_view_link {
                     // TODO: pass value as Value not as String.
                     link.send_message(<CrudCreateView<T> as Component>::Message::ValueChanged((
-                        field,
-                        value,
+                        field, value,
                     )));
                     //log::info!("Sent ValueChanged message to create view...");
                 } else if let Some(link) = &self.edit_view_link {
                     // TODO: pass value as Value not as String.
                     link.send_message(<CrudEditView<T> as Component>::Message::ValueChanged((
-                        field,
-                        value,
+                        field, value,
                     )));
                     //log::info!("Sent ValueChanged message to edit view...");
                 } else {
