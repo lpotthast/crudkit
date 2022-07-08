@@ -33,6 +33,7 @@ pub struct Props<T: 'static + CrudDataTrait> {
     pub list_view_available: bool,
     pub on_list_view: Callback<()>,
     pub on_entity_created: Callback<(T, Option<CrudView>)>,
+    pub on_entity_creation_failed: Callback<(Option<NoData>, Option<RequestError>)>,
 }
 
 pub struct CrudCreateView<T: CrudDataTrait> {
@@ -130,12 +131,18 @@ impl<T: 'static + CrudDataTrait> Component for CrudCreateView<T> {
                                 self.reset();
                             }
                         },
-                        None => log::error!(
-                            "Entity creation failed: {:?}",
-                            NoData::FetchReturnedNothing
-                        ),
+                        None => {
+                            ctx.props().on_entity_creation_failed.emit((Some(NoData::FetchReturnedNothing), None));
+                            log::error!(
+                                "Entity creation failed: {:?}",
+                                NoData::FetchReturnedNothing
+                            )
+                        },
                     },
-                    Err(reason) => log::error!("Entity creation failed: {:?}", reason),
+                    Err(reason) => {
+                        ctx.props().on_entity_creation_failed.emit((None, Some(reason.clone())));
+                        log::error!("Entity creation failed: {:?}", reason);
+                    },
                 }
                 false
             }

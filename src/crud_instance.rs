@@ -29,6 +29,7 @@ pub enum Msg<T: 'static + CrudDataTrait> {
     List,
     Create,
     EntityCreated((T, Option<CrudView>)),
+    EntityCreationFailed((Option<NoData>, Option<RequestError>)),
     EntityUpdated(T),
     Read(T),
     Edit(T),
@@ -204,6 +205,7 @@ impl<T: 'static + CrudDataTrait> CrudInstance<T> {
                                         list_view_available={true}
                                         on_list_view={ctx.link().callback(|_| Msg::List)}
                                         on_entity_created={ctx.link().callback(Msg::EntityCreated)}
+                                        on_entity_creation_failed={ctx.link().callback(Msg::EntityCreationFailed)}
                                         on_link={ctx.link().callback(|link| Msg::CreateViewLinked(link))}
                                     />
                                 }
@@ -409,6 +411,49 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                     })
                 });
                 true
+            }
+            Msg::EntityCreationFailed((no_data, request_error)) => {
+                if let Some(_no_data) = no_data {
+                    self.toasts_dispatch.reduce(|state| {
+                        state.push_toast(Toast {
+                            id: Uuid::new_v4(),
+                            created_at: UtcDateTime::now(),
+                            variant: ToastVariant::Error,
+                            heading: "Nicht erstellt".to_owned(),
+                            message: "Der Eintrag konnte nicht erstellt werden: Daten konnten nicht geladen werden.".to_owned(),
+                            dismissible: false,
+                            automatically_closing: AutomaticallyClosing::WithDelay(3000),
+                            close_callback: None,
+                        })
+                    });
+                } else if let Some(request_error) = request_error {
+                    self.toasts_dispatch.reduce(move |state| {
+                        state.push_toast(Toast {
+                            id: Uuid::new_v4(),
+                            created_at: UtcDateTime::now(),
+                            variant: ToastVariant::Error,
+                            heading: "Nicht erstellt".to_owned(),
+                            message: format!("Der Eintrag konnte nicht erstellt werden: {}.", request_error),
+                            dismissible: false,
+                            automatically_closing: AutomaticallyClosing::WithDelay(3000),
+                            close_callback: None,
+                        })
+                    });
+                } else {
+                    self.toasts_dispatch.reduce(|state| {
+                        state.push_toast(Toast {
+                            id: Uuid::new_v4(),
+                            created_at: UtcDateTime::now(),
+                            variant: ToastVariant::Error,
+                            heading: "Nicht erstellt".to_owned(),
+                            message: "Der Eintrag konnte nicht erstellt werden. Unbekannter Fehler.".to_owned(),
+                            dismissible: false,
+                            automatically_closing: AutomaticallyClosing::WithDelay(3000),
+                            close_callback: None,
+                        })
+                    });
+                }
+                false
             }
             Msg::EntityUpdated(_entity) => {
                 self.toasts_dispatch.reduce(|state| {
