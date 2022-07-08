@@ -9,19 +9,19 @@ use thiserror::Error as ThisError;
 #[allow(clippy::enum_variant_names)]
 pub enum RequestError {
     /// 400
-    #[error("BadRequest")]
+    #[error("BadRequest: {0}")]
     BadRequest(String),
 
     /// 401
-    #[error("Unauthorized")]
+    #[error("Unauthorized: {0}")]
     Unauthorized(String),
 
     /// 403
-    #[error("Forbidden")]
+    #[error("Forbidden: {0}")]
     Forbidden(String),
 
     /// 404
-    #[error("Not Found")]
+    #[error("Not Found: {0}")]
     NotFound(String),
 
     /// 422
@@ -29,15 +29,15 @@ pub enum RequestError {
     UnprocessableEntity(ErrorInfo),
 
     /// 500
-    #[error("Internal Server Error")]
+    #[error("InternalServerError: {0}")]
     InternalServerError(String),
 
     /// serde deserialize error
-    #[error("Deserialize Error")]
+    #[error("DeserializeError: {0}")]
     Deserialize(String),
 
     /// request error
-    #[error("Http Request Error")]
+    #[error("HttpRequestError: {0}")]
     Request(String),
 }
 
