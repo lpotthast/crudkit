@@ -17,8 +17,8 @@ yew = { git = "https://github.com/yewstack/yew", features = ["tokio", "csr"] }
 yew-router = { git = "https://github.com/yewstack/yew.git" }
 yewdux = { git = "https://github.com/intendednull/yewdux" }
 log = "0.4.17"
-serde = "1.0.137"
-serde_json = "1.0.81"
+serde = "1.0.138"
+serde_json = "1.0.82"
 web-sys = { version = "0.3.58", features = [
     "Document",
     "Element",
@@ -31,7 +31,7 @@ web-sys = { version = "0.3.58", features = [
 ] }
 wasm-bindgen = "0.2.81"
 wasm-bindgen-futures = "0.4.31"
-indexmap = { version = "1.9.0", features = ["serde"] }
+indexmap = { version = "1.9.1", features = ["serde"] }
 js-sys = "0.3.58"
 gloo = "0.8.0"
 reqwest = { version = "0.11.11", features = ["json", "multipart"] }
