@@ -9,15 +9,15 @@ crud-shared-types = {path = "../crud-shared-types"}
 chrono-utc-date-time = {path = "../chrono-utc-date-time", features = [ "sea-orm" ]}
 
 # External
-serde = { version = "1.0.137", features = ["derive"] }
-serde_json = "1.0.80"
+serde = { version = "1.0.138", features = ["derive"] }
+serde_json = "1.0.82"
 chrono = "0.4.19"
-axum = "0.5.4"
-indexmap = { version = "1.9.0", features = ["serde"] }
+axum = "0.5.11"
+indexmap = { version = "1.9.1", features = ["serde"] }
 paste = "1.0.7"
 log = "0.4.17"
 async-trait = "0.1.56"
 
 sea-orm = { version = "0.8.0", default-features = false, features = [ "macros", "debug-print", "runtime-tokio-rustls", "sqlx-postgres" ] }
-sea-query = { version = "0.25.0" }
-sea-schema = { version = "0.8.1", default-features = false, features = [ "debug-print" ] }
+sea-query = { version = "0.26.0" }
+sea-schema = { version = "0.9.2", default-features = false, features = [ "debug-print" ] }
