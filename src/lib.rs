@@ -8,7 +8,7 @@ pub enum CrudError {
     UnableToParseAsEntity(String, String),
     DbError(String),
     ReadOneFoundNone,
-    ValidationErrors(Vec<String>),
+    ValidationErrors,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
