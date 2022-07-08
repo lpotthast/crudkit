@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 # External
-serde = { version = "1.0.137", features = ["derive"] }
+serde = { version = "1.0.138", features = ["derive"] }
 chrono = "0.4.19"
