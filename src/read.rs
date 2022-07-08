@@ -1,13 +1,36 @@
-use crate::{CrudResource, ReadCount, ReadMany, ReadOne};
-use crud_shared_types::CrudError;
+use crate::prelude::*;
+use crud_shared_types::{Condition, CrudError, Order};
+use indexmap::IndexMap;
 use sea_orm::{JsonValue, PaginatorTrait};
+use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
 
-use crate::{query::build_select_query, CrudController};
+#[derive(Deserialize)]
+pub struct ReadCount {
+    pub condition: Option<Condition>,
+}
+
+#[derive(Deserialize)]
+pub struct ReadOne<R: CrudResource> {
+    pub skip: Option<u64>,
+    #[serde(bound = "")]
+    pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
+    pub condition: Option<Condition>,
+}
+
+#[derive(Deserialize)]
+pub struct ReadMany<R: CrudResource> {
+    pub limit: Option<u64>,
+    pub skip: Option<u64>,
+    #[serde(bound = "")]
+    pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
+    pub condition: Option<Condition>,
+}
 
 pub async fn read_count<R: CrudResource>(
     controller: Arc<CrudController>,
+    context: Arc<CrudContext<R>>,
     body: ReadCount,
 ) -> Result<JsonValue, CrudError> {
     let count = build_select_query::<R::Entity, R::Model, R::Column, R::CrudColumn>(
@@ -16,7 +39,7 @@ pub async fn read_count<R: CrudResource>(
         None,
         body.condition,
     )?
-    .count(controller.db.as_ref())
+    .count(controller.get_database_connection())
     .await
     .map_err(|err| CrudError::DbError(err.to_string()))?;
     Ok(json!(count))
@@ -24,9 +47,10 @@ pub async fn read_count<R: CrudResource>(
 
 pub async fn read_one<R: CrudResource>(
     controller: Arc<CrudController>,
+    context: Arc<CrudContext<R>>,
     body: ReadOne<R>,
 ) -> Result<JsonValue, CrudError> {
-    let db = controller.db.as_ref();
+    let db = controller.get_database_connection();
     let data = build_select_query::<R::Entity, R::Model, R::Column, R::CrudColumn>(
         None,
         body.skip,
@@ -42,6 +66,7 @@ pub async fn read_one<R: CrudResource>(
 
 pub async fn read_many<R: CrudResource>(
     controller: Arc<CrudController>,
+    context: Arc<CrudContext<R>>,
     body: ReadMany<R>,
 ) -> Result<JsonValue, CrudError> {
     let data = build_select_query::<R::Entity, R::Model, R::Column, R::CrudColumn>(
@@ -50,7 +75,7 @@ pub async fn read_many<R: CrudResource>(
         body.order_by,
         body.condition,
     )?
-    .all(controller.db.as_ref())
+    .all(controller.get_database_connection())
     .await
     .unwrap();
     Ok(json!(data))

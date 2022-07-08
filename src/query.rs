@@ -1,70 +1,30 @@
-use crate::{
-    AsColType, CreateModelTrait, CrudColumns, ExcludingColumnsOnInsert, FieldValidatorTrait,
-    MaybeColumnTrait,
-};
-use crud_shared_types::{ConditionElement, CrudError, Operator, Order, Value, Condition};
+use crate::prelude::*;
+use crud_shared_types::{Condition, ConditionElement, CrudError, Operator, Order, Value};
 use indexmap::IndexMap;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DeleteMany, EntityTrait, FromQueryResult, Insert, ModelTrait,
-    QueryFilter, QueryOrder, QuerySelect, Select,
+    ActiveModelTrait, ColumnTrait, DeleteMany, EntityTrait, FromQueryResult, Insert, QueryFilter,
+    QueryOrder, QuerySelect, Select,
 };
-
 use serde::de::DeserializeOwned;
-use std::{fmt::Debug, hash::Hash};
+use std::hash::Hash;
 
-pub fn build_insert_query<C, M, A>(entity_json: &str) -> Result<Insert<A>, CrudError>
-where
-    C: CreateModelTrait + DeserializeOwned + Into<M> + Debug,
-    M: ModelTrait,
-    A: ActiveModelTrait
-        + ExcludingColumnsOnInsert<<<A as ActiveModelTrait>::Entity as EntityTrait>::Column>
-        + From<M>
-        + FieldValidatorTrait,
-    A::Entity: EntityTrait + MaybeColumnTrait,
-{
-    // Use the "CreateModel" to deserialize the given JSON. Some not required members are allowed to be missing.
-    let create_model = serde_json::from_str::<C>(entity_json)
-        .map_err(|err| CrudError::UnableToParseAsEntity(entity_json.to_owned(), err.to_string()))?;
-
-    // Convert the "CreateModel" into the actual "Model"
-    let model: M = create_model.into();
-
-    // Create the "Model" into an "ActiveModel" ready to be persisted.
-    let mut active_entity: A = model.into();
-
-    let validation_results = active_entity.validate();
-    if !validation_results.is_empty() {
-        return Err(CrudError::ValidationErrors(validation_results));
-    }
-
-    // We might have accidentally set attributes on the "ActiveModel" that we must not have in order to persist it.
-    let excluded = A::excluding_columns();
+pub fn prune_active_model<R: CrudResource>(active_entity: &mut R::ActiveModel) {
+    let excluded = R::ActiveModel::excluding_columns();
     for c in excluded {
         active_entity.not_set(*c);
     }
+}
+
+pub fn build_insert_query<R: CrudResource>(
+    mut active_entity: R::ActiveModel,
+) -> Result<Insert<R::ActiveModel>, CrudError> {
+    // We might have accidentally set attributes on the "ActiveModel" that we must not have in order to persist it.
+    prune_active_model::<R>(&mut active_entity);
 
     // Building the "insert" query.
-    let insert = A::Entity::insert(active_entity);
+    let insert = R::Entity::insert(active_entity);
     Ok(insert)
 }
-
-// TODO: Does not work at the moment... Deserialization is throwing an error.
-/*
-fn build_insert_query<A>(entity_json: &str) -> Result<Insert<A>, CrudError>
-where
-    A: ActiveModelTrait + ExcludingColumnsOnInsert<<<A as ActiveModelTrait>::Entity as EntityTrait>::Column>,
-    A::Entity: EntityTrait + MaybeColumnTrait,
-    <<A as ActiveModelTrait>::Entity as EntityTrait>::Model: DeserializeOwned + IntoActiveModel<A>
-{
-    let json_value = serde_json::from_str(entity_json)
-        .map_err(|err| CrudError::UnableToParseAsEntity(entity_json.to_owned(), err.to_string()))?;
-    log::info!("{}", json_value);
-    let active_entity = A::from_json(json_value)
-        .map_err(|err| CrudError::DbError(err.to_string()))?;
-    let insert = A::Entity::insert(active_entity);
-    Ok(insert)
-}
-*/
 
 pub fn build_delete_many_query<T: EntityTrait + MaybeColumnTrait>(
     condition: Option<Condition>,
@@ -125,7 +85,7 @@ pub fn build_select_query<
 //    Ok(update)
 //}
 
-pub fn apply_order_by<
+fn apply_order_by<
     T: EntityTrait<Column = C> + MaybeColumnTrait,
     C: ColumnTrait,
     CC: CrudColumns<C> + Eq + Hash + DeserializeOwned,
@@ -146,11 +106,16 @@ pub fn apply_order_by<
     Ok(select)
 }
 
-// TODO: Implement this with the Into trait!
-pub fn build_condition_tree<T: MaybeColumnTrait>(
+// TODO: Implement this in crud-shared-types with sea-orm feature flag.
+//impl From<Condition> for Result<sea_orm::sea_query::Condition, CrudError> {
+//    fn from(condition: Condition) -> Self {
+//        todo!()
+//    }
+//}
+
+fn build_condition_tree<T: MaybeColumnTrait>(
     condition: Condition,
 ) -> Result<sea_orm::sea_query::Condition, CrudError> {
-
     let mut tree = match &condition {
         Condition::All(_) => sea_orm::sea_query::Condition::all(),
         Condition::Any(_) => sea_orm::sea_query::Condition::any(),
@@ -165,9 +130,15 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
                             match col.as_col_type(clause.value).map_err(|err| {
                                 CrudError::UnableToParseValueAsColType(clause.column_name, err)
                             })? {
-                                Value::String(val) => tree = add_condition(tree, col, clause.operator, val),
-                                Value::I32(val) => tree = add_condition(tree, col, clause.operator, val),
-                                Value::Bool(val) => tree = add_condition(tree, col, clause.operator, val),
+                                Value::String(val) => {
+                                    tree = add_condition(tree, col, clause.operator, val)
+                                }
+                                Value::I32(val) => {
+                                    tree = add_condition(tree, col, clause.operator, val)
+                                }
+                                Value::Bool(val) => {
+                                    tree = add_condition(tree, col, clause.operator, val)
+                                }
                                 Value::DateTime(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }
@@ -178,16 +149,16 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
                     ConditionElement::Condition(nested_condition) => {
                         let nested_condition: Condition = *nested_condition;
                         tree = tree.add(build_condition_tree::<T>(nested_condition)?);
-                    },
+                    }
                 }
             }
-        },
+        }
     }
 
     Ok(tree)
 }
 
-pub fn add_condition<C, T>(
+fn add_condition<C, T>(
     tree: sea_orm::sea_query::Condition,
     col: C,
     operator: Operator,

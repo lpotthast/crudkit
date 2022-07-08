@@ -1,7 +1,4 @@
-use crate::{
-    CreateModelTrait, CrudColumns, ExcludingColumnsOnInsert, FieldValidatorTrait, MaybeColumnTrait,
-    UpdateActiveModelTrait,
-};
+use crate::prelude::*;
 use sea_orm::{
     ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, FromQueryResult,
     IntoActiveModel, ModelTrait,
@@ -37,7 +34,6 @@ pub trait CrudResource {
         // TODO: just use Self::Column here?
         + ExcludingColumnsOnInsert<Self::Column>
         + From<Self::Model>
-        + FieldValidatorTrait
         + UpdateActiveModelTrait<Self::CreateModel>
         + Clone
         + Send
@@ -52,6 +48,13 @@ pub trait CrudResource {
         + Send
         + Sync
         + 'static;
+    type Validator:
+        EntityValidatorsTrait<Self::ActiveModel>;
+    type ValidationResultRepository:
+        ValidationResultSaverTrait;
+    type ResourceType: Debug + Into<&'static str> + Clone + Copy;
+
+    const TYPE: Self::ResourceType;
 }
 
 trait ResourceLifecycle {

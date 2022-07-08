@@ -1,79 +1,68 @@
-use crud_shared_types::{Condition, ConditionClauseValue, Order, Value};
-use indexmap::IndexMap;
-use sea_orm::{ColumnTrait, DatabaseConnection};
-use serde::Deserialize;
-use std::{str::FromStr, sync::Arc};
-
-mod create;
-mod delete;
-mod query;
-mod read;
-mod resource;
-mod update;
+use crud_shared_types::{ConditionClauseValue, Value};
+use sea_orm::ColumnTrait;
+use std::str::FromStr;
 
 pub mod axum_routes;
+pub mod context;
+pub mod controller;
+pub mod create;
+pub mod delete;
+pub mod query;
+pub mod read;
+pub mod resource;
+pub mod update;
 pub mod validate;
+pub mod validation;
 
-pub use resource::CrudResource;
+pub mod prelude {
+    pub use super::context::CrudContext;
+    pub use super::controller::CrudController;
+    pub use super::resource::CrudResource;
 
-pub struct CrudController {
-    db: Arc<DatabaseConnection>,
-}
+    pub use super::AsColType;
+    pub use super::CreateModelTrait;
+    pub use super::CrudColumns;
+    pub use super::ExcludingColumnsOnInsert;
+    pub use super::MaybeColumnTrait;
+    pub use super::UpdateActiveModelTrait;
 
-impl CrudController {
-    pub fn new(db: Arc<DatabaseConnection>) -> Self {
-        Self { db }
-    }
-}
+    pub use super::validation::EntityInfo;
+    pub use super::validation::ValidatorInfo;
+    pub use super::validation::EntityValidations;
+    pub use super::validation::EntityValidatorTrait;
+    pub use super::validation::EntityValidatorsTrait;
+    pub use super::validation::EntityViolations;
+    pub use super::validation::ValidationViolation;
+    pub use super::validation::ValidationViolationType;
+    pub use super::validation::ValidationResultSaverTrait;
 
-#[derive(Deserialize)]
-pub struct ReadCount {
-    pub condition: Option<Condition>,
-}
+    pub use super::validate::validate_max_length;
+    pub use super::validate::validate_min_length;
+    pub use super::validate::validate_required;
 
-#[derive(Deserialize)]
-pub struct ReadOne<R: CrudResource> {
-    pub skip: Option<u64>,
-    #[serde(bound = "")]
-    pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
-    pub condition: Option<Condition>,
-}
+    pub use super::parse;
 
-#[derive(Deserialize)]
-pub struct ReadMany<R: CrudResource> {
-    pub limit: Option<u64>,
-    pub skip: Option<u64>,
-    #[serde(bound = "")]
-    pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
-    pub condition: Option<Condition>,
-}
+    pub use super::query::prune_active_model;
+    pub use super::query::build_delete_many_query;
+    pub use super::query::build_insert_query;
+    pub use super::query::build_select_query;
 
-#[derive(Deserialize)]
-pub struct CreateOne {
-    pub entity: Box<serde_json::value::RawValue>,
-}
-
-#[derive(Deserialize)]
-pub struct UpdateOne {
-    pub condition: Option<Condition>,
-    pub entity: Box<serde_json::value::RawValue>,
-}
-
-#[derive(Deserialize)]
-pub struct DeleteById {
-    pub id: u32,
-}
-
-#[derive(Deserialize)]
-pub struct DeleteOne<R: CrudResource> {
-    pub skip: Option<u64>,
-    pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
-    pub condition: Option<Condition>,
-}
-
-#[derive(Deserialize)]
-pub struct DeleteMany {
-    pub condition: Option<Condition>,
+    pub use super::create::create_one;
+    pub use super::create::CreateOne;
+    pub use super::delete::delete_by_id;
+    pub use super::delete::delete_many;
+    pub use super::delete::delete_one;
+    pub use super::delete::DeleteById;
+    pub use super::delete::DeleteMany;
+    pub use super::delete::DeleteOne;
+    pub use super::read::read_count;
+    pub use super::read::read_many;
+    pub use super::read::read_one;
+    pub use super::read::ReadCount;
+    pub use super::read::ReadMany;
+    pub use super::read::ReadOne;
+    pub use super::update::update_one;
+    pub use super::update::UpdateOne;
 }
 
 pub trait CrudColumns<C: ColumnTrait> {
@@ -86,10 +75,6 @@ pub trait CreateModelTrait {}
 
 pub trait UpdateActiveModelTrait<C: CreateModelTrait> {
     fn update_with(&mut self, update: C);
-}
-
-pub trait FieldValidatorTrait {
-    fn validate(&self) -> Vec<String>;
 }
 
 pub trait AsColType {
