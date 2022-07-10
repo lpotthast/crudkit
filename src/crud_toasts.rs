@@ -5,7 +5,8 @@ use gloo::timers::callback::Timeout;
 use yew::prelude::*;
 use yewdux::prelude::*;
 
-use crate::stores::{self, toasts::{Toast, AutomaticallyClosing, AUTOMATIC_CLOSE_DELAY}};
+use crate::stores;
+use crate::types::toasts::{Toast, AutomaticallyClosing, AUTOMATIC_CLOSE_DELAY};
 
 use super::prelude::*;
 
@@ -69,7 +70,7 @@ impl Component for CrudToasts {
                 }
             }
         }
-        self._toasts_dispatch.reduce(|state| state.remove_all_toasts())
+        self._toasts_dispatch.reduce_mut(|state| state.remove_all_toasts())
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -124,7 +125,7 @@ impl Component for CrudToasts {
                     }
                     self.toasts.remove(&toast.created_at);
 
-                    self._toasts_dispatch.reduce(move |state| state.remove_toast_with_id(&toast.id))
+                    self._toasts_dispatch.reduce_mut(move |state| state.remove_toast_with_id(&toast.id))
                 }
                 true
             }

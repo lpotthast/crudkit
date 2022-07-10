@@ -14,7 +14,7 @@ impl<T: CrudDataTrait> PartialEq for Link<T> {
     }
 }
 
-#[derive(Default, Clone, PartialEq)]
+#[derive(Default, Clone, PartialEq, Store)]
 pub struct InstanceLinksStore<T: 'static + CrudDataTrait> {
     instance_links: HashMap<String, Link<T>>,
 }
@@ -29,15 +29,5 @@ impl<T: CrudDataTrait> InstanceLinksStore<T> {
             Some(link) => self.instance_links.insert(instance_name, Link(link)),
             None => self.instance_links.remove(&instance_name),
         };
-    }
-}
-
-impl<T: 'static + CrudDataTrait> Store for InstanceLinksStore<T> {
-    fn new() -> Self {
-        InstanceLinksStore::default()
-    }
-
-    fn changed(&mut self) {
-        // not storable...
     }
 }

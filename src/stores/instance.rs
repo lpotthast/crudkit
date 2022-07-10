@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use log::error;
 use serde::{Deserialize, Serialize};
-use yewdux::prelude::*;
+use yewdux::{prelude::*, storage};
 
 use crate::{crud_instance::CrudInstanceConfig, CrudDataTrait};
 
@@ -25,7 +25,9 @@ impl<T: CrudDataTrait> InstanceStore<T> {
 
 impl<T: 'static + CrudDataTrait> Store for InstanceStore<T> {
     fn new() -> Self {
-        yewdux::storage::load(yewdux::storage::Area::Local)
+        init_listener(storage::StorageListener::<Self>::new(storage::Area::Local));
+        
+        storage::load(storage::Area::Local)
             .map_err(|error| {
                 // TODO: Erase from local store
                 error!("Unable to load state due to StorageError: {}", error);
@@ -35,9 +37,7 @@ impl<T: 'static + CrudDataTrait> Store for InstanceStore<T> {
             .unwrap_or_default()
     }
 
-    fn changed(&mut self) {
-        if let Some(error) = yewdux::storage::save(self, yewdux::storage::Area::Local).err() {
-            error!("Unable to save state due to StorageError: {}", error)
-        }
+    fn changed(&self, other: &Self) -> bool {
+        self != other
     }
 }

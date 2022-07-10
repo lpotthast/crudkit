@@ -1,6 +1,6 @@
 use yew::prelude::*;
 
-use crate::stores::toasts::Toast;
+use crate::types::toasts::Toast;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {

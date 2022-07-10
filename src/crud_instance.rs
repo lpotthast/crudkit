@@ -15,8 +15,7 @@ use yewdux::prelude::*;
 
 use crate::{
     services::crud_rest_data_provider::{CrudRestDataProvider, DeleteById},
-    stores::toasts::prelude::*,
-    DateTimeDisplay,
+    DateTimeDisplay, types::toasts::{Toast, ToastVariant, AutomaticallyClosing},
 };
 
 use super::{prelude::*, stores, types::RequestError};
@@ -161,12 +160,12 @@ impl<T: 'static + CrudDataTrait> CrudInstance<T> {
         let name = ctx.props().name.clone();
         let config = self.config.clone();
         self.instance_dispatch
-            .reduce(|state| state.save(name, config));
+            .reduce_mut(|state| state.save(name, config));
 
         let name = ctx.props().name.clone();
         let view = self.config.view.clone();
         self.instance_views_dispatch
-            .reduce(|state| state.save(name, view));
+            .reduce_mut(|state| state.save(name, view));
     }
 
     fn set_view(&mut self, view: CrudView) {
@@ -283,7 +282,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
 
         let name = ctx.props().name.clone();
         let link = ctx.link().clone();
-        instance_links_dispatch.reduce(|state| state.save(name, Some(link)));
+        instance_links_dispatch.reduce_mut(|state| state.save(name, Some(link)));
 
         Self {
             instance_dispatch: Dispatch::subscribe(
@@ -310,7 +309,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
     fn destroy(&mut self, ctx: &Context<Self>) {
         let name = ctx.props().name.clone();
         self.instance_links_dispatch
-            .reduce(|state| state.save(name, None));
+            .reduce_mut(|state| state.save(name, None));
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -398,7 +397,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                     self.set_view(CrudView::Edit(entity.get_id()));
                 }
                 self.store_config(ctx);
-                self.toasts_dispatch.reduce(|state| {
+                self.toasts_dispatch.reduce_mut(|state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
                         created_at: UtcDateTime::now(),
@@ -414,7 +413,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
             }
             Msg::EntityCreationFailed((no_data, request_error)) => {
                 if let Some(_no_data) = no_data {
-                    self.toasts_dispatch.reduce(|state| {
+                    self.toasts_dispatch.reduce_mut(|state| {
                         state.push_toast(Toast {
                             id: Uuid::new_v4(),
                             created_at: UtcDateTime::now(),
@@ -427,7 +426,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                         })
                     });
                 } else if let Some(request_error) = request_error {
-                    self.toasts_dispatch.reduce(move |state| {
+                    self.toasts_dispatch.reduce_mut(move |state| {
                         state.push_toast(Toast {
                             id: Uuid::new_v4(),
                             created_at: UtcDateTime::now(),
@@ -440,7 +439,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                         })
                     });
                 } else {
-                    self.toasts_dispatch.reduce(|state| {
+                    self.toasts_dispatch.reduce_mut(|state| {
                         state.push_toast(Toast {
                             id: Uuid::new_v4(),
                             created_at: UtcDateTime::now(),
@@ -456,7 +455,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                 false
             }
             Msg::EntityUpdated(_entity) => {
-                self.toasts_dispatch.reduce(|state| {
+                self.toasts_dispatch.reduce_mut(|state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
                         created_at: UtcDateTime::now(),

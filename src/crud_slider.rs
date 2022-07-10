@@ -178,12 +178,12 @@ impl CrudSlider {
     fn enable_global_mouse_move_tracking(&mut self) {
         let uuid = self.uuid;
         self.global_mouse_move_required_dispatch
-            .reduce(move |state| state.require_by(uuid));
+            .reduce_mut(move |state| state.require_by(uuid));
     }
     fn disable_global_mouse_move_tracking(&mut self) {
         let uuid = self.uuid;
         self.global_mouse_move_required_dispatch
-            .reduce(move |state| state.not_require_by(uuid));
+            .reduce_mut(move |state| state.not_require_by(uuid));
     }
     /// Returns whether or not the component was really updated.
     /// Call the given on_change function if self.value was modified.
