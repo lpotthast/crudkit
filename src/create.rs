@@ -1,5 +1,5 @@
-use crate::prelude::*;
-use crud_shared_types::CrudError;
+use crate::{prelude::*, validation::into_persistable};
+use crud_shared_types::{validation::EntityValidations, CrudError};
 use sea_orm::JsonValue;
 use serde::Deserialize;
 use serde_json::json;
@@ -35,8 +35,11 @@ pub async fn create_one<R: CrudResource>(
     if validation_results.has_violations() {
         // TODO: pass violations to frontend.
         log::info!("Validation errors: {:?}", validation_results);
-        let persistable = validation_results.into();
-        context.validation_result_repository.save_all(persistable).await;
+        let persistable = into_persistable(validation_results);
+        context
+            .validation_result_repository
+            .save_all(persistable)
+            .await;
         return Err(CrudError::ValidationErrors);
     }
 

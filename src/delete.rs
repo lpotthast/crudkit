@@ -27,10 +27,10 @@ pub struct DeleteMany {
 
 pub async fn delete_by_id<R: CrudResource>(
     controller: Arc<CrudController>,
-    context: Arc<CrudContext<R>>,
+    _context: Arc<CrudContext<R>>,
     body: DeleteById,
 ) -> Result<JsonValue, CrudError> {
-    let select = build_select_query::<R::Entity, R::Model, R::Column, R::CrudColumn>(
+    let select = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
         None,
         None,
         None,
@@ -55,10 +55,10 @@ pub async fn delete_by_id<R: CrudResource>(
 
 pub async fn delete_one<R: CrudResource>(
     controller: Arc<CrudController>,
-    context: Arc<CrudContext<R>>,
+    _context: Arc<CrudContext<R>>,
     body: DeleteOne<R>,
 ) -> Result<JsonValue, CrudError> {
-    let select = build_select_query::<R::Entity, R::Model, R::Column, R::CrudColumn>(
+    let select = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
         None,
         body.skip,
         body.order_by,
@@ -77,7 +77,7 @@ pub async fn delete_one<R: CrudResource>(
 
 pub async fn delete_many<R: CrudResource>(
     controller: Arc<CrudController>,
-    context: Arc<CrudContext<R>>,
+    _context: Arc<CrudContext<R>>,
     body: DeleteMany,
 ) -> Result<JsonValue, CrudError> {
     let delete_many = build_delete_many_query::<R::Entity>(body.condition)?;

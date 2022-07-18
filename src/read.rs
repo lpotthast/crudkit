@@ -33,15 +33,16 @@ pub async fn read_count<R: CrudResource>(
     context: Arc<CrudContext<R>>,
     body: ReadCount,
 ) -> Result<JsonValue, CrudError> {
-    let count = build_select_query::<R::Entity, R::Model, R::Column, R::CrudColumn>(
-        None,
-        None,
-        None,
-        body.condition,
-    )?
-    .count(controller.get_database_connection())
-    .await
-    .map_err(|err| CrudError::DbError(err.to_string()))?;
+    let count =
+        build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
+            None,
+            None,
+            None,
+            body.condition,
+        )?
+        .count(controller.get_database_connection())
+        .await
+        .map_err(|err| CrudError::DbError(err.to_string()))?;
     Ok(json!(count))
 }
 
@@ -51,7 +52,7 @@ pub async fn read_one<R: CrudResource>(
     body: ReadOne<R>,
 ) -> Result<JsonValue, CrudError> {
     let db = controller.get_database_connection();
-    let data = build_select_query::<R::Entity, R::Model, R::Column, R::CrudColumn>(
+    let data = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
         None,
         body.skip,
         body.order_by,
@@ -69,7 +70,7 @@ pub async fn read_many<R: CrudResource>(
     context: Arc<CrudContext<R>>,
     body: ReadMany<R>,
 ) -> Result<JsonValue, CrudError> {
-    let data = build_select_query::<R::Entity, R::Model, R::Column, R::CrudColumn>(
+    let data = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
         body.limit,
         body.skip,
         body.order_by,

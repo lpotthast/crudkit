@@ -41,8 +41,9 @@ pub fn build_delete_many_query<T: EntityTrait + MaybeColumnTrait>(
 pub fn build_select_query<
     E: EntityTrait<Model = M, Column = C> + MaybeColumnTrait,
     M: FromQueryResult + Sized + Send + Sync,
+    A: ActiveModelTrait,
     C: ColumnTrait,
-    CC: CrudColumns<C> + Eq + Hash + DeserializeOwned,
+    CC: CrudColumns<C, A> + Eq + Hash + DeserializeOwned,
 >(
     limit: Option<u64>,
     skip: Option<u64>,
@@ -60,7 +61,7 @@ pub fn build_select_query<
     }
 
     if let Some(map) = order_by {
-        select = apply_order_by::<E, C, CC>(select, map)?;
+        select = apply_order_by::<E, A, C, CC>(select, map)?;
     }
 
     if let Some(condition) = condition {
@@ -87,8 +88,9 @@ pub fn build_select_query<
 
 fn apply_order_by<
     T: EntityTrait<Column = C> + MaybeColumnTrait,
+    A: ActiveModelTrait,
     C: ColumnTrait,
-    CC: CrudColumns<C> + Eq + Hash + DeserializeOwned,
+    CC: CrudColumns<C, A> + Eq + Hash + DeserializeOwned,
 >(
     mut select: Select<T>,
     order_by: IndexMap<CC, Order>,
