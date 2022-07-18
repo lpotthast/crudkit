@@ -1,5 +1,5 @@
 use crud_shared_types::{ConditionClauseValue, Value};
-use sea_orm::{ColumnTrait, ActiveModelTrait};
+use sea_orm::{ActiveModelTrait, ColumnTrait};
 use std::str::FromStr;
 
 pub mod axum_routes;
@@ -26,23 +26,27 @@ pub mod prelude {
     pub use super::MaybeColumnTrait;
     pub use super::UpdateActiveModelTrait;
 
+    pub use super::validation::EntityValidationsExt;
+    pub use super::validation::EntityValidatorTrait;
+    pub use super::validation::EntityValidatorsTrait;
+    pub use super::validation::ValidationResultSaverTrait;
     pub use super::validation::ValidationViolationType;
     pub use super::validation::ValidationViolationTypeExt;
-    pub use super::validation::ValidationResultSaverTrait;
-    pub use super::validation::EntityValidationsExt;
-    pub use super::validation::EntityValidatorsTrait;
-    pub use super::validation::EntityValidatorTrait;
 
     pub use super::validate::validate_max_length;
     pub use super::validate::validate_min_length;
     pub use super::validate::validate_required;
 
     pub use super::parse;
+    pub use super::to_i32;
+    pub use super::to_bool;
+    pub use super::to_string;
+    pub use super::to_date_time;
 
-    pub use super::query::prune_active_model;
     pub use super::query::build_delete_many_query;
     pub use super::query::build_insert_query;
     pub use super::query::build_select_query;
+    pub use super::query::prune_active_model;
 
     pub use super::create::create_one;
     pub use super::create::CreateOne;
@@ -95,4 +99,45 @@ pub trait MaybeColumnTrait {
 
 pub trait ExcludingColumnsOnInsert<C: ColumnTrait> {
     fn excluding_columns() -> &'static [C];
+}
+
+pub fn to_i32(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::I32(num) => Ok(Value::I32(num)),
+        ConditionClauseValue::String(string) => parse::<i32>(&string).map(|val| Value::I32(val)),
+        _ => Err(format!(
+            "{value:?} can not be converted to an i32. Expected i32 or String."
+        )),
+    }
+}
+
+pub fn to_bool(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::Bool(bool) => Ok(Value::Bool(bool)),
+        ConditionClauseValue::String(string) => parse::<bool>(&string).map(|val| Value::Bool(val)),
+        _ => Err(format!(
+            "{value:?} can not be converted to a bool. Expected bool or String."
+        )),
+    }
+}
+
+pub fn to_string(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::String(string) => Ok(Value::String(string)),
+        _ => Err(format!(
+            "{value:?} can not be converted to a String. Expected String."
+        )),
+    }
+}
+
+pub fn to_date_time(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::String(string) => chrono::DateTime::parse_from_rfc3339(&string)
+            .map_err(|e| format!("{}", e))
+            .map(|value| value.naive_utc())
+            .map(|value| Value::DateTime(value)),
+        _ => Err(format!(
+            "{value:?} can not be converted to a DateTime. Expected String."
+        )),
+    }
 }

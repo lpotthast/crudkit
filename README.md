@@ -48,15 +48,27 @@ pub enum Resource {
 Assuming that we have an entity/table called "News"
 And validation results stored in table "ValidationResults,
 a boolean column, indicating whether or not validation errors exist for each entry,
-can be added like this 
+can be added like this:
 
-    SELECT N.*, CASE WHEN bool.entity_id IS NOT NULL THEN 1 ELSE 0 END AS validation_status
+    SELECT N.*, CASE WHEN bool.entity_id IS NOT NULL THEN true ELSE false END AS has_validation_errors
     FROM "News" as N
     LEFT OUTER JOIN 
     (
         SELECT VR.entity_name, VR.entity_id
         FROM "ValidationResults" AS VR
         WHERE VR.entity_name = 'news'
-    ) bool ON bool.entity_id = N.id
-    ORDER BY validation_status DESC
-    LIMIT 100;
+    ) bool ON bool.entity_id = N.id;
+
+A view with this additional column can be created like this:
+
+    DROP VIEW IF EXISTS "NewsReadView";
+
+    CREATE VIEW "NewsReadView" AS
+    SELECT N.*, CASE WHEN bool.entity_id IS NOT NULL THEN true ELSE false END AS has_validation_errors
+    FROM "News" as N
+    LEFT OUTER JOIN 
+    (
+        SELECT VR.entity_name, VR.entity_id
+        FROM "ValidationResults" AS VR
+        WHERE VR.entity_name = 'news'
+    ) bool ON bool.entity_id = N.id;

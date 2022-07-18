@@ -15,7 +15,7 @@ pub struct ReadCount {
 pub struct ReadOne<R: CrudResource> {
     pub skip: Option<u64>,
     #[serde(bound = "")]
-    pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
+    pub order_by: Option<IndexMap<R::ReadViewCrudColumn, Order>>,
     pub condition: Option<Condition>,
 }
 
@@ -24,7 +24,7 @@ pub struct ReadMany<R: CrudResource> {
     pub limit: Option<u64>,
     pub skip: Option<u64>,
     #[serde(bound = "")]
-    pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
+    pub order_by: Option<IndexMap<R::ReadViewCrudColumn, Order>>,
     pub condition: Option<Condition>,
 }
 
@@ -52,7 +52,7 @@ pub async fn read_one<R: CrudResource>(
     body: ReadOne<R>,
 ) -> Result<JsonValue, CrudError> {
     let db = controller.get_database_connection();
-    let data = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
+    let data = build_select_query::<R::ReadViewEntity, R::ReadViewModel, R::ReadViewActiveModel, R::ReadViewColumn, R::ReadViewCrudColumn>(
         None,
         body.skip,
         body.order_by,
@@ -70,7 +70,7 @@ pub async fn read_many<R: CrudResource>(
     context: Arc<CrudContext<R>>,
     body: ReadMany<R>,
 ) -> Result<JsonValue, CrudError> {
-    let data = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
+    let data = build_select_query::<R::ReadViewEntity, R::ReadViewModel, R::ReadViewActiveModel, R::ReadViewColumn, R::ReadViewCrudColumn>(
         body.limit,
         body.skip,
         body.order_by,

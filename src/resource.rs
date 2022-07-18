@@ -7,6 +7,39 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::{fmt::Debug, hash::Hash};
 
 pub trait CrudResource {
+    type ReadViewEntity: EntityTrait<Model = Self::ReadViewModel, Column = Self::ReadViewColumn>
+        + MaybeColumnTrait
+        + Clone
+        + Send
+        + Sync
+        + 'static;
+    type ReadViewModel: ModelTrait<Entity = Self::ReadViewEntity>
+        + IntoActiveModel<Self::ReadViewActiveModel>
+        + FromQueryResult
+        + Serialize
+        + Clone
+        + Send
+        + Sync
+        + 'static;
+    type ReadViewActiveModel: ActiveModelTrait<Entity = Self::ReadViewEntity>
+        + ActiveModelBehavior
+        + From<Self::ReadViewModel>
+        // Does not need ExcludingColumnsOnInsert<Self::ReadViewColumn>
+        // Does not need UpdateActiveModelTrait<Self::ReadViewCreateModel>
+        + Clone
+        + Send
+        + Sync
+        + 'static;
+    type ReadViewColumn: ColumnTrait + Clone + Send + Sync + 'static;
+    type ReadViewCrudColumn: CrudColumns<Self::ReadViewColumn, Self::ReadViewActiveModel>
+        + Eq
+        + Hash
+        + DeserializeOwned
+        + Clone
+        + Send
+        + Sync
+        + 'static;
+    
     type Entity: EntityTrait<Model = Self::Model, Column = Self::Column>
         + MaybeColumnTrait
         + Clone
