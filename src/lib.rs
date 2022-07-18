@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+pub mod validation;
+
 // TODO: implement prelude
 
 pub enum CrudError {
@@ -115,4 +117,10 @@ pub enum Value {
     I32(i32),
     Bool(bool),
     DateTime(chrono::NaiveDateTime),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SaveResult<T> {
+    pub entity: T,
+    pub with_validation_errors: bool,
 }
