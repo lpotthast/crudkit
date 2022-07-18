@@ -1,6 +1,6 @@
 use super::requests::*;
 use crate::{types::RequestError, CrudDataTrait};
-use crud_shared_types::{Condition, Order};
+use crud_shared_types::{Condition, Order, SaveResult};
 use indexmap::IndexMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
@@ -102,7 +102,7 @@ impl<T: CrudDataTrait> CrudRestDataProvider<T> {
     pub async fn update_one(
         &self,
         mut update_one: UpdateOne<T>,
-    ) -> Result<Option<T>, RequestError> {
+    ) -> Result<Option<SaveResult<T>>, RequestError> {
         update_one.condition = merge_conditions(self.base_condition.clone(), update_one.condition);
         let resource = T::get_resource_name();
         request_post(

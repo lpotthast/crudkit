@@ -1,5 +1,5 @@
 use crud_shared_types::{
-    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Operator,
+    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Operator, SaveResult,
 };
 use yew::{
     html::{ChildrenRenderer, Scope},
@@ -20,7 +20,7 @@ pub enum Msg<T: CrudDataTrait> {
     BackCanceled,
     BackApproved,
     LoadedEntity(Result<Option<T>, RequestError>),
-    UpdatedEntity((Result<Option<T>, RequestError>, Then)),
+    UpdatedEntity((Result<Option<SaveResult<T>>, RequestError>, Then)),
     Save,
     SaveAndReturn,
     SaveAndNew,
@@ -37,7 +37,7 @@ pub struct Props<T: 'static + CrudDataTrait> {
     pub config: CrudInstanceConfig<T>,
     pub id: u32,
     pub list_view_available: bool,
-    pub on_saved: Callback<T>,
+    pub on_saved: Callback<SaveResult<T>>,
     pub on_list: Callback<()>,
     pub on_create: Callback<()>,
     pub on_delete: Callback<T>,
@@ -63,10 +63,32 @@ pub enum Then {
 }
 
 impl<T: 'static + CrudDataTrait> CrudEditView<T> {
+    // TODO: Remove this code duplication!
+    
     fn set_entity(&mut self, data: Result<Option<T>, RequestError>, from: SetFrom) {
         self.entity = match data {
             Ok(data) => match data {
                 Some(entity) => Ok(entity),
+                None => Err(match from {
+                    SetFrom::Fetch => NoData::FetchReturnedNothing,
+                    SetFrom::Update => NoData::UpdateReturnedNothing,
+                }),
+            },
+            Err(err) => Err(match from {
+                SetFrom::Fetch => NoData::FetchFailed(err),
+                SetFrom::Update => NoData::UpdateFailed(err),
+            }),
+        };
+        if let Ok(entity) = &self.entity {
+            self.input = entity.clone();
+            self.input_dirty = false;
+        }
+    }
+
+    fn set_entity_from_save_result(&mut self, data: Result<Option<SaveResult<T>>, RequestError>, from: SetFrom) {
+        self.entity = match data {
+            Ok(data) => match data {
+                Some(save_result) => Ok(save_result.entity),
                 None => Err(match from {
                     SetFrom::Fetch => NoData::FetchReturnedNothing,
                     SetFrom::Update => NoData::UpdateReturnedNothing,
@@ -159,7 +181,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
                 true
             }
             Msg::UpdatedEntity((data, and_then)) => {
-                self.set_entity(data.clone(), SetFrom::Update);
+                self.set_entity_from_save_result(data.clone(), SetFrom::Update);
                 match data {
                     Ok(data) => match data {
                         Some(data) => {
