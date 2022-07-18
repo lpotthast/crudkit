@@ -1,6 +1,6 @@
 use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::{
-    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Order,
+    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Order, SaveResult,
 };
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ pub enum Msg<T: 'static + CrudDataTrait> {
     Create,
     EntityCreated((T, Option<CrudView>)),
     EntityCreationFailed((Option<NoData>, Option<RequestError>)),
-    EntityUpdated(T),
+    EntityUpdated(SaveResult<T>),
     Read(T),
     Edit(T),
     Delete(T),
@@ -454,14 +454,17 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                 }
                 false
             }
-            Msg::EntityUpdated(_entity) => {
+            Msg::EntityUpdated(save_result) => {
                 self.toasts_dispatch.reduce_mut(|state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
                         created_at: UtcDateTime::now(),
                         variant: ToastVariant::Success,
-                        heading: "Gespeichert".to_owned(),
-                        message: "Der Eintrag wurde erfolgreich gespeichert.".to_owned(),
+                        heading: String::from("Gespeichert"),
+                        message: match save_result.with_validation_errors {
+                            true => String::from("Eintrag wurde mit Validierungsfehlern gespeichert."),
+                            false => String::from("Eintrag wurde erfolgreich gespeichert."),
+                        },
                         dismissible: false,
                         automatically_closing: AutomaticallyClosing::WithDefaultDelay,
                         close_callback: None,

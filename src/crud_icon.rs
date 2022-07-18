@@ -7,6 +7,8 @@ pub struct CrudIcon {}
 pub struct Props {
     #[prop_or_default]
     pub variant: Bi,
+    #[prop_or_default]
+    pub class: Option<String>,
 }
 
 impl Component for CrudIcon {
@@ -23,7 +25,7 @@ impl Component for CrudIcon {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
-            <i class={ classes!("crud-icon", ctx.props().variant) }></i>
+            <i class={ classes!("crud-icon", ctx.props().variant, ctx.props().class.clone()) }></i>
         }
     }
 }
