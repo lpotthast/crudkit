@@ -40,7 +40,7 @@ pub trait CrudResource {
         + Sync
         + 'static;
     type Column: ColumnTrait + Clone + Send + Sync + 'static;
-    type CrudColumn: CrudColumns<Self::Column>
+    type CrudColumn: CrudColumns<Self::Column, Self::ActiveModel>
         + Eq
         + Hash
         + DeserializeOwned

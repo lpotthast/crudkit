@@ -1,6 +1,7 @@
+use crud_shared_types::validation::{EntityViolations, ValidationViolation};
 use sea_orm::ActiveValue;
 
-use crate::validation::{EntityViolations, ValidationViolation, ValidationViolationType};
+use crate::validation::ValidationViolationType;
 
 pub fn validate_required<T: Into<sea_orm::Value>>(
     name: &'static str,

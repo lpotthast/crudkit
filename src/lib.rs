@@ -1,5 +1,5 @@
 use crud_shared_types::{ConditionClauseValue, Value};
-use sea_orm::ColumnTrait;
+use sea_orm::{ColumnTrait, ActiveModelTrait};
 use std::str::FromStr;
 
 pub mod axum_routes;
@@ -26,15 +26,12 @@ pub mod prelude {
     pub use super::MaybeColumnTrait;
     pub use super::UpdateActiveModelTrait;
 
-    pub use super::validation::EntityInfo;
-    pub use super::validation::ValidatorInfo;
-    pub use super::validation::EntityValidations;
-    pub use super::validation::EntityValidatorTrait;
-    pub use super::validation::EntityValidatorsTrait;
-    pub use super::validation::EntityViolations;
-    pub use super::validation::ValidationViolation;
     pub use super::validation::ValidationViolationType;
+    pub use super::validation::ValidationViolationTypeExt;
     pub use super::validation::ValidationResultSaverTrait;
+    pub use super::validation::EntityValidationsExt;
+    pub use super::validation::EntityValidatorsTrait;
+    pub use super::validation::EntityValidatorTrait;
 
     pub use super::validate::validate_max_length;
     pub use super::validate::validate_min_length;
@@ -65,8 +62,9 @@ pub mod prelude {
     pub use super::update::UpdateOne;
 }
 
-pub trait CrudColumns<C: ColumnTrait> {
+pub trait CrudColumns<C: ColumnTrait, A: ActiveModelTrait> {
     fn to_sea_orm_column(&self) -> C;
+    fn get_id(model: &A) -> Option<i32>;
     fn get_id_field() -> C;
     fn get_id_field_name() -> String;
 }
