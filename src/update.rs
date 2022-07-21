@@ -58,7 +58,7 @@ pub async fn update_one<R: CrudResource>(
 
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
         let msg: TypedMessage<SerializableValidations> = TypedMessage {
-            message_type: String::from("partial-validation-result"),
+            message_type: String::from("partial_validation_result"),
             data: &(&partial_validation_results).into(), // TODO: reference not strictly needed, as we clone in the into() impl anyway...
         };
         let serialized_msg = match serde_json::to_string(&msg) {
