@@ -4,6 +4,7 @@ pub mod validation;
 
 // TODO: implement prelude
 
+#[derive(Debug)]
 pub enum CrudError {
     UnknownColumnSpecified(String),
     UnableToParseValueAsColType(String, String),
@@ -13,7 +14,7 @@ pub enum CrudError {
     ValidationErrors,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Order {
     #[serde(rename(
         serialize = "asc",
@@ -31,7 +32,7 @@ pub enum Order {
     Desc,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Operator {
     #[serde(rename = "=")]
     Equal,
