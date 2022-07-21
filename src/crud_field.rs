@@ -6,6 +6,7 @@ use super::prelude::*;
 use chrono_utc_date_time::UtcDateTime;
 use uuid::Uuid;
 use yew::{prelude::*, html::ChildrenRenderer};
+use yewbi::Bi;
 
 pub enum Msg {
     KeyUp(KeyboardEvent),
@@ -338,6 +339,26 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                                     disabled={true}
                                 />
                             </div>
+                        </div>
+                    },
+                },
+                Value::ValidationStatus(value) => match &ctx.props().field_mode {
+                    FieldMode::Display => match value {
+                        true => html! {
+                            <CrudIcon variant={Bi::ExclamationTriangleFill} color={"#ffbd00"}/>
+                        },
+                        false => html! {
+                            <CrudIcon variant={Bi::CheckLg}  color={"#469a46"}/>
+                        },
+                    },
+                    FieldMode::Readable => html! {
+                        <div class="crud-field">
+                            { "Only displayable..." }
+                        </div>
+                    },
+                    FieldMode::Editable => html! {
+                        <div class="crud-field">
+                            { "Only displayable..." }
                         </div>
                     },
                 },

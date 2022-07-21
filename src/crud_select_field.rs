@@ -42,6 +42,7 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudSelectableTrait + Clone + Part
                 Value::Text(_) => panic!("unsupported"),
                 Value::U32(_) => panic!("unsupported"),
                 Value::Bool(_) => panic!("unsupported"),
+                Value::ValidationStatus(_) => panic!("unsupported"),
                 Value::UtcDateTime(_) => panic!("unsupported"),
                 Value::OptionalUtcDateTime(_) => panic!("unsupported"),
                 Value::OneToOneRelation(_) => panic!("unsupported"),

@@ -13,7 +13,7 @@ pub enum Msg<T: CrudMainTrait> {
     SaveAndReturn,
     SaveAndNew,
     ValueChanged((<T::UpdateModel as CrudDataTrait>::Field, Value)),
-    CreatedEntity(Result<Option<T::ReadModel>, RequestError>, Then),
+    CreatedEntity(Result<Option<T::UpdateModel>, RequestError>, Then),
     GetInput((<T::UpdateModel as CrudDataTrait>::Field, Box<dyn FnOnce(Value)>)),
 }
 
@@ -32,7 +32,7 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub config: CrudInstanceConfig<T>,
     pub list_view_available: bool,
     pub on_list_view: Callback<()>,
-    pub on_entity_created: Callback<(T::ReadModel, Option<CrudView>)>,
+    pub on_entity_created: Callback<(T::UpdateModel, Option<CrudView>)>,
     pub on_entity_creation_failed: Callback<(Option<NoData>, Option<RequestError>)>,
 }
 

@@ -28,9 +28,9 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     EditViewLinked(Option<Scope<CrudEditView<T>>>),
     List,
     Create,
-    EntityCreated((T::ReadModel, Option<CrudView>)),
+    EntityCreated((T::UpdateModel, Option<CrudView>)),
     EntityCreationFailed((Option<NoData>, Option<RequestError>)),
-    EntityUpdated(SaveResult<T::ReadModel>),
+    EntityUpdated(SaveResult<T::UpdateModel>),
     Read(T::UpdateModel),
     Edit(T::UpdateModel),
     Delete(T::UpdateModel),
@@ -85,7 +85,8 @@ impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {
             headers: vec![(
                 T::ReadModel::get_id_field(),
                 HeaderOptions {
-                    display_name: "Id".to_owned(),
+                    display_name: "ID".to_owned(),
+                    min_width: true,
                     ordering_allowed: true,
                     date_time_display: DateTimeDisplay::LocalizedLocal,
                 },
@@ -143,6 +144,17 @@ impl Into<Html> for Item {
 
 #[derive(PartialEq, Properties)]
 pub struct Props<T: CrudMainTrait> {
+    // TODO: Analyze children once on creation and on prop changes. Pass generated data-structure to children!
+    // TODO: Only allow easy-to-parse structure:
+    /*
+       tbd...
+       ListDetails {
+
+       }
+       FieldDetails {
+
+       }
+    */
     #[prop_or_default]
     pub children: ChildrenRenderer<Item>,
     pub name: String,

@@ -227,6 +227,8 @@ pub enum Value {
     Text(String),
     U32(u32),
     Bool(bool),
+    // Specialized bool-case, render as a green check mark if false and an orange exclamation mark if true.
+    ValidationStatus(bool),
     UtcDateTime(UtcDateTime),
     OptionalUtcDateTime(Option<UtcDateTime>),
     OneToOneRelation(Option<u32>),
@@ -307,6 +309,7 @@ impl Value {
             Value::Text(string) => string,
             Value::U32(u32) => u32.to_string(),
             Value::Bool(bool) => bool.to_string(),
+            Value::ValidationStatus(bool) => bool.to_string(),
             Value::UtcDateTime(utc_date_time) => utc_date_time.to_rfc3339(),
             Value::OptionalUtcDateTime(optional_utc_date_time) => match optional_utc_date_time {
                 Some(utc_date_time) => utc_date_time.to_rfc3339(),
@@ -355,8 +358,21 @@ impl Default for CrudView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct HeaderOptions {
     pub display_name: String,
+    pub min_width: bool,
     pub ordering_allowed: bool,
     pub date_time_display: DateTimeDisplay,
+}
+
+// TODO: we might want to use the builder pattern instead of relying on ..Default.default()
+impl Default for HeaderOptions {
+    fn default() -> Self {
+        Self {
+            display_name: Default::default(),
+            min_width: false,
+            ordering_allowed: true,
+            date_time_display: DateTimeDisplay::LocalizedLocal,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

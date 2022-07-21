@@ -99,7 +99,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
     pub async fn create_one(
         &self,
         create_one: CreateOne<T::UpdateModel>,
-    ) -> Result<Option<T::ReadModel>, RequestError> {
+    ) -> Result<Option<T::UpdateModel>, RequestError> {
         let resource = T::get_resource_name();
         request_post(
             format!("{}/{resource}/crud/create-one", self.api_base_url),
@@ -111,7 +111,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
     pub async fn update_one(
         &self,
         mut update_one: UpdateOne<T::UpdateModel>,
-    ) -> Result<Option<SaveResult<T::ReadModel>>, RequestError> {
+    ) -> Result<Option<SaveResult<T::UpdateModel>>, RequestError> {
         update_one.condition = merge_conditions(self.base_condition.clone(), update_one.condition);
         let resource = T::get_resource_name();
         request_post(

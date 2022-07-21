@@ -53,6 +53,7 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> CrudRelatedField<P,
                 Value::Text(_) => panic!("unsupported"),
                 Value::U32(u32) => vec![*u32],
                 Value::Bool(_) => panic!("unsupported"),
+                Value::ValidationStatus(_) => panic!("unsupported"),
                 Value::UtcDateTime(_) => panic!("unsupported"),
                 Value::OptionalUtcDateTime(_) => panic!("unsupported"),
                 Value::OneToOneRelation(some_u32) => match some_u32 {
@@ -102,6 +103,7 @@ fn value_as_u32(value: &Value) -> Option<u32> {
         Value::Text(_) => panic!("unsupported"),
         Value::U32(u32) => Some(*u32),
         Value::Bool(_) => panic!("unsupported"),
+        Value::ValidationStatus(_) => panic!("unsupported"),
         Value::UtcDateTime(_) => panic!("unsupported"),
         Value::OptionalUtcDateTime(_) => panic!("unsupported"),
         Value::OneToOneRelation(some_u32) => match some_u32 {

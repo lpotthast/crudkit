@@ -57,6 +57,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudTableHeader<T> {
                             if options.ordering_allowed {
                                 classes.push("crud-order-by-trigger");
                             }
+                            if options.min_width {
+                                classes.push("min-width");
+                            }
 
                             let field_clone = field.clone();
                             let options_clone = options.clone();
@@ -88,7 +91,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudTableHeader<T> {
                         }).collect::<Html>()
                     }
                     if ctx.props().with_actions {
-                        <th class={"actions"}>
+                        <th class={"actions min-width"}>
                             {"Aktionen"}
                         </th>
                     }

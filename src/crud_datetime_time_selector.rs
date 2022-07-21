@@ -1,6 +1,5 @@
 use chrono_utc_date_time::UtcDateTime;
 use yew::prelude::*;
-use chrono::Datelike;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {

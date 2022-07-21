@@ -20,7 +20,7 @@ pub enum Msg<T: CrudMainTrait> {
     BackCanceled,
     BackApproved,
     LoadedEntity(Result<Option<T::ReadModel>, RequestError>),
-    UpdatedEntity((Result<Option<SaveResult<T::ReadModel>>, RequestError>, Then)),
+    UpdatedEntity((Result<Option<SaveResult<T::UpdateModel>>, RequestError>, Then)),
     Save,
     SaveAndReturn,
     SaveAndNew,
@@ -42,7 +42,7 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub config: CrudInstanceConfig<T>,
     pub id: u32,
     pub list_view_available: bool,
-    pub on_saved: Callback<SaveResult<T::ReadModel>>,
+    pub on_saved: Callback<SaveResult<T::UpdateModel>>,
     pub on_list: Callback<()>,
     pub on_create: Callback<()>,
     pub on_delete: Callback<T::UpdateModel>,
@@ -93,12 +93,12 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
 
     fn set_entity_from_save_result(
         &mut self,
-        data: Result<Option<SaveResult<T::ReadModel>>, RequestError>,
+        data: Result<Option<SaveResult<T::UpdateModel>>, RequestError>,
         from: SetFrom,
     ) {
         self.entity = match data {
             Ok(data) => match data {
-                Some(save_result) => Ok(save_result.entity.into()),
+                Some(save_result) => Ok(save_result.entity),
                 None => Err(match from {
                     SetFrom::Fetch => NoData::FetchReturnedNothing,
                     SetFrom::Update => NoData::UpdateReturnedNothing,
