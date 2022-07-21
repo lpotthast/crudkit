@@ -8,7 +8,7 @@ use crate::crud_instance::Item;
 use super::prelude::*;
 
 pub enum Msg<T: CrudDataTrait> {
-    OrderBy((T::FieldType, OrderByUpdateOptions)),
+    OrderBy((T::Field, OrderByUpdateOptions)),
     Read(T),
     Edit(T),
     Delete(T),
@@ -24,8 +24,8 @@ where
     pub api_base_url: String,
     pub data: Option<Rc<Vec<T>>>,
     pub no_data: Option<NoData>,
-    pub headers: Vec<(T::FieldType, HeaderOptions, Option<Order>)>,
-    pub on_order_by: Callback<(T::FieldType, OrderByUpdateOptions)>,
+    pub headers: Vec<(T::Field, HeaderOptions, Option<Order>)>,
+    pub on_order_by: Callback<(T::Field, OrderByUpdateOptions)>,
     pub read_allowed: bool,
     pub edit_allowed: bool,
     pub delete_allowed: bool,

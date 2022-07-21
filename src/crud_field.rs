@@ -5,7 +5,6 @@ use crate::{crud_instance::Item, DateTimeDisplay, keyboard_event_target_as, even
 use super::prelude::*;
 use chrono_utc_date_time::UtcDateTime;
 use uuid::Uuid;
-use wasm_bindgen::JsCast;
 use yew::{prelude::*, html::ChildrenRenderer};
 
 pub enum Msg {
@@ -22,11 +21,11 @@ pub struct Props<T: CrudDataTrait> {
     pub children: ChildrenRenderer<Item>,
     pub api_base_url: String,
     pub current_view: CrudView,
-    pub field_type: T::FieldType,
+    pub field_type: T::Field,
     pub field_options: FieldOptions,
     pub field_mode: FieldMode,
     pub entity: Option<T>,
-    pub value_changed: Callback<(T::FieldType, Value)>, // how can we handle all possible types? serialization?
+    pub value_changed: Callback<(T::Field, Value)>, // how can we handle all possible types? serialization?
 }
 
 pub struct CrudField<T> {

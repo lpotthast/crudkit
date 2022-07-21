@@ -9,43 +9,43 @@ use crate::{
     services::crud_rest_data_provider::{CrudRestDataProvider, ReadMany},
     stores,
     types::RequestError,
-    CrudDataTrait,
+    CrudMainTrait,
 };
 
-pub enum Msg<P: 'static + CrudDataTrait, T: CrudDataTrait> {
+pub enum Msg<P: 'static + CrudMainTrait, T: CrudMainTrait> {
     ParentInstanceLinksStoreUpdated(Rc<stores::instance_links::InstanceLinksStore<P>>),
     InstanceViewsStoreUpdated(Rc<stores::instance_views::InstanceViewsStore>),
     CurrentValue(Value),
-    LoadedData(Result<Vec<T>, RequestError>),
-    SelectionChanged(Selection<T>),
+    LoadedData(Result<Vec<T::ReadModel>, RequestError>),
+    SelectionChanged(Selection<T::ReadModel>),
 }
 
 /// P: The parent entity
 /// T: The own entity
 #[derive(Properties, PartialEq)]
-pub struct Props<P: CrudDataTrait, T: CrudDataTrait> {
+pub struct Props<P: CrudMainTrait, T: CrudMainTrait> {
     pub api_base_url: String,
     /// The name of the parent instance from which the referenced id should be loaded.
     pub parent_instance: String,
-    /// The field of the parent, where another entry is reference.
-    pub parent_field: P::FieldType,
+    /// The field of the parent, where another entry is referenced.
+    pub parent_field: <P::UpdateModel as CrudDataTrait>::Field,
     /// The field of the related entry whose value is stored in the parent. 
-    pub connect_field: T::FieldType,
+    pub connect_field: <T::ReadModel as CrudDataTrait>::Field,
     /// The field in which the reference to the parent is store.
-    pub parent_reverse_field: T::FieldType,
+    pub parent_reverse_field: <T::ReadModel as CrudDataTrait>::Field,
 }
 
-pub struct CrudRelatedField<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> {
+pub struct CrudRelatedField<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> {
     _parent_instance_links_dispatch: Dispatch<stores::instance_links::InstanceLinksStore<P>>,
     _instance_views_dispatch: Dispatch<stores::instance_views::InstanceViewsStore>,
 
     parent: Option<Scope<CrudInstance<P>>>,
     current_field_value: Option<Value>,
-    data: Option<Result<Vec<T>, RequestError>>,
-    selected: Selection<T>,
+    data: Option<Result<Vec<T::ReadModel>, RequestError>>,
+    selected: Selection<T::ReadModel>,
 }
 
-impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> CrudRelatedField<P, T> {
+impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> CrudRelatedField<P, T> {
     fn compute_selected(&mut self, ctx: &Context<Self>) {
         self.selected = if let Some(value) = &self.current_field_value {
             let selected_ids = match value {
@@ -122,7 +122,7 @@ TODO:
 
 */
 
-impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> Component for CrudRelatedField<P, T> {
+impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> Component for CrudRelatedField<P, T> {
     type Message = Msg<P, T>;
     type Properties = Props<P, T>;
 
@@ -168,7 +168,7 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> Component for CrudR
                             log::warn!("Cannot show this field in List or Create view...");
                         }
                         crate::CrudView::Read(id) | crate::CrudView::Edit(id) => {
-                            let mut data_provider =
+                            let mut data_provider: CrudRestDataProvider<T> =
                                 CrudRestDataProvider::new(ctx.props().api_base_url.clone());
                             data_provider.set_base_condition(Some(Condition::All(vec![
                                 ConditionElement::Clause(ConditionClause {
@@ -244,7 +244,7 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudDataTrait> Component for CrudR
             match &self.data {
                 Some(result) => match result {
                     Ok(data) => html! {
-                        <CrudSelect<T>
+                        <CrudSelect<T::ReadModel>
                             options={data.clone()}
                             selected={self.selected.clone()}
                             selection_changed={ctx.link().callback(|selected| Msg::SelectionChanged(selected))} />

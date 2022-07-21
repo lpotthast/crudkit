@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use yew::prelude::*;
 
 pub enum Msg<T: CrudDataTrait> {
-    OrderBy((T::FieldType, HeaderOptions)),
+    OrderBy((T::Field, HeaderOptions)),
 }
 
 #[derive(Properties, PartialEq)]
@@ -12,8 +12,8 @@ pub struct Props<T>
 where
     T: CrudDataTrait,
 {
-    pub headers: Vec<(T::FieldType, HeaderOptions, Option<Order>)>,
-    pub on_order_by: Callback<(T::FieldType, OrderByUpdateOptions)>,
+    pub headers: Vec<(T::Field, HeaderOptions, Option<Order>)>,
+    pub on_order_by: Callback<(T::Field, OrderByUpdateOptions)>,
     pub with_actions: bool,
 }
 

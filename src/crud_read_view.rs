@@ -8,13 +8,13 @@ use crate::{
 
 use super::{prelude::*, types::RequestError};
 
-pub enum Msg<T: CrudDataTrait> {
+pub enum Msg<T: CrudMainTrait> {
     Back,
-    LoadedEntity(Result<Option<T>, RequestError>),
+    LoadedEntity(Result<Option<T::ReadModel>, RequestError>),
 }
 
 #[derive(Properties, PartialEq)]
-pub struct Props<T: CrudDataTrait> {
+pub struct Props<T: CrudMainTrait> {
     pub children: ChildrenRenderer<Item>,
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
@@ -23,11 +23,11 @@ pub struct Props<T: CrudDataTrait> {
     pub on_list_view: Callback<()>,
 }
 
-pub struct CrudReadView<T: CrudDataTrait> {
-    entity: Result<T, NoData>,
+pub struct CrudReadView<T: CrudMainTrait> {
+    entity: Result<T::UpdateModel, NoData>,
 }
 
-impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
+impl<T: 'static + CrudMainTrait> Component for CrudReadView<T> {
     type Message = Msg<T>;
     type Properties = Props<T>;
 
@@ -50,7 +50,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
             Msg::LoadedEntity(data) => {
                 self.entity = match data {
                     Ok(data) => match data {
-                        Some(entity) => Ok(entity),
+                        Some(entity) => Ok(entity.into()),
                         None => Err(NoData::FetchReturnedNothing),
                     },
                     Err(err) => Err(NoData::FetchFailed(err)),
@@ -61,6 +61,8 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
+        // NOTE: We only not use <CrudFields<T::ReadModel>, as we would then also have to specify config.elements to contain ReadModel fields, which it currently does not do...
+        // Idea for  future lukas: We could support both elements_read and elements_update, but this requires more work when setting up an instance (probably all duplicated..).
         html! {
             <div>
                 {
@@ -80,7 +82,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
                                     </div>
                                 </div>
 
-                                <CrudFields<T>
+                                <CrudFields<T::UpdateModel>
                                     api_base_url={ctx.props().config.api_base_url.clone()}
                                     children={ctx.props().children.clone()}
                                     elements={ctx.props().config.elements.clone()}
@@ -119,17 +121,17 @@ impl<T: 'static + CrudDataTrait> Component for CrudReadView<T> {
     }
 }
 
-pub async fn load_entity<T: CrudDataTrait>(
+pub async fn load_entity<T: CrudMainTrait>(
     data_provider: CrudRestDataProvider<T>,
     id: u32,
-) -> Result<Option<T>, RequestError> {
+) -> Result<Option<T::ReadModel>, RequestError> {
     data_provider
         .read_one(ReadOne {
             skip: None,
             order_by: None,
             condition: Some(Condition::All(vec![ConditionElement::Clause(
                 ConditionClause {
-                    column_name: T::get_id_field_name(),
+                    column_name: String::from(T::ReadModel::get_id_field().get_name()),
                     operator: crud_shared_types::Operator::Equal,
                     value: crud_shared_types::ConditionClauseValue::U32(id),
                 },

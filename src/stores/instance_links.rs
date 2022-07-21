@@ -3,25 +3,28 @@ use std::collections::HashMap;
 use yew::html::Scope;
 use yewdux::prelude::*;
 
-use crate::{CrudDataTrait, prelude::CrudInstance};
+use crate::{prelude::CrudInstance, CrudMainTrait};
 
 #[derive(Clone)]
-struct Link<T: 'static + CrudDataTrait>(Scope<CrudInstance<T>>);
+struct Link<T: 'static + CrudMainTrait>(Scope<CrudInstance<T>>);
 
-impl<T: CrudDataTrait> PartialEq for Link<T> {
+impl<T: CrudMainTrait> PartialEq for Link<T> {
     fn eq(&self, _other: &Self) -> bool {
         false
     }
 }
 
 #[derive(Default, Clone, PartialEq, Store)]
-pub struct InstanceLinksStore<T: 'static + CrudDataTrait> {
+pub struct InstanceLinksStore<T: 'static + CrudMainTrait> {
     instance_links: HashMap<String, Link<T>>,
 }
 
-impl<T: CrudDataTrait> InstanceLinksStore<T> {
+impl<T: CrudMainTrait> InstanceLinksStore<T> {
     pub fn get(&self, instance_name: &str) -> Option<Scope<CrudInstance<T>>> {
-        self.instance_links.get(instance_name).cloned().map(|link| link.0)
+        self.instance_links
+            .get(instance_name)
+            .cloned()
+            .map(|link| link.0)
     }
 
     pub fn save(&mut self, instance_name: String, instance_link: Option<Scope<CrudInstance<T>>>) {

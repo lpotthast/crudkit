@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use yew::{prelude::*, html::ChildrenRenderer};
 
 pub enum Msg<T: CrudDataTrait> {
-    ValueChanged((T::FieldType, Value)),
+    ValueChanged((T::Field, Value)),
 }
 
 #[derive(Properties, PartialEq)]
@@ -16,7 +16,7 @@ pub struct Props<T: CrudDataTrait> {
     pub entity: Option<T>,
     pub mode: FieldMode,
     pub current_view: CrudView,
-    pub value_changed: Callback<(T::FieldType, Value)>,
+    pub value_changed: Callback<(T::Field, Value)>,
 }
 
 pub struct CrudFields<T> {

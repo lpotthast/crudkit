@@ -4,25 +4,25 @@ use crate::{crud_select::Selection, prelude::*};
 use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
 
-use crate::{stores, CrudDataTrait};
+use crate::{stores, CrudMainTrait};
 
-pub enum Msg<P: 'static + CrudDataTrait, T: CrudSelectableTrait + Clone + PartialEq> {
+pub enum Msg<P: 'static + CrudMainTrait, T: CrudSelectableTrait + Clone + PartialEq> {
     ParentInstanceLinksStoreUpdated(Rc<stores::instance_links::InstanceLinksStore<P>>),
     CurrentValue(Value),
     SelectionChanged(Selection<T>),
 }
 
 #[derive(Properties, PartialEq)]
-pub struct Props<P: CrudDataTrait, T: CrudSelectableTrait + Clone + PartialEq> {
+pub struct Props<P: CrudMainTrait, T: CrudSelectableTrait + Clone + PartialEq> {
     pub selectable: Vec<T>,
     /// The name of the parent instance from which the referenced id should be loaded.
     pub parent_instance: String,
     /// The field of the parent, where the value is stored.
-    pub parent_field: P::FieldType,
+    pub parent_field: <P::UpdateModel as CrudDataTrait>::Field,
 }
 
 pub struct CrudSelectField<
-    P: 'static + CrudDataTrait,
+    P: 'static + CrudMainTrait,
     T: 'static + CrudSelectableTrait + Clone + PartialEq,
 > {
     _parent_instance_links_dispatch: Dispatch<stores::instance_links::InstanceLinksStore<P>>,
@@ -32,7 +32,7 @@ pub struct CrudSelectField<
     selected: Selection<T>,
 }
 
-impl<P: 'static + CrudDataTrait, T: 'static + CrudSelectableTrait + Clone + PartialEq>
+impl<P: 'static + CrudMainTrait, T: 'static + CrudSelectableTrait + Clone + PartialEq>
     CrudSelectField<P, T>
 {
     fn compute_selected(&mut self, ctx: &Context<Self>) {
@@ -73,7 +73,7 @@ impl<P: 'static + CrudDataTrait, T: 'static + CrudSelectableTrait + Clone + Part
     }
 }
 
-impl<P: 'static + CrudDataTrait, T: 'static + CrudSelectableTrait + Clone + PartialEq> Component
+impl<P: 'static + CrudMainTrait, T: 'static + CrudSelectableTrait + Clone + PartialEq> Component
     for CrudSelectField<P, T>
 {
     type Message = Msg<P, T>;

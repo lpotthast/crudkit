@@ -7,14 +7,14 @@ use super::{
     types::RequestError,
 };
 
-pub enum Msg<T: CrudDataTrait> {
+pub enum Msg<T: CrudMainTrait> {
     Back,
     Save,
     SaveAndReturn,
     SaveAndNew,
-    ValueChanged((T::FieldType, Value)),
-    CreatedEntity(Result<Option<T>, RequestError>, Then),
-    GetInput((T::FieldType, Box<dyn FnOnce(Value)>)),
+    ValueChanged((<T::UpdateModel as CrudDataTrait>::Field, Value)),
+    CreatedEntity(Result<Option<T::ReadModel>, RequestError>, Then),
+    GetInput((<T::UpdateModel as CrudDataTrait>::Field, Box<dyn FnOnce(Value)>)),
 }
 
 pub enum Then {
@@ -24,7 +24,7 @@ pub enum Then {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct Props<T: 'static + CrudDataTrait> {
+pub struct Props<T: 'static + CrudMainTrait> {
     pub on_link: Callback<Option<Scope<CrudCreateView<T>>>>,
     pub children: ChildrenRenderer<Item>,
     pub data_provider: CrudRestDataProvider<T>,
@@ -32,17 +32,17 @@ pub struct Props<T: 'static + CrudDataTrait> {
     pub config: CrudInstanceConfig<T>,
     pub list_view_available: bool,
     pub on_list_view: Callback<()>,
-    pub on_entity_created: Callback<(T, Option<CrudView>)>,
+    pub on_entity_created: Callback<(T::ReadModel, Option<CrudView>)>,
     pub on_entity_creation_failed: Callback<(Option<NoData>, Option<RequestError>)>,
 }
 
-pub struct CrudCreateView<T: CrudDataTrait> {
-    initial_data: Option<T>,
-    input: T,
+pub struct CrudCreateView<T: CrudMainTrait> {
+    initial_data: Option<T::UpdateModel>,
+    input: T::UpdateModel,
     ongoing_save: bool,
 }
 
-impl<T: 'static + CrudDataTrait> CrudCreateView<T> {
+impl<T: 'static + CrudMainTrait> CrudCreateView<T> {
     fn create_entity(&mut self, ctx: &Context<Self>, then: Then) {
         let ent = self.input.clone();
         let data_provider = ctx.props().data_provider.clone();
@@ -60,16 +60,16 @@ impl<T: 'static + CrudDataTrait> CrudCreateView<T> {
     }
 }
 
-impl<T: 'static + CrudDataTrait> Component for CrudCreateView<T> {
+impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
     type Message = Msg<T>;
     type Properties = Props<T>;
 
     fn create(ctx: &Context<Self>) -> Self {
         ctx.props().on_link.emit(Some(ctx.link().clone()));
-        let mut entity: T = Default::default();
+        let mut entity: T::UpdateModel = Default::default();
         if let Some(nested) = &ctx.props().config.nested {
             if let Some(parent_id) = ctx.props().parent_id {
-                T::get_field(nested.reference_field.as_str())
+                T::UpdateModel::get_field(nested.reference_field.as_str())
                     .set_value(&mut entity, Value::U32(parent_id));
                 log::info!("successfully set parent id to reference field");
             } else {
@@ -177,7 +177,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudCreateView<T> {
                 </div>
             </div>
 
-            <CrudFields<T>
+            <CrudFields<T::UpdateModel>
                 api_base_url={ctx.props().config.api_base_url.clone()}
                 children={ctx.props().children.clone()}
                 elements={ctx.props().config.elements.clone()}

@@ -10,41 +10,41 @@ use super::{
     types::RequestError,
 };
 
-pub enum Msg<T: CrudDataTrait> {
+pub enum Msg<T: CrudMainTrait> {
     ComponentCreated,
     PageSelected(u64),
-    PageLoaded(Result<Vec<T>, RequestError>),
+    PageLoaded(Result<Vec<T::ReadModel>, RequestError>),
     CountRead(Result<usize, RequestError>),
     ToggleFilter,
-    OrderBy((T::FieldType, OrderByUpdateOptions)),
+    OrderBy((<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)),
     Create,
-    Read(T),
-    Edit(T),
-    Delete(T),
-    ActionTriggered((Rc<Box<dyn CrudActionTrait>>, T)),
+    Read(T::ReadModel),
+    Edit(T::ReadModel),
+    Delete(T::ReadModel),
+    ActionTriggered((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
 }
 
 #[derive(Properties, PartialEq)]
-pub struct Props<T: CrudDataTrait> {
+pub struct Props<T: CrudMainTrait> {
     pub children: ChildrenRenderer<Item>,
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
     pub on_create: Callback<()>,
-    pub on_read: Callback<T>,
-    pub on_edit: Callback<T>,
-    pub on_delete: Callback<T>,
-    pub on_order_by: Callback<(T::FieldType, OrderByUpdateOptions)>,
+    pub on_read: Callback<T::UpdateModel>,
+    pub on_edit: Callback<T::UpdateModel>,
+    pub on_delete: Callback<T::UpdateModel>,
+    pub on_order_by: Callback<(<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)>,
     pub on_page_selected: Callback<u64>,
-    pub on_action: Callback<(Rc<Box<dyn CrudActionTrait>>, T)>,
+    pub on_action: Callback<(Rc<Box<dyn CrudActionTrait>>, T::ReadModel)>,
 }
 
-pub struct CrudListView<T: 'static + CrudDataTrait> {
-    data: Result<Rc<Vec<T>>, NoData>,
+pub struct CrudListView<T: 'static + CrudMainTrait> {
+    data: Result<Rc<Vec<T::ReadModel>>, NoData>,
     filter: Option<()>,
     item_count: Result<u64, NoData>,
 }
 
-impl<T: CrudDataTrait> CrudListView<T> {
+impl<T: CrudMainTrait> CrudListView<T> {
     fn load_page(&self, ctx: &Context<CrudListView<T>>) {
         let order_by = ctx.props().config.order_by.clone();
         let page = ctx.props().config.page as u64;
@@ -70,7 +70,7 @@ impl<T: CrudDataTrait> CrudListView<T> {
         });
     }
 
-    fn get_data(&self) -> Option<Rc<Vec<T>>> {
+    fn get_data(&self) -> Option<Rc<Vec<T::ReadModel>>> {
         match &self.data {
             Ok(data) => Some(data.clone()),
             Err(_) => None,
@@ -85,7 +85,7 @@ impl<T: CrudDataTrait> CrudListView<T> {
     }
 }
 
-impl<T: 'static + CrudDataTrait> Component for CrudListView<T> {
+impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
     type Message = Msg<T>;
     type Properties = Props<T>;
 
@@ -128,15 +128,15 @@ impl<T: 'static + CrudDataTrait> Component for CrudListView<T> {
                 false
             }
             Msg::Read(entity) => {
-                ctx.props().on_read.emit(entity);
+                ctx.props().on_read.emit(entity.into());
                 false
             }
             Msg::Edit(entity) => {
-                ctx.props().on_edit.emit(entity);
+                ctx.props().on_edit.emit(entity.into());
                 false
             }
             Msg::Delete(entity) => {
-                ctx.props().on_delete.emit(entity);
+                ctx.props().on_delete.emit(entity.into());
                 false
             }
             Msg::ActionTriggered((action, entity)) => {
@@ -181,14 +181,14 @@ impl<T: 'static + CrudDataTrait> Component for CrudListView<T> {
                     </div>
                 </div>
 
-                <CrudTable<T>
+                <CrudTable<T::ReadModel>
                     children={ctx.props().children.clone()}
                     api_base_url={ctx.props().config.api_base_url.clone()}
                     data={self.get_data()}
                     no_data={self.get_data_error()}
                     headers={ctx.props().config.headers.iter()
                         .map(|(field, options)| (field.clone(), options.clone(), ctx.props().config.order_by.get(field).cloned()))
-                        .collect::<Vec<(T::FieldType, HeaderOptions, Option<Order>)>>()}
+                        .collect::<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions, Option<Order>)>>()}
                     on_order_by={ctx.link().callback(Msg::OrderBy)}
                     read_allowed={true}
                     edit_allowed={true}

@@ -15,32 +15,38 @@ use yewdux::prelude::*;
 
 use crate::{
     services::crud_rest_data_provider::{CrudRestDataProvider, DeleteById},
-    DateTimeDisplay, types::toasts::{Toast, ToastVariant, AutomaticallyClosing},
+    types::toasts::{AutomaticallyClosing, Toast, ToastVariant},
+    DateTimeDisplay,
 };
 
 use super::{prelude::*, stores, types::RequestError};
 
-pub enum Msg<T: 'static + CrudDataTrait> {
+pub enum Msg<T: 'static + CrudMainTrait> {
     InstanceConfigStoreUpdated(Rc<stores::instance::InstanceStore<T>>),
     InstanceViewsStoreUpdated(Rc<stores::instance_views::InstanceViewsStore>),
     CreateViewLinked(Option<Scope<CrudCreateView<T>>>),
     EditViewLinked(Option<Scope<CrudEditView<T>>>),
     List,
     Create,
-    EntityCreated((T, Option<CrudView>)),
+    EntityCreated((T::ReadModel, Option<CrudView>)),
     EntityCreationFailed((Option<NoData>, Option<RequestError>)),
-    EntityUpdated(SaveResult<T>),
-    Read(T),
-    Edit(T),
-    Delete(T),
+    EntityUpdated(SaveResult<T::ReadModel>),
+    Read(T::UpdateModel),
+    Edit(T::UpdateModel),
+    Delete(T::UpdateModel),
     DeleteCanceled,
     DeleteApproved,
     Deleted(Result<Option<i32>, RequestError>),
-    OrderBy((T::FieldType, OrderByUpdateOptions)),
+    OrderBy((<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)),
     PageSelected(u64),
-    Action((Rc<Box<dyn CrudActionTrait>>, T)),
-    SaveInput((T::FieldType, Value)),
-    GetInput((T::FieldType, Box<dyn FnOnce(Value)>)),
+    Action((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
+    SaveInput((<T::UpdateModel as CrudDataTrait>::Field, Value)),
+    GetInput(
+        (
+            <T::UpdateModel as CrudDataTrait>::Field,
+            Box<dyn FnOnce(Value)>,
+        ),
+    ),
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 
@@ -56,28 +62,28 @@ pub struct NestedConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CrudInstanceConfig<T: CrudDataTrait> {
+pub struct CrudInstanceConfig<T: CrudMainTrait> {
     pub api_base_url: String,
     pub view: CrudView,
-    pub headers: Vec<(T::FieldType, HeaderOptions)>,
+    pub headers: Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>,
     // serde bound used as described in: https://github.com/serde-rs/serde/issues/1296
     #[serde(bound = "")]
-    pub elements: Vec<Elem<T>>,
-    pub order_by: IndexMap<T::FieldType, Order>,
+    pub elements: Vec<Elem<T::UpdateModel>>,
+    pub order_by: IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>,
     pub items_per_page: u64,
     pub page: u64,
     pub nested: Option<NestedConfig>,
 }
 
-impl<T: CrudDataTrait> Default for CrudInstanceConfig<T> {
+impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {
     fn default() -> Self {
         let mut order_by = IndexMap::default();
-        order_by.insert(T::get_id_field(), Order::Asc);
+        order_by.insert(T::ReadModel::get_id_field(), Order::Asc);
         Self {
             api_base_url: "".to_owned(),
             view: CrudView::default(),
             headers: vec![(
-                T::get_id_field(),
+                T::ReadModel::get_id_field(),
                 HeaderOptions {
                     display_name: "Id".to_owned(),
                     ordering_allowed: true,
@@ -93,8 +99,12 @@ impl<T: CrudDataTrait> Default for CrudInstanceConfig<T> {
     }
 }
 
-impl<T: CrudDataTrait> CrudInstanceConfig<T> {
-    fn update_order_by(&mut self, field: T::FieldType, options: OrderByUpdateOptions) {
+impl<T: CrudMainTrait> CrudInstanceConfig<T> {
+    fn update_order_by(
+        &mut self,
+        field: <T::ReadModel as CrudDataTrait>::Field,
+        options: OrderByUpdateOptions,
+    ) {
         let prev = self.order_by.get(&field).cloned();
         if !options.append {
             self.order_by.clear();
@@ -132,7 +142,7 @@ impl Into<Html> for Item {
 }
 
 #[derive(PartialEq, Properties)]
-pub struct Props<T: CrudDataTrait> {
+pub struct Props<T: CrudMainTrait> {
     #[prop_or_default]
     pub children: ChildrenRenderer<Item>,
     pub name: String,
@@ -140,7 +150,7 @@ pub struct Props<T: CrudDataTrait> {
     pub portal_target: Option<String>,
 }
 
-pub struct CrudInstance<T: 'static + CrudDataTrait> {
+pub struct CrudInstance<T: 'static + CrudMainTrait> {
     instance_store: Rc<stores::instance::InstanceStore<T>>,
     instance_dispatch: Dispatch<stores::instance::InstanceStore<T>>,
     instance_views_store: Rc<stores::instance_views::InstanceViewsStore>,
@@ -151,11 +161,11 @@ pub struct CrudInstance<T: 'static + CrudDataTrait> {
     edit_view_link: Option<Scope<CrudEditView<T>>>,
     config: CrudInstanceConfig<T>,
     data_provider: CrudRestDataProvider<T>,
-    entity_to_delete: Option<T>,
+    entity_to_delete: Option<T::UpdateModel>,
     parent_id: Option<u32>,
 }
 
-impl<T: 'static + CrudDataTrait> CrudInstance<T> {
+impl<T: 'static + CrudMainTrait> CrudInstance<T> {
     fn store_config(&self, ctx: &Context<CrudInstance<T>>) {
         let name = ctx.props().name.clone();
         let config = self.config.clone();
@@ -244,7 +254,7 @@ impl<T: 'static + CrudDataTrait> CrudInstance<T> {
                         match &self.entity_to_delete {
                             Some(entity) => html! {
                                 <CrudModal>
-                                    <CrudDeleteModal<T>
+                                    <CrudDeleteModal<T::UpdateModel>
                                         entity={entity.clone()}
                                         on_cancel={ctx.link().callback(|_| Msg::DeleteCanceled)}
                                         on_delete={ctx.link().callback(|_| Msg::DeleteApproved)}
@@ -260,7 +270,7 @@ impl<T: 'static + CrudDataTrait> CrudInstance<T> {
     }
 }
 
-impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
+impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
     type Message = Msg<T>;
     type Properties = Props<T>;
 
@@ -432,7 +442,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                             created_at: UtcDateTime::now(),
                             variant: ToastVariant::Error,
                             heading: "Nicht erstellt".to_owned(),
-                            message: format!("Der Eintrag konnte nicht erstellt werden: {}.", request_error),
+                            message: format!(
+                                "Der Eintrag konnte nicht erstellt werden: {}.",
+                                request_error
+                            ),
                             dismissible: false,
                             automatically_closing: AutomaticallyClosing::WithDelay(3000),
                             close_callback: None,
@@ -445,7 +458,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                             created_at: UtcDateTime::now(),
                             variant: ToastVariant::Error,
                             heading: "Nicht erstellt".to_owned(),
-                            message: "Der Eintrag konnte nicht erstellt werden. Unbekannter Fehler.".to_owned(),
+                            message:
+                                "Der Eintrag konnte nicht erstellt werden. Unbekannter Fehler."
+                                    .to_owned(),
                             dismissible: false,
                             automatically_closing: AutomaticallyClosing::WithDelay(3000),
                             close_callback: None,
@@ -462,7 +477,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudInstance<T> {
                         variant: ToastVariant::Success,
                         heading: String::from("Gespeichert"),
                         message: match save_result.with_validation_errors {
-                            true => String::from("Eintrag wurde mit Validierungsfehlern gespeichert."),
+                            true => {
+                                String::from("Eintrag wurde mit Validierungsfehlern gespeichert.")
+                            }
                             false => String::from("Eintrag wurde erfolgreich gespeichert."),
                         },
                         dismissible: false,

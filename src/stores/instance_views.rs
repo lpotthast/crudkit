@@ -26,7 +26,7 @@ impl InstanceViewsStore {
 impl Store for InstanceViewsStore {
     fn new() -> Self {
         init_listener(storage::StorageListener::<Self>::new(storage::Area::Local));
-        
+
         storage::load(storage::Area::Local)
             .map_err(|error| {
                 // TODO: Erase from local store

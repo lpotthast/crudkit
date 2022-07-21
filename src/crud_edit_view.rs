@@ -15,39 +15,45 @@ use super::{prelude::*, types::RequestError};
 
 // TODO: CrudEditView tracks changes, but CrudCreateView does not. Consolidate this logic into a shared component.
 
-pub enum Msg<T: CrudDataTrait> {
+pub enum Msg<T: CrudMainTrait> {
     Back,
     BackCanceled,
     BackApproved,
-    LoadedEntity(Result<Option<T>, RequestError>),
-    UpdatedEntity((Result<Option<SaveResult<T>>, RequestError>, Then)),
+    LoadedEntity(Result<Option<T::ReadModel>, RequestError>),
+    UpdatedEntity((Result<Option<SaveResult<T::ReadModel>>, RequestError>, Then)),
     Save,
     SaveAndReturn,
     SaveAndNew,
     Delete,
-    ValueChanged((T::FieldType, Value)),
-    GetInput((T::FieldType, Box<dyn FnOnce(Value)>)),
+    ValueChanged((<T::UpdateModel as CrudDataTrait>::Field, Value)),
+    GetInput(
+        (
+            <T::UpdateModel as CrudDataTrait>::Field,
+            Box<dyn FnOnce(Value)>,
+        ),
+    ),
 }
 
 #[derive(Properties, PartialEq)]
-pub struct Props<T: 'static + CrudDataTrait> {
+pub struct Props<T: 'static + CrudMainTrait> {
     pub on_link: Callback<Option<Scope<CrudEditView<T>>>>,
     pub children: ChildrenRenderer<Item>,
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
     pub id: u32,
     pub list_view_available: bool,
-    pub on_saved: Callback<SaveResult<T>>,
+    pub on_saved: Callback<SaveResult<T::ReadModel>>,
     pub on_list: Callback<()>,
     pub on_create: Callback<()>,
-    pub on_delete: Callback<T>,
+    pub on_delete: Callback<T::UpdateModel>,
 }
 
-pub struct CrudEditView<T: CrudDataTrait> {
-    input: T,
+pub struct CrudEditView<T: CrudMainTrait> {
+    input: T::UpdateModel,
     input_dirty: bool,
     user_wants_to_leave: bool,
-    entity: Result<T, NoData>,
+    // We might want to store ReadModel as entity_read here, and entity_orig as an updatable version of it...
+    entity: Result<T::UpdateModel, NoData>,
     ongoing_save: bool,
 }
 
@@ -62,13 +68,13 @@ pub enum Then {
     OpenCreateView,
 }
 
-impl<T: 'static + CrudDataTrait> CrudEditView<T> {
+impl<T: 'static + CrudMainTrait> CrudEditView<T> {
     // TODO: Remove this code duplication!
-    
-    fn set_entity(&mut self, data: Result<Option<T>, RequestError>, from: SetFrom) {
+
+    fn set_entity(&mut self, data: Result<Option<T::ReadModel>, RequestError>, from: SetFrom) {
         self.entity = match data {
             Ok(data) => match data {
-                Some(entity) => Ok(entity),
+                Some(entity) => Ok(entity.into()),
                 None => Err(match from {
                     SetFrom::Fetch => NoData::FetchReturnedNothing,
                     SetFrom::Update => NoData::UpdateReturnedNothing,
@@ -85,10 +91,14 @@ impl<T: 'static + CrudDataTrait> CrudEditView<T> {
         }
     }
 
-    fn set_entity_from_save_result(&mut self, data: Result<Option<SaveResult<T>>, RequestError>, from: SetFrom) {
+    fn set_entity_from_save_result(
+        &mut self,
+        data: Result<Option<SaveResult<T::ReadModel>>, RequestError>,
+        from: SetFrom,
+    ) {
         self.entity = match data {
             Ok(data) => match data {
-                Some(save_result) => Ok(save_result.entity),
+                Some(save_result) => Ok(save_result.entity.into()),
                 None => Err(match from {
                     SetFrom::Fetch => NoData::FetchReturnedNothing,
                     SetFrom::Update => NoData::UpdateReturnedNothing,
@@ -117,7 +127,7 @@ impl<T: 'static + CrudDataTrait> CrudEditView<T> {
                         entity,
                         condition: Some(Condition::All(vec![ConditionElement::Clause(
                             ConditionClause {
-                                column_name: T::get_id_field_name(),
+                                column_name: T::UpdateModel::get_id_field().get_name().to_owned(),
                                 operator: Operator::Equal,
                                 value: ConditionClauseValue::U32(id),
                             },
@@ -130,7 +140,7 @@ impl<T: 'static + CrudDataTrait> CrudEditView<T> {
     }
 }
 
-impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
+impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
     type Message = Msg<T>;
     type Properties = Props<T>;
 
@@ -268,7 +278,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
                                     </div>
                                 </div>
 
-                                <CrudFields<T>
+                                <CrudFields<T::UpdateModel>
                                     api_base_url={ctx.props().config.api_base_url.clone()}
                                     children={ctx.props().children.clone()}
                                     elements={ctx.props().config.elements.clone()}
@@ -315,17 +325,17 @@ impl<T: 'static + CrudDataTrait> Component for CrudEditView<T> {
     }
 }
 
-pub async fn load_entity<T: CrudDataTrait>(
+pub async fn load_entity<T: CrudMainTrait>(
     data_provider: CrudRestDataProvider<T>,
     id: u32,
-) -> Result<Option<T>, RequestError> {
+) -> Result<Option<T::ReadModel>, RequestError> {
     data_provider
         .read_one(ReadOne {
             skip: None,
             order_by: None,
             condition: Some(Condition::All(vec![ConditionElement::Clause(
                 ConditionClause {
-                    column_name: T::get_id_field_name(),
+                    column_name: String::from(T::ReadModel::get_id_field().get_name()),
                     operator: crud_shared_types::Operator::Equal,
                     value: crud_shared_types::ConditionClauseValue::U32(id),
                 },

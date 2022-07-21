@@ -1,13 +1,13 @@
 use chrono_utc_date_time::prelude::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use wasm_bindgen::JsCast;
-use web_sys::KeyboardEvent;
 use std::{
     any::Any,
     fmt::{Debug, Display},
     hash::Hash,
 };
 use types::RequestError;
+use wasm_bindgen::JsCast;
+use web_sys::KeyboardEvent;
 use yew::prelude::*;
 use yewbi::Bi;
 
@@ -119,6 +119,7 @@ pub mod prelude {
     pub use super::CrudFieldTrait;
     pub use super::CrudFieldValueTrait;
     pub use super::CrudIdTrait;
+    pub use super::CrudMainTrait;
     pub use super::CrudResourceTrait;
     pub use super::CrudSelectableTrait;
     pub use super::CrudView;
@@ -174,10 +175,15 @@ impl From<Variant> for Classes {
     }
 }
 
+// TODO: impl Clone if both types are clone, same for debug, ...
+pub trait CrudMainTrait: CrudResourceTrait + PartialEq + Default + Debug + Clone {
+    type ReadModel: CrudDataTrait + Into<Self::UpdateModel>;
+    type UpdateModel: CrudDataTrait;
+}
+
 pub trait CrudDataTrait:
-    CrudFieldTrait<Self::FieldType, Self>
-    + CrudIdTrait<Self::FieldType, Self>
-    + CrudResourceTrait
+    CrudFieldTrait<Self::Field, Self>
+    + CrudIdTrait<Self::Field, Self>
     + Default
     + PartialEq
     + Clone
@@ -185,7 +191,7 @@ pub trait CrudDataTrait:
     + Serialize
     + DeserializeOwned
 {
-    type FieldType: CrudFieldValueTrait<Self>
+    type Field: CrudFieldValueTrait<Self>
         + Default
         + PartialEq
         + Eq
@@ -201,7 +207,6 @@ pub trait CrudFieldTrait<F: CrudFieldValueTrait<C>, C: CrudDataTrait> {
 }
 
 pub trait CrudIdTrait<F: CrudFieldValueTrait<C>, C: CrudDataTrait> {
-    fn get_id_field_name() -> String;
     fn get_id_field() -> F;
     fn get_id(&self) -> u32;
 }
@@ -227,6 +232,72 @@ pub enum Value {
     OneToOneRelation(Option<u32>),
     NestedTable(u32),
     Select(Option<Box<dyn CrudSelectableTrait>>),
+}
+
+impl Value {
+    pub fn take_string(self) -> String {
+        match self {
+            Self::String(string) => string,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_text(self) -> String {
+        match self {
+            Self::Text(string) => string,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_u32(self) -> u32 {
+        match self {
+            Self::U32(u32) => u32,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_u32_or_parse(self) -> u32 {
+        match self {
+            Self::U32(u32) => u32,
+            Self::String(string) => string.parse().unwrap(),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_bool(self) -> bool {
+        match self {
+            Self::Bool(bool) => bool,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_bool_or_parse(self) -> bool {
+        match self {
+            Self::Bool(bool) => bool,
+            Self::String(string) => string.parse().unwrap(),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_date_time(self) -> UtcDateTime {
+        match self {
+            Self::UtcDateTime(utc_date_time) => utc_date_time,
+            Self::String(string) => UtcDateTime::parse_from_rfc3339(&string).unwrap(),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_date_time(self) -> Option<UtcDateTime> {
+        match self {
+            Self::UtcDateTime(utc_date_time) => Some(utc_date_time),
+            Self::OptionalUtcDateTime(optional_utc_date_time) => optional_utc_date_time,
+            // TODO: We might want to catch parsing errors and return an empty optional here.
+            Self::String(string) => Some(UtcDateTime::parse_from_rfc3339(&string).unwrap()),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_select_downcast_to<T: Clone + 'static>(self) -> Option<T> {
+        match self {
+            Self::Select(value) => match value {
+                Some(value) => Some(value.as_any().downcast_ref::<T>().unwrap().clone()),
+                None => None,
+            },
+            _ => panic!("unsupported type provided"),
+        }
+    }
 }
 
 impl Value {
@@ -457,7 +528,7 @@ pub enum Elem<T: CrudDataTrait> {
     // serde bound used as described in: https://github.com/serde-rs/serde/issues/1296
     #[serde(bound = "")]
     Enclosing(Enclosing<T>),
-    Field((T::FieldType, FieldOptions)),
+    Field((T::Field, FieldOptions)),
     Separator,
 }
 

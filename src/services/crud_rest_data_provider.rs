@@ -1,5 +1,5 @@
 use super::requests::*;
-use crate::{types::RequestError, CrudDataTrait};
+use crate::{types::RequestError, CrudDataTrait, CrudMainTrait};
 use crud_shared_types::{Condition, Order, SaveResult};
 use indexmap::IndexMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -14,14 +14,14 @@ pub struct ReadCount {
 pub struct ReadMany<T: CrudDataTrait> {
     pub limit: Option<u64>,
     pub skip: Option<u64>,
-    pub order_by: Option<IndexMap<T::FieldType, Order>>,
+    pub order_by: Option<IndexMap<T::Field, Order>>,
     pub condition: Option<Condition>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ReadOne<T: CrudDataTrait> {
     pub skip: Option<u64>,
-    pub order_by: Option<IndexMap<T::FieldType, Order>>,
+    pub order_by: Option<IndexMap<T::Field, Order>>,
     pub condition: Option<Condition>,
 }
 
@@ -42,13 +42,13 @@ pub struct DeleteById {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CrudRestDataProvider<T: CrudDataTrait> {
+pub struct CrudRestDataProvider<T: CrudMainTrait> {
     api_base_url: String,
     base_condition: Option<Condition>,
     phantom_data: PhantomData<T>,
 }
 
-impl<T: CrudDataTrait> CrudRestDataProvider<T> {
+impl<T: CrudMainTrait> CrudRestDataProvider<T> {
     pub fn new(api_base_url: String) -> Self {
         Self {
             api_base_url: api_base_url,
@@ -70,7 +70,10 @@ impl<T: CrudDataTrait> CrudRestDataProvider<T> {
         .await
     }
 
-    pub async fn read_many(&self, mut read_many: ReadMany<T>) -> Result<Vec<T>, RequestError> {
+    pub async fn read_many(
+        &self,
+        mut read_many: ReadMany<T::ReadModel>,
+    ) -> Result<Vec<T::ReadModel>, RequestError> {
         read_many.condition = merge_conditions(self.base_condition.clone(), read_many.condition);
         let resource = T::get_resource_name();
         request_post(
@@ -80,7 +83,10 @@ impl<T: CrudDataTrait> CrudRestDataProvider<T> {
         .await
     }
 
-    pub async fn read_one(&self, mut read_one: ReadOne<T>) -> Result<Option<T>, RequestError> {
+    pub async fn read_one(
+        &self,
+        mut read_one: ReadOne<T::ReadModel>,
+    ) -> Result<Option<T::ReadModel>, RequestError> {
         read_one.condition = merge_conditions(self.base_condition.clone(), read_one.condition);
         let resource = T::get_resource_name();
         request_post(
@@ -90,7 +96,10 @@ impl<T: CrudDataTrait> CrudRestDataProvider<T> {
         .await
     }
 
-    pub async fn create_one(&self, create_one: CreateOne<T>) -> Result<Option<T>, RequestError> {
+    pub async fn create_one(
+        &self,
+        create_one: CreateOne<T::UpdateModel>,
+    ) -> Result<Option<T::ReadModel>, RequestError> {
         let resource = T::get_resource_name();
         request_post(
             format!("{}/{resource}/crud/create-one", self.api_base_url),
@@ -101,8 +110,8 @@ impl<T: CrudDataTrait> CrudRestDataProvider<T> {
 
     pub async fn update_one(
         &self,
-        mut update_one: UpdateOne<T>,
-    ) -> Result<Option<SaveResult<T>>, RequestError> {
+        mut update_one: UpdateOne<T::UpdateModel>,
+    ) -> Result<Option<SaveResult<T::ReadModel>>, RequestError> {
         update_one.condition = merge_conditions(self.base_condition.clone(), update_one.condition);
         let resource = T::get_resource_name();
         request_post(

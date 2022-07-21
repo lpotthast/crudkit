@@ -19,7 +19,7 @@ impl Component for CrudCollapsible {
     fn view(&self, _ctx: &Context<Self>) -> Html {
         html! {
             <div>
-                { "CRUD instance" }
+                { "CRUD collapsible. Needs implementation..." }
             </div>
         }
     }
