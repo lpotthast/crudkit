@@ -38,7 +38,7 @@ pub async fn read_count<R: CrudResource>(
             None,
             None,
             None,
-            body.condition,
+            &body.condition,
         )?
         .count(controller.get_database_connection())
         .await
@@ -56,7 +56,7 @@ pub async fn read_one<R: CrudResource>(
         None,
         body.skip,
         body.order_by,
-        body.condition,
+        &body.condition,
     )?
     .one(db)
     .await
@@ -74,7 +74,7 @@ pub async fn read_many<R: CrudResource>(
         body.limit,
         body.skip,
         body.order_by,
-        body.condition,
+        &body.condition,
     )?
     .all(controller.get_database_connection())
     .await

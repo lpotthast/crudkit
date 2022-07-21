@@ -34,7 +34,7 @@ pub async fn delete_by_id<R: CrudResource>(
         None,
         None,
         None,
-        Some(Condition::All(vec![ConditionElement::Clause(
+        &Some(Condition::All(vec![ConditionElement::Clause(
             ConditionClause {
                 column_name: R::CrudColumn::get_id_field_name(),
                 operator: Operator::Equal,
@@ -62,7 +62,7 @@ pub async fn delete_one<R: CrudResource>(
         None,
         body.skip,
         body.order_by,
-        body.condition,
+        &body.condition,
     )?;
     let data = select
         .one(controller.get_database_connection())
@@ -80,7 +80,7 @@ pub async fn delete_many<R: CrudResource>(
     _context: Arc<CrudContext<R>>,
     body: DeleteMany,
 ) -> Result<JsonValue, CrudError> {
-    let delete_many = build_delete_many_query::<R::Entity>(body.condition)?;
+    let delete_many = build_delete_many_query::<R::Entity>(&body.condition)?;
     let delete_result = delete_many
         .exec(controller.get_database_connection())
         .await

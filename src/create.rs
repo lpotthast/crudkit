@@ -52,3 +52,5 @@ pub async fn create_one<R: CrudResource>(
 
     Ok(json! {inserted_entity})
 }
+
+// TODO: update_one_and_read_back() which updates and returns a ReadModel instead of an UpdateModel.

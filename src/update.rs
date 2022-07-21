@@ -26,7 +26,7 @@ pub async fn update_one<R: CrudResource>(
             None,
             None,
             None,
-            body.condition,
+            &body.condition,
         )?
         .one(controller.get_database_connection())
         .await
@@ -105,8 +105,22 @@ pub async fn update_one<R: CrudResource>(
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;
 
+    // We read the entity again, to get an up-to-date instance of the "ReadModel".
+    /*let read = build_select_query::<R::ReadViewEntity, R::ReadViewModel, R::ReadViewActiveModel, R::ReadViewColumn, R::ReadViewCrudColumn>(
+            None,
+            None,
+            None,
+            &body.condition,
+        )?
+        .one(controller.get_database_connection())
+        .await
+        .map_err(|err| CrudError::DbError(err.to_string()))?
+        .ok_or_else(|| CrudError::ReadOneFoundNone)?;*/
+
     Ok(json!(SaveResult {
         entity: result,
         with_validation_errors: has_violations,
     }))
 }
+
+// TODO: update_one_and_read_back() which updates and returns a ReadModel instead of an UpdateModel.

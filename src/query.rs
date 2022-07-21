@@ -27,7 +27,7 @@ pub fn build_insert_query<R: CrudResource>(
 }
 
 pub fn build_delete_many_query<T: EntityTrait + MaybeColumnTrait>(
-    condition: Option<Condition>,
+    condition: &Option<Condition>,
 ) -> Result<DeleteMany<T>, CrudError> {
     let mut delete_many = T::delete_many();
 
@@ -48,7 +48,7 @@ pub fn build_select_query<
     limit: Option<u64>,
     skip: Option<u64>,
     order_by: Option<IndexMap<CC, Order>>,
-    condition: Option<Condition>,
+    condition: &Option<Condition>,
 ) -> Result<Select<E>, CrudError> {
     let mut select = E::find();
 
@@ -116,7 +116,7 @@ fn apply_order_by<
 //}
 
 fn build_condition_tree<T: MaybeColumnTrait>(
-    condition: Condition,
+    condition: &Condition,
 ) -> Result<sea_orm::sea_query::Condition, CrudError> {
     let mut tree = match &condition {
         Condition::All(_) => sea_orm::sea_query::Condition::all(),
@@ -129,8 +129,8 @@ fn build_condition_tree<T: MaybeColumnTrait>(
                 match element {
                     ConditionElement::Clause(clause) => match T::get_col(&clause.column_name) {
                         Some(col) => {
-                            match col.as_col_type(clause.value).map_err(|err| {
-                                CrudError::UnableToParseValueAsColType(clause.column_name, err)
+                            match col.as_col_type(clause.value.clone()).map_err(|err| {
+                                CrudError::UnableToParseValueAsColType(clause.column_name.clone(), err)
                             })? {
                                 Value::String(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
@@ -146,10 +146,10 @@ fn build_condition_tree<T: MaybeColumnTrait>(
                                 }
                             }
                         }
-                        None => return Err(CrudError::UnknownColumnSpecified(clause.column_name)),
+                        None => return Err(CrudError::UnknownColumnSpecified(clause.column_name.clone())),
                     },
                     ConditionElement::Condition(nested_condition) => {
-                        let nested_condition: Condition = *nested_condition;
+                        let nested_condition: &Condition = &*nested_condition;
                         tree = tree.add(build_condition_tree::<T>(nested_condition)?);
                     }
                 }
