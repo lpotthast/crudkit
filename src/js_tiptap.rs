@@ -90,9 +90,9 @@ pub enum HeadingLevel {
     H6,
 }
 
-impl Into<i32> for HeadingLevel {
-    fn into(self) -> i32 {
-        match self {
+impl From<HeadingLevel> for i32 {
+    fn from(val: HeadingLevel) -> Self {
+        match val {
             HeadingLevel::H1 => 1,
             HeadingLevel::H2 => 2,
             HeadingLevel::H3 => 3,

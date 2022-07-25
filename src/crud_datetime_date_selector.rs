@@ -132,8 +132,6 @@ impl CrudDatetimeDateSelector {
         let current_year = now.0.year();
         let current_month = now.0.month();
         let current_day = now.0.day();
-        let this_year = value.0.year();
-        let this_month = value.0.month();
         let this_day = value.0.day();
 
         let first_weekday_index = value.first_day_of_month().num_days_from_monday(); // in range [0..6]

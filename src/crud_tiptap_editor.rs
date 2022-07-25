@@ -249,7 +249,7 @@ impl Component for CrudTipTapEditor {
                                 <CrudImageChooserModal
                                     api_base_url={ctx.props().api_base_url.clone()}
                                     on_cancel={ctx.link().callback(|_| Msg::ChooseImageCanceled)}
-                                    on_choose={ctx.link().callback(|resource| Msg::ImageChosen(resource))}
+                                    on_choose={ctx.link().callback(Msg::ImageChosen)}
                                 />
                             </CrudModal>
                         },

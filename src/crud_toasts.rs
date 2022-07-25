@@ -78,7 +78,7 @@ impl Component for CrudToasts {
             Msg::ToastsUpdated(state) => {
                 // Remove old toasts no longer present.
                 let mut keys_to_remove = vec![];
-                for (_, toast_with_timeout) in &self.toasts {
+                for toast_with_timeout in self.toasts.values() {
                     if !state.get_toasts().any(|it| it == &toast_with_timeout.toast) {
                         keys_to_remove.push(toast_with_timeout.toast.created_at.clone());
                     }

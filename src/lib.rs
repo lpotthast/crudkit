@@ -293,36 +293,35 @@ impl Value {
     }
     pub fn take_select_downcast_to<T: Clone + 'static>(self) -> Option<T> {
         match self {
-            Self::Select(value) => match value {
-                Some(value) => Some(value.as_any().downcast_ref::<T>().unwrap().clone()),
-                None => None,
-            },
+            Self::Select(value) => {
+                value.map(|value| value.as_any().downcast_ref::<T>().unwrap().clone())
+            }
             _ => panic!("unsupported type provided"),
         }
     }
 }
 
-impl Value {
-    pub fn to_string(self) -> String {
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::String(string) => string,
-            Value::Text(string) => string,
-            Value::U32(u32) => u32.to_string(),
-            Value::Bool(bool) => bool.to_string(),
-            Value::ValidationStatus(bool) => bool.to_string(),
-            Value::UtcDateTime(utc_date_time) => utc_date_time.to_rfc3339(),
+            Value::String(string) => f.write_str(string),
+            Value::Text(string) => f.write_str(string),
+            Value::U32(u32) => f.write_str(&u32.to_string()),
+            Value::Bool(bool) => f.write_str(&bool.to_string()),
+            Value::ValidationStatus(bool) => f.write_str(&bool.to_string()),
+            Value::UtcDateTime(utc_date_time) => f.write_str(&utc_date_time.to_rfc3339()),
             Value::OptionalUtcDateTime(optional_utc_date_time) => match optional_utc_date_time {
-                Some(utc_date_time) => utc_date_time.to_rfc3339(),
-                None => "".to_owned(),
+                Some(utc_date_time) => f.write_str(&utc_date_time.to_rfc3339()),
+                None => f.write_str(""),
             },
             Value::OneToOneRelation(option_u32) => match option_u32 {
-                Some(u32) => u32.to_string(),
-                None => "".to_owned(),
+                Some(u32) => f.write_str(&u32.to_string()),
+                None => f.write_str(""),
             },
-            Value::NestedTable(u32) => u32.to_string(),
+            Value::NestedTable(u32) => f.write_str(&u32.to_string()),
             Value::Select(optional_value) => match optional_value {
-                Some(value) => value.to_string(),
-                None => "NULL".to_owned(),
+                Some(value) => f.write_str(&value.to_string()),
+                None => f.write_str("NULL"),
             },
         }
     }
