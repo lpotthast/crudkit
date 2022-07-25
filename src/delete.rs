@@ -46,7 +46,7 @@ pub async fn delete_by_id<R: CrudResource>(
         .one(controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?
-        .ok_or_else(|| CrudError::ReadOneFoundNone)?;
+        .ok_or(CrudError::ReadOneFoundNone)?;
     let delete_result = R::Model::delete(data, controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;
@@ -68,7 +68,7 @@ pub async fn delete_one<R: CrudResource>(
         .one(controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?
-        .ok_or_else(|| CrudError::ReadOneFoundNone)?;
+        .ok_or(CrudError::ReadOneFoundNone)?;
     let delete_result = R::Model::delete(data, controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;

@@ -9,17 +9,14 @@ pub fn validate_required<T: Into<sea_orm::Value>>(
     violation_type: ValidationViolationType,
     result: &mut EntityViolations,
 ) {
-    match val {
-        ActiveValue::NotSet => {
-            let err = format!(
-                "Field {name} not set but required!"
-            );
-            result.push(match violation_type {
-                ValidationViolationType::Major => ValidationViolation::Critical(err),
-                ValidationViolationType::Critical => ValidationViolation::Critical(err),
-            });
-        },
-        _ => {}
+    if let ActiveValue::NotSet = val {
+        let err = format!(
+            "Field {name} not set but required!"
+        );
+        result.push(match violation_type {
+            ValidationViolationType::Major => ValidationViolation::Critical(err),
+            ValidationViolationType::Critical => ValidationViolation::Critical(err),
+        });
     }
 }
 
@@ -30,7 +27,7 @@ pub fn validate_not_empty(
 ) {
     match val {
         ActiveValue::Set(v) | ActiveValue::Unchanged(v) => {
-            if v.len() == 0 {
+            if v.is_empty() {
                 result.push(ValidationViolation::Major(format!("Field {name} with value \"{v}\" must not be empty!")));
             }
         }

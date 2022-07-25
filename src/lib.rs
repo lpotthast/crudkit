@@ -104,7 +104,7 @@ pub trait ExcludingColumnsOnInsert<C: ColumnTrait> {
 pub fn to_i32(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
         ConditionClauseValue::I32(num) => Ok(Value::I32(num)),
-        ConditionClauseValue::String(string) => parse::<i32>(&string).map(|val| Value::I32(val)),
+        ConditionClauseValue::String(string) => parse::<i32>(&string).map(Value::I32),
         _ => Err(format!(
             "{value:?} can not be converted to an i32. Expected i32 or String."
         )),
@@ -114,7 +114,7 @@ pub fn to_i32(value: ConditionClauseValue) -> Result<Value, String> {
 pub fn to_bool(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
         ConditionClauseValue::Bool(bool) => Ok(Value::Bool(bool)),
-        ConditionClauseValue::String(string) => parse::<bool>(&string).map(|val| Value::Bool(val)),
+        ConditionClauseValue::String(string) => parse::<bool>(&string).map(Value::Bool),
         _ => Err(format!(
             "{value:?} can not be converted to a bool. Expected bool or String."
         )),
@@ -135,7 +135,7 @@ pub fn to_date_time(value: ConditionClauseValue) -> Result<Value, String> {
         ConditionClauseValue::String(string) => chrono::DateTime::parse_from_rfc3339(&string)
             .map_err(|e| format!("{}", e))
             .map(|value| value.naive_utc())
-            .map(|value| Value::DateTime(value)),
+            .map(Value::DateTime),
         _ => Err(format!(
             "{value:?} can not be converted to a DateTime. Expected String."
         )),

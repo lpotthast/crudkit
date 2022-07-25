@@ -17,6 +17,6 @@ impl CrudController {
     }
 
     pub fn get_websocket_controller(&self) -> &WebsocketController {
-        &self.ws.as_ref()
+        self.ws.as_ref()
     }
 }

@@ -30,7 +30,7 @@ pub struct ReadMany<R: CrudResource> {
 
 pub async fn read_count<R: CrudResource>(
     controller: Arc<CrudController>,
-    context: Arc<CrudContext<R>>,
+    _context: Arc<CrudContext<R>>,
     body: ReadCount,
 ) -> Result<JsonValue, CrudError> {
     let count =
@@ -48,7 +48,7 @@ pub async fn read_count<R: CrudResource>(
 
 pub async fn read_one<R: CrudResource>(
     controller: Arc<CrudController>,
-    context: Arc<CrudContext<R>>,
+    _context: Arc<CrudContext<R>>,
     body: ReadOne<R>,
 ) -> Result<JsonValue, CrudError> {
     let db = controller.get_database_connection();
@@ -61,13 +61,13 @@ pub async fn read_one<R: CrudResource>(
     .one(db)
     .await
     .map_err(|err| CrudError::DbError(err.to_string()))?
-    .ok_or_else(|| CrudError::ReadOneFoundNone)?;
+    .ok_or(CrudError::ReadOneFoundNone)?;
     Ok(json!(data))
 }
 
 pub async fn read_many<R: CrudResource>(
     controller: Arc<CrudController>,
-    context: Arc<CrudContext<R>>,
+    _context: Arc<CrudContext<R>>,
     body: ReadMany<R>,
 ) -> Result<JsonValue, CrudError> {
     let data = build_select_query::<R::ReadViewEntity, R::ReadViewModel, R::ReadViewActiveModel, R::ReadViewColumn, R::ReadViewCrudColumn>(

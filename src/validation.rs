@@ -41,18 +41,18 @@ impl ValidationViolationTypeExt for ValidationViolation {
     }
 }
 
-impl Into<ValidationViolationType> for ValidationViolation {
-    fn into(self) -> ValidationViolationType {
-        match self {
+impl From<ValidationViolation> for ValidationViolationType {
+    fn from(val: ValidationViolation) -> Self {
+        match val {
             ValidationViolation::Major(_) => ValidationViolationType::Major,
             ValidationViolation::Critical(_) => ValidationViolationType::Critical,
         }
     }
 }
 
-impl Into<ValidationViolationType> for &ValidationViolation {
-    fn into(self) -> ValidationViolationType {
-        match self {
+impl From<&ValidationViolation> for ValidationViolationType {
+    fn from(val: &ValidationViolation) -> Self {
+        match val {
             ValidationViolation::Major(_) => ValidationViolationType::Major,
             ValidationViolation::Critical(_) => ValidationViolationType::Critical,
         }
@@ -65,8 +65,8 @@ pub trait EntityValidationsExt {
 
 impl EntityValidationsExt for EntityValidations {
     fn has_violation_of_type(&self, violation_type: ValidationViolationType) -> bool {
-        for (_entity_info, validator_violations) in &self.entity_violations {
-            for (_validator_info, violations) in validator_violations {
+        for validator_violations in self.entity_violations.values() {
+            for violations in validator_violations.values() {
                 for violation in &violations.violations {
                     if violation.is_of_type(violation_type) {
                         return true;

@@ -30,10 +30,10 @@ impl IntoResponse for AxumCrudError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("A database error occurred: {}", error),
             ),
-            CrudError::ReadOneFoundNone => (StatusCode::NOT_FOUND, format!("Entity not found")),
+            CrudError::ReadOneFoundNone => (StatusCode::NOT_FOUND, "Entity not found".to_owned()),
             CrudError::ValidationErrors => (
                 StatusCode::BAD_REQUEST,
-                format!("Validation errors occurred"),
+                "Validation errors occurred".to_owned(),
             ),
         };
 

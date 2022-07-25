@@ -31,7 +31,7 @@ pub async fn update_one<R: CrudResource>(
         .one(controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?
-        .ok_or_else(|| CrudError::ReadOneFoundNone)?;
+        .ok_or(CrudError::ReadOneFoundNone)?;
 
     // Use the "CreateModel" to deserialize the given JSON. Some not required members are allowed to be missing.
     let update = serde_json::from_str::<R::CreateModel>(body.entity.get()).map_err(|err| {
