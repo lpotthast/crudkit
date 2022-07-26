@@ -97,7 +97,23 @@ pub async fn update_one<R: CrudResource>(
                 .await;
         }
 
-        // TODO: Do we need to inform the websocket listeners?
+        // Inform the websocket listeners
+        let msg: TypedMessage<SerializableValidations> = TypedMessage {
+            message_type: String::from("partial_validation_result"),
+            data: &(&partial_validation_results).into(), // TODO: reference not strictly needed, as we clone in the into() impl anyway...
+        };
+        let serialized_msg = match serde_json::to_string(&msg) {
+            Ok(string) => string,
+            Err(err) => {
+                let err_msg = format!("Unable to serialize partial validation result: {err:?}");
+                log::error!("{err_msg}");
+                // TODO: Wrap that error string in a TypedMessage of variant Error!
+                err_msg
+            }
+        };
+        controller
+            .get_websocket_controller()
+            .broadcast_message(Message::Text(serialized_msg));
     }
 
     let result = active_model
