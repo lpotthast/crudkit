@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use crud_shared_types::{ConditionClauseValue, Value};
 use sea_orm::{ActiveModelTrait, ColumnTrait};
 use std::str::FromStr;
