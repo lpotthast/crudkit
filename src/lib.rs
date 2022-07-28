@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 
 use serde::{Deserialize, Serialize};
-use validation::SerializableValidations;
 
 pub mod validation;
 
@@ -131,5 +130,5 @@ pub struct Saved<T> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SaveResult<T> {
     Saved(Saved<T>),
-    CriticalValidationErrors(SerializableValidations),
+    CriticalValidationErrors,
 }
