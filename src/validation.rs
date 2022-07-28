@@ -58,6 +58,16 @@ impl EntityViolations {
     pub fn is_empty(&self) -> bool {
         self.violations.is_empty()
     }
+
+    pub fn has_critical_violations(&self) -> bool {
+        for violation in &self.violations {
+            match violation {
+                ValidationViolation::Critical(_) => return true,
+                _ => {}
+            }
+        }
+        false
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -102,6 +112,17 @@ impl EntityValidations {
         }
         false
     }
+
+    pub fn has_critical_violations(&self) -> bool {
+        for (_entity_info, validator_violations) in &self.entity_violations {
+            for (_validator_info, violations) in validator_violations {
+                if violations.has_critical_violations() {
+                    return true;
+                }
+            }
+        }
+        false
+    }
 }
 
 pub type SerializableValidations = HashMap<String, HashMap<i32, Vec<ValidationViolation>>>;
@@ -111,17 +132,22 @@ impl Into<SerializableValidations> for &EntityValidations
     fn into(self) -> SerializableValidations {
         let mut aggregate_violations = HashMap::with_capacity(self.entity_violations.len());
         for (entity_info, validators) in &self.entity_violations {
-            if let Some(entity_id) = entity_info.entity_id {
-                let mut entity_violations = HashMap::with_capacity(validators.len());
-                for (_, violations) in validators {
-                    let mut vec = Vec::with_capacity(violations.violations.len());
-                    for violation in &violations.violations {
-                        vec.push(violation.clone())
-                    }
-                    entity_violations.insert(entity_id, vec);
+            // If the validation is for a known ID, use that id.
+            // All violations for unknown entities go under -1.
+            let entity_id = match entity_info.entity_id {
+                Some(id) => id,
+                None => -1,
+            };
+
+            let mut entity_violations = HashMap::with_capacity(validators.len());
+            for (_, violations) in validators {
+                let mut vec = Vec::with_capacity(violations.violations.len());
+                for violation in &violations.violations {
+                    vec.push(violation.clone())
                 }
-                aggregate_violations.insert(entity_info.entity_name.to_owned(), entity_violations);
+                entity_violations.insert(entity_id, vec);
             }
+            aggregate_violations.insert(entity_info.entity_name.to_owned(), entity_violations);
         }
         aggregate_violations
     }

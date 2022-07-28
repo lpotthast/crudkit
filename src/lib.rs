@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use serde::{Deserialize, Serialize};
+use validation::SerializableValidations;
 
 pub mod validation;
 
@@ -13,7 +14,6 @@ pub enum CrudError {
     UnableToParseAsEntity(String, String),
     DbError(String),
     ReadOneFoundNone,
-    ValidationErrors,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, Serialize, Deserialize)]
@@ -123,7 +123,13 @@ pub enum Value {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SaveResult<T> {
+pub struct Saved<T> {
     pub entity: T,
     pub with_validation_errors: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SaveResult<T> {
+    Saved(Saved<T>),
+    CriticalValidationErrors(SerializableValidations),
 }
