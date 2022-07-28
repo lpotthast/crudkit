@@ -2,21 +2,26 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use crud_shared_types::validation::{
-    EntityValidations, StrictEntityInfo, StrictOwnedEntityInfo, ValidationViolation, ValidatorInfo,
+    EntityViolations, StrictEntityInfo, StrictOwnedEntityInfo, ValidationViolation, ValidatorInfo, Violations,
 };
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 
+// TODO: Implement in resources!
+pub trait AggregateValidator {
+    fn validate(&self) -> Violations;
+}
+
 pub trait EntityValidatorTrait<T> {
-    fn validate_single(&self, entity: &T) -> EntityValidations;
-    fn validate_updated(&self, old: &T, new: &T) -> EntityValidations;
+    fn validate_single(&self, entity: &T) -> EntityViolations;
+    fn validate_updated(&self, old: &T, new: &T) -> EntityViolations;
     fn get_name(&self) -> &'static str;
     fn get_version(&self) -> u32;
 }
 
 pub trait EntityValidatorsTrait<T> {
-    fn validate_single(&self, entity: &T) -> EntityValidations;
-    fn validate_updated(&self, old: &T, new: &T) -> EntityValidations;
+    fn validate_single(&self, entity: &T) -> EntityViolations;
+    fn validate_updated(&self, old: &T, new: &T) -> EntityViolations;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, EnumIter, DeriveActiveEnum)]
@@ -63,7 +68,7 @@ pub trait EntityValidationsExt {
     fn has_violation_of_type(&self, violation_type: ValidationViolationType) -> bool;
 }
 
-impl EntityValidationsExt for EntityValidations {
+impl EntityValidationsExt for EntityViolations {
     fn has_violation_of_type(&self, violation_type: ValidationViolationType) -> bool {
         for validator_violations in self.entity_violations.values() {
             for violations in validator_violations.values() {
@@ -98,7 +103,7 @@ pub struct PersistableViolation {
 
 /// Removes critical validations and validations without an id.
 /// TODO: Add test
-pub fn into_persistable(data: EntityValidations) -> HashMap<StrictEntityInfo, HashMap<ValidatorInfo, Vec<PersistableViolation>>> {
+pub fn into_persistable(data: EntityViolations) -> HashMap<StrictEntityInfo, HashMap<ValidatorInfo, Vec<PersistableViolation>>> {
     let mut entity_violations = HashMap::with_capacity(data.entity_violations.len());
     for (entity_info, validators) in data.entity_violations {
         if let Some(entity_id) = entity_info.entity_id {
@@ -120,7 +125,7 @@ pub fn into_persistable(data: EntityValidations) -> HashMap<StrictEntityInfo, Ha
             }
             entity_violations.insert(
                 StrictEntityInfo {
-                    entity_name: entity_info.entity_name,
+                    aggregate_name: entity_info.aggregate_name,
                     entity_id,
                 },
                 validator_validations,
