@@ -1,5 +1,5 @@
 use crud_shared_types::{
-    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Operator, SaveResult, Saved, validation::SerializableValidations,
+    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Operator, SaveResult, Saved,
 };
 use yew::{
     html::{ChildrenRenderer, Scope},
@@ -43,7 +43,7 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub id: u32,
     pub list_view_available: bool,
     pub on_entity_updated: Callback<Saved<T::UpdateModel>>,
-    pub on_entity_not_updated_critical_errors: Callback<SerializableValidations>,
+    pub on_entity_not_updated_critical_errors: Callback<()>,
     pub on_entity_update_failed: Callback<RequestError>,
     pub on_list: Callback<()>,
     pub on_create: Callback<()>,
@@ -105,7 +105,7 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
                     self.input_dirty = false;
                     self.entity = Ok(saved.entity);
                 },
-                SaveResult::CriticalValidationErrors(err) => {
+                SaveResult::CriticalValidationErrors => {
                     // TODO: Do something with the critical errors?
                     // Keep current entity!
                 },
@@ -194,6 +194,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
             }
             Msg::UpdatedEntity((data, and_then)) => {
                 self.set_entity_from_save_result(data.clone(), SetFrom::Update);
+
                 match data {
                     Ok(save_result) => match save_result {
                         SaveResult::Saved(saved) => {
@@ -204,8 +205,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                 Then::OpenCreateView => ctx.props().on_create.emit(()),
                             }
                         },
-                        SaveResult::CriticalValidationErrors(serializable_validations) => {
-                            ctx.props().on_entity_not_updated_critical_errors.emit(serializable_validations);
+                        SaveResult::CriticalValidationErrors => {
+                            log::info!("Entity was not updated due to critical validation errors.");
+                            ctx.props().on_entity_not_updated_critical_errors.emit(());
                         },
                     },
                     Err(err) => {

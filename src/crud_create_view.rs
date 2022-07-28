@@ -1,4 +1,4 @@
-use crud_shared_types::{validation::SerializableValidations, SaveResult, Saved};
+use crud_shared_types::{SaveResult, Saved};
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,
@@ -43,7 +43,7 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub on_list_view: Callback<()>,
     // TODO: consolidate these into one "on_entity_creation_attempt" with type Result<CreateResult<T::UpdateModel>, RequestError>?
     pub on_entity_created: Callback<(Saved<T::UpdateModel>, Option<CrudView>)>,
-    pub on_entity_not_created_critical_errors: Callback<SerializableValidations>,
+    pub on_entity_not_created_critical_errors: Callback<()>,
     pub on_entity_creation_failed: Callback<RequestError>,
 }
 
@@ -142,15 +142,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                                 self.reset();
                             }
                         },
-                        SaveResult::CriticalValidationErrors(serializable_validations) => {
-                            // TODO: Store validations in store!
-                            log::error!(
-                                "Entity was not created due to critical errors {:?}",
-                                serializable_validations
-                            );
-                            ctx.props()
-                                .on_entity_not_created_critical_errors
-                                .emit(serializable_validations);
+                        SaveResult::CriticalValidationErrors => {
+                            log::info!("Entity was not created due to critical validation errors.");
+                            ctx.props().on_entity_not_created_critical_errors.emit(());
                         }
                     },
                     Err(reason) => {

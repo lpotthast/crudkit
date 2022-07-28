@@ -1,7 +1,6 @@
 use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::{
-    validation::SerializableValidations, Condition, ConditionClause, ConditionClauseValue,
-    ConditionElement, Order, Saved,
+    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Order, Saved,
 };
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -30,10 +29,10 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     List,
     Create,
     EntityCreated((Saved<T::UpdateModel>, Option<CrudView>)),
-    EntityNotCreatedDueToCriticalErrors(SerializableValidations),
+    EntityNotCreatedDueToCriticalErrors,
     EntityCreationFailed(RequestError),
     EntityUpdated(Saved<T::UpdateModel>),
-    EntityNotUpdatedDueToCriticalErrors(SerializableValidations),
+    EntityNotUpdatedDueToCriticalErrors,
     EntityUpdateFailed(RequestError),
     Read(T::UpdateModel),
     Edit(T::UpdateModel),
@@ -230,7 +229,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         list_view_available={true}
                                         on_list_view={ctx.link().callback(|_| Msg::List)}
                                         on_entity_created={ctx.link().callback(Msg::EntityCreated)}
-                                        on_entity_not_created_critical_errors={ctx.link().callback(Msg::EntityNotCreatedDueToCriticalErrors)}
+                                        on_entity_not_created_critical_errors={ctx.link().callback(|_| Msg::EntityNotCreatedDueToCriticalErrors)}
                                         on_entity_creation_failed={ctx.link().callback(Msg::EntityCreationFailed)}
                                         on_link={ctx.link().callback(|link| Msg::CreateViewLinked(link))}
                                     />
@@ -257,7 +256,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         id={id}
                                         list_view_available={true}
                                         on_entity_updated={ctx.link().callback(Msg::EntityUpdated)}
-                                        on_entity_not_updated_critical_errors={ctx.link().callback(Msg::EntityNotUpdatedDueToCriticalErrors)}
+                                        on_entity_not_updated_critical_errors={ctx.link().callback(|_| Msg::EntityNotUpdatedDueToCriticalErrors)}
                                         on_entity_update_failed={ctx.link().callback(Msg::EntityUpdateFailed)}
                                         on_list={ctx.link().callback(|_| Msg::List)}
                                         on_create={ctx.link().callback(|_| Msg::Create)}
@@ -448,7 +447,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 });
                 true
             }
-            Msg::EntityNotCreatedDueToCriticalErrors(serializable_validations) => {
+            Msg::EntityNotCreatedDueToCriticalErrors => {
                 self.toasts_dispatch.reduce_mut(move |state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
@@ -505,7 +504,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 });
                 true
             }
-            Msg::EntityNotUpdatedDueToCriticalErrors(serializable_validations) => {
+            Msg::EntityNotUpdatedDueToCriticalErrors => {
                 self.toasts_dispatch.reduce_mut(move |state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
