@@ -3,11 +3,10 @@ use axum::extract::ws::Message;
 use axum_websockets::TypedMessage;
 use crud_shared_types::{
     validation::{EntityValidations, SerializableValidations, StrictOwnedEntityInfo},
-    Condition, CrudError, SaveResult,
+    Condition, CrudError, SaveResult, Saved,
 };
-use sea_orm::{ActiveModelTrait, JsonValue};
+use sea_orm::ActiveModelTrait;
 use serde::Deserialize;
-use serde_json::json;
 use std::sync::Arc;
 
 #[derive(Deserialize)]
@@ -20,7 +19,7 @@ pub async fn update_one<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
     body: UpdateOne,
-) -> Result<JsonValue, CrudError> {
+) -> Result<SaveResult<R::Model>, CrudError> {
     let model =
         build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
             None,
@@ -54,12 +53,10 @@ pub async fn update_one<R: CrudResource>(
         let has_critical_violations =
             partial_validation_results.has_violation_of_type(ValidationViolationType::Critical);
 
-        // log::info!("Validation errors: {:?}", partial_validation_results);
-
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
         let msg: TypedMessage<SerializableValidations> = TypedMessage {
             message_type: String::from("partial_validation_result"),
-            data: &(&partial_validation_results).into(), // TODO: reference not strictly needed, as we clone in the into() impl anyway...
+            data: &(&partial_validation_results).into(),
         };
         let serialized_msg = match serde_json::to_string(&msg) {
             Ok(string) => string,
@@ -73,6 +70,11 @@ pub async fn update_one<R: CrudResource>(
             .get_websocket_controller()
             .broadcast_message(Message::Text(serialized_msg));
 
+        let mut serializable: Option<SerializableValidations> = None;
+        if has_critical_violations {
+            serializable = Some((&partial_validation_results).into());
+        }
+
         // Persist the validation results for later access/use.
         let persistable = into_persistable(partial_validation_results);
         context
@@ -82,7 +84,10 @@ pub async fn update_one<R: CrudResource>(
 
         // The existence of CRITICAL violations must block a save!
         if has_critical_violations {
-            return Err(CrudError::ValidationErrors);
+            // SAFETY: Calling unwrap is safe, as the if above assigns a Some variant and runs with the same condition as this code.
+            return Ok(SaveResult::CriticalValidationErrors(
+                serializable.unwrap(),
+            ));
         }
     } else {
         // We know that the entity is valid and therefor need to delete all previously stored violations for this entity.
@@ -123,17 +128,17 @@ pub async fn update_one<R: CrudResource>(
 
     // We read the entity again, to get an up-to-date instance of the "ReadModel".
     /*let read = build_select_query::<R::ReadViewEntity, R::ReadViewModel, R::ReadViewActiveModel, R::ReadViewColumn, R::ReadViewCrudColumn>(
-            None,
-            None,
-            None,
-            &body.condition,
-        )?
-        .one(controller.get_database_connection())
-        .await
-        .map_err(|err| CrudError::DbError(err.to_string()))?
-        .ok_or_else(|| CrudError::ReadOneFoundNone)?;*/
+        None,
+        None,
+        None,
+        &body.condition,
+    )?
+    .one(controller.get_database_connection())
+    .await
+    .map_err(|err| CrudError::DbError(err.to_string()))?
+    .ok_or_else(|| CrudError::ReadOneFoundNone)?;*/
 
-    Ok(json!(SaveResult {
+    Ok(SaveResult::Saved(Saved {
         entity: result,
         with_validation_errors: has_violations,
     }))

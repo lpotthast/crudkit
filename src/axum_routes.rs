@@ -31,10 +31,6 @@ impl IntoResponse for AxumCrudError {
                 format!("A database error occurred: {}", error),
             ),
             CrudError::ReadOneFoundNone => (StatusCode::NOT_FOUND, "Entity not found".to_owned()),
-            CrudError::ValidationErrors => (
-                StatusCode::BAD_REQUEST,
-                "Validation errors occurred".to_owned(),
-            ),
         };
 
         let body = Json(json!({
@@ -147,7 +143,7 @@ macro_rules! impl_add_crud_routes {
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
                     crud::create::create_one::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
-                        .map(|res| Json(res))
+                        .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))
                 }
 
@@ -158,7 +154,7 @@ macro_rules! impl_add_crud_routes {
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
                     crud::update::update_one::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
-                        .map(|res| Json(res))
+                        .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))
                 }
 

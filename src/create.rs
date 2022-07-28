@@ -1,8 +1,11 @@
 use crate::{prelude::*, validation::into_persistable};
-use crud_shared_types::{validation::EntityValidations, CrudError};
-use sea_orm::JsonValue;
+use axum::extract::ws::Message;
+use axum_websockets::TypedMessage;
+use crud_shared_types::{
+    validation::{EntityValidations, SerializableValidations},
+    SaveResult, Saved, CrudError,
+};
 use serde::Deserialize;
-use serde_json::json;
 use std::sync::Arc;
 
 #[derive(Deserialize)]
@@ -14,7 +17,7 @@ pub async fn create_one<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
     body: CreateOne,
-) -> Result<JsonValue, CrudError> {
+) -> Result<SaveResult<R::Model>, CrudError> {
     let entity_json: &str = body.entity.get();
 
     // Use the "CreateModel" to deserialize the given JSON. Some not required members are allowed to be missing.
@@ -30,27 +33,59 @@ pub async fn create_one<R: CrudResource>(
     // We might have accidentally set attributes on the "ActiveModel" that we must not have in order to run validations.
     prune_active_model::<R>(&mut active_entity);
 
-    // Run validations before inserting the entity.
+    // Run validations before inserting the entity. If critical violations are present, prevent the creation!
+    // NOTE: All violations created here can not have an ID, as the entity was not yet saved!
+    // OPTIMIZATION: We are only interested in CRITICAL violations. Can this be used to make this more efficient?
     let validation_results: EntityValidations = context.validator.validate_single(&active_entity);
-    if validation_results.has_violations() {
-        // TODO: pass violations to frontend.
-        log::info!("Validation errors: {:?}", validation_results);
-        let persistable = into_persistable(validation_results);
-        context
-            .validation_result_repository
-            .save_all(persistable)
-            .await;
-        return Err(CrudError::ValidationErrors);
+    if validation_results.has_critical_violations() {
+        // NOTE: Nothing must be persisted, as the entity is not yet created!
+        let serializable: SerializableValidations = (&validation_results).into();
+        return Ok(SaveResult::CriticalValidationErrors(serializable));
     }
 
+    // The entity to insert has no critical violations. The entity can be inserted!
     let insert_query = build_insert_query::<R>(active_entity)?;
 
-    let inserted_entity = insert_query
+    let inserted_entity: R::Model = insert_query
         .exec_with_returning(controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;
 
-    Ok(json! {inserted_entity})
+    // Reevaluate the entity for violations and broadcast all of them if some exist.
+    let active_inserted_entity: R::ActiveModel = inserted_entity.clone().into();
+    let partial_validation_results: EntityValidations =
+        context.validator.validate_single(&active_inserted_entity);
+    let with_validation_errors = partial_validation_results.has_violations();
+    if with_validation_errors {
+        // Broadcast the PARTIAL validation result to all registered WebSocket connections.
+        let msg: TypedMessage<SerializableValidations> = TypedMessage {
+            message_type: String::from("partial_validation_result"),
+            data: &(&partial_validation_results).into(),
+        };
+        let serialized_msg = match serde_json::to_string(&msg) {
+            Ok(string) => string,
+            Err(err) => {
+                let err_msg = format!("Unable to serialize partial validation result: {err:?}");
+                log::error!("{err_msg}");
+                err_msg
+            }
+        };
+        controller
+            .get_websocket_controller()
+            .broadcast_message(Message::Text(serialized_msg));
+
+        // Persist the validation results for later access/use.
+        let persistable = into_persistable(partial_validation_results);
+        context
+            .validation_result_repository
+            .save_all(persistable)
+            .await;
+    }
+
+    Ok(SaveResult::Saved(Saved {
+        entity: inserted_entity,
+        with_validation_errors,
+    }))
 }
 
 // TODO: update_one_and_read_back() which updates and returns a ReadModel instead of an UpdateModel.
