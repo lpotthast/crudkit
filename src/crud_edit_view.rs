@@ -1,5 +1,5 @@
 use crud_shared_types::{
-    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Operator, SaveResult,
+    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Operator, SaveResult, Saved, validation::SerializableValidations,
 };
 use yew::{
     html::{ChildrenRenderer, Scope},
@@ -20,7 +20,7 @@ pub enum Msg<T: CrudMainTrait> {
     BackCanceled,
     BackApproved,
     LoadedEntity(Result<Option<T::ReadModel>, RequestError>),
-    UpdatedEntity((Result<Option<SaveResult<T::UpdateModel>>, RequestError>, Then)),
+    UpdatedEntity((Result<SaveResult<T::UpdateModel>, RequestError>, Then)),
     Save,
     SaveAndReturn,
     SaveAndNew,
@@ -42,7 +42,9 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub config: CrudInstanceConfig<T>,
     pub id: u32,
     pub list_view_available: bool,
-    pub on_saved: Callback<SaveResult<T::UpdateModel>>,
+    pub on_entity_updated: Callback<Saved<T::UpdateModel>>,
+    pub on_entity_not_updated_critical_errors: Callback<SerializableValidations>,
+    pub on_entity_update_failed: Callback<RequestError>,
     pub on_list: Callback<()>,
     pub on_create: Callback<()>,
     pub on_delete: Callback<T::UpdateModel>,
@@ -93,26 +95,26 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
 
     fn set_entity_from_save_result(
         &mut self,
-        data: Result<Option<SaveResult<T::UpdateModel>>, RequestError>,
+        data: Result<SaveResult<T::UpdateModel>, RequestError>,
         from: SetFrom,
     ) {
-        self.entity = match data {
-            Ok(data) => match data {
-                Some(save_result) => Ok(save_result.entity),
-                None => Err(match from {
-                    SetFrom::Fetch => NoData::FetchReturnedNothing,
-                    SetFrom::Update => NoData::UpdateReturnedNothing,
-                }),
+        match data {
+            Ok(save_result) => match save_result {
+                SaveResult::Saved(saved) => {
+                    self.input = saved.entity.clone();
+                    self.input_dirty = false;
+                    self.entity = Ok(saved.entity);
+                },
+                SaveResult::CriticalValidationErrors(err) => {
+                    // TODO: Do something with the critical errors?
+                    // Keep current entity!
+                },
             },
-            Err(err) => Err(match from {
+            Err(err) => self.entity = Err(match from {
                 SetFrom::Fetch => NoData::FetchFailed(err),
                 SetFrom::Update => NoData::UpdateFailed(err),
             }),
         };
-        if let Ok(entity) = &self.entity {
-            self.input = entity.clone();
-            self.input_dirty = false;
-        }
     }
 
     fn save_entity(&self, ctx: &Context<Self>, and_then: Then) {
@@ -193,21 +195,26 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
             Msg::UpdatedEntity((data, and_then)) => {
                 self.set_entity_from_save_result(data.clone(), SetFrom::Update);
                 match data {
-                    Ok(data) => match data {
-                        Some(data) => {
-                            ctx.props().on_saved.emit(data);
+                    Ok(save_result) => match save_result {
+                        SaveResult::Saved(saved) => {
+                            ctx.props().on_entity_updated.emit(saved);
                             match and_then {
                                 Then::DoNothing => {}
                                 Then::OpenListView => ctx.props().on_list.emit(()),
                                 Then::OpenCreateView => ctx.props().on_create.emit(()),
                             }
-                        }
-                        None => log::warn!("Could not update entity. Request returned nothing."),
+                        },
+                        SaveResult::CriticalValidationErrors(serializable_validations) => {
+                            ctx.props().on_entity_not_updated_critical_errors.emit(serializable_validations);
+                        },
                     },
-                    Err(err) => log::warn!(
-                        "Could not update entity due to RequestError: {}",
-                        err.to_string()
-                    ),
+                    Err(err) => {
+                        log::warn!(
+                            "Could not update entity due to RequestError: {}",
+                            err.to_string()
+                        );
+                        ctx.props().on_entity_update_failed.emit(err);
+                    },
                 }
                 true
             }

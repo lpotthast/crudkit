@@ -1,11 +1,15 @@
-use yew::{html::{ChildrenRenderer, Scope}, prelude::*};
-
-use crate::{crud_instance::Item, services::crud_rest_data_provider::{CrudRestDataProvider, CreateOne}};
-
-use super::{
+use crud_shared_types::{validation::SerializableValidations, SaveResult, Saved};
+use yew::{
+    html::{ChildrenRenderer, Scope},
     prelude::*,
-    types::RequestError,
 };
+
+use crate::{
+    crud_instance::Item,
+    services::crud_rest_data_provider::{CreateOne, CrudRestDataProvider},
+};
+
+use super::{prelude::*, types::RequestError};
 
 pub enum Msg<T: CrudMainTrait> {
     Back,
@@ -13,8 +17,13 @@ pub enum Msg<T: CrudMainTrait> {
     SaveAndReturn,
     SaveAndNew,
     ValueChanged((<T::UpdateModel as CrudDataTrait>::Field, Value)),
-    CreatedEntity(Result<Option<T::UpdateModel>, RequestError>, Then),
-    GetInput((<T::UpdateModel as CrudDataTrait>::Field, Box<dyn FnOnce(Value)>)),
+    CreatedEntity(Result<SaveResult<T::UpdateModel>, RequestError>, Then),
+    GetInput(
+        (
+            <T::UpdateModel as CrudDataTrait>::Field,
+            Box<dyn FnOnce(Value)>,
+        ),
+    ),
 }
 
 pub enum Then {
@@ -32,8 +41,10 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub config: CrudInstanceConfig<T>,
     pub list_view_available: bool,
     pub on_list_view: Callback<()>,
-    pub on_entity_created: Callback<(T::UpdateModel, Option<CrudView>)>,
-    pub on_entity_creation_failed: Callback<(Option<NoData>, Option<RequestError>)>,
+    // TODO: consolidate these into one "on_entity_creation_attempt" with type Result<CreateResult<T::UpdateModel>, RequestError>?
+    pub on_entity_created: Callback<(Saved<T::UpdateModel>, Option<CrudView>)>,
+    pub on_entity_not_created_critical_errors: Callback<SerializableValidations>,
+    pub on_entity_creation_failed: Callback<RequestError>,
 }
 
 pub struct CrudCreateView<T: CrudMainTrait> {
@@ -114,35 +125,38 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
             Msg::CreatedEntity(result, then) => {
                 self.ongoing_save = false;
                 match result {
-                    Ok(data) => match data {
-                        Some(entity) => match then {
+                    Ok(create_result) => match create_result {
+                        SaveResult::Saved(created) => match then {
                             Then::DoNothing => {
-                                ctx.props().on_entity_created.emit((entity, None));
+                                ctx.props().on_entity_created.emit((created, None));
                             }
                             Then::OpenListView => {
                                 ctx.props()
                                     .on_entity_created
-                                    .emit((entity, Some(CrudView::List)));
+                                    .emit((created, Some(CrudView::List)));
                             }
                             Then::Reset => {
                                 ctx.props()
                                     .on_entity_created
-                                    .emit((entity, Some(CrudView::Create)));
+                                    .emit((created, Some(CrudView::Create)));
                                 self.reset();
                             }
                         },
-                        None => {
-                            ctx.props().on_entity_creation_failed.emit((Some(NoData::FetchReturnedNothing), None));
+                        SaveResult::CriticalValidationErrors(serializable_validations) => {
+                            // TODO: Store validations in store!
                             log::error!(
-                                "Entity creation failed: {:?}",
-                                NoData::FetchReturnedNothing
-                            )
-                        },
+                                "Entity was not created due to critical errors {:?}",
+                                serializable_validations
+                            );
+                            ctx.props()
+                                .on_entity_not_created_critical_errors
+                                .emit(serializable_validations);
+                        }
                     },
                     Err(reason) => {
-                        ctx.props().on_entity_creation_failed.emit((None, Some(reason.clone())));
                         log::error!("Entity creation failed: {:?}", reason);
-                    },
+                        ctx.props().on_entity_creation_failed.emit(reason.clone());
+                    }
                 }
                 false
             }

@@ -1,6 +1,7 @@
 use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::{
-    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Order, SaveResult,
+    validation::SerializableValidations, Condition, ConditionClause, ConditionClauseValue,
+    ConditionElement, Order, Saved,
 };
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -28,9 +29,12 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     EditViewLinked(Option<Scope<CrudEditView<T>>>),
     List,
     Create,
-    EntityCreated((T::UpdateModel, Option<CrudView>)),
-    EntityCreationFailed((Option<NoData>, Option<RequestError>)),
-    EntityUpdated(SaveResult<T::UpdateModel>),
+    EntityCreated((Saved<T::UpdateModel>, Option<CrudView>)),
+    EntityNotCreatedDueToCriticalErrors(SerializableValidations),
+    EntityCreationFailed(RequestError),
+    EntityUpdated(Saved<T::UpdateModel>),
+    EntityNotUpdatedDueToCriticalErrors(SerializableValidations),
+    EntityUpdateFailed(RequestError),
     Read(T::UpdateModel),
     Edit(T::UpdateModel),
     Delete(T::UpdateModel),
@@ -226,6 +230,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         list_view_available={true}
                                         on_list_view={ctx.link().callback(|_| Msg::List)}
                                         on_entity_created={ctx.link().callback(Msg::EntityCreated)}
+                                        on_entity_not_created_critical_errors={ctx.link().callback(Msg::EntityNotCreatedDueToCriticalErrors)}
                                         on_entity_creation_failed={ctx.link().callback(Msg::EntityCreationFailed)}
                                         on_link={ctx.link().callback(|link| Msg::CreateViewLinked(link))}
                                     />
@@ -251,7 +256,9 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         config={self.config.clone()}
                                         id={id}
                                         list_view_available={true}
-                                        on_saved={ctx.link().callback(Msg::EntityUpdated)}
+                                        on_entity_updated={ctx.link().callback(Msg::EntityUpdated)}
+                                        on_entity_not_updated_critical_errors={ctx.link().callback(Msg::EntityNotUpdatedDueToCriticalErrors)}
+                                        on_entity_update_failed={ctx.link().callback(Msg::EntityUpdateFailed)}
                                         on_list={ctx.link().callback(|_| Msg::List)}
                                         on_create={ctx.link().callback(|_| Msg::Create)}
                                         on_delete={ctx.link().callback(Msg::Delete)}
@@ -412,20 +419,28 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 self.store_config(ctx);
                 true
             }
-            Msg::EntityCreated((entity, suggested_view)) => {
+            Msg::EntityCreated((save_result, suggested_view)) => {
                 if let Some(suggested_view) = suggested_view {
                     self.set_view(suggested_view);
                 } else {
-                    self.set_view(CrudView::Edit(entity.get_id()));
+                    self.set_view(CrudView::Edit(save_result.entity.get_id()));
                 }
                 self.store_config(ctx);
                 self.toasts_dispatch.reduce_mut(|state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
                         created_at: UtcDateTime::now(),
-                        variant: ToastVariant::Success,
+                        variant: match save_result.with_validation_errors {
+                            true => ToastVariant::Warn,
+                            false => ToastVariant::Success,
+                        },
                         heading: "Erstellt".to_owned(),
-                        message: "Der Eintrag wurde erfolgreich erstellt.".to_owned(),
+                        message: match save_result.with_validation_errors {
+                            true => {
+                                "Der Eintrag wurde mit Validierungsfehlern erstellt.".to_owned()
+                            }
+                            false => "Der Eintrag wurde erfolgreich erstellt.".to_owned(),
+                        },
                         dismissible: false,
                         automatically_closing: AutomaticallyClosing::WithDefaultDelay,
                         close_callback: None,
@@ -433,52 +448,38 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 });
                 true
             }
-            Msg::EntityCreationFailed((no_data, request_error)) => {
-                if let Some(_no_data) = no_data {
-                    self.toasts_dispatch.reduce_mut(|state| {
-                        state.push_toast(Toast {
-                            id: Uuid::new_v4(),
-                            created_at: UtcDateTime::now(),
-                            variant: ToastVariant::Error,
-                            heading: "Nicht erstellt".to_owned(),
-                            message: "Der Eintrag konnte nicht erstellt werden: Daten konnten nicht geladen werden.".to_owned(),
-                            dismissible: false,
-                            automatically_closing: AutomaticallyClosing::WithDelay(3000),
-                            close_callback: None,
-                        })
-                    });
-                } else if let Some(request_error) = request_error {
-                    self.toasts_dispatch.reduce_mut(move |state| {
-                        state.push_toast(Toast {
-                            id: Uuid::new_v4(),
-                            created_at: UtcDateTime::now(),
-                            variant: ToastVariant::Error,
-                            heading: "Nicht erstellt".to_owned(),
-                            message: format!(
-                                "Der Eintrag konnte nicht erstellt werden: {}.",
-                                request_error
-                            ),
-                            dismissible: false,
-                            automatically_closing: AutomaticallyClosing::WithDelay(3000),
-                            close_callback: None,
-                        })
-                    });
-                } else {
-                    self.toasts_dispatch.reduce_mut(|state| {
-                        state.push_toast(Toast {
-                            id: Uuid::new_v4(),
-                            created_at: UtcDateTime::now(),
-                            variant: ToastVariant::Error,
-                            heading: "Nicht erstellt".to_owned(),
-                            message:
-                                "Der Eintrag konnte nicht erstellt werden. Unbekannter Fehler."
-                                    .to_owned(),
-                            dismissible: false,
-                            automatically_closing: AutomaticallyClosing::WithDelay(3000),
-                            close_callback: None,
-                        })
-                    });
-                }
+            Msg::EntityNotCreatedDueToCriticalErrors(serializable_validations) => {
+                self.toasts_dispatch.reduce_mut(move |state| {
+                    state.push_toast(Toast {
+                        id: Uuid::new_v4(),
+                        created_at: UtcDateTime::now(),
+                        variant: ToastVariant::Error,
+                        heading: "Nicht erstellt".to_owned(),
+                        message: "Kritische Validierungsfehler verhindern das Speichern."
+                            .to_owned(),
+                        dismissible: false,
+                        automatically_closing: AutomaticallyClosing::WithDelay(3000),
+                        close_callback: None,
+                    })
+                });
+                false
+            }
+            Msg::EntityCreationFailed(request_error) => {
+                self.toasts_dispatch.reduce_mut(move |state| {
+                    state.push_toast(Toast {
+                        id: Uuid::new_v4(),
+                        created_at: UtcDateTime::now(),
+                        variant: ToastVariant::Error,
+                        heading: "Nicht erstellt".to_owned(),
+                        message: format!(
+                            "Der Eintrag konnte nicht erstellt werden: {}.",
+                            request_error
+                        ),
+                        dismissible: false,
+                        automatically_closing: AutomaticallyClosing::WithDelay(3000),
+                        close_callback: None,
+                    })
+                });
                 false
             }
             Msg::EntityUpdated(save_result) => {
@@ -486,7 +487,10 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
                         created_at: UtcDateTime::now(),
-                        variant: ToastVariant::Success,
+                        variant: match save_result.with_validation_errors {
+                            true => ToastVariant::Warn,
+                            false => ToastVariant::Success,
+                        },
                         heading: String::from("Gespeichert"),
                         message: match save_result.with_validation_errors {
                             true => {
@@ -500,6 +504,40 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                     })
                 });
                 true
+            }
+            Msg::EntityNotUpdatedDueToCriticalErrors(serializable_validations) => {
+                self.toasts_dispatch.reduce_mut(move |state| {
+                    state.push_toast(Toast {
+                        id: Uuid::new_v4(),
+                        created_at: UtcDateTime::now(),
+                        variant: ToastVariant::Error,
+                        heading: "Nicht aktualisiert".to_owned(),
+                        message: "Kritische Validierungsfehler verhindern das Speichern."
+                            .to_owned(),
+                        dismissible: false,
+                        automatically_closing: AutomaticallyClosing::WithDelay(3000),
+                        close_callback: None,
+                    })
+                });
+                false
+            }
+            Msg::EntityUpdateFailed(request_error) => {
+                self.toasts_dispatch.reduce_mut(move |state| {
+                    state.push_toast(Toast {
+                        id: Uuid::new_v4(),
+                        created_at: UtcDateTime::now(),
+                        variant: ToastVariant::Error,
+                        heading: "Nicht aktualisiert".to_owned(),
+                        message: format!(
+                            "Der Eintrag konnte nicht aktualisiert werden: {}.",
+                            request_error
+                        ),
+                        dismissible: false,
+                        automatically_closing: AutomaticallyClosing::WithDelay(3000),
+                        close_callback: None,
+                    })
+                });
+                false
             }
             Msg::Read(entity) => {
                 self.set_view(CrudView::Read(entity.get_id()));

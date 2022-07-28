@@ -142,10 +142,13 @@ pub mod prelude {
 pub enum NoData {
     NotYetLoaded,
     FetchFailed(RequestError),
+    // TODO: Can probably be deleted at some point...
     FetchReturnedNothing,
     CreateFailed(RequestError),
+    // TODO: Can probably be deleted at some point...
     CreateReturnedNothing,
     UpdateFailed(RequestError),
+    // TODO: Can probably be deleted at some point...
     UpdateReturnedNothing,
 }
 
