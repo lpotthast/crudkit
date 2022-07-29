@@ -133,3 +133,9 @@ pub enum SaveResult<T> {
     Saved(Saved<T>),
     CriticalValidationErrors,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum DeleteResult {
+    Deleted(u64),
+    CriticalValidationErrors,
+}
