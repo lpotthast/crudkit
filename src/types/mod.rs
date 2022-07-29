@@ -1,6 +1,5 @@
 pub mod files;
 pub mod toasts;
-pub mod ws;
 
 use std::collections::HashMap;
 
