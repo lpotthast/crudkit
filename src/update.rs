@@ -1,8 +1,7 @@
 use crate::{prelude::*, validation::into_persistable};
-use axum::extract::ws::Message;
-use axum_websockets::TypedMessage;
 use crud_shared_types::{
-    validation::{EntityViolations, PartialSerializableValidations, StrictOwnedEntityInfo},
+    validation::{EntityViolations, StrictOwnedEntityInfo},
+    ws_messages::{CrudWsMessage, EntityUpdated},
     Condition, CrudError, SaveResult, Saved,
 };
 use sea_orm::ActiveModelTrait;
@@ -42,6 +41,7 @@ pub async fn update_one<R: CrudResource>(
 
     // Update the persisted active_model!
     active_model.update_with(update);
+    let entity_id = R::CrudColumn::get_id(&active_model).expect("Updatable entities must be stored and therefor have an ID!");
 
     // Run validations ON THE NEW STATE(!) but before updating the entity in the database.
     let partial_validation_results: EntityViolations =
@@ -54,21 +54,9 @@ pub async fn update_one<R: CrudResource>(
             partial_validation_results.has_violation_of_type(ValidationViolationType::Critical);
 
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
-        let msg: TypedMessage<PartialSerializableValidations> = TypedMessage {
-            message_type: String::from("partial_validation_result"),
-            data: &partial_validation_results.clone().into(),
-        };
-        let serialized_msg = match serde_json::to_string(&msg) {
-            Ok(string) => string,
-            Err(err) => {
-                let err_msg = format!("Unable to serialize partial validation result: {err:?}");
-                log::error!("{err_msg}");
-                err_msg
-            }
-        };
-        controller
-            .get_websocket_controller()
-            .broadcast_message(Message::Text(serialized_msg));
+        controller.get_websocket_controller().broadcast_json(
+            &CrudWsMessage::PartialValidationResult(partial_validation_results.clone().into()),
+        );
 
         // Persist the validation results for later access/use.
         let persistable = into_persistable(partial_validation_results);
@@ -95,29 +83,26 @@ pub async fn update_one<R: CrudResource>(
                 .await;
         }
 
-        // Inform the websocket listeners
-        let msg: TypedMessage<PartialSerializableValidations> = TypedMessage {
-            message_type: String::from("partial_validation_result"),
-            data: &partial_validation_results.into(), 
-        };
-        let serialized_msg = match serde_json::to_string(&msg) {
-            Ok(string) => string,
-            Err(err) => {
-                let err_msg = format!("Unable to serialize partial validation result: {err:?}");
-                log::error!("{err_msg}");
-                // TODO: Wrap that error string in a TypedMessage of variant Error!
-                err_msg
-            }
-        };
-        controller
-            .get_websocket_controller()
-            .broadcast_message(Message::Text(serialized_msg));
+        // Inform the websocket listeners.
+        controller.get_websocket_controller().broadcast_json(
+            &CrudWsMessage::PartialValidationResult(partial_validation_results.clone().into()),
+        );
     }
 
     let result = active_model
         .update(controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;
+
+    // Inform all participants that the entity was updated.
+    // TODO: Exclude the current user!
+    controller
+        .get_websocket_controller()
+        .broadcast_json(&CrudWsMessage::EntityUpdated(EntityUpdated {
+            aggregate_name: R::TYPE.into().to_owned(),
+            entity_id,
+            with_validation_errors: has_violations
+        }));
 
     // We read the entity again, to get an up-to-date instance of the "ReadModel".
     /*let read = build_select_query::<R::ReadViewEntity, R::ReadViewModel, R::ReadViewActiveModel, R::ReadViewColumn, R::ReadViewCrudColumn>(

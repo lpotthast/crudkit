@@ -1,8 +1,7 @@
 use crate::{prelude::*, validation::into_persistable};
-use axum::extract::ws::Message;
-use axum_websockets::TypedMessage;
 use crud_shared_types::{
-    validation::{EntityViolations, PartialSerializableValidations},
+    validation::PartialSerializableValidations,
+    ws_messages::{CrudWsMessage, EntityCreated},
     CrudError, SaveResult, Saved,
 };
 use serde::Deserialize;
@@ -36,25 +35,13 @@ pub async fn create_one<R: CrudResource>(
     // Run validations before inserting the entity. If critical violations are present, prevent the creation!
     // NOTE: All violations created here can not have an ID, as the entity was not yet saved!
     // OPTIMIZATION: We are only interested in CRITICAL violations. Can this be used to make this more efficient?
-    let partial_validation_results: EntityViolations = context.validator.validate_single(&active_entity);
+    let partial_validation_results = context.validator.validate_single(&active_entity);
     if partial_validation_results.has_critical_violations() {
         // TODO: Only notify the user that issued THIS REQUEST!!!
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
-        let msg: TypedMessage<PartialSerializableValidations> = TypedMessage {
-            message_type: String::from("partial_validation_result"),
-            data: &partial_validation_results.clone().into(),
-        };
-        let serialized_msg = match serde_json::to_string(&msg) {
-            Ok(string) => string,
-            Err(err) => {
-                let err_msg = format!("Unable to serialize partial validation result: {err:?}");
-                log::error!("{err_msg}");
-                err_msg
-            }
-        };
-        controller
-            .get_websocket_controller()
-            .broadcast_message(Message::Text(serialized_msg));
+        controller.get_websocket_controller().broadcast_json(
+            &CrudWsMessage::PartialValidationResult(partial_validation_results.clone().into()),
+        );
 
         // NOTE: Nothing must be persisted, as the entity is not yet created!
         return Ok(SaveResult::CriticalValidationErrors);
@@ -68,35 +55,27 @@ pub async fn create_one<R: CrudResource>(
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;
 
-    // Reevaluate the entity for violations and broadcast all of them if some exist.
     let active_inserted_entity: R::ActiveModel = inserted_entity.clone().into();
-    let partial_validation_results: EntityViolations =
-        context.validator.validate_single(&active_inserted_entity);
+    let entity_id = R::CrudColumn::get_id(&active_inserted_entity)
+        .expect("Already inserted entities must have an ID!");
+
+    // Reevaluate the entity for violations and broadcast all of them if some exist.
+    let partial_validation_results = context.validator.validate_single(&active_inserted_entity);
     let with_validation_errors = partial_validation_results.has_violations();
     if with_validation_errors {
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
-        let mut serializable: PartialSerializableValidations = partial_validation_results.clone().into();
+        let mut serializable: PartialSerializableValidations =
+            partial_validation_results.clone().into();
 
         // We successfully created the entry at this point. To delete any leftover "create" violations in the frontend, set create to Some empty vector!
-        serializable.entry(R::TYPE.into().to_owned()).and_modify(|s| {
-            s.create = Some(Vec::new());
-        });
-        
-        let msg: TypedMessage<PartialSerializableValidations> = TypedMessage {
-            message_type: String::from("partial_validation_result"),
-            data: &serializable,
-        };
-        let serialized_msg = match serde_json::to_string(&msg) {
-            Ok(string) => string,
-            Err(err) => {
-                let err_msg = format!("Unable to serialize partial validation result: {err:?}");
-                log::error!("{err_msg}");
-                err_msg
-            }
-        };
+        serializable
+            .entry(R::TYPE.into().to_owned())
+            .and_modify(|s| {
+                s.create = Some(Vec::new());
+            });
         controller
             .get_websocket_controller()
-            .broadcast_message(Message::Text(serialized_msg));
+            .broadcast_json(&CrudWsMessage::PartialValidationResult(serializable));
 
         // Persist the validation results for later access/use.
         let persistable = into_persistable(partial_validation_results);
@@ -105,6 +84,16 @@ pub async fn create_one<R: CrudResource>(
             .save_all(persistable)
             .await;
     }
+
+    // Inform all participants that the entity was updated.
+    // TODO: Exclude the current user!
+    controller
+        .get_websocket_controller()
+        .broadcast_json(&CrudWsMessage::EntityCreated(EntityCreated {
+            aggregate_name: R::TYPE.into().to_owned(),
+            entity_id,
+            with_validation_errors,
+        }));
 
     Ok(SaveResult::Saved(Saved {
         entity: inserted_entity,

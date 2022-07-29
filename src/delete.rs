@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use crud_shared_types::{
+    ws_messages::{CrudWsMessage, EntityDeleted},
     Condition, ConditionClause, ConditionClauseValue, ConditionElement, CrudError, Operator, Order,
 };
 use indexmap::IndexMap;
@@ -55,7 +56,7 @@ pub async fn delete_by_id<R: CrudResource>(
 
 pub async fn delete_one<R: CrudResource>(
     controller: Arc<CrudController>,
-    _context: Arc<CrudContext<R>>,
+    context: Arc<CrudContext<R>>,
     body: DeleteOne<R>,
 ) -> Result<JsonValue, CrudError> {
     let select = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
@@ -64,14 +65,40 @@ pub async fn delete_one<R: CrudResource>(
         body.order_by,
         &body.condition,
     )?;
-    let data = select
+
+    let entity = select
         .one(controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?
         .ok_or(CrudError::ReadOneFoundNone)?;
-    let delete_result = R::Model::delete(data, controller.get_database_connection())
+
+    let active_entity = entity.clone().into();
+    let entity_id = R::CrudColumn::get_id(&active_entity)
+        .expect("Stored entity without an ID should be impossible!");
+
+    // Validate the entity, so that we can block its deletion if validators say so.
+    let partial_validation_results = context.validator.validate_single(&active_entity);
+
+    // Send validation results.
+    controller
+        .get_websocket_controller()
+        .broadcast_json(&CrudWsMessage::PartialValidationResult(
+            partial_validation_results.clone().into(),
+        ));
+
+    let delete_result = R::Model::delete(entity, controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;
+
+    // Inform all participants that the entity was deleted.
+    // TODO: Exclude the current user!
+    controller
+        .get_websocket_controller()
+        .broadcast_json(&CrudWsMessage::EntityDeleted(EntityDeleted {
+            aggregate_name: R::TYPE.into().to_owned(),
+            entity_id,
+        }));
+
     Ok(json!(delete_result.rows_affected))
 }
 
