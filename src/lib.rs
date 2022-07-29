@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod validation;
+pub mod ws_messages;
 
 // TODO: implement prelude
 
