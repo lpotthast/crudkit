@@ -1,6 +1,6 @@
 use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::{
-    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Order, Saved,
+    Condition, ConditionClause, ConditionClauseValue, ConditionElement, DeleteResult, Order, Saved,
 };
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -39,7 +39,7 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     Delete(T::UpdateModel),
     DeleteCanceled,
     DeleteApproved,
-    Deleted(Result<Option<i32>, RequestError>),
+    Deleted(Result<DeleteResult, RequestError>),
     OrderBy((<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)),
     PageSelected(u64),
     Action((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
@@ -571,8 +571,8 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
             }
             Msg::Deleted(result) => {
                 match result {
-                    Ok(entity) => match entity {
-                        Some(_amount) => {
+                    Ok(delete_result) => match delete_result {
+                        DeleteResult::Deleted(_amount) => {
                             match &self.entity_to_delete {
                                 Some(entity) => match self.config.view {
                                     CrudView::Read(id) | CrudView::Edit(id) => {
@@ -588,7 +588,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             self.entity_to_delete = None;
                             true
                         }
-                        None => {
+                        DeleteResult::CriticalValidationErrors => {
                             log::warn!("Server did not respond with an error but also did not send the deleted entity back. Something seems wrong..");
                             false
                         }

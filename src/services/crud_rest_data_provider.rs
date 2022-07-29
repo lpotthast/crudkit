@@ -1,6 +1,6 @@
 use super::requests::*;
 use crate::{types::RequestError, CrudDataTrait, CrudMainTrait};
-use crud_shared_types::{Condition, Order, SaveResult};
+use crud_shared_types::{Condition, Order, SaveResult, DeleteResult};
 use indexmap::IndexMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
@@ -124,7 +124,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
     pub async fn delete_by_id(
         &self,
         delete_by_id: DeleteById,
-    ) -> Result<Option<i32>, RequestError> {
+    ) -> Result<DeleteResult, RequestError> {
         let resource = T::get_resource_name();
         request_post(
             format!("{}/{resource}/crud/delete-by-id", self.api_base_url),
