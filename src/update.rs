@@ -1,4 +1,4 @@
-use crate::{prelude::*, validation::into_persistable};
+use crate::{prelude::*, validation::{into_persistable, ValidationTrigger, ValidationContext, CrudAction, When}};
 use crud_shared_types::{
     validation::{EntityViolations, StrictOwnedEntityInfo},
     ws_messages::{CrudWsMessage, EntityUpdated},
@@ -44,8 +44,12 @@ pub async fn update_one<R: CrudResource>(
     let entity_id = R::CrudColumn::get_id(&active_model).expect("Updatable entities must be stored and therefor have an ID!");
 
     // Run validations ON THE NEW STATE(!) but before updating the entity in the database.
+    let trigger = ValidationTrigger::CrudAction(ValidationContext {
+        action: CrudAction::Update,
+        when: When::Before,
+    });
     let partial_validation_results: EntityViolations =
-        context.validator.validate_single(&active_model);
+        context.validator.validate_single(&active_model, trigger);
 
     let has_violations = partial_validation_results.has_violations();
 
@@ -89,6 +93,7 @@ pub async fn update_one<R: CrudResource>(
         );
     }
 
+    // Update the data in the database.
     let result = active_model
         .update(controller.get_database_connection())
         .await

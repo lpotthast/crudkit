@@ -1,12 +1,16 @@
-use crate::prelude::*;
+use crate::{
+    prelude::*,
+    validation::{CrudAction, ValidationContext, ValidationTrigger, When},
+};
 use crud_shared_types::{
+    validation::StrictOwnedEntityInfo,
     ws_messages::{CrudWsMessage, EntityDeleted},
-    Condition, ConditionClause, ConditionClauseValue, ConditionElement, CrudError, Operator, Order,
+    Condition, ConditionClause, ConditionClauseValue, ConditionElement, CrudError, DeleteResult,
+    Operator, Order,
 };
 use indexmap::IndexMap;
-use sea_orm::{JsonValue, ModelTrait};
+use sea_orm::ModelTrait;
 use serde::Deserialize;
-use serde_json::json;
 use std::sync::Arc;
 
 #[derive(Deserialize)]
@@ -28,9 +32,9 @@ pub struct DeleteMany {
 
 pub async fn delete_by_id<R: CrudResource>(
     controller: Arc<CrudController>,
-    _context: Arc<CrudContext<R>>,
+    context: Arc<CrudContext<R>>,
     body: DeleteById,
-) -> Result<JsonValue, CrudError> {
+) -> Result<DeleteResult, CrudError> {
     let select = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
         None,
         None,
@@ -43,22 +47,69 @@ pub async fn delete_by_id<R: CrudResource>(
             },
         )])),
     )?;
-    let data = select
+
+    let entity = select
         .one(controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?
         .ok_or(CrudError::ReadOneFoundNone)?;
-    let delete_result = R::Model::delete(data, controller.get_database_connection())
+
+    let active_entity = entity.clone().into();
+    let entity_id = R::CrudColumn::get_id(&active_entity)
+        .expect("Stored entity without an ID should be impossible!");
+
+    // Validate the entity, so that we can block its deletion if validators say so.
+    let trigger = ValidationTrigger::CrudAction(ValidationContext {
+        action: CrudAction::Delete,
+        when: When::Before,
+    });
+    let partial_validation_results = context.validator.validate_single(&active_entity, trigger);
+
+    // Prevent deletion on critical errors.
+    if partial_validation_results.has_critical_violations() {
+        // TODO: Only notify the user that issued THIS REQUEST!!!
+        controller.get_websocket_controller().broadcast_json(
+            &CrudWsMessage::PartialValidationResult(partial_validation_results.clone().into()),
+        );
+
+        // NOTE: Validations done before a deletion are only there to prevent it if necessary. Nothing must be persisted.
+        return Ok(DeleteResult::CriticalValidationErrors);
+    }
+
+    // Delete the entity in the database.
+    let delete_result = R::Model::delete(entity, controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;
-    Ok(json!(delete_result.rows_affected))
+
+    // Deleting the entity could have introduced new validation errors in other parts ot the system.
+    // TODO: let validation run again...
+
+    // All previous validations regarding this entity must be deleted!
+    context
+        .validation_result_repository
+        .delete_for(StrictOwnedEntityInfo {
+            aggregate_name: String::from(R::TYPE.into()),
+            entity_id,
+        })
+        .await;
+
+    // Inform all participants that the entity was deleted.
+    // TODO: Exclude the current user!
+    controller
+        .get_websocket_controller()
+        .broadcast_json(&CrudWsMessage::EntityDeleted(EntityDeleted {
+            aggregate_name: R::TYPE.into().to_owned(),
+            entity_id,
+        }));
+
+    Ok(DeleteResult::Deleted(delete_result.rows_affected))
 }
 
 pub async fn delete_one<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
     body: DeleteOne<R>,
-) -> Result<JsonValue, CrudError> {
+) -> Result<DeleteResult, CrudError> {
     let select = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
         None,
         body.skip,
@@ -77,18 +128,36 @@ pub async fn delete_one<R: CrudResource>(
         .expect("Stored entity without an ID should be impossible!");
 
     // Validate the entity, so that we can block its deletion if validators say so.
-    let partial_validation_results = context.validator.validate_single(&active_entity);
+    let trigger = ValidationTrigger::CrudAction(ValidationContext {
+        action: CrudAction::Delete,
+        when: When::Before,
+    });
+    let partial_validation_results = context.validator.validate_single(&active_entity, trigger);
 
-    // Send validation results.
-    controller
-        .get_websocket_controller()
-        .broadcast_json(&CrudWsMessage::PartialValidationResult(
-            partial_validation_results.clone().into(),
-        ));
+    // Prevent deletion on critical errors.
+    if partial_validation_results.has_critical_violations() {
+        // TODO: Only notify the user that issued THIS REQUEST!!!
+        controller.get_websocket_controller().broadcast_json(
+            &CrudWsMessage::PartialValidationResult(partial_validation_results.clone().into()),
+        );
 
+        // NOTE: Validations done before a deletion are only there to prevent it if necessary. Nothing must be persisted.
+        return Ok(DeleteResult::CriticalValidationErrors);
+    }
+
+    // Delete the entity in the database.
     let delete_result = R::Model::delete(entity, controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;
+
+    // All previous validations regarding this entity must be deleted!
+    context
+        .validation_result_repository
+        .delete_for(StrictOwnedEntityInfo {
+            aggregate_name: String::from(R::TYPE.into()),
+            entity_id,
+        })
+        .await;
 
     // Inform all participants that the entity was deleted.
     // TODO: Exclude the current user!
@@ -99,18 +168,19 @@ pub async fn delete_one<R: CrudResource>(
             entity_id,
         }));
 
-    Ok(json!(delete_result.rows_affected))
+    Ok(DeleteResult::Deleted(delete_result.rows_affected))
 }
 
 pub async fn delete_many<R: CrudResource>(
     controller: Arc<CrudController>,
     _context: Arc<CrudContext<R>>,
     body: DeleteMany,
-) -> Result<JsonValue, CrudError> {
+) -> Result<DeleteResult, CrudError> {
+    // TODO: Add missing validation logic to this function.
     let delete_many = build_delete_many_query::<R::Entity>(&body.condition)?;
     let delete_result = delete_many
         .exec(controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;
-    Ok(json!(delete_result.rows_affected))
+    Ok(DeleteResult::Deleted(delete_result.rows_affected))
 }

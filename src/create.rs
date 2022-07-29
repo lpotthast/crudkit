@@ -1,4 +1,4 @@
-use crate::{prelude::*, validation::into_persistable};
+use crate::{prelude::*, validation::{into_persistable, ValidationTrigger, ValidationContext, CrudAction, When}};
 use crud_shared_types::{
     validation::PartialSerializableValidations,
     ws_messages::{CrudWsMessage, EntityCreated},
@@ -35,7 +35,11 @@ pub async fn create_one<R: CrudResource>(
     // Run validations before inserting the entity. If critical violations are present, prevent the creation!
     // NOTE: All violations created here can not have an ID, as the entity was not yet saved!
     // OPTIMIZATION: We are only interested in CRITICAL violations. Can this be used to make this more efficient?
-    let partial_validation_results = context.validator.validate_single(&active_entity);
+    let trigger = ValidationTrigger::CrudAction(ValidationContext {
+        action: CrudAction::Create,
+        when: When::Before,
+    });
+    let partial_validation_results = context.validator.validate_single(&active_entity, trigger);
     if partial_validation_results.has_critical_violations() {
         // TODO: Only notify the user that issued THIS REQUEST!!!
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
@@ -60,7 +64,11 @@ pub async fn create_one<R: CrudResource>(
         .expect("Already inserted entities must have an ID!");
 
     // Reevaluate the entity for violations and broadcast all of them if some exist.
-    let partial_validation_results = context.validator.validate_single(&active_inserted_entity);
+    let trigger = ValidationTrigger::CrudAction(ValidationContext {
+        action: CrudAction::Create,
+        when: When::After,
+    });
+    let partial_validation_results = context.validator.validate_single(&active_inserted_entity, trigger);
     let with_validation_errors = partial_validation_results.has_violations();
     if with_validation_errors {
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.

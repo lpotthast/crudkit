@@ -7,21 +7,50 @@ use crud_shared_types::validation::{
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CrudAction {
+    Create,
+    Update,
+    Delete,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum When {
+    Before,
+    After
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ValidationContext {
+    /// The CRUD action that lead to the validation.
+    pub action: CrudAction,
+    /// Wether or not the validation occurs before or after applying the CRUD action.
+    /// Critical violations created before the action is applied will prevent its application.
+    pub when: When,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ValidationTrigger {
+    CrudAction(ValidationContext),
+    GlobalValidation,
+}
+
 // TODO: Implement in resources!
 pub trait AggregateValidator {
+    /// Aggregate validation has no access to a trigger or context, as aggregate validation is only applied through global validation.
     fn validate(&self) -> Violations;
 }
 
 pub trait EntityValidatorTrait<T> {
-    fn validate_single(&self, entity: &T) -> EntityViolations;
-    fn validate_updated(&self, old: &T, new: &T) -> EntityViolations;
+    fn validate_single(&self, entity: &T, trigger: ValidationTrigger) -> EntityViolations;
+    fn validate_updated(&self, old: &T, new: &T, trigger: ValidationTrigger) -> EntityViolations;
     fn get_name(&self) -> &'static str;
     fn get_version(&self) -> u32;
 }
 
 pub trait EntityValidatorsTrait<T> {
-    fn validate_single(&self, entity: &T) -> EntityViolations;
-    fn validate_updated(&self, old: &T, new: &T) -> EntityViolations;
+    fn validate_single(&self, entity: &T, trigger: ValidationTrigger) -> EntityViolations;
+    fn validate_updated(&self, old: &T, new: &T, trigger: ValidationTrigger) -> EntityViolations;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, EnumIter, DeriveActiveEnum)]

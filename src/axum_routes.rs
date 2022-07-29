@@ -165,7 +165,7 @@ macro_rules! impl_add_crud_routes {
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
                     crud::delete::delete_by_id::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
-                        .map(|res| Json(res))
+                        .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))
                 }
 
@@ -176,7 +176,7 @@ macro_rules! impl_add_crud_routes {
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
                     crud::delete::delete_one::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
-                        .map(|res| Json(res))
+                        .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))
                 }
 
@@ -187,7 +187,7 @@ macro_rules! impl_add_crud_routes {
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
                     crud::delete::delete_many::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
-                        .map(|res| Json(res))
+                        .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))
                 }
             }
