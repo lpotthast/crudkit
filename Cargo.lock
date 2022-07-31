@@ -66,9 +66,9 @@ checksum = "37ccbd214614c6783386c1af30caf03192f17891059cecc394b4fb119e363de3"
 
 [[package]]
 name = "bytes"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0b3de4a0c5e67e16066a0715723abd91edc2f9001d09c46e1dca929351e130e"
+checksum = "ec8a7b6a70fde80372154c65702f00a0f56f3e1c36abbc6c440484be248856db"
 
 [[package]]
 name = "cc"
@@ -1023,9 +1023,9 @@ checksum = "eb9f9e6e233e5c4a35559a617bf40a4ec447db2e84c20b55a6f83167b7e57872"
 
 [[package]]
 name = "prettyplease"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da6ffbe862780245013cb1c0a48c4e44b7d665548088f91f6b90876d0625e4c2"
+checksum = "fffbe84bf1905c007253d1f10ffb85fbc8ca8624a40cff8f2ded6f36920e38e0"
 dependencies = [
  "proc-macro2",
  "syn",
@@ -1111,9 +1111,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.2.15"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "534cfe58d6a18cc17120fbf4635d53d14691c1fe4d951064df9bd326178d7d5a"
+checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
 dependencies = [
  "bitflags",
 ]
@@ -1472,9 +1472,9 @@ checksum = "b6bc1c9ce2b5135ac7f93c72918fc37feb872bdc6a5533a8b85eb4b86bfdae52"
 
 [[package]]
 name = "tracing"
-version = "0.1.35"
+version = "0.1.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a400e31aa60b9d44a52a8ee0343b5b18566b03a8321e0d321f695cf56e940160"
+checksum = "2fce9567bd60a67d08a16488756721ba392f24f29006402881e43b19aac64307"
 dependencies = [
  "cfg-if",
  "pin-project-lite",
@@ -1483,9 +1483,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.28"
+version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b7358be39f2f274f322d2aaed611acc57f382e8eb1e5b48cb9ae30933495ce7"
+checksum = "5aeea4303076558a00714b823f9ad67d58a3bbda1df83d8827d21193156e22f7"
 dependencies = [
  "once_cell",
 ]
@@ -1751,7 +1751,7 @@ dependencies = [
 [[package]]
 name = "yew"
 version = "0.19.3"
-source = "git+https://github.com/yewstack/yew#8f269bbd6162295581a635710a9b74d58346cedf"
+source = "git+https://github.com/yewstack/yew#4eda9432bbf7f683a45426af8eb0d5e1e37ff27d"
 dependencies = [
  "console_error_panic_hook",
  "gloo",
@@ -1775,7 +1775,7 @@ dependencies = [
 [[package]]
 name = "yew-macro"
 version = "0.19.3"
-source = "git+https://github.com/yewstack/yew#8f269bbd6162295581a635710a9b74d58346cedf"
+source = "git+https://github.com/yewstack/yew#4eda9432bbf7f683a45426af8eb0d5e1e37ff27d"
 dependencies = [
  "boolinator",
  "once_cell",
@@ -1789,7 +1789,7 @@ dependencies = [
 [[package]]
 name = "yew-router"
 version = "0.16.0"
-source = "git+https://github.com/yewstack/yew#8f269bbd6162295581a635710a9b74d58346cedf"
+source = "git+https://github.com/yewstack/yew#4eda9432bbf7f683a45426af8eb0d5e1e37ff27d"
 dependencies = [
  "gloo",
  "js-sys",
@@ -1805,7 +1805,7 @@ dependencies = [
 [[package]]
 name = "yew-router-macro"
 version = "0.16.0"
-source = "git+https://github.com/yewstack/yew#8f269bbd6162295581a635710a9b74d58346cedf"
+source = "git+https://github.com/yewstack/yew#4eda9432bbf7f683a45426af8eb0d5e1e37ff27d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1822,7 +1822,7 @@ dependencies = [
 [[package]]
 name = "yewdux"
 version = "0.8.0"
-source = "git+https://github.com/intendednull/yewdux#7b507453b2e39f8a6bdd69ad37d63fee754ae3e1"
+source = "git+https://github.com/intendednull/yewdux#ba003ac15ff10ccae5e06f6ee5728676923933af"
 dependencies = [
  "anymap",
  "log",
@@ -1849,7 +1849,7 @@ dependencies = [
 [[package]]
 name = "yewdux-macros"
 version = "0.8.0"
-source = "git+https://github.com/intendednull/yewdux#7b507453b2e39f8a6bdd69ad37d63fee754ae3e1"
+source = "git+https://github.com/intendednull/yewdux#ba003ac15ff10ccae5e06f6ee5728676923933af"
 dependencies = [
  "darling",
  "proc-macro-error",
