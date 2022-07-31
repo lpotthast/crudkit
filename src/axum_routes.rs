@@ -48,7 +48,8 @@ macro_rules! impl_add_crud_routes {
         paste::item! {
             mod [< axum_ $name _crud_routes >] {
                 use std::sync::Arc;
-                use crud::prelude::*;
+                use crud_rs::prelude::*;
+                use crud_rs::axum_routes::AxumCrudError;
                 use axum::{
                     http::StatusCode,
                     response::{IntoResponse, Response},
@@ -56,7 +57,6 @@ macro_rules! impl_add_crud_routes {
                     Extension, Json, Router,
                 };
                 use crud_shared_types::CrudError;
-                use crud::axum_routes::AxumCrudError;
                 use sea_orm::JsonValue;
                 use serde_json::json;
 
@@ -108,7 +108,7 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadCount>,
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
-                    crud::read::read_count::<$resource_type>(controller.clone(), context.clone(), body)
+                    crud_rs::read::read_count::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
                         .map(|res| Json(res))
                         .map_err(|err| AxumCrudError(err))
@@ -119,7 +119,7 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadOne<$resource_type>>,
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
-                    crud::read::read_one::<$resource_type>(controller.clone(), context.clone(), body)
+                    crud_rs::read::read_one::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
                         .map(|res| Json(res))
                         .map_err(|err| AxumCrudError(err))
@@ -130,7 +130,7 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadMany<$resource_type>>,
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
-                    crud::read::read_many::<$resource_type>(controller.clone(), context.clone(), body)
+                    crud_rs::read::read_many::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
                         .map(|res| Json(res))
                         .map_err(|err| AxumCrudError(err))
@@ -141,7 +141,7 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<CreateOne>,
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
-                    crud::create::create_one::<$resource_type>(controller.clone(), context.clone(), body)
+                    crud_rs::create::create_one::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
                         .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))
@@ -152,7 +152,7 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<UpdateOne>,
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
-                    crud::update::update_one::<$resource_type>(controller.clone(), context.clone(), body)
+                    crud_rs::update::update_one::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
                         .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))
@@ -163,7 +163,7 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteById>,
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
-                    crud::delete::delete_by_id::<$resource_type>(controller.clone(), context.clone(), body)
+                    crud_rs::delete::delete_by_id::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
                         .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))
@@ -174,7 +174,7 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteOne<$resource_type>>,
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
-                    crud::delete::delete_one::<$resource_type>(controller.clone(), context.clone(), body)
+                    crud_rs::delete::delete_one::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
                         .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))
@@ -185,7 +185,7 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteMany>,
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
-                    crud::delete::delete_many::<$resource_type>(controller.clone(), context.clone(), body)
+                    crud_rs::delete::delete_many::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
                         .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))
