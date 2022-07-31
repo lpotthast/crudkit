@@ -14,7 +14,7 @@ chrono-utc-date-time = {path = "../../chrono-utc-date-time", features = [ "sea-o
 serde = { version = "1.0.140", features = ["derive"] }
 serde_json = "1.0.82"
 chrono = "0.4.19"
-axum = "0.5.14"
+axum = "0.5.13"
 indexmap = { version = "1.9.1", features = ["serde"] }
 paste = "1.0.7"
 log = "0.4.17"
