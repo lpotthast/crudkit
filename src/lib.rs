@@ -226,9 +226,10 @@ pub trait CrudSelectableTrait: Debug + Display {
 
 #[derive(Debug)]
 pub enum Value {
-    String(String),
+    String(String), // TODO: Add optional string!
     Text(String),
     U32(u32),
+    I32(i32),
     Bool(bool),
     // Specialized bool-case, render as a green check mark if false and an orange exclamation mark if true.
     ValidationStatus(bool),
@@ -262,6 +263,12 @@ impl Value {
         match self {
             Self::U32(u32) => u32,
             Self::String(string) => string.parse().unwrap(),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_i32(self) -> i32 {
+        match self {
+            Self::I32(i32) => i32,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -310,6 +317,7 @@ impl Display for Value {
             Value::String(string) => f.write_str(string),
             Value::Text(string) => f.write_str(string),
             Value::U32(u32) => f.write_str(&u32.to_string()),
+            Value::I32(i32) => f.write_str(&i32.to_string()),
             Value::Bool(bool) => f.write_str(&bool.to_string()),
             Value::ValidationStatus(bool) => f.write_str(&bool.to_string()),
             Value::UtcDateTime(utc_date_time) => f.write_str(&utc_date_time.to_rfc3339()),
@@ -400,6 +408,16 @@ pub struct FieldOptions {
     pub label: Option<Label>,
     pub date_time_display: DateTimeDisplay,
     //validations: Vec<u32>,
+}
+
+impl Default for FieldOptions {
+    fn default() -> Self {
+        Self {
+            disabled: false,
+            label: None,
+            date_time_display: DateTimeDisplay::LocalizedLocal,
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]

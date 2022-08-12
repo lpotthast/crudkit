@@ -48,10 +48,12 @@ pub struct CrudRelatedField<P: 'static + CrudMainTrait, T: 'static + CrudMainTra
 impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> CrudRelatedField<P, T> {
     fn compute_selected(&mut self, ctx: &Context<Self>) {
         self.selected = if let Some(value) = &self.current_field_value {
+            // TODO: Extract different types of ids: u32, i32, uuid, ulid, etc...
             let selected_ids = match value {
                 Value::String(_) => panic!("unsupported"),
                 Value::Text(_) => panic!("unsupported"),
                 Value::U32(u32) => vec![*u32],
+                Value::I32(_) => panic!("unsupported"),
                 Value::Bool(_) => panic!("unsupported"),
                 Value::ValidationStatus(_) => panic!("unsupported"),
                 Value::UtcDateTime(_) => panic!("unsupported"),
@@ -102,6 +104,7 @@ fn value_as_u32(value: &Value) -> Option<u32> {
         Value::String(_) => panic!("unsupported"),
         Value::Text(_) => panic!("unsupported"),
         Value::U32(u32) => Some(*u32),
+        Value::I32(_) => panic!("unsupported"),
         Value::Bool(_) => panic!("unsupported"),
         Value::ValidationStatus(_) => panic!("unsupported"),
         Value::UtcDateTime(_) => panic!("unsupported"),
