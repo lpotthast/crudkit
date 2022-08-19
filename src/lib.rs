@@ -269,6 +269,9 @@ impl Value {
     pub fn take_i32(self) -> i32 {
         match self {
             Self::I32(i32) => i32,
+            // This has some potential data loss...
+            // TODO: Can we remove this? Without, this created a panic in fcs/servers/labels/new
+            Self::U32(u32) => u32 as i32,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
