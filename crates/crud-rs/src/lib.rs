@@ -1,7 +1,8 @@
 #![forbid(unsafe_code)]
 
 use crud_shared_types::{ConditionClauseValue, Value};
-use sea_orm::{ActiveModelTrait, ColumnTrait};
+use prelude::{CrudContext, CrudResource};
+use sea_orm::{ActiveModelTrait, ColumnTrait, ModelTrait};
 use std::str::FromStr;
 
 pub mod axum_routes;
@@ -17,6 +18,9 @@ pub mod validate;
 pub mod validation;
 
 pub mod prelude {
+    /* Provide convenient access to all our macros. */
+    pub use derive_crud_columns::CrudColumns;
+
     pub use super::context::CrudContext;
     pub use super::controller::CrudController;
     pub use super::resource::CrudResource;
@@ -40,10 +44,10 @@ pub mod prelude {
     pub use super::validate::validate_required;
 
     pub use super::parse;
-    pub use super::to_i32;
     pub use super::to_bool;
-    pub use super::to_string;
     pub use super::to_date_time;
+    pub use super::to_i32;
+    pub use super::to_string;
 
     pub use super::query::build_delete_many_query;
     pub use super::query::build_insert_query;
@@ -76,6 +80,11 @@ pub trait CrudColumns<C: ColumnTrait, A: ActiveModelTrait> {
 }
 
 pub trait CreateModelTrait {}
+
+// TODO: define and try to use instead of CreateModelTrait?
+pub trait NewCreateModelTrait<R: CrudResource, M: ModelTrait> {
+    fn to_model(&self, context: CrudContext<R>) -> M;
+}
 
 pub trait UpdateActiveModelTrait<C: CreateModelTrait> {
     fn update_with(&mut self, update: C);

@@ -1,25 +1,3 @@
-[package]
-name = "crud-rs"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-# Internal
-axum-websockets = {path = "../../axum-websockets"}
-
-crud-shared-types = {path = "../crud-shared-types"}
-chrono-utc-date-time = {path = "../../chrono-utc-date-time", features = [ "sea-orm" ]}
-
-# External
-serde = { version = "1.0.140", features = ["derive"] }
-serde_json = "1.0.82"
-chrono = "0.4.19"
-axum = "0.5.13"
-indexmap = { version = "1.9.1", features = ["serde"] }
-paste = "1.0.7"
-log = "0.4.17"
-async-trait = "0.1.56"
-
-sea-orm = { version = "0.9.1", features = [ "debug-print", "runtime-tokio-rustls", "sqlx", "sqlx-postgres" ] }
-sea-query = { version = "0.26.2" }
-sea-schema = { version = "0.9.3", default-features = false, features = [ "debug-print" ] }
+[workspace]
+members = ["crates/*"]
+default-members = ["crates/crud-rs"]
