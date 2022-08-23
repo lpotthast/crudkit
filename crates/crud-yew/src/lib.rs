@@ -66,6 +66,9 @@ pub mod types;
 mod event_functions;
 
 pub mod prelude {
+    pub use derive_crud_resource::CrudResource;
+    pub use derive_field::Field;
+
     pub use super::crud_btn::CrudBtn;
     pub use super::crud_btn_group::CrudBtnGroup;
     pub use super::crud_btn_name::CrudBtnName;
@@ -116,6 +119,7 @@ pub mod prelude {
     pub use super::crud_tree::CrudTree;
     pub use super::CrudActionTrait;
     pub use super::CrudDataTrait;
+    pub use super::CrudFieldNameTrait;
     pub use super::CrudFieldTrait;
     pub use super::CrudFieldValueTrait;
     pub use super::CrudIdTrait;
@@ -194,7 +198,8 @@ pub trait CrudDataTrait:
     + Serialize
     + DeserializeOwned
 {
-    type Field: CrudFieldValueTrait<Self>
+    type Field: CrudFieldNameTrait
+        + CrudFieldValueTrait<Self>
         + Default
         + PartialEq
         + Eq
@@ -205,6 +210,7 @@ pub trait CrudDataTrait:
         + DeserializeOwned;
 }
 
+// TODO: Rename to CrudFieldAccessTrait
 pub trait CrudFieldTrait<F: CrudFieldValueTrait<C>, C: CrudDataTrait> {
     fn get_field(field_name: &str) -> F;
 }
@@ -341,8 +347,11 @@ impl Display for Value {
     }
 }
 
-pub trait CrudFieldValueTrait<T> {
+pub trait CrudFieldNameTrait {
     fn get_name(&self) -> &'static str;
+}
+
+pub trait CrudFieldValueTrait<T> {
     fn get_value(&self, entity: &T) -> Value;
     fn set_value(&self, entity: &mut T, value: Value);
 }

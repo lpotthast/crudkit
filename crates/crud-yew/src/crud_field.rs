@@ -25,6 +25,7 @@ pub struct Props<T: CrudDataTrait> {
     pub field_type: T::Field,
     pub field_options: FieldOptions,
     pub field_mode: FieldMode,
+    // TODO: Must not OWN the complete entity!
     pub entity: Option<T>,
     pub value_changed: Callback<(T::Field, Value)>, // how can we handle all possible types? serialization?
 }
