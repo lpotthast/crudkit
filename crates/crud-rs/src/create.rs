@@ -23,11 +23,9 @@ pub async fn create_one<R: CrudResource>(
     let create_model: R::CreateModel = serde_json::from_str::<R::CreateModel>(entity_json)
         .map_err(|err| CrudError::UnableToParseAsEntity(entity_json.to_owned(), err.to_string()))?;
 
-    // Convert the "CreateModel" into the actual "Model"
-    let model: R::Model = create_model.into();
-
-    // Create the "Model" into an "ActiveModel" ready to be persisted.
-    let mut active_entity: R::ActiveModel = model.into();
+    // Directly create an "ActiveModel" from the "CreateModel", ready to be persisted.
+    // By not going through the Model -> ActiveModel conversion, we give the user to exactly specify the data that should be Set/Unset.
+    let mut active_entity: R::ActiveModel = create_model.into();
 
     // We might have accidentally set attributes on the "ActiveModel" that we must not have in order to run validations.
     prune_active_model::<R>(&mut active_entity);

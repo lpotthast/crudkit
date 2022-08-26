@@ -31,8 +31,8 @@ pub async fn update_one<R: CrudResource>(
         .map_err(|err| CrudError::DbError(err.to_string()))?
         .ok_or(CrudError::ReadOneFoundNone)?;
 
-    // Use the "CreateModel" to deserialize the given JSON. Some not required members are allowed to be missing.
-    let update = serde_json::from_str::<R::CreateModel>(body.entity.get()).map_err(|err| {
+    // Use the "UpdateModel" to deserialize the given JSON. Some not required members are allowed to be missing.
+    let update = serde_json::from_str::<R::UpdateModel>(body.entity.get()).map_err(|err| {
         CrudError::UnableToParseAsEntity(body.entity.get().to_owned(), err.to_string())
     })?;
 

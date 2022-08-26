@@ -27,6 +27,7 @@ pub mod prelude {
 
     pub use super::AsColType;
     pub use super::CreateModelTrait;
+    pub use super::UpdateModelTrait;
     pub use super::CrudColumns;
     pub use super::ExcludingColumnsOnInsert;
     pub use super::MaybeColumnTrait;
@@ -80,13 +81,15 @@ pub trait CrudColumns<C: ColumnTrait, A: ActiveModelTrait> {
 }
 
 pub trait CreateModelTrait {}
+pub trait UpdateModelTrait {}
 
 // TODO: define and try to use instead of CreateModelTrait?
 pub trait NewCreateModelTrait<R: CrudResource, M: ModelTrait> {
     fn to_model(&self, context: CrudContext<R>) -> M;
 }
 
-pub trait UpdateActiveModelTrait<C: CreateModelTrait> {
+/// This trait must be implemented for sea-orm *ActiveModel types. It allows to update them with arbitrary types.
+pub trait UpdateActiveModelTrait<C> {
     fn update_with(&mut self, update: C);
 }
 
