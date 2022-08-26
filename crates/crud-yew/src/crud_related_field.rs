@@ -50,20 +50,21 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> CrudRelatedField<P,
         self.selected = if let Some(value) = &self.current_field_value {
             // TODO: Extract different types of ids: u32, i32, uuid, ulid, etc...
             let selected_ids = match value {
-                Value::String(_) => panic!("unsupported"),
-                Value::Text(_) => panic!("unsupported"),
+                Value::String(_) => panic!("'String' unsupported"),
+                Value::Text(_) => panic!("'Text' unsupported"),
                 Value::U32(u32) => vec![*u32],
-                Value::I32(_) => panic!("unsupported"),
-                Value::Bool(_) => panic!("unsupported"),
-                Value::ValidationStatus(_) => panic!("unsupported"),
-                Value::UtcDateTime(_) => panic!("unsupported"),
-                Value::OptionalUtcDateTime(_) => panic!("unsupported"),
+                Value::I32(_) => panic!("'I32' unsupported"),
+                Value::F32(_) => panic!("'F32' unsupported"),
+                Value::Bool(_) => panic!("'Bool' unsupported"),
+                Value::ValidationStatus(_) => panic!("'ValidationStatus' unsupported"),
+                Value::UtcDateTime(_) => panic!("UtcDateTime' unsupported"),
+                Value::OptionalUtcDateTime(_) => panic!("'OptionalUtcDateTime' unsupported"),
                 Value::OneToOneRelation(some_u32) => match some_u32 {
                     Some(u32) => vec![*u32],
                     None => vec![],
                 },
-                Value::NestedTable(_) => panic!("unsupported"),
-                Value::Select(_) => panic!("unsupported"),
+                Value::NestedTable(_) => panic!("'NestedTable' unsupported"),
+                Value::Select(_) => panic!("'Select' unsupported"),
             };
             if let Some(data) = &self.data {
                 match data {
@@ -101,20 +102,21 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> CrudRelatedField<P,
 
 fn value_as_u32(value: &Value) -> Option<u32> {
     match value {
-        Value::String(_) => panic!("unsupported"),
-        Value::Text(_) => panic!("unsupported"),
+        Value::String(_) => panic!("'String' unsupported"),
+        Value::Text(_) => panic!("'Text' unsupported"),
         Value::U32(u32) => Some(*u32),
-        Value::I32(_) => panic!("unsupported"),
-        Value::Bool(_) => panic!("unsupported"),
-        Value::ValidationStatus(_) => panic!("unsupported"),
-        Value::UtcDateTime(_) => panic!("unsupported"),
-        Value::OptionalUtcDateTime(_) => panic!("unsupported"),
+        Value::I32(_) => panic!("'I32' unsupported"),
+        Value::F32(_) => panic!("'F32' unsupported"),
+        Value::Bool(_) => panic!("'Bool' unsupported"),
+        Value::ValidationStatus(_) => panic!("'ValidationStatus' unsupported"),
+        Value::UtcDateTime(_) => panic!("'UtcDateTime' unsupported"),
+        Value::OptionalUtcDateTime(_) => panic!("'OptionalUtcDateTime' unsupported"),
         Value::OneToOneRelation(some_u32) => match some_u32 {
             Some(u32) => Some(*u32),
             None => None,
         },
-        Value::NestedTable(_) => panic!("unsupported"),
-        Value::Select(_) => panic!("unsupported"),
+        Value::NestedTable(_) => panic!("'NestedTable' unsupported"),
+        Value::Select(_) => panic!("'Select' unsupported"),
     }
 }
 

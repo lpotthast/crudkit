@@ -9,6 +9,7 @@ edition = "2021"
 # Internal
 derive-field = { path = "../derive-field"}
 derive-crud-resource= { path = "../derive-crud-resource"}
+derive-crud-selectable= { path = "../derive-crud-selectable"}
 
 yewbi = { path = "../../../../yewbi" }
 yewdux-global-stores = { path = "../../../../yewdux-global-stores" }

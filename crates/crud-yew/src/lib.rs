@@ -68,6 +68,7 @@ mod event_functions;
 pub mod prelude {
     pub use derive_crud_resource::CrudResource;
     pub use derive_field::Field;
+    pub use derive_crud_selectable::CrudSelectable;
 
     pub use super::crud_btn::CrudBtn;
     pub use super::crud_btn_group::CrudBtnGroup;
@@ -236,6 +237,7 @@ pub enum Value {
     Text(String),
     U32(u32),
     I32(i32),
+    F32(f32),
     Bool(bool),
     // Specialized bool-case, render as a green check mark if false and an orange exclamation mark if true.
     ValidationStatus(bool),
@@ -278,6 +280,12 @@ impl Value {
             // This has some potential data loss...
             // TODO: Can we remove this? Without, this created a panic in fcs/servers/labels/new
             Self::U32(u32) => u32 as i32,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_f32(self) -> f32 {
+        match self {
+            Self::F32(f32) => f32,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -327,6 +335,7 @@ impl Display for Value {
             Value::Text(string) => f.write_str(string),
             Value::U32(u32) => f.write_str(&u32.to_string()),
             Value::I32(i32) => f.write_str(&i32.to_string()),
+            Value::F32(f32) => f.write_str(&f32.to_string()),
             Value::Bool(bool) => f.write_str(&bool.to_string()),
             Value::ValidationStatus(bool) => f.write_str(&bool.to_string()),
             Value::UtcDateTime(utc_date_time) => f.write_str(&utc_date_time.to_rfc3339()),

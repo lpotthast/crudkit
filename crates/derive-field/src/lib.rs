@@ -1,8 +1,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use proc_macro_error::proc_macro_error;
-use quote::{quote, quote_spanned};
-use syn::spanned::Spanned;
+use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
 #[proc_macro_derive(Field, attributes(field))]
@@ -41,27 +40,25 @@ pub fn store(input: TokenStream) -> TokenStream {
     let name = &ast.ident;
     let field_name = Ident::new(format!("{name}Field").as_str(), name.span());
 
-    let match_field_name_to_str_arms = struct_fields(&ast.data)
-        .map(|field| {
-            let name = field.ident.as_ref().expect("Expected named field!");
-            let name = name.to_string();
-            let type_name = field_name_as_type_name(&name);
-            let type_ident = Ident::new(type_name.as_str(), Span::call_site());
-            quote! {
-                #field_name::#type_ident => #name
-            }
-        });
+    let match_field_name_to_str_arms = struct_fields(&ast.data).map(|field| {
+        let name = field.ident.as_ref().expect("Expected named field!");
+        let name = name.to_string();
+        let type_name = field_name_as_type_name(&name);
+        let type_ident = Ident::new(type_name.as_str(), Span::call_site());
+        quote! {
+            #field_name::#type_ident => #name
+        }
+    });
 
-    let get_field_arms = struct_fields(&ast.data)
-        .map(|field| {
-            let name = field.ident.as_ref().expect("Expected named field!");
-            let name = name.to_string();
-            let type_name = field_name_as_type_name(&name);
-            let type_ident = Ident::new(type_name.as_str(), Span::call_site());
-            quote! {
-                #name => #field_name::#type_ident
-            }
-        });
+    let get_field_arms = struct_fields(&ast.data).map(|field| {
+        let name = field.ident.as_ref().expect("Expected named field!");
+        let name = name.to_string();
+        let type_name = field_name_as_type_name(&name);
+        let type_ident = Ident::new(type_name.as_str(), Span::call_site());
+        quote! {
+            #name => #field_name::#type_ident
+        }
+    });
 
     quote! {
         #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]

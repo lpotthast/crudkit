@@ -38,16 +38,17 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudSelectableTrait + Clone + Part
     fn compute_selected(&mut self, ctx: &Context<Self>) {
         self.selected = if let Some(value) = &self.current_field_value {
             let selected_options: Vec<T> = match value {
-                Value::String(_) => panic!("unsupported"),
-                Value::Text(_) => panic!("unsupported"),
-                Value::U32(_) => panic!("unsupported"),
-                Value::I32(_) => panic!("unsupported"),
-                Value::Bool(_) => panic!("unsupported"),
-                Value::ValidationStatus(_) => panic!("unsupported"),
-                Value::UtcDateTime(_) => panic!("unsupported"),
-                Value::OptionalUtcDateTime(_) => panic!("unsupported"),
-                Value::OneToOneRelation(_) => panic!("unsupported"),
-                Value::NestedTable(_) => panic!("unsupported"),
+                Value::String(_) => panic!("'String' unsupported"),
+                Value::Text(_) => panic!("'Text' unsupported"),
+                Value::U32(_) => panic!("'U32' unsupported"),
+                Value::I32(_) => panic!("'I32' unsupported"),
+                Value::F32(_) => panic!("'F32' unsupported"),
+                Value::Bool(_) => panic!("'Bool' unsupported"),
+                Value::ValidationStatus(_) => panic!("'ValidationStatus' unsupported"),
+                Value::UtcDateTime(_) => panic!("'UtcDateTime' unsupported"),
+                Value::OptionalUtcDateTime(_) => panic!("'OptionalUtcDateTime' unsupported"),
+                Value::OneToOneRelation(_) => panic!("'OneToOneRelation' unsupported"),
+                Value::NestedTable(_) => panic!("'NestedTable' unsupported"),
                 Value::Select(value) => match value {
                     Some(value) => vec![value.as_any().downcast_ref::<T>().unwrap().clone()],
                     None => vec![],

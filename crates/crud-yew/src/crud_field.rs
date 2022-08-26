@@ -346,6 +346,41 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         </div>
                     },
                 },
+                Value::F32(value) => match &ctx.props().field_mode {
+                    FieldMode::Display => html! {
+                        <div>{format!("{}", value)}</div>
+                    },
+                    FieldMode::Readable => html! {
+                        <div class="crud-field">
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
+                            <input
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                type={"number"}
+                                value={format!("{}", value)}
+                                disabled={true}
+                            />
+                        </div>
+                    },
+                    FieldMode::Editable => html! {
+                        <div class="crud-field">
+                            if let Some(label) = &options.label {
+                                <CrudFieldLabel label={label.clone()} />
+                            }
+                            <input
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                type={"number"}
+                                value={format!("{}", value)}
+                                onkeyup={ctx.link().callback(Msg::KeyUp)}
+                                onchange={ctx.link().callback(Msg::InputChanged)}
+                                disabled={options.disabled}
+                            />
+                        </div>
+                    },
+                },
                 Value::Bool(value) => match &ctx.props().field_mode {
                     FieldMode::Display => html! {
                         <div>{format!("{}", value)}</div>
