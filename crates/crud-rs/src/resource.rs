@@ -6,7 +6,7 @@ use sea_orm::{
 use serde::{de::DeserializeOwned, Serialize};
 use std::{fmt::Debug, hash::Hash};
 
-pub trait CrudResource {
+pub trait CrudResource: Sized {
     // The 'real' entity used when reading / querying entities. Might as well be a SQL view instead of a real table ;)
     type ReadViewEntity: EntityTrait<Model = Self::ReadViewModel, Column = Self::ReadViewColumn>
         + MaybeColumnTrait
@@ -57,9 +57,8 @@ pub trait CrudResource {
         + 'static;
 
     // Used to create en entity
-    type CreateModel: CreateModelTrait
+    type CreateModel: CreateModelTrait<Self::Context, Self::ActiveModel>
         + DeserializeOwned
-        + Into<Self::ActiveModel>
         + Debug
         + Clone
         + Send
@@ -67,13 +66,7 @@ pub trait CrudResource {
         + 'static;
 
     // Used to update an entity
-    type UpdateModel: UpdateModelTrait
-        + DeserializeOwned
-        + Debug
-        + Clone
-        + Send
-        + Sync
-        + 'static;
+    type UpdateModel: UpdateModelTrait + DeserializeOwned + Debug + Clone + Send + Sync + 'static;
 
     type Model: ModelTrait<Entity = Self::Entity>
         + IntoActiveModel<Self::ActiveModel>
@@ -112,6 +105,8 @@ pub trait CrudResource {
     type ValidationResultRepository: ValidationResultSaverTrait;
 
     type ResourceType: Debug + Into<&'static str> + Clone + Copy;
+
+    type Context: Send + Sync + 'static;
 
     const TYPE: Self::ResourceType;
 }

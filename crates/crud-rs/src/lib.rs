@@ -80,7 +80,10 @@ pub trait CrudColumns<C: ColumnTrait, A: ActiveModelTrait> {
     fn get_id_field_name() -> String;
 }
 
-pub trait CreateModelTrait {}
+pub trait CreateModelTrait<C, A: ActiveModelTrait> {
+    fn into_active_model(self, context: &C) -> A;
+}
+
 pub trait UpdateModelTrait {}
 
 // TODO: define and try to use instead of CreateModelTrait?

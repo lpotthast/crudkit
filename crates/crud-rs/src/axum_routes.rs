@@ -139,9 +139,10 @@ macro_rules! impl_add_crud_routes {
                 async fn create_one(
                     Extension(ref controller): Extension<std::sync::Arc<CrudController>>,
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
+                    Extension(ref res_context): Extension<std::sync::Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<CreateOne>,
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
-                    crud_rs::create::create_one::<$resource_type>(controller.clone(), context.clone(), body)
+                    crud_rs::create::create_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
                         .await
                         .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))

@@ -15,6 +15,7 @@ pub struct CreateOne {
 pub async fn create_one<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
+    res_context: Arc<R::Context>,
     body: CreateOne,
 ) -> Result<SaveResult<R::Model>, CrudError> {
     let entity_json: &str = body.entity.get();
@@ -25,7 +26,7 @@ pub async fn create_one<R: CrudResource>(
 
     // Directly create an "ActiveModel" from the "CreateModel", ready to be persisted.
     // By not going through the Model -> ActiveModel conversion, we give the user to exactly specify the data that should be Set/Unset.
-    let mut active_entity: R::ActiveModel = create_model.into();
+    let mut active_entity: R::ActiveModel = create_model.into_active_model(res_context.as_ref());
 
     // We might have accidentally set attributes on the "ActiveModel" that we must not have in order to run validations.
     prune_active_model::<R>(&mut active_entity);
