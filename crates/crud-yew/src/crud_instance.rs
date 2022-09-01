@@ -43,16 +43,18 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     OrderBy((<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)),
     PageSelected(u64),
     Action((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
-    SaveInput((<T::UpdateModel as CrudDataTrait>::Field, Value)),
-    GetInput(
-        (
-            <T::UpdateModel as CrudDataTrait>::Field,
-            Box<dyn FnOnce(Value)>,
-        ),
-    ),
+    SaveInput((CreateOrUpdateField<T>, Value)),
+    GetInput((CreateOrUpdateField<T>, Box<dyn FnOnce(Value)>)),
 }
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 
+// TODO: Location in source code?
+#[derive(Debug, Clone, PartialEq)]
+pub enum CreateOrUpdateField<T: CrudMainTrait> {
+    CreateField(<T::CreateModel as CrudDataTrait>::Field),
+    UpdateField(<T::UpdateModel as CrudDataTrait>::Field),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NestedConfig {
     /// The name of the parent instance from which the referenced id should be loaded.
     pub parent_instance: String,
@@ -71,11 +73,20 @@ pub struct CrudInstanceConfig<T: CrudMainTrait> {
     pub headers: Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>,
     // serde bound used as described in: https://github.com/serde-rs/serde/issues/1296
     #[serde(bound = "")]
+    pub create_elements: CreateElements<T>,
+    // serde bound used as described in: https://github.com/serde-rs/serde/issues/1296
+    #[serde(bound = "")]
     pub elements: Vec<Elem<T::UpdateModel>>,
     pub order_by: IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>,
     pub items_per_page: u64,
     pub page: u64,
     pub nested: Option<NestedConfig>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum CreateElements<T: CrudMainTrait> {
+    Default,
+    Custom(Vec<Elem<T::CreateModel>>),
 }
 
 impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {
@@ -94,6 +105,7 @@ impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {
                     date_time_display: DateTimeDisplay::LocalizedLocal,
                 },
             )],
+            create_elements: CreateElements::Default,
             elements: vec![],
             order_by,
             items_per_page: 10,
@@ -623,16 +635,36 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                     field
                 );
                 if let Some(link) = &self.create_view_link {
-                    // TODO: pass value as Value not as String.
-                    link.send_message(<CrudCreateView<T> as Component>::Message::ValueChanged((
-                        field, value,
-                    )));
+                    match field {
+                        CreateOrUpdateField::CreateField(field) => {
+                            link.send_message(
+                                <CrudCreateView<T> as Component>::Message::CreateModelFieldChanged(
+                                    (field, value),
+                                ),
+                            );
+                        }
+                        CreateOrUpdateField::UpdateField(field) => {
+                            link.send_message(
+                                <CrudCreateView<T> as Component>::Message::UpdateModelFieldChanged(
+                                    (field, value),
+                                ),
+                            );
+                        }
+                    }
                     //log::info!("Sent ValueChanged message to create view...");
                 } else if let Some(link) = &self.edit_view_link {
-                    // TODO: pass value as Value not as String.
-                    link.send_message(<CrudEditView<T> as Component>::Message::ValueChanged((
-                        field, value,
-                    )));
+                    match field {
+                        CreateOrUpdateField::CreateField(field) => {
+                            log::error!("CrudInstance: Cannot 'SaveInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'EditModel' field for this view.")
+                        }
+                        CreateOrUpdateField::UpdateField(field) => {
+                            link.send_message(
+                                <CrudEditView<T> as Component>::Message::ValueChanged((
+                                    field, value,
+                                )),
+                            );
+                        }
+                    }
                     //log::info!("Sent ValueChanged message to edit view...");
                 } else {
                     log::warn!("Could not forward SaveInput message, as neither a create view nor an edit view registered.");
@@ -641,18 +673,35 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
             }
             Msg::GetInput((field, receiver)) => {
                 if let Some(link) = &self.create_view_link {
-                    // TODO: pass value as Value not as String.
-                    link.send_message(<CrudCreateView<T> as Component>::Message::GetInput((
-                        field.clone(),
-                        receiver,
-                    )));
+                    match field {
+                        CreateOrUpdateField::CreateField(field) => {
+                            link.send_message(
+                                <CrudCreateView<T> as Component>::Message::GetCreateModelFieldValue(
+                                    (field.clone(), receiver),
+                                ),
+                            );
+                        }
+                        CreateOrUpdateField::UpdateField(field) => {
+                            link.send_message(
+                                <CrudCreateView<T> as Component>::Message::GetUpdateModelFieldValue(
+                                    (field.clone(), receiver),
+                                ),
+                            );
+                        }
+                    }
                     //log::info!("Sent GetInput message to create view...");
                 } else if let Some(link) = &self.edit_view_link {
-                    // TODO: pass value as Value not as String.
-                    link.send_message(<CrudEditView<T> as Component>::Message::GetInput((
-                        field.clone(),
-                        receiver,
-                    )));
+                    match field {
+                        CreateOrUpdateField::CreateField(field) => {
+                            log::error!("CrudInstance: Cannot 'GetInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'EditModel' field for this view.")
+                        }
+                        CreateOrUpdateField::UpdateField(field) => {
+                            link.send_message(<CrudEditView<T> as Component>::Message::GetInput((
+                                field.clone(),
+                                receiver,
+                            )));
+                        }
+                    }
                     //log::info!("Sent GetInput message to edit view...");
                 } else {
                     log::warn!("Could not forward GetInput message, as neither a create view nor an edit view registered.");

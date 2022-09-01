@@ -11,6 +11,7 @@ use web_sys::KeyboardEvent;
 use yew::prelude::*;
 use yewbi::Bi;
 
+pub mod crud_alert;
 pub mod crud_btn;
 pub mod crud_btn_group;
 pub mod crud_btn_name;
@@ -67,9 +68,10 @@ mod event_functions;
 
 pub mod prelude {
     pub use derive_crud_resource::CrudResource;
-    pub use derive_field::Field;
     pub use derive_crud_selectable::CrudSelectable;
+    pub use derive_field::Field;
 
+    pub use super::crud_alert::CrudAlert;
     pub use super::crud_btn::CrudBtn;
     pub use super::crud_btn_group::CrudBtnGroup;
     pub use super::crud_btn_name::CrudBtnName;
@@ -87,6 +89,7 @@ pub mod prelude {
     pub use super::crud_icon::CrudIcon;
     pub use super::crud_image_chooser_modal::CrudImageChooserModal;
     pub use super::crud_image_gallery::CrudImageGallery;
+    pub use super::crud_instance::CreateElements;
     pub use super::crud_instance::CrudInstance;
     pub use super::crud_instance::CrudInstanceConfig;
     pub use super::crud_leave_modal::CrudLeaveModal;
@@ -185,6 +188,7 @@ impl From<Variant> for Classes {
 
 // TODO: impl Clone if both types are clone, same for debug, ...
 pub trait CrudMainTrait: CrudResourceTrait + PartialEq + Default + Debug + Clone {
+    type CreateModel: CrudDataTrait;
     type ReadModel: CrudDataTrait + Into<Self::UpdateModel>;
     type UpdateModel: CrudDataTrait;
 }
@@ -227,10 +231,21 @@ pub trait CrudResourceTrait {
         Self: Sized;
 }
 
+pub trait CrudSelectableSource<T: CrudSelectableTrait>: Debug {
+    //type Selectable: CrudSelectableTrait;
+    //type Iter: Iterator<Item = Self::Selectable>;
+
+    fn load(&mut self);
+    fn iter<'a>(&'a self) -> std::slice::Iter<'a, T>;
+    fn set_selected(&mut self, selected: Option<Box<T>>);
+    fn get_selected(&self) -> Option<Box<T>>;
+}
+
 pub trait CrudSelectableTrait: Debug + Display {
     fn as_any(&self) -> &dyn Any;
 }
 
+/// All variants should be stateless / copy-replaceable.
 #[derive(Debug)]
 pub enum Value {
     String(String), // TODO: Add optional string!

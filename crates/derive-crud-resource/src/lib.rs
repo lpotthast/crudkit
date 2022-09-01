@@ -11,7 +11,11 @@ pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
     let ident = &ast.ident;
+    
+    let create_ident = Ident::new(format!("Create{}", ident.to_string()).as_str(), ident.span());
+    
     let read_ident = Ident::new(format!("Read{}", ident.to_string()).as_str(), ident.span());
+
     let resource_ident = Ident::new(
         format!("Crud{}Resource", ident.to_string()).as_str(),
         ident.span(),
@@ -45,6 +49,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
 
         impl crud_yew::CrudMainTrait for #resource_ident {
+            type CreateModel = #create_ident;
             type ReadModel = #read_ident;
             type UpdateModel = #ident;
         }

@@ -289,7 +289,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
 
                                 <CrudFields<T::UpdateModel>
                                     api_base_url={ctx.props().config.api_base_url.clone()}
-                                    children={ctx.props().children.clone()}
+                                    children={ChildrenRenderer::new(ctx.props().children.iter().filter(|it| match it {
+                                        Item::NestedInstance(_) => true,
+                                        Item::Relation(_) => true,
+                                        Item::Select(select) => select.props.for_model == crate::crud_reset_field::Model::Update,
+                                    }).collect::<Vec<Item>>())}
                                     elements={ctx.props().config.elements.clone()}
                                     entity={self.input.clone()}
                                     mode={FieldMode::Editable}

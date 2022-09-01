@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{crud_select::Selection, prelude::*};
+use crate::{crud_select::Selection, prelude::*, crud_instance::CreateOrUpdateField};
 use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
 
@@ -12,13 +12,13 @@ pub enum Msg<P: 'static + CrudMainTrait, T: CrudSelectableTrait + Clone + Partia
     SelectionChanged(Selection<T>),
 }
 
-#[derive(Properties, PartialEq)]
+#[derive(Debug, Properties, PartialEq)]
 pub struct Props<P: CrudMainTrait, T: CrudSelectableTrait + Clone + PartialEq> {
     pub selectable: Vec<T>,
     /// The name of the parent instance from which the referenced id should be loaded.
     pub parent_instance: String,
     /// The field of the parent, where the value is stored.
-    pub parent_field: <P::UpdateModel as CrudDataTrait>::Field,
+    pub parent_field: CreateOrUpdateField<P>,
 }
 
 pub struct CrudSelectField<

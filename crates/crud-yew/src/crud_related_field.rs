@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{crud_select::Selection, prelude::*};
+use crate::{crud_select::Selection, prelude::*, crud_instance::CreateOrUpdateField};
 use crud_shared_types::{Condition, ConditionClause, ConditionClauseValue, ConditionElement};
 use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
@@ -28,7 +28,7 @@ pub struct Props<P: CrudMainTrait, T: CrudMainTrait> {
     /// The name of the parent instance from which the referenced id should be loaded.
     pub parent_instance: String,
     /// The field of the parent, where another entry is referenced.
-    pub parent_field: <P::UpdateModel as CrudDataTrait>::Field,
+    pub parent_field: CreateOrUpdateField<P>,
     /// The field of the related entry whose value is stored in the parent. 
     pub connect_field: <T::ReadModel as CrudDataTrait>::Field,
     /// The field in which the reference to the parent is store.

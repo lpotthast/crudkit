@@ -1,20 +1,16 @@
 use std::marker::PhantomData;
 
-use crate::{crud_instance::Item, DateTimeDisplay, keyboard_event_target_as, event_target_as};
+use crate::{crud_instance::Item, event_target_as, keyboard_event_target_as, DateTimeDisplay};
 
 use super::prelude::*;
 use chrono_utc_date_time::UtcDateTime;
 use uuid::Uuid;
-use yew::{prelude::*, html::ChildrenRenderer};
+use yew::{html::ChildrenRenderer, prelude::*};
 use yewbi::Bi;
 
 pub enum Msg {
-    KeyUp(KeyboardEvent),
-    InputChanged(Event),
-    TextInputChanged(String),
-    DatetimeInputChanged(UtcDateTime),
-    OptionalDatetimeInputChanged(Option<UtcDateTime>),
-    BoolChanged(bool),
+    Send(Value),
+    LogInputRetrievalErr(Box<dyn std::error::Error>),
 }
 
 #[derive(Properties, PartialEq)]
@@ -69,54 +65,14 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            // Store the current input value at every keystroke.
-            Msg::KeyUp(event) => match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
-                Ok(input) => {
-                    ctx.props()
-                        .value_changed
-                        .emit((ctx.props().field_type.clone(), Value::String(input.value())));
-                    false
-                }
-                Err(err) => {
-                    log::error!("Could not get input value: {}", err);
-                    false
-                }
+            Msg::Send(value) => {
+                ctx.props()
+                    .value_changed
+                    .emit((ctx.props().field_type.clone(), value));
+                false
             }
-            // Store the current input on every input-change event.
-            Msg::InputChanged(event) => match event_target_as::<web_sys::HtmlInputElement>(event) {
-                Ok(input) => {
-                    ctx.props()
-                        .value_changed
-                        .emit((ctx.props().field_type.clone(), Value::String(input.value())));
-                    false
-                }
-                Err(err) => {
-                    log::error!("Could not get input value: {}", err);
-                    false
-                }
-            },
-            Msg::TextInputChanged(text) => {
-                ctx.props()
-                    .value_changed
-                    .emit((ctx.props().field_type.clone(), Value::String(text)));
-                false
-            },
-            Msg::DatetimeInputChanged(datetime) => {
-                ctx.props()
-                    .value_changed
-                    .emit((ctx.props().field_type.clone(), Value::UtcDateTime(datetime)));
-                false
-            },
-            Msg::OptionalDatetimeInputChanged(datetime) => {
-                ctx.props()
-                    .value_changed
-                    .emit((ctx.props().field_type.clone(), Value::OptionalUtcDateTime(datetime)));
-                false
-            },
-            Msg::BoolChanged(value) => {
-                ctx.props()
-                    .value_changed
-                    .emit((ctx.props().field_type.clone(), Value::Bool(value)));
+            Msg::LogInputRetrievalErr(err) => {
+                log::error!("Could not get input value: {}", err);
                 false
             }
         }
@@ -132,30 +88,26 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
-                            { ctx.props().children.iter().filter(|child| {
+                            { render_label(&options) }
+                            { ctx.props().children.iter().find(|child| {
                                 match child {
                                     Item::NestedInstance(_) => false,
                                     Item::Relation(related_field) => related_field.props.name == ctx.props().field_type.get_name(),
                                     Item::Select(_) => false,
                                 }
-                            }).collect::<Html>() }
+                            }).map_or(html! { "foo" }, |it| { let html: Html = it.into(); html }) }
                         </div>
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
-                            { ctx.props().children.iter().filter(|child| {
+                            { render_label(&options) }
+                            { ctx.props().children.iter().find(|child| {
                                 match child {
                                     Item::NestedInstance(_) => false,
                                     Item::Relation(related_field) => related_field.props.name == ctx.props().field_type.get_name(),
                                     Item::Select(_) => false,
                                 }
-                            }).collect::<Html>() }
+                            }).map_or(html! { "foo" }, |it| { let html: Html = it.into(); html }) }
                         </div>
                     },
                 },
@@ -213,9 +165,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
@@ -227,16 +177,20 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
                                 type={"text"}
                                 value={value}
-                                onkeyup={ctx.link().callback(Msg::KeyUp)}
-                                onchange={ctx.link().callback(Msg::InputChanged)}
+                                onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => Msg::Send(Value::String(input.value())),
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
+                                onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => Msg::Send(Value::String(input.value())),
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
                                 disabled={options.disabled}
                             />
                         </div>
@@ -248,10 +202,8 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
-                            <CrudTipTapEditor 
+                            { render_label(&options) }
+                            <CrudTipTapEditor
                                 api_base_url={ctx.props().api_base_url.clone()}
                                 id={self.format_id()}
                                 class={"crud-input-field"}
@@ -262,15 +214,13 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
-                            <CrudTipTapEditor 
+                            { render_label(&options) }
+                            <CrudTipTapEditor
                                 api_base_url={ctx.props().api_base_url.clone()}
                                 id={self.format_id()}
                                 class={"crud-input-field"}
                                 value={value}
-                                onchange={ctx.link().callback(Msg::TextInputChanged)}
+                                onchange={ctx.link().callback(|input| Msg::Send(Value::String(input)))}
                                 disabled={options.disabled}
                             />
                         </div>
@@ -282,9 +232,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
@@ -296,16 +244,26 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
                                 type={"number"}
                                 value={format!("{}", value)}
-                                onkeyup={ctx.link().callback(Msg::KeyUp)}
-                                onchange={ctx.link().callback(Msg::InputChanged)}
+                                onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => match input.value().parse::<u32>() {
+                                        Ok(u32) => Msg::Send(Value::U32(u32)),
+                                        Err(err) =>Msg::LogInputRetrievalErr(err.into()),
+                                    }
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
+                                onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => match input.value().parse::<u32>() {
+                                        Ok(u32) => Msg::Send(Value::U32(u32)),
+                                        Err(err) =>Msg::LogInputRetrievalErr(err.into()),
+                                    }
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
                                 disabled={options.disabled}
                             />
                         </div>
@@ -317,9 +275,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
@@ -331,16 +287,26 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
                                 type={"number"}
                                 value={format!("{}", value)}
-                                onkeyup={ctx.link().callback(Msg::KeyUp)}
-                                onchange={ctx.link().callback(Msg::InputChanged)}
+                                onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => match input.value().parse::<i32>() {
+                                        Ok(i32) => Msg::Send(Value::I32(i32)),
+                                        Err(err) =>Msg::LogInputRetrievalErr(err.into()),
+                                    }
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
+                                onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => match input.value().parse::<i32>() {
+                                        Ok(i32) => Msg::Send(Value::I32(i32)),
+                                        Err(err) =>Msg::LogInputRetrievalErr(err.into()),
+                                    }
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
                                 disabled={options.disabled}
                             />
                         </div>
@@ -352,9 +318,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
@@ -366,16 +330,26 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <input
                                 id={self.format_id()}
                                 class={"crud-input-field"}
                                 type={"number"}
                                 value={format!("{}", value)}
-                                onkeyup={ctx.link().callback(Msg::KeyUp)}
-                                onchange={ctx.link().callback(Msg::InputChanged)}
+                                onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => match input.value().parse::<f32>() {
+                                        Ok(value) => Msg::Send(Value::F32(value)),
+                                        Err(err) =>Msg::LogInputRetrievalErr(err.into()),
+                                    }
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
+                                onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => match input.value().parse::<f32>() {
+                                        Ok(value) => Msg::Send(Value::F32(value)),
+                                        Err(err) =>Msg::LogInputRetrievalErr(err.into()),
+                                    }
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
                                 disabled={options.disabled}
                             />
                         </div>
@@ -387,9 +361,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <div id={self.format_id()} class={"crud-input-field"}>
                                 <CrudToggle
                                     state={value}
@@ -400,13 +372,11 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <div id={self.format_id()} class={"crud-input-field"}>
                                 <CrudToggle
                                     state={value}
-                                    on_toggle={ctx.link().callback(Msg::BoolChanged)}
+                                    on_toggle={ctx.link().callback(|value| Msg::Send(Value::Bool(value)))}
                                     disabled={true}
                                 />
                             </div>
@@ -444,9 +414,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <CrudDatetime
                                 id={self.format_id()}
                                 value={date_time.clone()}
@@ -456,13 +424,11 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <CrudDatetime
                                 id={self.format_id()}
                                 value={date_time.clone()}
-                                onchange={ctx.link().callback(|datetime: Option<UtcDateTime>| Msg::DatetimeInputChanged(datetime.unwrap()))}
+                                onchange={ctx.link().callback(|datetime: Option<UtcDateTime>| Msg::Send(Value::UtcDateTime(datetime.expect("Expected UtcDateTime to not be None!"))))}
                                 disabled={options.disabled}
                             />
                         </div>
@@ -489,9 +455,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <CrudDatetime
                                 id={self.format_id()}
                                 value={optional_date_time.clone()}
@@ -501,13 +465,11 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
+                            { render_label(&options) }
                             <CrudDatetime
                                 id={self.format_id()}
                                 value={optional_date_time.clone()}
-                                onchange={ctx.link().callback(Msg::OptionalDatetimeInputChanged)}
+                                onchange={ctx.link().callback(|datetime| Msg::Send(Value::OptionalUtcDateTime(datetime)))}
                                 disabled={options.disabled}
                             />
                         </div>
@@ -520,34 +482,40 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
-                            { ctx.props().children.iter().filter(|child| {
-                                match child {
-                                    Item::NestedInstance(_) => false,
-                                    Item::Relation(_) => false,
-                                    Item::Select(select) => select.props.name == ctx.props().field_type.get_name(),
-                                }
-                            }).collect::<Html>() }
+                            { render_label(&options) }
+                            { render_select_child(&ctx) }
                         </div>
                     },
                     FieldMode::Editable => html! {
                         <div class="crud-field">
-                            if let Some(label) = &options.label {
-                                <CrudFieldLabel label={label.clone()} />
-                            }
-                            { ctx.props().children.iter().filter(|child| {
-                                match child {
-                                    Item::NestedInstance(_) => false,
-                                    Item::Relation(_) => false,
-                                    Item::Select(select) => select.props.name == ctx.props().field_type.get_name(),
-                                }
-                            }).collect::<Html>() }
+                            { render_label(&options) }
+                            { render_select_child(&ctx) }
                         </div>
                     },
                 },
             }
         }
     }
+}
+
+fn render_label(options: &FieldOptions) -> Html {
+    html! {
+        if let Some(label) = &options.label {
+            <CrudFieldLabel label={label.clone()} />
+        }
+    }
+}
+
+fn render_select_child<T: CrudDataTrait + 'static>(ctx: &Context<CrudField<T>>) -> Html {
+    ctx.props().children.iter().find(|child| {
+        match child {
+            Item::NestedInstance(_) => false,
+            Item::Relation(_) => false,
+            Item::Select(select) => select.props.name == ctx.props().field_type.get_name(),
+        }
+    }).map_or(html! {
+        <CrudAlert variant={crate::crud_alert::Variant::Danger}>
+            {"Could not find required 'Select' child. Help: You might be missing the <CrudSelectField> in your instance markup."}
+        </CrudAlert>
+    }, |it| it.into() )
 }

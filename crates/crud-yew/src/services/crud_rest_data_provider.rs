@@ -96,7 +96,19 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         .await
     }
 
-    pub async fn create_one(
+    pub async fn create_one_from_create_model(
+        &self,
+        create_one: CreateOne<T::CreateModel>,
+    ) -> Result<SaveResult<T::UpdateModel>, RequestError> {
+        let resource = T::get_resource_name();
+        request_post(
+            format!("{}/{resource}/crud/create-one", self.api_base_url),
+            create_one,
+        )
+        .await
+    }
+
+    pub async fn create_one_from_update_model(
         &self,
         create_one: CreateOne<T::UpdateModel>,
     ) -> Result<SaveResult<T::UpdateModel>, RequestError> {
