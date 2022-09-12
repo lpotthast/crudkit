@@ -37,7 +37,7 @@ impl<T: 'static + CrudMainTrait> Store for InstanceStore<T> {
             .unwrap_or_default()
     }
 
-    fn changed(&self, other: &Self) -> bool {
+    fn should_notify(&self, other: &Self) -> bool {
         self != other
     }
 }

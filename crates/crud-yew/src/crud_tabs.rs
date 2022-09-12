@@ -55,7 +55,7 @@ impl Component for CrudTabs {
         }
     }
 
-    fn changed(&mut self, ctx: &Context<Self>) -> bool {
+    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
         self.active_tab = CrudTabs::compute_active_tab_label(ctx);
         true
     }

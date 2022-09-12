@@ -40,7 +40,7 @@ impl<T: 'static + Debug + Clone + PartialEq> Component for CrudSelect<T> {
         }
     }
     
-    fn changed(&mut self, ctx: &Context<Self>) -> bool {
+    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
         self.selected = ctx.props().selected.clone();
         true
     }

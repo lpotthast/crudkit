@@ -44,7 +44,7 @@ impl Component for CrudPagination {
         }
     }
 
-    fn changed(&mut self, ctx: &Context<Self>) -> bool {
+    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
         self.page_count = compute_page_count(ctx.props().item_count, ctx.props().items_per_page);
         self.page_options = compute_page_options(self.page_count, ctx.props().current_page);
         true

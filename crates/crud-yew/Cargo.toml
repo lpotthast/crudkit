@@ -22,8 +22,8 @@ yew = { git = "https://github.com/yewstack/yew", features = ["tokio", "csr"] }
 yew-router = { git = "https://github.com/yewstack/yew.git" }
 yewdux = { git = "https://github.com/intendednull/yewdux" }
 log = "0.4.17"
-serde = { version = "1.0.140", features = ["derive"] }
-serde_json = { version = "1.0.82", features = ["raw_value"] }
+serde = { version = "1.0.144", features = ["derive"] }
+serde_json = { version = "1.0.85", features = ["raw_value"] }
 web-sys = { version = "0.3.59", features = [
     "Document",
     "Element",
@@ -44,10 +44,10 @@ uuid = { version = "1.1.2", features = ["js", "v4"], default-features = false }
 lazy_static = "1.4.0"
 parking_lot = "0.12.1"
 dotenv_codegen = "0.15.0"
-thiserror = "1.0.31"
-urlencoding = "2.1.0"
+thiserror = "1.0.34"
+urlencoding = "2.1.2"
 derive_more = "0.99.17"
 dyn-clone = "1.0.9"
 
 # Only used in crud-datetime
-chrono = "0.4.19"
+chrono = "0.4.22"

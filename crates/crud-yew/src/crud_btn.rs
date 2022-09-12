@@ -112,7 +112,7 @@ impl Component for CrudBtn {
         }
     }
 
-    fn changed(&mut self, ctx: &Context<Self>) -> bool {
+    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
         let (has_custom_name, has_variations) = inspect_children(ctx.props().children.clone());
         self.has_custom_name = has_custom_name;
         self.has_variations = has_variations;

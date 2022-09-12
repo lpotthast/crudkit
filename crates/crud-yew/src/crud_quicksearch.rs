@@ -77,7 +77,7 @@ impl Component for CrudQuickSearch {
         }
     }
 
-    fn changed(&mut self, ctx: &Context<Self>) -> bool {
+    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
         ctx.link().send_message(Msg::SetFilter(self.filter.clone()));
         true
     }

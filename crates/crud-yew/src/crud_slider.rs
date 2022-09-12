@@ -127,7 +127,7 @@ impl Component for CrudSlider {
         }
     }
 
-    fn changed(&mut self, ctx: &Context<Self>) -> bool {
+    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
         self.value = ctx.props().value;
         self.min = ctx.props().min;
         self.max = ctx.props().max;

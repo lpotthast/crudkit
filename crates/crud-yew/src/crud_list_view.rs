@@ -146,7 +146,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
         }
     }
 
-    fn changed(&mut self, ctx: &Context<Self>) -> bool {
+    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
         self.load_page(ctx);
         true
     }
