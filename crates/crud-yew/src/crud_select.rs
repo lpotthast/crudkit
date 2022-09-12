@@ -7,6 +7,7 @@ pub enum Msg<T> {
     OptionSelected(T),
 }
 
+// TODO: add to prelude?, replace usage in derive.field-value macro!
 #[derive(Debug, Clone, PartialEq)]
 pub enum Selection<T> {
     None,

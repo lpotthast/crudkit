@@ -475,10 +475,13 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         </div>
                     },
                 },
-                Value::Select(optional_value) => match &ctx.props().field_mode {
-                    FieldMode::Display => match optional_value {
-                        Some(value) => html! { format!("{:?}", value) },
-                        None => html! {"NULL"},
+                Value::Select(selection) => match &ctx.props().field_mode {
+                    FieldMode::Display => match selection {
+                        crate::crud_select::Selection::None => html!{"NONE"},
+                        crate::crud_select::Selection::Single(value) => html!{format!("{:?}",value)},
+                        crate::crud_select::Selection::Multiple(values) => values.into_iter().map(|value| html!{
+                            format!("{:?}, ", value)
+                        }).collect::<Html>(),
                     },
                     FieldMode::Readable => html! {
                         <div class="crud-field">

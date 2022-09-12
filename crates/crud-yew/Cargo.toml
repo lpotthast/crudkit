@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 # Internal
 derive-field = { path = "../derive-field"}
+derive-field-value = { path = "../derive-field-value"}
 derive-crud-resource= { path = "../derive-crud-resource"}
 derive-crud-selectable= { path = "../derive-crud-selectable"}
 
@@ -46,6 +47,7 @@ dotenv_codegen = "0.15.0"
 thiserror = "1.0.31"
 urlencoding = "2.1.0"
 derive_more = "0.99.17"
+dyn-clone = "1.0.9"
 
 # Only used in crud-datetime
 chrono = "0.4.19"

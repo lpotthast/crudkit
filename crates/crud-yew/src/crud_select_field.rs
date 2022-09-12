@@ -1,86 +1,57 @@
-use std::rc::Rc;
+use std::{rc::Rc, marker::PhantomData};
 
-use crate::{crud_select::Selection, prelude::*, crud_instance::CreateOrUpdateField};
+use crate::{
+    crud_instance::CreateOrUpdateField, crud_select::Selection, prelude::*, CrudSelectableSource,
+};
 use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
 
 use crate::{stores, CrudMainTrait};
 
 pub enum Msg<P: 'static + CrudMainTrait, T: CrudSelectableTrait + Clone + PartialEq> {
+    SourceLoaded,
     ParentInstanceLinksStoreUpdated(Rc<stores::instance_links::InstanceLinksStore<P>>),
     CurrentValue(Value),
     SelectionChanged(Selection<T>),
 }
 
 #[derive(Debug, Properties, PartialEq)]
-pub struct Props<P: CrudMainTrait, T: CrudSelectableTrait + Clone + PartialEq> {
-    pub selectable: Vec<T>,
+pub struct Props<P>
+where 
+    P: 'static + CrudMainTrait,
+{
     /// The name of the parent instance from which the referenced id should be loaded.
     pub parent_instance: String,
     /// The field of the parent, where the value is stored.
-    pub parent_field: CreateOrUpdateField<P>,
+    pub parent_field: CreateOrUpdateField<P>
 }
 
-pub struct CrudSelectField<
+pub struct CrudSelectField<P, S, T>
+where
     P: 'static + CrudMainTrait,
+    S: 'static + CrudSelectableSource<Selectable = T>,
     T: 'static + CrudSelectableTrait + Clone + PartialEq,
-> {
+{
     _parent_instance_links_dispatch: Dispatch<stores::instance_links::InstanceLinksStore<P>>,
 
     parent: Option<Scope<CrudInstance<P>>>,
     current_field_value: Option<Value>,
+    
+    /// The data provider for this select field.
+    source: S,
     selected: Selection<T>,
+
+    phantom_data_s: PhantomData<S>,
 }
 
-impl<P: 'static + CrudMainTrait, T: 'static + CrudSelectableTrait + Clone + PartialEq>
-    CrudSelectField<P, T>
-{
-    fn compute_selected(&mut self, ctx: &Context<Self>) {
-        self.selected = if let Some(value) = &self.current_field_value {
-            let selected_options: Vec<T> = match value {
-                Value::String(_) => panic!("'String' unsupported"),
-                Value::Text(_) => panic!("'Text' unsupported"),
-                Value::U32(_) => panic!("'U32' unsupported"),
-                Value::I32(_) => panic!("'I32' unsupported"),
-                Value::F32(_) => panic!("'F32' unsupported"),
-                Value::Bool(_) => panic!("'Bool' unsupported"),
-                Value::ValidationStatus(_) => panic!("'ValidationStatus' unsupported"),
-                Value::UtcDateTime(_) => panic!("'UtcDateTime' unsupported"),
-                Value::OptionalUtcDateTime(_) => panic!("'OptionalUtcDateTime' unsupported"),
-                Value::OneToOneRelation(_) => panic!("'OneToOneRelation' unsupported"),
-                Value::NestedTable(_) => panic!("'NestedTable' unsupported"),
-                Value::Select(value) => match value {
-                    Some(value) => vec![value.as_any().downcast_ref::<T>().unwrap().clone()],
-                    None => vec![],
-                },
-            };
-            let mut s = Vec::new();
-            for selectable in &ctx.props().selectable {
-                for selected in &selected_options {
-                    if selectable == selected {
-                        s.push(selectable.clone());
-                    }
-                }
-            }
-            if s.is_empty() {
-                Selection::None
-            } else if s.len() == 1 {
-                Selection::Single(s.get(0).unwrap().clone())
-            } else {
-                Selection::Multiple(s)
-            }
-        } else {
-            //log::info!("current_field_value is not set");
-            Selection::None
-        };
-    }
-}
-
-impl<P: 'static + CrudMainTrait, T: 'static + CrudSelectableTrait + Clone + PartialEq> Component
-    for CrudSelectField<P, T>
+impl<P, S, T> Component for CrudSelectField<P, S, T>
+where
+    P: 'static + CrudMainTrait,
+    S: 'static + CrudSelectableSource<Selectable = T>,
+    T: 'static + CrudSelectableTrait + Clone + PartialEq,
 {
     type Message = Msg<P, T>;
-    type Properties = Props<P, T>;
+    type Properties = Props<P>;
 
     fn create(ctx: &Context<Self>) -> Self {
         let mut this = Self {
@@ -90,14 +61,21 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudSelectableTrait + Clone + Part
 
             parent: None,
             current_field_value: None,
+            source: S::new(),
             selected: Selection::None,
+            phantom_data_s: PhantomData {},
         };
-        this.compute_selected(ctx);
+        let link = ctx.link().clone();
+        this.source.load(Box::new(move || link.send_message(Msg::SourceLoaded)));
         this
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            Msg::SourceLoaded => {
+                // Selectable options are now available.
+                true
+            },
             Msg::ParentInstanceLinksStoreUpdated(store) => {
                 self.parent = store.get(ctx.props().parent_instance.as_str());
 
@@ -115,21 +93,26 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudSelectableTrait + Clone + Part
                 false
             }
             Msg::CurrentValue(value) => {
-                //log::info!("Received current value: {:?}", value);
                 self.current_field_value = Some(value);
-                self.compute_selected(ctx);
+                self.selected = match self.current_field_value.clone() {
+                    Some(value) => value.take_select_downcast_to(),
+                    None => Selection::None,
+                };
                 true
             }
-            Msg::SelectionChanged(selected) => {
-                self.selected = selected.clone();
+            Msg::SelectionChanged(selection) => {
+                self.selected = selection.clone();
                 match &self.parent {
                     Some(link) => {
-                        let value = match selected {
-                            Selection::None => Value::Select(None),
-                            Selection::Single(option) => Value::Select(Some(Box::new(option))),
-                            Selection::Multiple(_options) => {
-                                log::warn!("TODO: needs implementation...");
-                                Value::Select(None)
+                        let value = match selection {
+                            Selection::None => Value::Select(Selection::None),
+                            Selection::Single(option) => Value::Select(Selection::Single(Box::new(option))),
+                            Selection::Multiple(options) => {
+                                let mut v: Vec<Box<dyn CrudSelectableTrait>> = Vec::new();
+                                for option in options {
+                                    v.push(Box::new(option));
+                                }
+                                Value::Select(Selection::Multiple(v))
                             }
                         };
 
@@ -139,10 +122,7 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudSelectableTrait + Clone + Part
                         )));
                     }
                     None => {
-                        log::warn!(
-                            "Selection changed to {:?} but parent link was not yet resolved...",
-                            selected
-                        );
+                        log::warn!("Selection changed to {selection:?} but parent link was not yet resolved...",);
                     }
                 }
                 false
@@ -152,10 +132,14 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudSelectableTrait + Clone + Part
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
-            <CrudSelect<T>
-                options={ctx.props().selectable.clone()}
-                selected={self.selected.clone()}
-                selection_changed={ctx.link().callback(|selected| Msg::SelectionChanged(selected))} />
+            if let Some(selectable) = self.source.options() {
+                <CrudSelect<T>
+                    options={selectable}
+                    selected={self.selected.clone()}
+                    selection_changed={ctx.link().callback(|selected| Msg::SelectionChanged(selected))} />
+            } else {
+                <div>{"No options loaded. Loading..."}</div>
+            }
         }
     }
 }

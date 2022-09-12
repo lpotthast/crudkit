@@ -1,4 +1,6 @@
 use chrono_utc_date_time::prelude::*;
+use crud_select::Selection;
+use dyn_clone::DynClone;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     any::Any,
@@ -70,6 +72,7 @@ pub mod prelude {
     pub use derive_crud_resource::CrudResource;
     pub use derive_crud_selectable::CrudSelectable;
     pub use derive_field::Field;
+    pub use derive_field_value::FieldValue;
 
     pub use super::crud_alert::CrudAlert;
     pub use super::crud_btn::CrudBtn;
@@ -130,6 +133,7 @@ pub mod prelude {
     pub use super::CrudMainTrait;
     pub use super::CrudResourceTrait;
     pub use super::CrudSelectableTrait;
+    pub use super::CrudSelectableSource;
     pub use super::CrudView;
     pub use super::Elem;
     pub use super::Enclosing;
@@ -231,22 +235,24 @@ pub trait CrudResourceTrait {
         Self: Sized;
 }
 
-pub trait CrudSelectableSource<T: CrudSelectableTrait>: Debug {
-    //type Selectable: CrudSelectableTrait;
-    //type Iter: Iterator<Item = Self::Selectable>;
+pub trait CrudSelectableSource: Debug {
+    type Selectable: CrudSelectableTrait;
 
-    fn load(&mut self);
-    fn iter<'a>(&'a self) -> std::slice::Iter<'a, T>;
-    fn set_selected(&mut self, selected: Option<Box<T>>);
-    fn get_selected(&self) -> Option<Box<T>>;
+    fn new() -> Self;
+
+    fn load(&mut self, finished: Box<dyn FnOnce()>);
+    
+    /// Returns Option, as selectable options might not have been loaded yet.
+    fn options(&self) -> Option<Vec<Self::Selectable>>;
 }
 
-pub trait CrudSelectableTrait: Debug + Display {
+pub trait CrudSelectableTrait: Debug + Display + DynClone {
     fn as_any(&self) -> &dyn Any;
 }
+dyn_clone::clone_trait_object!(CrudSelectableTrait);
 
 /// All variants should be stateless / copy-replaceable.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Value {
     String(String), // TODO: Add optional string!
     Text(String),
@@ -260,7 +266,8 @@ pub enum Value {
     OptionalUtcDateTime(Option<UtcDateTime>),
     OneToOneRelation(Option<u32>),
     NestedTable(u32),
-    Select(Option<Box<dyn CrudSelectableTrait>>),
+    Select(Selection<Box<dyn CrudSelectableTrait>>),
+    //Select(Box<dyn CrudSelectableSource<Selectable = dyn CrudSelectableTrait>>),
 }
 
 impl Value {
@@ -333,11 +340,26 @@ impl Value {
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
-    pub fn take_select_downcast_to<T: Clone + 'static>(self) -> Option<T> {
+    pub fn take_select(self) -> Selection<Box<dyn CrudSelectableTrait>> {
         match self {
-            Self::Select(value) => {
-                value.map(|value| value.as_any().downcast_ref::<T>().unwrap().clone())
-            }
+            Self::Select(selection) => selection,
+            other => panic!("unsupported type, expected select, found: {other:?}"),
+        }
+    }
+    pub fn take_select_downcast_to<T: Clone + 'static>(self) -> Selection<T> {
+        match self {
+            Self::Select(selection) => match selection {
+                Selection::None => Selection::None,
+                Selection::Single(value) => {
+                    Selection::Single(value.as_any().downcast_ref::<T>().unwrap().clone())
+                }
+                Selection::Multiple(values) => Selection::Multiple(
+                    values
+                        .into_iter()
+                        .map(|value| value.as_any().downcast_ref::<T>().unwrap().clone())
+                        .collect(),
+                ),
+            },
             _ => panic!("unsupported type provided"),
         }
     }
@@ -363,9 +385,15 @@ impl Display for Value {
                 None => f.write_str(""),
             },
             Value::NestedTable(u32) => f.write_str(&u32.to_string()),
-            Value::Select(optional_value) => match optional_value {
-                Some(value) => f.write_str(&value.to_string()),
-                None => f.write_str("NULL"),
+            Value::Select(selection) => match selection {
+                Selection::None => f.write_str("NONE"),
+                Selection::Single(selection) => f.write_str(&selection.to_string()),
+                Selection::Multiple(selection) => {
+                    for value in selection {
+                        f.write_str(&value.to_string())?
+                    }
+                    Ok(())
+                }
             },
         }
     }
