@@ -26,7 +26,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         .map(|field| {
             let name = &field.ident.as_ref().expect("Expected named field!");
             let mut column_name = String::new();
-            for part in name.to_string().split("_") {
+            for part in name.to_string().split('_') {
                 column_name.push_str(capitalize_first_letter(part).as_str());
             }
             Ident::new(column_name.as_str(), Span::call_site())
@@ -161,8 +161,8 @@ fn expect_convert_ccv_attr(
             }
         }
     }
-    return Err((
+    Err((
         field.span(),
         "expected `crud_columns1(convert_ccv = ...)`".into(),
-    ));
+    ))
 }

@@ -37,14 +37,12 @@ pub fn store(input: TokenStream) -> TokenStream {
                 emit_error!(field.span(), err);
                 None
             }
-        })
-        .collect::<Vec<Option<Meta>>>();
+        });
 
     // We might have emitted errors while collecting field meta information.
     proc_macro_error::abort_if_dirty();
 
     let struct_field_meta = struct_field_meta
-        .into_iter()
         .map(|it| it.unwrap())
         .collect::<Vec<Meta>>();
 
@@ -103,7 +101,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 }
 
 fn expect_context_type_name(ast: &DeriveInput) -> Result<Ident, syn::Error> {
-    const EXPECTATION: &'static str = "Expected #[create_model(context = \"...\")]";
+    const EXPECTATION: &str = "Expected #[create_model(context = \"...\")]";
 
     fn err(reason: &str, span: Span) -> syn::Error {
         syn::Error::new(span, format!("{EXPECTATION}. Error: {reason}"))
@@ -240,7 +238,7 @@ fn read_exclude(
     ts: &mut <proc_macro2::TokenStream as IntoIterator>::IntoIter,
     span: Span,
 ) -> Result<bool, syn::Error> {
-    const EXPECTATION: &'static str = "Expected #[create_model(exclude = \"true\")]";
+    const EXPECTATION: &str = "Expected #[create_model(exclude = \"true\")]";
     match ts
         .next()
         .ok_or_else(|| err(span, "Expected '='. Found nothing.", EXPECTATION))?
@@ -289,7 +287,7 @@ fn read_use_default(
     ts: &mut <proc_macro2::TokenStream as IntoIterator>::IntoIter,
     span: Span,
 ) -> Result<bool, syn::Error> {
-    const EXPECTATION: &'static str = "Expected #[create_model(use_default = \"true\")]";
+    const EXPECTATION: &str = "Expected #[create_model(use_default = \"true\")]";
     match ts
         .next()
         .ok_or_else(|| err(span, "Expected '='. Found nothing.", EXPECTATION))?
