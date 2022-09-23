@@ -5,6 +5,8 @@ use quote::quote;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput, Field};
 
+// TODO: We have no ability to say: "Include a field but do not set it when updating". Do we need this functionality?
+
 #[proc_macro_derive(UpdateModel, attributes(update_model))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {

@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use proc_macro_error::proc_macro_error;
+use proc_macro_error::{abort, proc_macro_error};
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
@@ -46,20 +46,91 @@ pub fn store(input: TokenStream) -> TokenStream {
 
     let extract_ccv_value_by_column_variant_match_arms = struct_fields(&ast.data)
         .zip(column_variants.iter())
-        .map(|(field, variant)| match expect_convert_ccv_attr(field) {
-            Ok(attr) => {
-                let span = attr.span;
-                let fun_name = Ident::new(attr.fun_name.as_str(), span);
-                quote_spanned! {span=>
-                    Column::#variant => crud_rs::#fun_name(value)
+        .map(|(field, variant)| match read_convert_ccv_attr(field) {
+            Ok(attr) => match attr {
+                Some(attr) => {
+                    let span = attr.span;
+                    let fun_name = Ident::new(attr.fun_name.as_str(), span);
+                    quote_spanned! {span=>
+                        Column::#variant => crud_rs::#fun_name(value)
+                    }
+                },
+                None => {
+                    let span = field.span();
+                    let fun_name = match &field.ty {
+                        syn::Type::Array(_) => todo!(),
+                        syn::Type::BareFn(_) => todo!(),
+                        syn::Type::Group(_) => todo!(),
+                        syn::Type::ImplTrait(_) => todo!(),
+                        syn::Type::Infer(_) => todo!(),
+                        syn::Type::Macro(_) => todo!(),
+                        syn::Type::Never(_) => todo!(),
+                        syn::Type::Paren(_) => todo!(),
+                        syn::Type::Path(path) => match path.path.segments[0].ident.to_string().as_str() {
+                            "bool" => "to_bool",
+                            "u32" => "to_u32",
+                            "i32" => "to_i32",
+                            "String" => "to_string",
+                            "UtcDateTime" => "to_date_time",
+                            "Option" => match &path.path.segments[0].arguments {
+                                syn::PathArguments::None => todo!(),
+                                syn::PathArguments::AngleBracketed(args) => {
+                                    match args.args.iter().next().unwrap() {
+                                        syn::GenericArgument::Lifetime(_) => todo!(),
+                                        syn::GenericArgument::Type(ty) => {
+                                            if let syn::Type::Path(path) = ty {
+                                                match path.path.segments[0].ident.to_string().as_str() {
+                                                    "u32" => "to_u32",
+                                                    "String" => "to_string",
+                                                    "UtcDateTime" => "to_date_time",
+                                                    other => {
+                                                        let span = ty.span();
+                                                        let message = format!("Unknown argument to Option type: {other:?}. Expected a known type.");
+                                                        abort!(
+                                                            span, message;
+                                                            help = "use one of the following types: [...]";
+                                                        );
+                                                    }
+                                                }
+                                            } else {
+                                                let span = ty.span();
+                                                let message = format!("Option did not contain a 'Type'.");
+                                                abort!(
+                                                    span, message;
+                                                    help = "Use Option<String> or other type...";
+                                                );
+                                            }
+                                        }
+                                        syn::GenericArgument::Binding(_) => todo!(),
+                                        syn::GenericArgument::Constraint(_) => todo!(),
+                                        syn::GenericArgument::Const(_) => todo!(),
+                                    }
+                                }
+                                syn::PathArguments::Parenthesized(_) => todo!(),
+                            },
+                            other => {
+                                let message = format!("Unknown type {other:?}. Expected a known type.");
+                                abort!(
+                                    span, message;
+                                    help = "use one of the following types: [...]";
+                                );
+                            }
+                        },
+                        syn::Type::Ptr(_) => todo!(),
+                        syn::Type::Reference(_) => todo!(),
+                        syn::Type::Slice(_) => todo!(),
+                        syn::Type::TraitObject(_) => todo!(),
+                        syn::Type::Tuple(_) => todo!(),
+                        syn::Type::Verbatim(_) => todo!(),
+                        _ => todo!(),
+                    };
+                    let fun_name = Ident::new(fun_name, span);
+                    quote_spanned! {span=>
+                        Column::#variant => crud_rs::#fun_name(value)
+                    }
                 }
-            }
-            Err((span, err)) => {
-                let err = err.to_string();
-                quote_spanned! {span=>
-                    Column::#variant => compile_error!(#err)
-                }
-            }
+            },
+            Err(err) => abort! { err }
         });
 
     quote! {
@@ -75,7 +146,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                 }
             }
 
-            // TODO: make these three functions dynamic based on attribute on one "id" field.
+            // TODO: make these three functions dynamic based on attribute on one "id" field or multiple fields.
             fn get_id_field() -> Column {
                 Column::Id
             }
@@ -115,9 +186,18 @@ struct ConvertCcvAttr {
     span: proc_macro2::Span,
 }
 
-fn expect_convert_ccv_attr(
+fn read_convert_ccv_attr(
     field: &syn::Field,
-) -> Result<ConvertCcvAttr, (proc_macro2::Span, Box<dyn std::error::Error>)> {
+) -> Result<Option<ConvertCcvAttr>, syn::Error> {
+    const EXPECTATION: &str = "Expected #[crud_columns(convert_ccv = \"...\")]";
+
+    fn err(span: Span, reason: &str) -> syn::Error {
+        syn::Error::new(
+            span,
+            format!("{EXPECTATION}. Error: {reason}"),
+        )
+    }
+
     for attr in &field.attrs {
         if attr.path.segments.len() == 1 && attr.path.segments[0].ident == "crud_columns" {
             let span = attr.span();
@@ -128,20 +208,20 @@ fn expect_convert_ccv_attr(
                 match ts.next().expect("Expected 'crud_columns'. Found nothing.") {
                     proc_macro2::TokenTree::Ident(ident) => {
                         if ident != "convert_ccv" {
-                            return Err((
+                            return Err(err(
                                 span,
                                 "expected `crud_columns7(convert_ccv = ...)`".into(),
                             ));
                         }
                     }
                     _ => {
-                        return Err((span, "expected `crud_columns6(convert_ccv = ...)`".into()));
+                        return Err(err(span, "expected `crud_columns6(convert_ccv = ...)`".into()));
                     }
                 }
                 match ts.next().expect("Expected '='. Found nothing.") {
                     proc_macro2::TokenTree::Punct(punct) => assert_eq!(punct.as_char(), '='),
                     _ => {
-                        return Err((span, "expected `crud_columns55(convert_ccv = ...)`".into()));
+                        return Err(err(span, "expected `crud_columns55(convert_ccv = ...)`".into()));
                     }
                 }
                 let fun_name = match ts.next().unwrap() {
@@ -149,20 +229,17 @@ fn expect_convert_ccv_attr(
                         literal.to_string().trim_matches('"').trim().to_string()
                     }
                     _ => {
-                        return Err((span, "expected `crud_columns4(convert_ccv = ...)`".into()));
+                        return Err(err(span, "expected `crud_columns4(convert_ccv = ...)`".into()));
                     }
                 };
                 if fun_name.is_empty() {
-                    return Err((span, "expected `crud_columns3(convert_ccv = ...)`".into()));
+                    return Err(err(span, "expected `crud_columns3(convert_ccv = ...)`".into()));
                 }
-                return Ok(ConvertCcvAttr { fun_name, span });
+                return Ok(Some(ConvertCcvAttr { fun_name, span }));
             } else {
-                return Err((span, "expected `crud_columns2(convert_ccv = ...)`".into()));
+                return Err(err(span, "expected `crud_columns2(convert_ccv = ...)`".into()));
             }
         }
     }
-    Err((
-        field.span(),
-        "expected `crud_columns1(convert_ccv = ...)`".into(),
-    ))
+    Ok(None)
 }
