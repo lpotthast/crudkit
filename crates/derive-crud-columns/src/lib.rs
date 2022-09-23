@@ -81,6 +81,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                                             if let syn::Type::Path(path) = ty {
                                                 match path.path.segments[0].ident.to_string().as_str() {
                                                     "u32" => "to_u32",
+                                                    "i32" => "to_i32",
                                                     "String" => "to_string",
                                                     "UtcDateTime" => "to_date_time",
                                                     other => {
