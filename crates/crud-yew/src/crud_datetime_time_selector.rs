@@ -13,7 +13,7 @@ impl Component for CrudDatetimeTimeSelector {
     type Message = ();
     type Properties = Props;
 
-    fn create(ctx: &Context<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {
         }
     }

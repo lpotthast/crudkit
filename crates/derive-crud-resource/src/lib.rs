@@ -39,7 +39,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     };
 
     quote! {
-        #[derive(Debug, Clone, Default, PartialEq)]
+        #[derive(Debug, Clone, Default, PartialEq, Eq)]
         pub struct #resource_ident {}
 
         impl crud_yew::CrudResourceTrait for #resource_ident {

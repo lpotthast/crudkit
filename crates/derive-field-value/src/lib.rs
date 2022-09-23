@@ -140,7 +140,9 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::Select => quote! { entity.#field_ident.clone().into() },
             ValueType::Multiselect => quote! { entity.#field_ident.clone().into() },
             ValueType::OptionalSelect => quote! { entity.#field_ident.clone().map(Into::into) },
-            ValueType::OptionalMultiselect => quote! { entity.#field_ident.clone().map(|it| it.map(Into::into)) },
+            ValueType::OptionalMultiselect => {
+                quote! { entity.#field_ident.clone().map(|it| it.map(Into::into)) }
+            }
             ValueType::OneToOneRelation => quote! { entity.#field_ident },
             ValueType::NestedTable => quote! { entity.#id_field_ident }, // not important, panics anyway...
         };
@@ -152,6 +154,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
     // Self::Id => entity.id = value.take_u32(),
     let set_field_value_arms = struct_fields(&ast.data).map(|field| {
+        let field_ty = &field.ty;
         let field_ident = field.ident.as_ref().expect("Expected named field!");
         let field_name = field_ident.to_string();
         let field_name_as_type_name = field_name_as_type_name(&field_name);
@@ -170,7 +173,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::String => quote! { value.take_string() },
             // TODO: value should contain Option. do not force Some type...
             ValueType::OptionalString => quote! { std::option::Option::Some(value.take_string()) },
-            ValueType::Bool => quote! { value.take_bool() },    
+            ValueType::Bool => quote! { value.take_bool() },
             ValueType::I32 => quote! { value.take_i32() },
             ValueType::U32 => quote! { value.take_u32() },
             ValueType::OptionalU32 => quote! { value.take_optional_u32() },
@@ -178,13 +181,18 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::F64 => quote! { value.take_f64() },
             ValueType::UtcDateTime => quote! { value.take_date_time() },
             ValueType::OptionalUtcDateTime => quote! { value.take_optional_date_time() },
-            ValueType::Select => quote! { value.take_select_downcast_to().into() },
+            ValueType::Select => quote! { value.take_select_downcast_to::<#field_ty>().into() },
             ValueType::Multiselect => quote! { value.take_multiselect_downcast_to().into() },
             ValueType::OptionalSelect => quote! { value.take_optional_select_downcast_to().into() },
-            ValueType::OptionalMultiselect => quote! { value.take_optional_multiselect_downcast_to().into() },
+            ValueType::OptionalMultiselect => {
+                quote! { value.take_optional_multiselect_downcast_to().into() }
+            }
             ValueType::OneToOneRelation => quote! { value.take_one_to_one_relation() },
             ValueType::NestedTable => {
-                quote! { panic!("Setting a nested table dummy field is not allowed") }
+                quote! { {
+                    log::warn!("Setting a nested table dummy field is not allowed");
+                    // implicitly return `()`
+                } }
             }
         };
         quote! {

@@ -243,7 +243,7 @@ impl Component for CrudDatetime {
             }
         }
 
-        fn time_selector(this: &CrudDatetime, ctx: &Context<CrudDatetime>) -> Html {
+        fn time_selector(this: &CrudDatetime, _ctx: &Context<CrudDatetime>) -> Html {
             html! {
                 <CrudDatetimeTimeSelector
                     value={this.value.clone().unwrap_or_else(|| UtcDateTime::now())}
