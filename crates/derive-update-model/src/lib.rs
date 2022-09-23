@@ -39,12 +39,15 @@ pub fn store(input: TokenStream) -> TokenStream {
                 emit_error!(field.span(), err);
                 None
             }
-        });
+        })
+        // Clippy: Do not remove this! Eagerly collecting everything is required to emit potential errors before executing abort_if_dirty.
+        .collect::<Vec<Option<Meta>>>();
 
     // We might have emitted errors while collecting field meta information.
     proc_macro_error::abort_if_dirty();
 
     let struct_field_meta = struct_field_meta
+        .into_iter()
         .map(|it| it.unwrap())
         .collect::<Vec<Meta>>();
 
@@ -176,7 +179,7 @@ struct Meta {
     /// On an update, the field is only `ActiveValue::Set` if we received a `Option::Some` variant containing the data.
     /// We do not unset data just because we didn't receive on optional field.
     optional: bool,
-    
+
     use_default: bool,
 }
 
@@ -185,47 +188,48 @@ fn err(span: Span, error: &str, expectation: &str) -> syn::Error {
 }
 
 fn read_meta(field: &Field) -> Result<Meta, syn::Error> {
-    // If not attribute is present, field must not be excluded.
     let mut exclude = false;
     let mut optional = false;
     let mut use_default = false;
-
     for attr in &field.attrs {
         if attr.path.segments.len() == 1 && attr.path.segments[0].ident == "update_model" {
             let span = attr.span();
             if let Some(TokenTree::Group(group)) = attr.tokens.clone().into_iter().next() {
-                let mut ts: <proc_macro2::TokenStream as IntoIterator>::IntoIter =
-                    group.stream().into_iter();
-
                 let expectation = "Expected 'exclude', 'optional' or 'use_default'";
-                match ts
-                    .next()
-                    .ok_or_else(|| err(span, "Found no tokens.", expectation))?
-                {
-                    proc_macro2::TokenTree::Ident(ident) => match ident.to_string().as_str() {
-                        "exclude" => {
-                            exclude = read_exclude(&mut ts, span)?;
+                for next in group.stream().into_iter() {
+                    let span = next.span();
+                    match next {
+                        proc_macro2::TokenTree::Ident(ident) => {
+                            let span = ident.span();
+                            match ident.to_string().as_str() {
+                                "exclude" => exclude = true,
+                                "optional" => optional = true,
+                                "use_default" => use_default = true,
+                                _ => {
+                                    return Err(err(
+                                        span,
+                                        format!("Found unknown ident '{ident}'.").as_str(),
+                                        expectation,
+                                    ));
+                                }
+                            }
                         }
-                        "optional" => {
-                            optional = read_optional(&mut ts, span)?;
+                        proc_macro2::TokenTree::Punct(punct) => {
+                            if punct.as_char() != ',' {
+                                return Err(err(
+                                    span,
+                                    format!("Found unknown punctuation '{punct:?}'.").as_str(),
+                                    "Expected ','.",
+                                ));
+                            }
                         }
-                        "use_default" => {
-                            use_default = read_use_default(&mut ts, span)?;
-                        }
-                        _ => {
+                        other => {
                             return Err(err(
                                 span,
-                                format!("Found unknown '{ident} ='.").as_str(),
+                                format!("Expected a TokenTree::Ident or a TokenTree::Punct, but found: {other}").as_str(),
                                 expectation,
                             ));
                         }
-                    },
-                    other => {
-                        return Err(err(
-                            span,
-                            format!("Expected a TokenTree::Ident, but found: {other}").as_str(),
-                            expectation,
-                        ));
                     }
                 }
             } else {
@@ -237,161 +241,9 @@ fn read_meta(field: &Field) -> Result<Meta, syn::Error> {
             }
         }
     }
-
     Ok(Meta {
         exclude,
         optional,
         use_default,
     })
-}
-
-fn read_exclude(
-    ts: &mut <proc_macro2::TokenStream as IntoIterator>::IntoIter,
-    span: Span,
-) -> Result<bool, syn::Error> {
-    const EXPECTATION: &str = "Expected #[update_model(exclude = \"true\")]";
-    match ts
-        .next()
-        .ok_or_else(|| err(span, "Expected '='. Found nothing.", EXPECTATION))?
-    {
-        proc_macro2::TokenTree::Punct(punct) => assert_eq!(punct.as_char(), '='),
-        other => {
-            return Err(err(
-                span,
-                format!("Expected a TokenTree::Punct, but found: {other}").as_str(),
-                EXPECTATION,
-            ));
-        }
-    }
-    let ty = match ts.next().ok_or_else(|| {
-        err(
-            span,
-            "Expected '= [...]'. Found nothing after the '=' sign.",
-            EXPECTATION,
-        )
-    })? {
-        proc_macro2::TokenTree::Literal(literal) => {
-            literal.to_string().trim_matches('"').trim().to_string()
-        }
-        other => {
-            return Err(err(
-                span,
-                format!("Expected a TokenTree::Literal, but found: {other}").as_str(),
-                EXPECTATION,
-            ));
-        }
-    };
-    if ty.is_empty() {
-        return Err(err(
-            span,
-            "Expected in '= x', that x is not en empty string.",
-            EXPECTATION,
-        ));
-    }
-    return match ty.parse::<bool>() {
-        Ok(exclude) => Ok(exclude),
-        Err(error) => Err(err(span, format!("Value that came after '=' (actual: {ty}) is not parsable to type `bool`: {error:?}. Use either 'true' or 'false'.").as_str(), EXPECTATION)),
-    };
-}
-
-fn read_optional(
-    ts: &mut <proc_macro2::TokenStream as IntoIterator>::IntoIter,
-    span: Span,
-) -> Result<bool, syn::Error> {
-    const EXPECTATION: &str = "Expected #[update_model(optional = \"true\")]";
-    match ts
-        .next()
-        .ok_or_else(|| err(span, "Expected '='. Found nothing.", EXPECTATION))?
-    {
-        proc_macro2::TokenTree::Punct(punct) => assert_eq!(punct.as_char(), '='),
-        other => {
-            return Err(err(
-                span,
-                format!("Expected a TokenTree::Punct, but found: {other}").as_str(),
-                EXPECTATION,
-            ));
-        }
-    }
-    let ty = match ts.next().ok_or_else(|| {
-        err(
-            span,
-            "Expected '= [...]'. Found nothing after the '=' sign.",
-            EXPECTATION,
-        )
-    })? {
-        proc_macro2::TokenTree::Literal(literal) => {
-            literal.to_string().trim_matches('"').trim().to_string()
-        }
-        other => {
-            return Err(err(
-                span,
-                format!("Expected a TokenTree::Literal, but found: {other}").as_str(),
-                EXPECTATION,
-            ));
-        }
-    };
-    if ty.is_empty() {
-        return Err(err(
-            span,
-            "Expected in '= x', that x is not en empty string.",
-            EXPECTATION,
-        ));
-    }
-    return match ty.parse::<bool>() {
-        Ok(exclude) => Ok(exclude),
-        Err(error) => Err(err(span, format!("Value that came after '=' (actual: {ty}) is not parsable to type `bool`: {error:?}. Use either 'true' or 'false'.").as_str(), EXPECTATION)),
-    };
-}
-
-fn read_use_default(
-    ts: &mut <proc_macro2::TokenStream as IntoIterator>::IntoIter,
-    span: Span,
-) -> Result<bool, syn::Error> {
-    const EXPECTATION: &str = "Expected #[update_model(use_default = \"true\")]";
-    match ts
-        .next()
-        .ok_or_else(|| err(span, "Expected '='. Found nothing.", EXPECTATION))?
-    {
-        proc_macro2::TokenTree::Punct(punct) => assert_eq!(punct.as_char(), '='),
-        other => {
-            return Err(err(
-                span,
-                format!("Expected a TokenTree::Punct, but found: {other}").as_str(),
-                EXPECTATION,
-            ));
-        }
-    }
-    let ty = match ts.next().ok_or_else(|| {
-        err(
-            span,
-            "Expected '= [...]'. Found nothing after the '=' sign.",
-            EXPECTATION,
-        )
-    })? {
-        proc_macro2::TokenTree::Literal(literal) => {
-            literal.to_string().trim_matches('"').trim().to_string()
-        }
-        other => {
-            return Err(err(
-                span,
-                format!("Expected a TokenTree::Literal, but found: {other}").as_str(),
-                EXPECTATION,
-            ));
-        }
-    };
-    if ty.is_empty() {
-        return Err(err(
-            span,
-            "Expected in '= x', that x is not en empty string.",
-            EXPECTATION,
-        ));
-    }
-    return match ty.parse::<bool>() {
-        Ok(use_default) => Ok(use_default),
-        Err(error) => Err(err(
-            span,
-            format!("Value that came after '=' (actual: {ty}) is not parsable to type `bool`: {error:?}. Use either 'true' or 'false'.").as_str(),
-            EXPECTATION,
-        )),
-    };
 }
