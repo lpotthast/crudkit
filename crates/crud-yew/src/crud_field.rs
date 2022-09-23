@@ -269,6 +269,52 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         </div>
                     },
                 },
+                Value::OptionalU32(optional_u32) => match &ctx.props().field_mode {
+                    FieldMode::Display => match optional_u32 {
+                        Some(u32) => html! { <div>{format!("{}", u32)}</div> },
+                        None => html! { "-" },
+                    },
+                    // TODO: Use nullable input field!
+                    FieldMode::Readable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            <input
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                type={"number"}
+                                value={format!("{}", optional_u32.unwrap_or_default())}
+                                disabled={true}
+                            />
+                        </div>
+                    },
+                    // TODO: Use nullable input field!
+                    FieldMode::Editable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            <input
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                type={"number"}
+                                value={format!("{}", optional_u32.unwrap_or_default())}
+                                onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => match input.value().parse::<u32>() {
+                                        Ok(u32) => Msg::Send(Value::OptionalU32(Some(u32))),
+                                        Err(err) =>Msg::LogInputRetrievalErr(err.into()),
+                                    }
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
+                                onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => match input.value().parse::<u32>() {
+                                        Ok(u32) => Msg::Send(Value::OptionalU32(Some(u32))),
+                                        Err(err) =>Msg::LogInputRetrievalErr(err.into()),
+                                    }
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
+                                disabled={options.disabled}
+                            />
+                        </div>
+                    },
+                },
                 Value::I32(value) => match &ctx.props().field_mode {
                     FieldMode::Display => html! {
                         <div>{format!("{}", value)}</div>
@@ -475,14 +521,59 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         </div>
                     },
                 },
-                Value::Select(selection) => match &ctx.props().field_mode {
-                    FieldMode::Display => match selection {
-                        crate::crud_select::Selection::None => html!{"NONE"},
-                        crate::crud_select::Selection::Single(value) => html!{format!("{:?}",value)},
-                        crate::crud_select::Selection::Multiple(values) => values.into_iter().map(|value| html!{
+                Value::Select(selected) => match &ctx.props().field_mode {
+                    FieldMode::Display => html!{format!("{:?}", selected)},
+                    FieldMode::Readable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            { render_select_child(&ctx) }
+                        </div>
+                    },
+                    FieldMode::Editable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            { render_select_child(&ctx) }
+                        </div>
+                    },
+                },
+                Value::Multiselect(selected) => match &ctx.props().field_mode {
+                    FieldMode::Display => selected.into_iter()
+                        .map(|value| html!{
                             format!("{:?}, ", value)
                         }).collect::<Html>(),
+                    FieldMode::Readable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            { render_select_child(&ctx) }
+                        </div>
                     },
+                    FieldMode::Editable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            { render_select_child(&ctx) }
+                        </div>
+                    },
+                },
+                Value::OptionalSelect(selected) => match &ctx.props().field_mode {
+                    FieldMode::Display => html!{format!("{:?}", selected)},
+                    FieldMode::Readable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            { render_select_child(&ctx) }
+                        </div>
+                    },
+                    FieldMode::Editable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            { render_select_child(&ctx) }
+                        </div>
+                    },
+                },
+                Value::OptionalMultiselect(selected) => match &ctx.props().field_mode {
+                    FieldMode::Display => selected.into_iter()
+                        .map(|value| html!{
+                            format!("{:?}, ", value)
+                        }).collect::<Html>(),
                     FieldMode::Readable => html! {
                         <div class="crud-field">
                             { render_label(&options) }

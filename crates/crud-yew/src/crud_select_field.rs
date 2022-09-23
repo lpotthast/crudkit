@@ -1,4 +1,4 @@
-use std::{rc::Rc, marker::PhantomData};
+use std::{marker::PhantomData, rc::Rc};
 
 use crate::{
     crud_instance::CreateOrUpdateField, crud_select::Selection, prelude::*, CrudSelectableSource,
@@ -15,15 +15,25 @@ pub enum Msg<P: 'static + CrudMainTrait, T: CrudSelectableTrait + Clone + Partia
     SelectionChanged(Selection<T>),
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum SelectMode {
+    Single,
+    Multiple,
+    OptionalSingle,
+    OptionalMultiple,
+}
+
 #[derive(Debug, Properties, PartialEq)]
 pub struct Props<P>
-where 
+where
     P: 'static + CrudMainTrait,
 {
+    pub select_mode: SelectMode,
+
     /// The name of the parent instance from which the referenced id should be loaded.
     pub parent_instance: String,
     /// The field of the parent, where the value is stored.
-    pub parent_field: CreateOrUpdateField<P>
+    pub parent_field: CreateOrUpdateField<P>,
 }
 
 pub struct CrudSelectField<P, S, T>
@@ -35,8 +45,7 @@ where
     _parent_instance_links_dispatch: Dispatch<stores::instance_links::InstanceLinksStore<P>>,
 
     parent: Option<Scope<CrudInstance<P>>>,
-    current_field_value: Option<Value>,
-    
+
     /// The data provider for this select field.
     source: S,
     selected: Selection<T>,
@@ -60,13 +69,13 @@ where
             ),
 
             parent: None,
-            current_field_value: None,
             source: S::new(),
             selected: Selection::None,
             phantom_data_s: PhantomData {},
         };
         let link = ctx.link().clone();
-        this.source.load(Box::new(move || link.send_message(Msg::SourceLoaded)));
+        this.source
+            .load(Box::new(move || link.send_message(Msg::SourceLoaded)));
         this
     }
 
@@ -75,7 +84,7 @@ where
             Msg::SourceLoaded => {
                 // Selectable options are now available.
                 true
-            },
+            }
             Msg::ParentInstanceLinksStoreUpdated(store) => {
                 self.parent = store.get(ctx.props().parent_instance.as_str());
 
@@ -93,10 +102,19 @@ where
                 false
             }
             Msg::CurrentValue(value) => {
-                self.current_field_value = Some(value);
-                self.selected = match self.current_field_value.clone() {
-                    Some(value) => value.take_select_downcast_to(),
-                    None => Selection::None,
+                // TODO: Improve perf. This performs a match, every take_ function also matches...
+                self.selected = match value {
+                    value @ Value::Select(_) => Selection::Single(value.take_select_downcast_to()),
+                    value @ Value::Multiselect(_) => Selection::Multiple(value.take_multiselect_downcast_to()),
+                    value @ Value::OptionalSelect(_) => match value.take_optional_select_downcast_to() {
+                        Some(value) => Selection::Single(value),
+                        None => Selection::None,
+                    },
+                    value @ Value::OptionalMultiselect(_) => match value.take_optional_multiselect_downcast_to() {
+                        Some(values) => Selection::Multiple(values),
+                        None => Selection::None,
+                    },
+                    other => panic!("Expected a select variant but got `{other:?}`."),
                 };
                 true
             }
@@ -104,16 +122,39 @@ where
                 self.selected = selection.clone();
                 match &self.parent {
                     Some(link) => {
-                        let value = match selection {
-                            Selection::None => Value::Select(Selection::None),
-                            Selection::Single(option) => Value::Select(Selection::Single(Box::new(option))),
-                            Selection::Multiple(options) => {
-                                let mut v: Vec<Box<dyn CrudSelectableTrait>> = Vec::new();
-                                for option in options {
-                                    v.push(Box::new(option));
+                        let value = match &ctx.props().select_mode {
+                            SelectMode::Single => match selection {
+                                Selection::None => panic!("Cannot handle Selection::None in SelectMode::Single!"),
+                                Selection::Single(option) => Value::Select(Box::new(option)),
+                                Selection::Multiple(_) => panic!("Cannot handle Selection::Multiple in SelectMode::Single")
+                            },
+                            SelectMode::Multiple => match selection {
+                                Selection::None => panic!("Cannot handle Selection::None in SelectMode::Multiple"),
+                                Selection::Single(_) => panic!("Cannot handle Selection::Single in SelectMode::Multiple"),
+                                Selection::Multiple(options) => {
+                                    let mut v: Vec<Box<dyn CrudSelectableTrait>> = Vec::new();
+                                    for option in options {
+                                        v.push(Box::new(option));
+                                    }
+                                    Value::Multiselect(v)
                                 }
-                                Value::Select(Selection::Multiple(v))
-                            }
+                            },
+                            SelectMode::OptionalSingle => match selection {
+                                Selection::None => Value::OptionalSelect(None),
+                                Selection::Single(option) => Value::OptionalSelect(Some(Box::new(option))),
+                                Selection::Multiple(_) => panic!("Cannot handle Selection::Multiple in SelectMode::OptionalSingle"),
+                            },
+                            SelectMode::OptionalMultiple => match selection {
+                                Selection::None => Value::OptionalMultiselect(None),
+                                Selection::Single(_) => panic!("Cannot handle Selection::Single in SelectMode::OptionalMultiple"),
+                                Selection::Multiple(options) => {
+                                    let mut v: Vec<Box<dyn CrudSelectableTrait>> = Vec::new();
+                                    for option in options {
+                                        v.push(Box::new(option));
+                                    }
+                                    Value::OptionalMultiselect(Some(v))
+                                }
+                            },
                         };
 
                         link.send_message(<CrudInstance<P> as Component>::Message::SaveInput((

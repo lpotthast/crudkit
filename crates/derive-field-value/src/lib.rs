@@ -48,6 +48,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                 "u32" => ValueType::U32,
                 "i32" => ValueType::I32,
                 "String" => ValueType::String,
+                "UtcDateTime" => ValueType::UtcDateTime,
                 "Option" => match &path.path.segments[0].arguments {
                     syn::PathArguments::None => todo!(),
                     syn::PathArguments::AngleBracketed(args) => {
@@ -56,6 +57,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                             syn::GenericArgument::Type(ty) => {
                                 if let syn::Type::Path(path) = ty {
                                     match path.path.segments[0].ident.to_string().as_str() {
+                                        "u32" => ValueType::OptionalU32,
                                         "String" => ValueType::OptionalString,
                                         "UtcDateTime" => ValueType::OptionalUtcDateTime,
                                         other => {
@@ -125,16 +127,21 @@ pub fn store(input: TokenStream) -> TokenStream {
         // Code that clones or copies the fields value.
         let value_clone = match value_type {
             ValueType::String => quote! { entity.#field_ident.clone() },
-            // We use .unwrap_or_default(), as we feed that string into Value::String (see From<ValueType>)
+            // We use .unwrap_or_default(), as we feed that string into Value::String (see From<ValueType>). We should get rid of this.
             ValueType::OptionalString => quote! { entity.#field_ident.clone().unwrap_or_default() },
             ValueType::Bool => quote! { entity.#field_ident },
             ValueType::I32 => quote! { entity.#field_ident },
             ValueType::U32 => quote! { entity.#field_ident },
+            ValueType::OptionalU32 => quote! { entity.#field_ident.clone() },
             ValueType::F32 => quote! { entity.#field_ident },
             ValueType::F64 => quote! { entity.#field_ident },
             ValueType::UtcDateTime => quote! { entity.#field_ident.clone() },
             ValueType::OptionalUtcDateTime => quote! { entity.#field_ident.clone() },
             ValueType::Select => quote! { entity.#field_ident.clone().into() },
+            ValueType::Multiselect => quote! { entity.#field_ident.clone().into() },
+            ValueType::OptionalSelect => quote! { entity.#field_ident.clone().map(Into::into) },
+            ValueType::OptionalMultiselect => quote! { entity.#field_ident.clone().map(|it| it.map(Into::into)) },
+            ValueType::OneToOneRelation => quote! { entity.#field_ident },
             ValueType::NestedTable => quote! { entity.#id_field_ident }, // not important, panics anyway...
         };
 
@@ -166,11 +173,16 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::Bool => quote! { value.take_bool() },    
             ValueType::I32 => quote! { value.take_i32() },
             ValueType::U32 => quote! { value.take_u32() },
+            ValueType::OptionalU32 => quote! { value.take_optional_u32() },
             ValueType::F32 => quote! { value.take_f32() },
             ValueType::F64 => quote! { value.take_f64() },
             ValueType::UtcDateTime => quote! { value.take_date_time() },
             ValueType::OptionalUtcDateTime => quote! { value.take_optional_date_time() },
             ValueType::Select => quote! { value.take_select_downcast_to().into() },
+            ValueType::Multiselect => quote! { value.take_multiselect_downcast_to().into() },
+            ValueType::OptionalSelect => quote! { value.take_optional_select_downcast_to().into() },
+            ValueType::OptionalMultiselect => quote! { value.take_optional_multiselect_downcast_to().into() },
+            ValueType::OneToOneRelation => quote! { value.take_one_to_one_relation() },
             ValueType::NestedTable => {
                 quote! { panic!("Setting a nested table dummy field is not allowed") }
             }
@@ -227,12 +239,16 @@ enum ValueType {
     Bool,
     I32,
     U32,
+    OptionalU32,
     F32,
     F64,
     UtcDateTime,
     OptionalUtcDateTime,
-    // TODO: rename to SingleSelect, add more variants...
     Select,
+    Multiselect,
+    OptionalSelect,
+    OptionalMultiselect,
+    OneToOneRelation,
     NestedTable,
 }
 
@@ -246,11 +262,16 @@ impl From<ValueType> for Ident {
                 ValueType::Bool => "Bool",
                 ValueType::I32 => "I32",
                 ValueType::U32 => "U32",
+                ValueType::OptionalU32 => "OptionalU32",
                 ValueType::F32 => "F32",
                 ValueType::F64 => "F64",
                 ValueType::UtcDateTime => "UtcDateTime",
                 ValueType::OptionalUtcDateTime => "OptionalUtcDateTime",
                 ValueType::Select => "Select",
+                ValueType::Multiselect => "Multiselect",
+                ValueType::OptionalSelect => "OptionalSelect",
+                ValueType::OptionalMultiselect => "OptionalMultiselect",
+                ValueType::OneToOneRelation => "OneToOneRelation",
                 ValueType::NestedTable => "NestedTable",
             },
             Span::call_site(),

@@ -132,8 +132,8 @@ pub mod prelude {
     pub use super::CrudIdTrait;
     pub use super::CrudMainTrait;
     pub use super::CrudResourceTrait;
-    pub use super::CrudSelectableTrait;
     pub use super::CrudSelectableSource;
+    pub use super::CrudSelectableTrait;
     pub use super::CrudView;
     pub use super::Elem;
     pub use super::Enclosing;
@@ -241,7 +241,7 @@ pub trait CrudSelectableSource: Debug {
     fn new() -> Self;
 
     fn load(&mut self, finished: Box<dyn FnOnce()>);
-    
+
     /// Returns Option, as selectable options might not have been loaded yet.
     fn options(&self) -> Option<Vec<Self::Selectable>>;
 }
@@ -257,6 +257,7 @@ pub enum Value {
     String(String), // TODO: Add optional string!
     Text(String),
     U32(u32),
+    OptionalU32(Option<u32>),
     I32(i32),
     F32(f32),
     Bool(bool),
@@ -266,7 +267,10 @@ pub enum Value {
     OptionalUtcDateTime(Option<UtcDateTime>),
     OneToOneRelation(Option<u32>),
     NestedTable(u32),
-    Select(Selection<Box<dyn CrudSelectableTrait>>),
+    Select(Box<dyn CrudSelectableTrait>),
+    Multiselect(Vec<Box<dyn CrudSelectableTrait>>),
+    OptionalSelect(Option<Box<dyn CrudSelectableTrait>>),
+    OptionalMultiselect(Option<Vec<Box<dyn CrudSelectableTrait>>>),
     //Select(Box<dyn CrudSelectableSource<Selectable = dyn CrudSelectableTrait>>),
 }
 
@@ -317,6 +321,7 @@ impl Value {
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
+    /*
     pub fn take_bool_or_parse(self) -> bool {
         match self {
             Self::Bool(bool) => bool,
@@ -324,6 +329,7 @@ impl Value {
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
+    */
     pub fn take_date_time(self) -> UtcDateTime {
         match self {
             Self::UtcDateTime(utc_date_time) => utc_date_time,
@@ -340,27 +346,57 @@ impl Value {
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
-    pub fn take_select(self) -> Selection<Box<dyn CrudSelectableTrait>> {
+    pub fn take_select(self) -> Box<dyn CrudSelectableTrait> {
         match self {
-            Self::Select(selection) => selection,
+            Self::Select(selected) => selected,
             other => panic!("unsupported type, expected select, found: {other:?}"),
         }
     }
-    pub fn take_select_downcast_to<T: Clone + 'static>(self) -> Selection<T> {
+    pub fn take_select_downcast_to<T: Clone + 'static>(self) -> T {
         match self {
-            Self::Select(selection) => match selection {
-                Selection::None => Selection::None,
-                Selection::Single(value) => {
-                    Selection::Single(value.as_any().downcast_ref::<T>().unwrap().clone())
-                }
-                Selection::Multiple(values) => Selection::Multiple(
-                    values
-                        .into_iter()
-                        .map(|value| value.as_any().downcast_ref::<T>().unwrap().clone())
-                        .collect(),
-                ),
-            },
+            Self::Select(selected) => selected.as_any().downcast_ref::<T>().unwrap().clone(),
+            other => panic!("Expected variant `Value::Select` but got `{other:?}`."),
+        }
+    }
+    pub fn take_optional_select_downcast_to<T: Clone + 'static>(self) -> Option<T> {
+        match self {
+            Self::OptionalSelect(selected) => {
+                selected.map(|it| it.as_any().downcast_ref::<T>().unwrap().clone())
+            }
+            other => panic!("Expected variant `Value::OptionalSelect` but got `{other:?}`."),
+        }
+    }
+    pub fn take_multiselect(self) -> Vec<Box<dyn CrudSelectableTrait>> {
+        match self {
+            Self::Multiselect(selected) => selected,
+            other => panic!("unsupported type, expected select, found: {other:?}"),
+        }
+    }
+    pub fn take_multiselect_downcast_to<T: Clone + 'static>(self) -> Vec<T> {
+        match self {
+            Self::Multiselect(selected) => selected
+                .into_iter()
+                .map(|value| value.as_any().downcast_ref::<T>().unwrap().clone())
+                .collect(),
             _ => panic!("unsupported type provided"),
+        }
+    }
+    pub fn take_optional_multiselect_downcast_to<T: Clone + 'static>(self) -> Option<Vec<T>> {
+        match self {
+            Self::OptionalMultiselect(selected) => selected.map(|it| {
+                it.into_iter()
+                    .map(|it| it.as_any().downcast_ref::<T>().unwrap().clone())
+                    .collect()
+            }),
+            _ => panic!("unsupported type provided"),
+        }
+    }
+    pub fn take_one_to_one_relation(self) -> Option<u32> {
+        match self {
+            Value::U32(u32) => Some(u32),
+            Value::OptionalU32(optional_u32) => optional_u32,
+            Value::OneToOneRelation(optional_u32) => optional_u32,
+            other => panic!("Expected Value of variant 'U32', 'OptionalU32' or 'OneToOneRelation'. Received: {other:?}"),
         }
     }
 }
@@ -371,6 +407,10 @@ impl Display for Value {
             Value::String(string) => f.write_str(string),
             Value::Text(string) => f.write_str(string),
             Value::U32(u32) => f.write_str(&u32.to_string()),
+            Value::OptionalU32(optional_u32) => match optional_u32 {
+                Some(u32) => f.write_str(&u32.to_string()),
+                None => f.write_str("-"),
+            },
             Value::I32(i32) => f.write_str(&i32.to_string()),
             Value::F32(f32) => f.write_str(&f32.to_string()),
             Value::Bool(bool) => f.write_str(&bool.to_string()),
@@ -385,15 +425,25 @@ impl Display for Value {
                 None => f.write_str(""),
             },
             Value::NestedTable(u32) => f.write_str(&u32.to_string()),
-            Value::Select(selection) => match selection {
-                Selection::None => f.write_str("NONE"),
-                Selection::Single(selection) => f.write_str(&selection.to_string()),
-                Selection::Multiple(selection) => {
-                    for value in selection {
+            Value::Select(selected) => f.write_str(&selected.to_string()),
+            Value::OptionalSelect(selected) => match selected {
+                Some(selected) => f.write_str(&selected.to_string()),
+                None => f.write_str("NONE"),
+            },
+            Value::Multiselect(selected) => {
+                for value in selected {
+                    f.write_str(&value.to_string())?
+                }
+                Ok(())
+            }
+            Value::OptionalMultiselect(selected) => match selected {
+                Some(selected) => {
+                    for value in selected {
                         f.write_str(&value.to_string())?
                     }
                     Ok(())
                 }
+                None => f.write_str("NONE"),
             },
         }
     }

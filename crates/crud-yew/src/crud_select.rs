@@ -17,6 +17,8 @@ pub enum Selection<T> {
 
 #[derive(Properties, PartialEq)]
 pub struct Props<T: Debug + Clone + PartialEq> {
+    // TODO: add option to forbid clearing (selecting None)
+    // TODO: rename to "selectable"
     pub options: Vec<T>,
     pub selected: Selection<T>,
     #[prop_or(true)]
