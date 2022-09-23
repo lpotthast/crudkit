@@ -11,6 +11,8 @@ chrono-utc-date-time = {path = "../../../../chrono-utc-date-time", features = [ 
 
 # Macros
 derive-crud-columns = { path = "../derive-crud-columns" }
+derive-create-model = { path = "../derive-create-model" }
+derive-update-model = { path = "../derive-update-model" }
 
 # External
 serde = { version = "1.0.144", features = ["derive"] }

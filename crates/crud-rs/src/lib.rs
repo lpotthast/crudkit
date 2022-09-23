@@ -20,6 +20,8 @@ pub mod validation;
 pub mod prelude {
     /* Provide convenient access to all our macros. */
     pub use derive_crud_columns::CrudColumns;
+    pub use derive_create_model::CreateModel;
+    pub use derive_update_model::UpdateModel;
 
     pub use super::context::CrudContext;
     pub use super::controller::CrudController;
@@ -108,6 +110,7 @@ where
     string.parse::<T>().map_err(|e| format!("{}", e))
 }
 
+/// TODO: Can we rename this or use From/Into instead? Or rename to DeriveColumnFromStringTrait?
 /// This trait is used to convert from column names (for example parsed from a request) to actual entity columns.
 pub trait MaybeColumnTrait {
     type Column: ColumnTrait + AsColType;
