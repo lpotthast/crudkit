@@ -192,28 +192,6 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
     });
 
-    /*
-    impl CrudFieldValueTrait<ServerLabel> for ServerLabelField {
-        fn get_value(&self, entity: &ServerLabel) -> Value {
-            match self {
-                Self::Id => Value::U32(entity.id),
-                Self::ServerId => Value::I32(entity.server_id),
-                Self::Key => Value::String(entity.key.clone()),
-                Self::Value => Value::String(entity.value.clone()),
-            }
-        }
-
-        fn set_value(&self, entity: &mut ServerLabel, value: Value) {
-            match self {
-                Self::Id => entity.id = value.take_u32(),
-                Self::ServerId => entity.server_id = value.take_i32(),
-                Self::Key => entity.key = value.take_string(),
-                Self::Value => entity.value = value.take_string(),
-            }
-        }
-    }
-    */
-
     quote! {
         impl crud_yew::CrudFieldValueTrait<#ident> for #field_enum_ident {
             fn get_value(&self, entity: &#ident) -> crud_yew::Value {
@@ -232,7 +210,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize)]
 enum ValueType {
     String,
     OptionalString,
