@@ -15,7 +15,7 @@ derive-create-model = { path = "../derive-create-model" }
 derive-update-model = { path = "../derive-update-model" }
 
 # External
-serde = { version = "1.0.144", features = ["derive"] }
+serde = { version = "1.0.145", features = ["derive"] }
 serde_json = "1.0.85"
 chrono = "0.4.22"
 axum = "0.5.16"
@@ -26,4 +26,4 @@ async-trait = "0.1.57"
 
 sea-orm = { version = "0.9.2", features = [ "debug-print", "runtime-tokio-rustls", "sqlx", "sqlx-postgres" ] }
 sea-query = { version = "0.26.3" }
-sea-schema = { version = "0.9.3", default-features = false, features = [ "debug-print" ] }
+sea-schema = { version = "0.9.4", default-features = false, features = [ "debug-print" ] }
