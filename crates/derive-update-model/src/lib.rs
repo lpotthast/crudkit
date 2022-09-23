@@ -36,7 +36,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         .map(|field| match read_meta(field) {
             Ok(meta) => Some(meta),
             Err(err) => {
-                emit_error!(field.span(), err);
+                emit_error!(err);
                 None
             }
         })
