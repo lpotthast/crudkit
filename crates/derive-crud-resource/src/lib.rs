@@ -68,7 +68,7 @@ struct ExpectedResourceNameAttr {
 }
 
 fn expect_resource_name(ast: &DeriveInput) -> Result<ResourceNameAttr, ExpectedResourceNameAttr> {
-    const EXPECTATION: &'static str = "Expected #[crud(resource_name = \"...\")]";
+    const EXPECTATION: &str = "Expected #[crud(resource_name = \"...\")]";
 
     fn err(reason: &str, span: Span) -> ExpectedResourceNameAttr {
         ExpectedResourceNameAttr {
