@@ -101,7 +101,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 }
 
 fn expect_context_type_name(ast: &DeriveInput) -> Result<Ident, syn::Error> {
-    const EXPECTATION: &'static str = "Expected #[create_model(context = \"...\")]";
+    const EXPECTATION: &'static str = "Expected #[update_model(context = \"...\")]";
 
     fn err(reason: &str, span: Span) -> syn::Error {
         syn::Error::new(span, format!("{EXPECTATION}. Error: {reason}"))
@@ -110,7 +110,7 @@ fn expect_context_type_name(ast: &DeriveInput) -> Result<Ident, syn::Error> {
     let span = ast.span();
     for attr in &ast.attrs {
         let span = attr.span();
-        if attr.path.is_ident("create_model") {
+        if attr.path.is_ident("update_model") {
             let meta = match attr.parse_meta() {
                 Ok(meta) => meta,
                 Err(_error) => return Err(err("Expected parsable meta information.", span)),
