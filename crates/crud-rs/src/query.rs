@@ -149,7 +149,6 @@ fn build_condition_tree<T: MaybeColumnTrait>(
                         None => return Err(CrudError::UnknownColumnSpecified(clause.column_name.clone())),
                     },
                     ConditionElement::Condition(nested_condition) => {
-                        let nested_condition: &Condition = &*nested_condition;
                         tree = tree.add(build_condition_tree::<T>(nested_condition)?);
                     }
                 }

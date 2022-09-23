@@ -7,20 +7,20 @@ use crud_shared_types::validation::{
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CrudAction {
     Create,
     Update,
     Delete,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum When {
     Before,
     After
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ValidationContext {
     /// The CRUD action that lead to the validation.
     pub action: CrudAction,
@@ -29,7 +29,7 @@ pub struct ValidationContext {
     pub when: When,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValidationTrigger {
     CrudAction(ValidationContext),
     GlobalValidation,
