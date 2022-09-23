@@ -160,6 +160,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
         }
 
+        // TODO: Can we not just convert From<ConditionClauseValue> for std::result::Result<crud_shared_types::Value, String> by using the From trait?
         impl crud_rs::AsColType for Column {
             fn as_col_type(&self, value: crud_shared_types::ConditionClauseValue) -> std::result::Result<crud_shared_types::Value, String> {
                 match self {
