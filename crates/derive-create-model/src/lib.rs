@@ -37,13 +37,15 @@ pub fn store(input: TokenStream) -> TokenStream {
                 emit_error!(field.span(), err);
                 None
             }
-        });
+        })
+        .collect::<Vec<Option<Meta>>>(); // Clippy: Do not remove this! Eagerly collecting everything is required to emit potential error before executing abort_if_dirty.
 
     // We might have emitted errors while collecting field meta information.
     proc_macro_error::abort_if_dirty();
 
     let struct_field_meta = struct_field_meta
-        .map(|it| it.unwrap())
+        .into_iter()
+        .map(|it| it.expect("to be present"))
         .collect::<Vec<Meta>>();
 
     let struct_fields_with_meta = struct_fields(&ast.data)
@@ -53,15 +55,15 @@ pub fn store(input: TokenStream) -> TokenStream {
     let create_model_fields = struct_fields_with_meta
         .iter()
         .filter(|(_field, meta)| !meta.exclude)
-        .map(|(field, _meta)| {
+        .map(|(field, meta)| {
             let vis = &field.vis;
             let ident = &field.ident;
             let ty = &field.ty;
-            //if meta.optional {
-            //    quote! { #vis #ident: Option<#ty> }
-            //} else {
-            quote! { #vis #ident: #ty }
-            //}
+            if meta.optional {
+                quote! { #vis #ident: Option<#ty> }
+            } else {
+                quote! { #vis #ident: #ty }
+            }
         });
 
     let into_active_model_arms = struct_fields_with_meta.iter().map(|(field, meta)| {
@@ -74,6 +76,13 @@ pub fn store(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #ident: sea_orm::ActiveValue::NotSet
+                }
+            }
+        } else if meta.optional{
+            quote! {
+                #ident: match self.#ident {
+                    Some(value) => sea_orm::ActiveValue::Set(value),
+                    None => sea_orm::ActiveValue::NotSet,
                 }
             }
         } else {
@@ -171,6 +180,12 @@ fn expect_context_type_name(ast: &DeriveInput) -> Result<Ident, syn::Error> {
 
 struct Meta {
     exclude: bool,
+
+    /// The field's type will be wrapped in `Option` if this is evaluated to true.
+    /// On a create, the field is only `ActiveValue::Set` if we received a `Option::Some` variant containing the data.
+    /// We do not unset data just because we didn't receive on optional field.
+    optional: bool,
+
     use_default: bool,
 }
 
@@ -181,6 +196,7 @@ fn err(span: Span, error: &str, expectation: &str) -> syn::Error {
 fn read_meta(field: &Field) -> Result<Meta, syn::Error> {
     // If not attribute is present, field must not be excluded.
     let mut exclude = false;
+    let mut optional = false;
     let mut use_default = false;
 
     for attr in &field.attrs {
@@ -198,6 +214,9 @@ fn read_meta(field: &Field) -> Result<Meta, syn::Error> {
                     proc_macro2::TokenTree::Ident(ident) => match ident.to_string().as_str() {
                         "exclude" => {
                             exclude = read_exclude(&mut ts, span)?;
+                        }
+                        "optional" => {
+                            optional = read_optional(&mut ts, span)?;
                         }
                         "use_default" => {
                             use_default = read_use_default(&mut ts, span)?;
@@ -230,6 +249,7 @@ fn read_meta(field: &Field) -> Result<Meta, syn::Error> {
 
     Ok(Meta {
         exclude,
+        optional,
         use_default,
     })
 }
@@ -239,6 +259,55 @@ fn read_exclude(
     span: Span,
 ) -> Result<bool, syn::Error> {
     const EXPECTATION: &str = "Expected #[create_model(exclude = \"true\")]";
+    match ts
+        .next()
+        .ok_or_else(|| err(span, "Expected '='. Found nothing.", EXPECTATION))?
+    {
+        proc_macro2::TokenTree::Punct(punct) => assert_eq!(punct.as_char(), '='),
+        other => {
+            return Err(err(
+                span,
+                format!("Expected a TokenTree::Punct, but found: {other}").as_str(),
+                EXPECTATION,
+            ));
+        }
+    }
+    let ty = match ts.next().ok_or_else(|| {
+        err(
+            span,
+            "Expected '= [...]'. Found nothing after the '=' sign.",
+            EXPECTATION,
+        )
+    })? {
+        proc_macro2::TokenTree::Literal(literal) => {
+            literal.to_string().trim_matches('"').trim().to_string()
+        }
+        other => {
+            return Err(err(
+                span,
+                format!("Expected a TokenTree::Literal, but found: {other}").as_str(),
+                EXPECTATION,
+            ));
+        }
+    };
+    if ty.is_empty() {
+        return Err(err(
+            span,
+            "Expected in '= x', that x is not en empty string.",
+            EXPECTATION,
+        ));
+    }
+    return match ty.parse::<bool>() {
+        Ok(exclude) => Ok(exclude),
+        Err(error) => Err(err(span, format!("Value that came after '=' (actual: {ty}) is not parsable to type `bool`: {error:?}. Use either 'true' or 'false'.").as_str(), EXPECTATION)),
+    };
+}
+
+fn read_optional(
+    ts: &mut <proc_macro2::TokenStream as IntoIterator>::IntoIter,
+    span: Span,
+) -> Result<bool, syn::Error> {
+    const EXPECTATION: &str = "Expected #[create_model(optional = \"true\")]";
     match ts
         .next()
         .ok_or_else(|| err(span, "Expected '='. Found nothing.", EXPECTATION))?
