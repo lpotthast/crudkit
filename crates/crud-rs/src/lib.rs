@@ -21,9 +21,11 @@ pub mod prelude {
     /* Provide convenient access to all our macros. */
     pub use derive_crud_columns::CrudColumns;
     pub use derive_create_model::CreateModel;
+    pub use derive_crud_resource_context::CrudResourceContext;
     pub use derive_update_model::UpdateModel;
 
     pub use super::context::CrudContext;
+    pub use super::context::CrudResourceContext;
     pub use super::controller::CrudController;
     pub use super::resource::CrudResource;
 
@@ -80,8 +82,8 @@ pub trait CrudColumns<C: ColumnTrait, A: ActiveModelTrait> {
     fn get_id_field_name() -> String;
 }
 
-pub trait CreateModelTrait<C, A: ActiveModelTrait> {
-    fn into_active_model(self, context: &C) -> A;
+pub trait CreateModelTrait<A: ActiveModelTrait, Context> {
+    fn into_active_model(self, context: &Context) -> A;
 }
 
 pub trait UpdateModelTrait {}
@@ -92,8 +94,8 @@ pub trait NewCreateModelTrait<R: CrudResource, M: ModelTrait> {
 }
 
 /// This trait must be implemented for sea-orm *ActiveModel types. It allows to update them with arbitrary types.
-pub trait UpdateActiveModelTrait<C> {
-    fn update_with(&mut self, update: C);
+pub trait UpdateActiveModelTrait<UpdateModel, Context> {
+    fn update_with(&mut self, update: UpdateModel, context: &Context);
 }
 
 pub trait AsColType {

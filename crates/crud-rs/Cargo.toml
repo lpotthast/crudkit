@@ -12,6 +12,7 @@ chrono-utc-date-time = {path = "../../../../chrono-utc-date-time", features = [ 
 # Macros
 derive-crud-columns = { path = "../derive-crud-columns" }
 derive-create-model = { path = "../derive-create-model" }
+derive-crud-resource-context = { path = "../derive-crud-resource-context" }
 derive-update-model = { path = "../derive-update-model" }
 
 # External

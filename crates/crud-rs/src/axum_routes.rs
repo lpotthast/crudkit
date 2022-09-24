@@ -151,9 +151,11 @@ macro_rules! impl_add_crud_routes {
                 async fn update_one(
                     Extension(ref controller): Extension<Arc<CrudController>>,
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
+                    Extension(ref res_context): Extension<std::sync::Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<UpdateOne>,
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
-                    crud_rs::update::update_one::<$resource_type>(controller.clone(), context.clone(), body)
+                    // TODO: Is it necessary to call clone on all these args?
+                    crud_rs::update::update_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
                         .await
                         .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))

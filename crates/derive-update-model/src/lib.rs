@@ -5,8 +5,6 @@ use quote::quote;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput, Field};
 
-// TODO: We have no ability to say: "Include a field but do not set it when updating". Do we need this functionality?
-
 #[proc_macro_derive(UpdateModel, attributes(update_model))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
@@ -57,7 +55,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
     let update_model_fields = struct_fields_with_meta
         .iter()
-        //.filter(|(_field, meta)| !meta.excluded)
+        .filter(|(_field, meta)| !meta.exclude)
         .map(|(field, meta)| {
             let vis = &field.vis;
             let ident = &field.ident;
@@ -71,7 +69,17 @@ pub fn store(input: TokenStream) -> TokenStream {
 
     let update_active_model_stmts = struct_fields_with_meta.iter().map(|(field, meta)| {
         let ident = field.ident.as_ref().expect("Expected a named field.");
-        if meta.optional {
+        if meta.exclude {
+            if meta.use_default {
+                quote! {
+                    self.#ident = sea_orm::ActiveValue::Set(Default::default());
+                }
+            } else {
+                quote! {
+                    // Intentionally left blank. We will not set the field at all, keeping the value that is already stored.
+                }
+            }
+        } else if meta.optional {
             quote! {
                 match update.#ident {
                     Some(value) => self.#ident = sea_orm::ActiveValue::Set(value),
@@ -93,9 +101,8 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         impl crud_rs::UpdateModelTrait for UpdateModel {}
 
-        // TODO: This should also receive the crud context.
-        impl crud_rs::UpdateActiveModelTrait<UpdateModel> for ActiveModel {
-            fn update_with(&mut self, update: UpdateModel) {
+        impl crud_rs::UpdateActiveModelTrait<UpdateModel, #context_type> for ActiveModel {
+            fn update_with(&mut self, update: UpdateModel, _context: &#context_type) {
                 #(#update_active_model_stmts)*
             }
         }

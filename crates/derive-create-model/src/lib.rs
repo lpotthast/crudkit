@@ -98,8 +98,8 @@ pub fn store(input: TokenStream) -> TokenStream {
             #(#create_model_fields),*
         }
 
-        impl crud_rs::CreateModelTrait<#context_type, ActiveModel> for CreateModel {
-            fn into_active_model(self, context: &#context_type) -> ActiveModel {
+        impl crud_rs::CreateModelTrait<ActiveModel, #context_type> for CreateModel {
+            fn into_active_model(self, _context: &#context_type) -> ActiveModel {
                 ActiveModel {
                     #(#into_active_model_arms),*
                 }

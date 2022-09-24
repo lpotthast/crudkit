@@ -17,6 +17,7 @@ pub struct UpdateOne {
 pub async fn update_one<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
+    res_context: Arc<R::Context>,
     body: UpdateOne,
 ) -> Result<SaveResult<R::Model>, CrudError> {
     let model =
@@ -40,7 +41,7 @@ pub async fn update_one<R: CrudResource>(
     let mut active_model: R::ActiveModel = model.into();
 
     // Update the persisted active_model!
-    active_model.update_with(update);
+    active_model.update_with(update, &res_context);
     let entity_id = R::CrudColumn::get_id(&active_model).expect("Updatable entities must be stored and therefor have an ID!");
 
     // Run validations ON THE NEW STATE(!) but before updating the entity in the database.
