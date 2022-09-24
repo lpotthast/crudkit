@@ -127,9 +127,11 @@ pub fn store(input: TokenStream) -> TokenStream {
         // Code that clones or copies the fields value.
         let value_clone = match value_type {
             ValueType::String => quote! { entity.#field_ident.clone() },
+            ValueType::Text => quote! { entity.#field_ident.clone() },
             // We use .unwrap_or_default(), as we feed that string into Value::String (see From<ValueType>). We should get rid of this.
             ValueType::OptionalString => quote! { entity.#field_ident.clone().unwrap_or_default() },
             ValueType::Bool => quote! { entity.#field_ident },
+            ValueType::ValidationStatus => quote! { entity.#field_ident },
             ValueType::I32 => quote! { entity.#field_ident },
             ValueType::U32 => quote! { entity.#field_ident },
             ValueType::OptionalU32 => quote! { entity.#field_ident.clone() },
@@ -171,9 +173,11 @@ pub fn store(input: TokenStream) -> TokenStream {
         // An expression that, given a `value`, constructs the necessary data type value to be assigned to the field.
         let take_op = match value_type {
             ValueType::String => quote! { value.take_string() },
+            ValueType::Text => quote! { value.take_string() },
             // TODO: value should contain Option. do not force Some type...
             ValueType::OptionalString => quote! { std::option::Option::Some(value.take_string()) },
             ValueType::Bool => quote! { value.take_bool() },
+            ValueType::ValidationStatus => quote! { value.take_bool() },
             ValueType::I32 => quote! { value.take_i32() },
             ValueType::U32 => quote! { value.take_u32() },
             ValueType::OptionalU32 => quote! { value.take_optional_u32() },
@@ -191,7 +195,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::NestedTable => {
                 quote! { {
                     log::warn!("Setting a nested table dummy field is not allowed");
-                    // implicitly return `()`
+                    // implicitly returns `()`
                 } }
             }
         };
@@ -221,8 +225,10 @@ pub fn store(input: TokenStream) -> TokenStream {
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize)]
 enum ValueType {
     String,
+    Text,
     OptionalString,
     Bool,
+    ValidationStatus,
     I32,
     U32,
     OptionalU32,
@@ -238,14 +244,16 @@ enum ValueType {
     NestedTable,
 }
 
-/// Converts to the name of the `Value` variant which should be used.
+/// Converts to the name of the `crud_yew::Value` variant which should be used.
 impl From<ValueType> for Ident {
     fn from(value_type: ValueType) -> Self {
         Ident::new(
             match value_type {
                 ValueType::String => "String",
+                ValueType::Text => "Text",
                 ValueType::OptionalString => "String",
                 ValueType::Bool => "Bool",
+                ValueType::ValidationStatus => "ValidationStatus",
                 ValueType::I32 => "I32",
                 ValueType::U32 => "U32",
                 ValueType::OptionalU32 => "OptionalU32",
