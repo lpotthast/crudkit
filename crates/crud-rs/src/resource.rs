@@ -79,8 +79,6 @@ pub trait CrudResource: Sized {
 
     type ActiveModel: ActiveModelTrait<Entity = Self::Entity>
         + ActiveModelBehavior
-        // TODO: just use Self::Column here?
-        + ExcludingColumnsOnInsert<Self::Column>
         + From<Self::Model>
         + UpdateActiveModelTrait<Self::UpdateModel>
         + Clone

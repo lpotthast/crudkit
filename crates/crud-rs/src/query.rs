@@ -8,19 +8,9 @@ use sea_orm::{
 use serde::de::DeserializeOwned;
 use std::hash::Hash;
 
-pub fn prune_active_model<R: CrudResource>(active_entity: &mut R::ActiveModel) {
-    let excluded = R::ActiveModel::excluding_columns();
-    for c in excluded {
-        active_entity.not_set(*c);
-    }
-}
-
 pub fn build_insert_query<R: CrudResource>(
-    mut active_entity: R::ActiveModel,
+    active_entity: R::ActiveModel,
 ) -> Result<Insert<R::ActiveModel>, CrudError> {
-    // We might have accidentally set attributes on the "ActiveModel" that we must not have in order to persist it.
-    prune_active_model::<R>(&mut active_entity);
-
     // Building the "insert" query.
     let insert = R::Entity::insert(active_entity);
     Ok(insert)

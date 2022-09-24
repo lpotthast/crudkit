@@ -31,7 +31,6 @@ pub mod prelude {
     pub use super::CreateModelTrait;
     pub use super::UpdateModelTrait;
     pub use super::CrudColumns;
-    pub use super::ExcludingColumnsOnInsert;
     pub use super::MaybeColumnTrait;
     pub use super::UpdateActiveModelTrait;
 
@@ -55,7 +54,6 @@ pub mod prelude {
     pub use super::query::build_delete_many_query;
     pub use super::query::build_insert_query;
     pub use super::query::build_select_query;
-    pub use super::query::prune_active_model;
 
     pub use super::create::create_one;
     pub use super::create::CreateOne;
@@ -115,10 +113,6 @@ where
 pub trait MaybeColumnTrait {
     type Column: ColumnTrait + AsColType;
     fn get_col(name: &str) -> Option<Self::Column>;
-}
-
-pub trait ExcludingColumnsOnInsert<C: ColumnTrait> {
-    fn excluding_columns() -> &'static [C];
 }
 
 pub fn to_i32(value: ConditionClauseValue) -> Result<Value, String> {
