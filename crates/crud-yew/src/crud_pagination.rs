@@ -62,7 +62,7 @@ impl Component for CrudPagination {
                             self.page_options.iter().map(|page_number| {
                                 let name = match page_number {
                                     Some(page_number) => format!("{}", page_number),
-                                    None => "&hellip;".to_owned(),
+                                    None => '\u{2026}'.to_string(), // `hellip` character
                                 };
                                 html! {
                                     <CrudBtn
