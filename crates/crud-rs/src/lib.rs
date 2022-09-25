@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use async_trait::async_trait;
 use crud_shared_types::{ConditionClauseValue, Value};
 use prelude::{CrudContext, CrudResource};
 use sea_orm::{ActiveModelTrait, ColumnTrait, ModelTrait};
@@ -82,8 +83,9 @@ pub trait CrudColumns<C: ColumnTrait, A: ActiveModelTrait> {
     fn get_id_field_name() -> String;
 }
 
+#[async_trait]
 pub trait CreateModelTrait<A: ActiveModelTrait, Context> {
-    fn into_active_model(self, context: &Context) -> A;
+   async fn into_active_model(self, context: &Context) -> A;
 }
 
 pub trait UpdateModelTrait {}

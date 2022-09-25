@@ -98,8 +98,9 @@ pub fn store(input: TokenStream) -> TokenStream {
             #(#create_model_fields),*
         }
 
+        #[async_trait::async_trait]
         impl crud_rs::CreateModelTrait<ActiveModel, #context_type> for CreateModel {
-            fn into_active_model(self, _context: &#context_type) -> ActiveModel {
+            async fn into_active_model(self, _context: &#context_type) -> ActiveModel {
                 ActiveModel {
                     #(#into_active_model_arms),*
                 }
