@@ -15,7 +15,6 @@ use yewdux::prelude::*;
 
 use crate::{
     services::crud_rest_data_provider::{CrudRestDataProvider, DeleteById},
-    types::toasts::{AutomaticallyClosing, Toast, ToastVariant},
     DateTimeDisplay,
 };
 
@@ -24,8 +23,7 @@ use super::{prelude::*, stores, types::RequestError};
 pub enum Msg<T: 'static + CrudMainTrait> {
     InstanceConfigStoreUpdated(Rc<stores::instance::InstanceStore<T>>),
     InstanceViewsStoreUpdated(Rc<stores::instance_views::InstanceViewsStore>),
-    CreateViewLinked(Option<Scope<CrudCreateView<T>>>),
-    EditViewLinked(Option<Scope<CrudEditView<T>>>),
+    ViewLinked(Option<ViewLink<T>>),
     List,
     Create,
     EntityCreated((Saved<T::UpdateModel>, Option<CrudView>)),
@@ -42,9 +40,11 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     Deleted(Result<DeleteResult, RequestError>),
     OrderBy((<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)),
     PageSelected(u64),
-    Action((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
+    EntityAction((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
+    GlobalAction(CrudActionAftermath),
     SaveInput((CreateOrUpdateField<T>, Value)),
     GetInput((CreateOrUpdateField<T>, Box<dyn FnOnce(Value)>)),
+    Reload,
 }
 
 // TODO: Location in source code?
@@ -81,6 +81,11 @@ pub struct CrudInstanceConfig<T: CrudMainTrait> {
     pub items_per_page: u64,
     pub page: u64,
     pub nested: Option<NestedConfig>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct CrudStaticInstanceConfig {
+    pub actions: Vec<CrudAction>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -174,7 +179,15 @@ pub struct Props<T: CrudMainTrait> {
     pub children: ChildrenRenderer<Item>,
     pub name: String,
     pub config: CrudInstanceConfig<T>,
+    pub static_config: CrudStaticInstanceConfig,
     pub portal_target: Option<String>,
+}
+
+pub enum ViewLink<T: CrudMainTrait + 'static> {
+    List(Scope<CrudListView<T>>),
+    Create(Scope<CrudCreateView<T>>),
+    Edit(Scope<CrudEditView<T>>),
+    Read(Scope<CrudReadView<T>>),
 }
 
 pub struct CrudInstance<T: 'static + CrudMainTrait> {
@@ -184,9 +197,12 @@ pub struct CrudInstance<T: 'static + CrudMainTrait> {
     instance_views_dispatch: Dispatch<stores::instance_views::InstanceViewsStore>,
     instance_links_dispatch: Dispatch<stores::instance_links::InstanceLinksStore<T>>,
     toasts_dispatch: Dispatch<stores::toasts::Toasts>,
-    create_view_link: Option<Scope<CrudCreateView<T>>>,
-    edit_view_link: Option<Scope<CrudEditView<T>>>,
+
+    /// Initially `None`, when no view was yet created, otherwise present for 99% of this instances lifetime.
+    view_link: Option<ViewLink<T>>,
+
     config: CrudInstanceConfig<T>,
+    static_config: CrudStaticInstanceConfig,
     data_provider: CrudRestDataProvider<T>,
     entity_to_delete: Option<T::UpdateModel>,
     parent_id: Option<u32>,
@@ -221,13 +237,17 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         data_provider={self.data_provider.clone()}
                                         children={ctx.props().children.clone()}
                                         config={self.config.clone()}
+                                        static_config={self.static_config.clone()}
                                         on_create={ctx.link().callback(|_| Msg::Create)}
                                         on_read={ctx.link().callback(Msg::Read)}
                                         on_edit={ctx.link().callback(Msg::Edit)}
                                         on_delete={ctx.link().callback(Msg::Delete)}
                                         on_order_by={ctx.link().callback(Msg::OrderBy)}
                                         on_page_selected={ctx.link().callback(Msg::PageSelected)}
-                                        on_action={ctx.link().callback(Msg::Action)}
+                                        on_entity_action={ctx.link().callback(Msg::EntityAction)}
+                                        on_global_action={ctx.link().callback(Msg::GlobalAction)}
+                                        on_link={ctx.link().callback(|link: Option<Scope<CrudListView<T>>>|
+                                            Msg::ViewLinked(link.map(|link| ViewLink::List(link))))}
                                     />
                                 }
                             },
@@ -243,7 +263,8 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         on_entity_created={ctx.link().callback(Msg::EntityCreated)}
                                         on_entity_not_created_critical_errors={ctx.link().callback(|_| Msg::EntityNotCreatedDueToCriticalErrors)}
                                         on_entity_creation_failed={ctx.link().callback(Msg::EntityCreationFailed)}
-                                        on_link={ctx.link().callback(|link| Msg::CreateViewLinked(link))}
+                                        on_link={ctx.link().callback(|link: Option<Scope<CrudCreateView<T>>>|
+                                            Msg::ViewLinked(link.map(|link| ViewLink::Create(link))))}
                                     />
                                 }
                             },
@@ -273,7 +294,8 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         on_list={ctx.link().callback(|_| Msg::List)}
                                         on_create={ctx.link().callback(|_| Msg::Create)}
                                         on_delete={ctx.link().callback(Msg::Delete)}
-                                        on_link={ctx.link().callback(|link| Msg::EditViewLinked(link))}
+                                        on_link={ctx.link().callback(|link: Option<Scope<CrudEditView<T>>>|
+                                            Msg::ViewLinked(link.map(|link| ViewLink::Edit(link))))}
                                     />
                                 }
                             },
@@ -336,10 +358,10 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
             instance_links_dispatch,
             toasts_dispatch: Dispatch::new(),
 
-            create_view_link: None,
-            edit_view_link: None,
+            view_link: None,
 
             config: ctx.props().config.clone(),
+            static_config: ctx.props().static_config.clone(),
             data_provider: CrudRestDataProvider::new(ctx.props().config.api_base_url.clone()),
             entity_to_delete: None,
             parent_id: None,
@@ -405,19 +427,25 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                     false
                 }
             }
-            Msg::CreateViewLinked(link) => {
-                self.create_view_link = link;
+            Msg::ViewLinked(view_link) => {
+                self.view_link = view_link;
                 false
             }
-            Msg::EditViewLinked(link) => {
-                self.edit_view_link = link;
-                false
-            }
-            Msg::Action((action, _entity)) => {
+            Msg::EntityAction((action, _entity)) => {
                 log::warn!(
                     "Received action {:?} but no handler was specified for it!",
                     action
                 );
+                false
+            }
+            Msg::GlobalAction(action) => {
+                if let Some(toast) = action.show_toast {
+                    self.toasts_dispatch
+                        .reduce_mut(|state| state.push_toast(toast));
+                }
+                if action.reload_data {
+                    ctx.link().send_message(Msg::Reload)
+                }
                 false
             }
             Msg::List => {
@@ -453,7 +481,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             false => "Der Eintrag wurde erfolgreich erstellt.".to_owned(),
                         },
                         dismissible: false,
-                        automatically_closing: AutomaticallyClosing::WithDefaultDelay,
+                        automatically_closing: ToastAutomaticallyClosing::WithDefaultDelay,
                         close_callback: None,
                     })
                 });
@@ -469,7 +497,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                         message: "Kritische Validierungsfehler verhindern das Speichern."
                             .to_owned(),
                         dismissible: false,
-                        automatically_closing: AutomaticallyClosing::WithDelay(3000),
+                        automatically_closing: ToastAutomaticallyClosing::WithDelay {
+                            millis: 3000,
+                        },
                         close_callback: None,
                     })
                 });
@@ -487,7 +517,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             request_error
                         ),
                         dismissible: false,
-                        automatically_closing: AutomaticallyClosing::WithDelay(3000),
+                        automatically_closing: ToastAutomaticallyClosing::WithDelay {
+                            millis: 3000,
+                        },
                         close_callback: None,
                     })
                 });
@@ -510,7 +542,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             false => String::from("Eintrag wurde erfolgreich gespeichert."),
                         },
                         dismissible: false,
-                        automatically_closing: AutomaticallyClosing::WithDefaultDelay,
+                        automatically_closing: ToastAutomaticallyClosing::WithDefaultDelay,
                         close_callback: None,
                     })
                 });
@@ -526,7 +558,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                         message: "Kritische Validierungsfehler verhindern das Speichern."
                             .to_owned(),
                         dismissible: false,
-                        automatically_closing: AutomaticallyClosing::WithDelay(3000),
+                        automatically_closing: ToastAutomaticallyClosing::WithDelay {
+                            millis: 3000,
+                        },
                         close_callback: None,
                     })
                 });
@@ -544,7 +578,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             request_error
                         ),
                         dismissible: false,
-                        automatically_closing: AutomaticallyClosing::WithDelay(3000),
+                        automatically_closing: ToastAutomaticallyClosing::WithDelay {
+                            millis: 3000,
+                        },
                         close_callback: None,
                     })
                 });
@@ -629,84 +665,110 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 false
             }
             Msg::SaveInput((field, value)) => {
-                log::info!(
-                    "CrudInstance should save value '{:?}' for field '{:?}'",
-                    value,
-                    field
-                );
-                if let Some(link) = &self.create_view_link {
-                    match field {
-                        CreateOrUpdateField::CreateField(field) => {
-                            link.send_message(
-                                <CrudCreateView<T> as Component>::Message::CreateModelFieldChanged(
-                                    (field, value),
-                                ),
-                            );
+                // log::info!(
+                //     "CrudInstance saving value '{:?}' for field '{:?}'",
+                //     value,
+                //     field
+                // );
+                if let Some(view_link) = &self.view_link {
+                    match view_link {
+                        ViewLink::List(_link) => {
+                            log::warn!("Ignoring 'SaveInput' message as we are currently in the list view, which is unable to save any user inputs.");
                         }
-                        CreateOrUpdateField::UpdateField(field) => {
-                            link.send_message(
-                                <CrudCreateView<T> as Component>::Message::UpdateModelFieldChanged(
-                                    (field, value),
-                                ),
-                            );
+                        ViewLink::Create(link) => match field {
+                            CreateOrUpdateField::CreateField(field) => {
+                                link.send_message(
+                                        <CrudCreateView<T> as Component>::Message::CreateModelFieldChanged(
+                                            (field, value),
+                                        ),
+                                    );
+                            }
+                            CreateOrUpdateField::UpdateField(field) => {
+                                link.send_message(
+                                        <CrudCreateView<T> as Component>::Message::UpdateModelFieldChanged(
+                                            (field, value),
+                                        ),
+                                    );
+                            }
+                        },
+                        ViewLink::Edit(link) => match field {
+                            CreateOrUpdateField::CreateField(field) => {
+                                log::error!("CrudInstance: Cannot 'SaveInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'EditModel' field for this view.")
+                            }
+                            CreateOrUpdateField::UpdateField(field) => {
+                                link.send_message(
+                                    <CrudEditView<T> as Component>::Message::ValueChanged((
+                                        field, value,
+                                    )),
+                                );
+                            }
+                        },
+                        ViewLink::Read(_link) => {
+                            log::warn!("Ignoring 'SaveInput' message as we are currently in the read view, which is unable to save any user inputs.");
                         }
                     }
-                    //log::info!("Sent ValueChanged message to create view...");
-                } else if let Some(link) = &self.edit_view_link {
-                    match field {
-                        CreateOrUpdateField::CreateField(field) => {
-                            log::error!("CrudInstance: Cannot 'SaveInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'EditModel' field for this view.")
-                        }
-                        CreateOrUpdateField::UpdateField(field) => {
-                            link.send_message(
-                                <CrudEditView<T> as Component>::Message::ValueChanged((
-                                    field, value,
-                                )),
-                            );
-                        }
-                    }
-                    //log::info!("Sent ValueChanged message to edit view...");
                 } else {
-                    log::warn!("Could not forward SaveInput message, as neither a create view nor an edit view registered.");
+                    log::warn!("Could not forward SaveInput message, as no view link was registered in instance {:?}.", self.config);
                 }
                 false
             }
             Msg::GetInput((field, receiver)) => {
-                if let Some(link) = &self.create_view_link {
-                    match field {
-                        CreateOrUpdateField::CreateField(field) => {
-                            link.send_message(
-                                <CrudCreateView<T> as Component>::Message::GetCreateModelFieldValue(
-                                    (field.clone(), receiver),
-                                ),
-                            );
+                if let Some(view_link) = &self.view_link {
+                    match view_link {
+                        ViewLink::List(_link) => {
+                            log::warn!("Ignoring 'GetInput' message as we are currently in the list view, which is unable to retrieve any user inputs.");
                         }
-                        CreateOrUpdateField::UpdateField(field) => {
-                            link.send_message(
-                                <CrudCreateView<T> as Component>::Message::GetUpdateModelFieldValue(
-                                    (field.clone(), receiver),
-                                ),
-                            );
+                        ViewLink::Create(link) => match field {
+                            CreateOrUpdateField::CreateField(field) => {
+                                link.send_message(
+                                        <CrudCreateView<T> as Component>::Message::GetCreateModelFieldValue(
+                                            (field.clone(), receiver),
+                                        ),
+                                    );
+                            }
+                            CreateOrUpdateField::UpdateField(field) => {
+                                link.send_message(
+                                        <CrudCreateView<T> as Component>::Message::GetUpdateModelFieldValue(
+                                            (field.clone(), receiver),
+                                        ),
+                                    );
+                            }
+                        },
+                        ViewLink::Edit(link) => match field {
+                            CreateOrUpdateField::CreateField(field) => {
+                                log::error!("CrudInstance: Cannot 'GetInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'EditModel' field for this view.")
+                            }
+                            CreateOrUpdateField::UpdateField(field) => {
+                                link.send_message(
+                                    <CrudEditView<T> as Component>::Message::GetInput((
+                                        field.clone(),
+                                        receiver,
+                                    )),
+                                );
+                            }
+                        },
+                        ViewLink::Read(_link) => {
+                            log::warn!("Ignoring 'GetInput' message as we are currently in the read view, which is unable to retrieve any user inputs.");
                         }
                     }
-                    //log::info!("Sent GetInput message to create view...");
-                } else if let Some(link) = &self.edit_view_link {
-                    match field {
-                        CreateOrUpdateField::CreateField(field) => {
-                            log::error!("CrudInstance: Cannot 'GetInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'EditModel' field for this view.")
-                        }
-                        CreateOrUpdateField::UpdateField(field) => {
-                            link.send_message(<CrudEditView<T> as Component>::Message::GetInput((
-                                field.clone(),
-                                receiver,
-                            )));
-                        }
-                    }
-                    //log::info!("Sent GetInput message to edit view...");
                 } else {
                     log::warn!("Could not forward GetInput message, as neither a create view nor an edit view registered.");
                 }
                 false
+            }
+            Msg::Reload => {
+                // TODO: Can we also reload in create, edit or read view?
+                if let Some(view_link) = &self.view_link {
+                    match view_link {
+                        ViewLink::List(link) => {
+                            link.send_message(<CrudListView<T> as Component>::Message::Reload)
+                        }
+                        ViewLink::Create(_link) => todo!(),
+                        ViewLink::Edit(_link) => todo!(),
+                        ViewLink::Read(_link) => todo!(),
+                    }
+                }
+                true
             }
         }
     }

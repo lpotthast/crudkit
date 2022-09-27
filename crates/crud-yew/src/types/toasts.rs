@@ -41,13 +41,13 @@ impl std::fmt::Debug for CloseCallback {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AutomaticallyClosing {
+pub enum ToastAutomaticallyClosing {
     No,
     WithDefaultDelay,
-    /// Accepts a delay in milliseconds.
-    WithDelay(u32)
+    WithDelay { millis: u32 }
 }
 
+/// Create a new toast with the `Default`implementation, then overwrite desired fields.
 #[derive(Debug, Clone)]
 pub struct Toast {
     pub id: Uuid,
@@ -56,7 +56,7 @@ pub struct Toast {
     pub heading: String,
     pub message: String,
     pub dismissible: bool,
-    pub automatically_closing: AutomaticallyClosing,
+    pub automatically_closing: ToastAutomaticallyClosing,
     pub close_callback: Option<CloseCallback>,
 }
 
@@ -74,8 +74,8 @@ impl Default for Toast {
             variant: ToastVariant::Info,
             heading: String::new(),
             message: String::new(),
-            dismissible: true,
-            automatically_closing: AutomaticallyClosing::WithDefaultDelay,
+            dismissible: false,
+            automatically_closing: ToastAutomaticallyClosing::WithDefaultDelay,
             close_callback: None,
         }
     }

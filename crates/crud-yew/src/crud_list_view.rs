@@ -1,14 +1,17 @@
 use crud_shared_types::Order;
 use std::rc::Rc;
-use yew::{prelude::*, html::ChildrenRenderer};
+use yew::{
+    html::{ChildrenRenderer, Scope},
+    prelude::*,
+};
 use yewbi::Bi;
 
-use crate::{crud_instance::Item, services::crud_rest_data_provider::{CrudRestDataProvider, ReadMany, ReadCount}};
-
-use super::{
-    prelude::*,
-    types::RequestError,
+use crate::{
+    crud_instance::Item,
+    services::crud_rest_data_provider::{CrudRestDataProvider, ReadCount, ReadMany},
 };
+
+use super::{prelude::*, types::RequestError};
 
 pub enum Msg<T: CrudMainTrait> {
     ComponentCreated,
@@ -21,27 +24,40 @@ pub enum Msg<T: CrudMainTrait> {
     Read(T::ReadModel),
     Edit(T::ReadModel),
     Delete(T::ReadModel),
-    ActionTriggered((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
+    ActionTriggered {
+        action_id: &'static str,
+        action: Callback<Callback<Result<CrudActionAftermath, CrudActionAftermath>>>,
+    },
+    ActionExecuted {
+        action_id: &'static str,
+        result: Result<CrudActionAftermath, CrudActionAftermath>,
+    },
+    EntityActionTriggered((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
+    Reload,
 }
 
 #[derive(Properties, PartialEq)]
-pub struct Props<T: CrudMainTrait> {
+pub struct Props<T: CrudMainTrait + 'static> {
     pub children: ChildrenRenderer<Item>,
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
+    pub static_config: CrudStaticInstanceConfig,
     pub on_create: Callback<()>,
     pub on_read: Callback<T::UpdateModel>,
     pub on_edit: Callback<T::UpdateModel>,
     pub on_delete: Callback<T::UpdateModel>,
     pub on_order_by: Callback<(<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)>,
     pub on_page_selected: Callback<u64>,
-    pub on_action: Callback<(Rc<Box<dyn CrudActionTrait>>, T::ReadModel)>,
+    pub on_entity_action: Callback<(Rc<Box<dyn CrudActionTrait>>, T::ReadModel)>,
+    pub on_global_action: Callback<CrudActionAftermath>,
+    pub on_link: Callback<Option<Scope<CrudListView<T>>>>,
 }
 
 pub struct CrudListView<T: 'static + CrudMainTrait> {
     data: Result<Rc<Vec<T::ReadModel>>, NoData>,
     filter: Option<()>,
     item_count: Result<u64, NoData>,
+    actions_executing: Vec<&'static str>,
 }
 
 impl<T: CrudMainTrait> CrudListView<T> {
@@ -52,13 +68,14 @@ impl<T: CrudMainTrait> CrudListView<T> {
         let data_provider = ctx.props().data_provider.clone();
         ctx.link().send_future(async move {
             Msg::PageLoaded(
-                data_provider.read_many(ReadMany {
-                    limit: Some(items_per_page),
-                    skip: Some(items_per_page * (page - 1)),
-                    order_by: Some(order_by),
-                    condition: None,
-                })
-                .await,
+                data_provider
+                    .read_many(ReadMany {
+                        limit: Some(items_per_page),
+                        skip: Some(items_per_page * (page - 1)),
+                        order_by: Some(order_by),
+                        condition: None,
+                    })
+                    .await,
             )
         });
     }
@@ -66,7 +83,11 @@ impl<T: CrudMainTrait> CrudListView<T> {
     fn load_count(&self, ctx: &Context<CrudListView<T>>) {
         let data_provider = ctx.props().data_provider.clone();
         ctx.link().send_future(async move {
-            Msg::CountRead(data_provider.read_count(ReadCount { condition: None }).await)
+            Msg::CountRead(
+                data_provider
+                    .read_count(ReadCount { condition: None })
+                    .await,
+            )
         });
     }
 
@@ -90,12 +111,18 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
     type Properties = Props<T>;
 
     fn create(ctx: &Context<Self>) -> Self {
+        ctx.props().on_link.emit(Some(ctx.link().clone()));
         ctx.link().send_future(async move { Msg::ComponentCreated });
         Self {
             data: Err(NoData::NotYetLoaded),
             filter: None,
             item_count: Err(NoData::NotYetLoaded),
+            actions_executing: vec![],
         }
+    }
+
+    fn destroy(&mut self, ctx: &Context<Self>) {
+        ctx.props().on_link.emit(None);
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -139,8 +166,43 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                 ctx.props().on_delete.emit(entity.into());
                 false
             }
-            Msg::ActionTriggered((action, entity)) => {
-                ctx.props().on_action.emit((action, entity));
+            Msg::ActionTriggered { action_id, action } => {
+                action.emit(
+                    ctx.link()
+                        .callback(move |result| Msg::ActionExecuted { action_id, result }),
+                );
+                if !self.actions_executing.contains(&action_id) {
+                    self.actions_executing.push(action_id);
+                    true
+                } else {
+                    false
+                }
+            }
+            Msg::ActionExecuted { action_id, result } => {
+                // We currently handle both the success and the error path in the same way. This might need to be changes in the future.
+                // But the user should always state in which path we are!
+                match result {
+                    Ok(aftermath) => ctx.props().on_global_action.emit(aftermath),
+                    Err(aftermath) => ctx.props().on_global_action.emit(aftermath),
+                }
+                if let Some(index) = self
+                    .actions_executing
+                    .iter()
+                    .position(|it| *it == action_id)
+                {
+                    self.actions_executing.remove(index);
+                    true
+                } else {
+                    false
+                }
+            }
+            Msg::EntityActionTriggered((action, entity)) => {
+                ctx.props().on_entity_action.emit((action, entity));
+                false
+            }
+            Msg::Reload => {
+                self.load_page(ctx);
+                self.load_count(ctx);
                 false
             }
         }
@@ -162,6 +224,25 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                                     <span style="text-decoration: underline">{"N"}</span>{"eu"}
                                 </CrudBtnName>
                             </CrudBtn>
+
+                            {
+                                ctx.props().static_config.actions.iter()
+                                    .map(|action| match action {
+                                        CrudAction::Custom {id, name, icon, variant, action} => {
+                                            let action_id = id.clone();
+                                            let action = action.clone();
+                                            html! {
+                                                <CrudBtn
+                                                    name={name.clone()}
+                                                    variant={variant.clone()}
+                                                    icon={icon.clone()}
+                                                    disabled={self.actions_executing.contains(&id)}
+                                                    onclick={ctx.link().callback(move |_| Msg::ActionTriggered { action_id, action: action.clone()}) }/>
+                                            }
+                                        }
+                                    })
+                                    .collect::<Html>()
+                            }
                         </CrudBtnWrapper>
                     </div>
 
@@ -197,7 +278,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                     on_edit={ctx.link().callback(Msg::Edit)}
                     on_delete={ctx.link().callback(Msg::Delete)}
                     additional_item_actions={vec![]}
-                    on_additional_item_action={ctx.link().callback(Msg::ActionTriggered)}
+                    on_additional_item_action={ctx.link().callback(Msg::EntityActionTriggered)}
                 />
 
                 {

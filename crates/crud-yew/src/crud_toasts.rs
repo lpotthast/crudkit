@@ -6,7 +6,7 @@ use yew::prelude::*;
 use yewdux::prelude::*;
 
 use crate::stores;
-use crate::types::toasts::{Toast, AutomaticallyClosing, AUTOMATIC_CLOSE_DELAY};
+use crate::types::toasts::{Toast, ToastAutomaticallyClosing, AUTOMATIC_CLOSE_DELAY};
 
 use super::prelude::*;
 
@@ -70,7 +70,8 @@ impl Component for CrudToasts {
                 }
             }
         }
-        self._toasts_dispatch.reduce_mut(|state| state.remove_all_toasts())
+        self._toasts_dispatch
+            .reduce_mut(|state| state.remove_all_toasts())
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -88,23 +89,26 @@ impl Component for CrudToasts {
                     self.toasts.remove(&key);
                 }
 
-
                 // Add new toasts.
                 for toast in state.get_toasts() {
                     if !self.toasts.contains_key(&toast.created_at) {
                         // Create timeout
-                        let timeout = (toast.automatically_closing != AutomaticallyClosing::No).then(|| {
-                            let link = ctx.link().clone();
-                            let toast_clone = toast.clone();
-                            let delay = match toast.automatically_closing {
-                                AutomaticallyClosing::No => unreachable!(),
-                                AutomaticallyClosing::WithDefaultDelay => AUTOMATIC_CLOSE_DELAY,
-                                AutomaticallyClosing::WithDelay(delay) => delay,
-                            };
-                            Timeout::new(delay, move || {
-                                link.send_message(Msg::ToastTimedOut(toast_clone))
-                            })
-                        });
+                        let timeout = (toast.automatically_closing
+                            != ToastAutomaticallyClosing::No)
+                            .then(|| {
+                                let link = ctx.link().clone();
+                                let toast_clone = toast.clone();
+                                let delay = match toast.automatically_closing {
+                                    ToastAutomaticallyClosing::No => unreachable!(),
+                                    ToastAutomaticallyClosing::WithDefaultDelay => {
+                                        AUTOMATIC_CLOSE_DELAY
+                                    }
+                                    ToastAutomaticallyClosing::WithDelay { millis } => millis,
+                                };
+                                Timeout::new(delay, move || {
+                                    link.send_message(Msg::ToastTimedOut(toast_clone))
+                                })
+                            });
 
                         // Add to map
                         self.toasts.insert(
@@ -125,7 +129,8 @@ impl Component for CrudToasts {
                     }
                     self.toasts.remove(&toast.created_at);
 
-                    self._toasts_dispatch.reduce_mut(move |state| state.remove_toast_with_id(&toast.id))
+                    self._toasts_dispatch
+                        .reduce_mut(move |state| state.remove_toast_with_id(&toast.id))
                 }
                 true
             }

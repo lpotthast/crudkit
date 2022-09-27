@@ -10,8 +10,8 @@ use types::RequestError;
 use wasm_bindgen::JsCast;
 use web_sys::KeyboardEvent;
 use yew::prelude::*;
-use yewbi::Bi;
 
+pub mod crud_action;
 pub mod crud_alert;
 pub mod crud_btn;
 pub mod crud_btn_group;
@@ -73,6 +73,9 @@ pub mod prelude {
     pub use derive_field::Field;
     pub use derive_field_value::FieldValue;
 
+    pub use super::crud_action::CrudAction;
+    pub use super::crud_action::CrudActionAftermath;
+    pub use super::crud_action::CrudActionTrait;
     pub use super::crud_alert::CrudAlert;
     pub use super::crud_btn::CrudBtn;
     pub use super::crud_btn_group::CrudBtnGroup;
@@ -94,6 +97,7 @@ pub mod prelude {
     pub use super::crud_instance::CreateElements;
     pub use super::crud_instance::CrudInstance;
     pub use super::crud_instance::CrudInstanceConfig;
+    pub use super::crud_instance::CrudStaticInstanceConfig;
     pub use super::crud_leave_modal::CrudLeaveModal;
     pub use super::crud_list_view::CrudListView;
     pub use super::crud_modal::CrudModal;
@@ -123,7 +127,9 @@ pub mod prelude {
     pub use super::crud_toasts::CrudToasts;
     pub use super::crud_toggle::{CrudToggle, CrudToggleIcons};
     pub use super::crud_tree::CrudTree;
-    pub use super::CrudActionTrait;
+    pub use super::types::toasts::Toast;
+    pub use super::types::toasts::ToastAutomaticallyClosing;
+    pub use super::types::toasts::ToastVariant;
     pub use super::CrudDataTrait;
     pub use super::CrudFieldNameTrait;
     pub use super::CrudFieldTrait;
@@ -163,7 +169,7 @@ pub enum NoData {
     UpdateReturnedNothing,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Variant {
     Default, // TODO: Consider to remove this variant...
     Primary,
@@ -536,140 +542,6 @@ impl Default for FieldOptions {
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct OrderByUpdateOptions {
     pub append: bool,
-}
-
-pub trait CrudActionTrait: Debug {
-    fn get_name(&self) -> String;
-    fn get_icon(&self) -> Option<Bi>;
-    fn eq(&self, other: &dyn CrudActionTrait) -> bool;
-}
-
-#[derive(PartialEq, Debug)]
-pub struct ShowListViewAction {
-    name: String,
-    icon: Option<Bi>,
-}
-
-impl Default for ShowListViewAction {
-    fn default() -> Self {
-        Self {
-            name: "List".to_owned(),
-            icon: Some(Bi::List),
-        }
-    }
-}
-
-impl CrudActionTrait for ShowListViewAction {
-    fn get_name(&self) -> String {
-        self.name.clone()
-    }
-
-    fn get_icon(&self) -> Option<Bi> {
-        self.icon
-    }
-
-    fn eq(&self, other: &dyn CrudActionTrait) -> bool {
-        self.get_icon() == other.get_icon() && self.get_name() == other.get_name()
-    }
-}
-
-#[derive(PartialEq, Debug)]
-pub struct ShowReadViewAction {
-    name: String,
-    icon: Option<Bi>,
-}
-
-impl Default for ShowReadViewAction {
-    fn default() -> Self {
-        Self {
-            name: "Read".to_owned(),
-            icon: Some(Bi::Eye),
-        }
-    }
-}
-
-impl CrudActionTrait for ShowReadViewAction {
-    fn get_name(&self) -> String {
-        self.name.clone()
-    }
-
-    fn get_icon(&self) -> Option<Bi> {
-        self.icon
-    }
-
-    fn eq(&self, other: &dyn CrudActionTrait) -> bool {
-        self.get_icon() == other.get_icon() && self.get_name() == other.get_name()
-    }
-}
-
-#[derive(PartialEq, Debug)]
-pub struct ShowEditViewAction {
-    name: String,
-    icon: Option<Bi>,
-}
-
-impl Default for ShowEditViewAction {
-    fn default() -> Self {
-        Self {
-            name: "Edit".to_owned(),
-            icon: Some(Bi::Pencil),
-        }
-    }
-}
-
-impl CrudActionTrait for ShowEditViewAction {
-    fn get_name(&self) -> String {
-        self.name.clone()
-    }
-
-    fn get_icon(&self) -> Option<Bi> {
-        self.icon
-    }
-
-    fn eq(&self, other: &dyn CrudActionTrait) -> bool {
-        self.get_icon() == other.get_icon() && self.get_name() == other.get_name()
-    }
-}
-
-#[derive(PartialEq, Debug)]
-pub struct DeleteAction {
-    name: String,
-    icon: Option<Bi>,
-}
-
-impl Default for DeleteAction {
-    fn default() -> Self {
-        Self {
-            name: "Delete".to_owned(),
-            icon: Some(Bi::Trash),
-        }
-    }
-}
-
-impl CrudActionTrait for DeleteAction {
-    fn get_name(&self) -> String {
-        self.name.clone()
-    }
-
-    fn get_icon(&self) -> Option<Bi> {
-        self.icon
-    }
-
-    fn eq(&self, other: &dyn CrudActionTrait) -> bool {
-        self.get_icon() == other.get_icon() && self.get_name() == other.get_name()
-    }
-}
-
-impl PartialEq for dyn CrudActionTrait + '_ {
-    fn eq(&self, that: &dyn CrudActionTrait) -> bool {
-        CrudActionTrait::eq(self, that)
-    }
-}
-
-impl PartialEq<dyn CrudActionTrait> for Box<dyn CrudActionTrait + '_> {
-    fn eq(&self, that: &dyn CrudActionTrait) -> bool {
-        CrudActionTrait::eq(&**self, that)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
