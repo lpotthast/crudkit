@@ -44,7 +44,7 @@ uuid = { version = "1.1.2", features = ["js", "v4"], default-features = false }
 lazy_static = "1.4.0"
 parking_lot = "0.12.1"
 dotenv_codegen = "0.15.0"
-thiserror = "1.0.35"
+thiserror = "1.0.37"
 urlencoding = "2.1.2"
 derive_more = "0.99.17"
 dyn-clone = "1.0.9"
