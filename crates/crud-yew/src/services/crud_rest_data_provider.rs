@@ -1,6 +1,6 @@
 use super::requests::*;
 use crate::{types::RequestError, CrudDataTrait, CrudMainTrait};
-use crud_shared_types::{Condition, Order, SaveResult, DeleteResult};
+use crud_shared_types::{Condition, DeleteResult, Order, SaveResult};
 use indexmap::IndexMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
@@ -61,7 +61,8 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         self.base_condition = condition;
     }
 
-    pub async fn read_count(&self, read_count: ReadCount) -> Result<usize, RequestError> {
+    pub async fn read_count(&self, mut read_count: ReadCount) -> Result<usize, RequestError> {
+        read_count.condition = merge_conditions(self.base_condition.clone(), read_count.condition);
         let resource = T::get_resource_name();
         request_post(
             format!("{}/{resource}/crud/read-count", self.api_base_url),
