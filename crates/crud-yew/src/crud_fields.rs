@@ -2,10 +2,11 @@ use crate::crud_instance::Item;
 
 use super::prelude::*;
 use std::marker::PhantomData;
-use yew::{prelude::*, html::ChildrenRenderer};
+use yew::{html::ChildrenRenderer, prelude::*};
 
 pub enum Msg<T: CrudDataTrait> {
     ValueChanged((T::Field, Value)),
+    TabSelected(Label),
 }
 
 #[derive(Properties, PartialEq)]
@@ -17,6 +18,8 @@ pub struct Props<T: CrudDataTrait> {
     pub mode: FieldMode,
     pub current_view: CrudView,
     pub value_changed: Callback<(T::Field, Value)>,
+    pub active_tab: Option<Label>,
+    pub on_tab_selection: Callback<Label>,
 }
 
 pub struct CrudFields<T> {
@@ -39,6 +42,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                 ctx.props().value_changed.emit((field_type, value));
                 false
             }
+            Msg::TabSelected(label) => {
+                ctx.props().on_tab_selection.emit(label);
+                false
+            }
         }
     }
 
@@ -58,10 +65,15 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                         mode={ctx.props().mode.clone()}
                                         current_view={ctx.props().current_view.clone()}
                                         value_changed={ctx.props().value_changed.clone()}
+                                        active_tab={ctx.props().active_tab.clone()}
+                                        on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                                     />
                                 },
                                 Enclosing::Tabs(tabs) => html! {
-                                    <CrudTabs>
+                                    <CrudTabs
+                                        active_tab={ctx.props().active_tab.clone()}
+                                        on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
+                                    >
                                         {
                                             for tabs.iter().map(|tab| {
                                                 html_nested! {
@@ -74,6 +86,8 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                                             mode={ctx.props().mode.clone()}
                                                             current_view={ctx.props().current_view.clone()}
                                                             value_changed={ctx.props().value_changed.clone()}
+                                                            active_tab={ctx.props().active_tab.clone()}
+                                                            on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                                                         />
                                                     </CrudTab>
                                                 }
@@ -91,6 +105,8 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                             mode={ctx.props().mode.clone()}
                                             current_view={ctx.props().current_view.clone()}
                                             value_changed={ctx.props().value_changed.clone()}
+                                            active_tab={ctx.props().active_tab.clone()}
+                                            on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                                         />
                                     </div>
                                 },

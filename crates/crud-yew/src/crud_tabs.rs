@@ -11,7 +11,8 @@ pub enum Msg {
 #[derive(Properties, PartialEq)]
 pub struct Props {
     #[prop_or_default]
-    pub active_tab_name: Option<Label>,
+    pub active_tab: Option<Label>,
+    pub on_tab_selection: Callback<Label>,
     pub children: ChildrenWithProps<CrudTab>,
 }
 
@@ -22,14 +23,23 @@ pub struct CrudTabs {
 impl CrudTabs {
     fn compute_active_tab_label(ctx: &Context<Self>) -> Option<Label> {
         ctx.props()
-            .active_tab_name
+            .active_tab
             .clone()
+            .filter(|label| {
+                // We need to fall back to a default tab if the given active tab is not a valid option!
+                // TODO: children iter without internal clone (we do not render here!)
+                ctx.props()
+                    .children
+                    .iter()
+                    .any(|child| &child.props.label == label)
+            })
             .or_else(|| CrudTabs::get_first_tab_label(ctx))
     }
 
     fn get_first_tab_label(ctx: &Context<Self>) -> Option<Label> {
         ctx.props()
             .children
+            // TODO: children iter without internal clone (we do not render here!)
             .iter()
             .next()
             .map(|tab| tab.props.label.clone())
@@ -46,9 +56,10 @@ impl Component for CrudTabs {
         }
     }
 
-    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::TabSelected(tab_label) => {
+                ctx.props().on_tab_selection.emit(tab_label.clone());
                 self.active_tab = Some(tab_label);
                 true
             }
@@ -72,7 +83,7 @@ impl Component for CrudTabs {
                                 None => false,
                             };
                             html! {
-                                <div class={classes!("crud-tab-selector", is_active.then(|| "active"))} 
+                                <div class={classes!("crud-tab-selector", is_active.then(|| "active"))}
                                      onclick={ctx.link().callback(move |_| Msg::TabSelected(tab_clone.clone()))}>
                                     {tab_label.name.clone()}
                                 </div>

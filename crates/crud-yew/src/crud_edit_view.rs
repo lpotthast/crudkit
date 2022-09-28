@@ -25,6 +25,7 @@ pub enum Msg<T: CrudMainTrait> {
     SaveAndReturn,
     SaveAndNew,
     Delete,
+    TabSelected(Label),
     ValueChanged((<T::UpdateModel as CrudDataTrait>::Field, Value)),
     GetInput(
         (
@@ -48,6 +49,7 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub on_list: Callback<()>,
     pub on_create: Callback<()>,
     pub on_delete: Callback<T::UpdateModel>,
+    pub on_tab_selected: Callback<Label>,
 }
 
 pub struct CrudEditView<T: CrudMainTrait> {
@@ -104,16 +106,18 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
                     self.input = saved.entity.clone();
                     self.input_dirty = false;
                     self.entity = Ok(saved.entity);
-                },
+                }
                 SaveResult::CriticalValidationErrors => {
                     // TODO: Do something with the critical errors?
                     // Keep current entity!
-                },
+                }
             },
-            Err(err) => self.entity = Err(match from {
-                SetFrom::Fetch => NoData::FetchFailed(err),
-                SetFrom::Update => NoData::UpdateFailed(err),
-            }),
+            Err(err) => {
+                self.entity = Err(match from {
+                    SetFrom::Fetch => NoData::FetchFailed(err),
+                    SetFrom::Update => NoData::UpdateFailed(err),
+                })
+            }
         };
     }
 
@@ -204,11 +208,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                 Then::OpenListView => ctx.props().on_list.emit(()),
                                 Then::OpenCreateView => ctx.props().on_create.emit(()),
                             }
-                        },
+                        }
                         SaveResult::CriticalValidationErrors => {
                             log::info!("Entity was not updated due to critical validation errors.");
                             ctx.props().on_entity_not_updated_critical_errors.emit(());
-                        },
+                        }
                     },
                     Err(err) => {
                         log::warn!(
@@ -216,7 +220,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                             err.to_string()
                         );
                         ctx.props().on_entity_update_failed.emit(err);
-                    },
+                    }
                 }
                 true
             }
@@ -239,6 +243,10 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                         "Cannot issue a delete event, as not entity is currently loaded!"
                     ),
                 }
+                false
+            }
+            Msg::TabSelected(label) => {
+                ctx.props().on_tab_selected.emit(label);
                 false
             }
             Msg::ValueChanged((field, value)) => {
@@ -299,6 +307,8 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                     mode={FieldMode::Editable}
                                     current_view={CrudView::Edit(ctx.props().id)}
                                     value_changed={ctx.link().callback(Msg::ValueChanged)}
+                                    active_tab={ctx.props().config.active_tab.clone()}
+                                    on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                                 />
                                 </>
                             }

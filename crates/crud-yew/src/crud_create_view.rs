@@ -16,6 +16,7 @@ pub enum Msg<T: CrudMainTrait> {
     Save,
     SaveAndReturn,
     SaveAndNew,
+    TabSelected(Label),
     /// This message must only be sent if the component is actually using the CreateModel, the program will otherwise panic!
     CreateModelFieldChanged((<T::CreateModel as CrudDataTrait>::Field, Value)),
     /// This message must only be sent if the component is actually using the UpdateModel, the program will otherwise panic!
@@ -57,6 +58,7 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub on_entity_created: Callback<(Saved<T::UpdateModel>, Option<CrudView>)>,
     pub on_entity_not_created_critical_errors: Callback<()>,
     pub on_entity_creation_failed: Callback<RequestError>,
+    pub on_tab_selected: Callback<Label>,
 }
 
 /// The create view shows the form with which the user can CREATE a new entity of the given resource.
@@ -221,6 +223,10 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                 self.create_entity(ctx, Then::Reset);
                 false
             }
+            Msg::TabSelected(label) => {
+                ctx.props().on_tab_selected.emit(label);
+                false
+            }
             Msg::CreateModelFieldChanged((field, value)) => match &mut self.mode {
                 Mode::UseCreateModel {
                     initial_data: _,
@@ -361,6 +367,8 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                             mode={FieldMode::Editable}
                             current_view={CrudView::Create}
                             value_changed={ctx.link().callback(Msg::UpdateModelFieldChanged)}
+                            active_tab={ctx.props().config.active_tab.clone()}
+                            on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                         />
                     },
                     CreateElements::Custom(create_elements) => html! {
@@ -383,6 +391,8 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                             mode={FieldMode::Editable}
                             current_view={CrudView::Create}
                             value_changed={ctx.link().callback(Msg::CreateModelFieldChanged)}
+                            active_tab={ctx.props().config.active_tab.clone()}
+                            on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                         />
                     },
                 }

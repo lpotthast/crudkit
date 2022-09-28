@@ -40,6 +40,7 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     Deleted(Result<DeleteResult, RequestError>),
     OrderBy((<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)),
     PageSelected(u64),
+    TabSelected(Label),
     EntityAction((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
     GlobalAction(CrudActionAftermath),
     SaveInput((CreateOrUpdateField<T>, Value)),
@@ -80,6 +81,7 @@ pub struct CrudInstanceConfig<T: CrudMainTrait> {
     pub order_by: IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>,
     pub items_per_page: u64,
     pub page: u64,
+    pub active_tab: Option<Label>,
     pub nested: Option<NestedConfig>,
 }
 
@@ -115,6 +117,7 @@ impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {
             order_by,
             items_per_page: 10,
             page: 1,
+            active_tab: None,
             nested: None,
         }
     }
@@ -265,6 +268,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         on_entity_creation_failed={ctx.link().callback(Msg::EntityCreationFailed)}
                                         on_link={ctx.link().callback(|link: Option<Scope<CrudCreateView<T>>>|
                                             Msg::ViewLinked(link.map(|link| ViewLink::Create(link))))}
+                                        on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
                                     />
                                 }
                             },
@@ -277,6 +281,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         id={id}
                                         list_view_available={true}
                                         on_list_view={ctx.link().callback(|_| Msg::List)}
+                                        on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
                                     />
                                 }
                             },
@@ -296,6 +301,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         on_delete={ctx.link().callback(Msg::Delete)}
                                         on_link={ctx.link().callback(|link: Option<Scope<CrudEditView<T>>>|
                                             Msg::ViewLinked(link.map(|link| ViewLink::Edit(link))))}
+                                        on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
                                     />
                                 }
                             },
@@ -661,6 +667,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
             }
             Msg::PageSelected(page) => {
                 self.config.page = page;
+                self.store_config(ctx);
+                false
+            }
+            Msg::TabSelected(label) => {
+                self.config.active_tab = Some(label);
                 self.store_config(ctx);
                 false
             }

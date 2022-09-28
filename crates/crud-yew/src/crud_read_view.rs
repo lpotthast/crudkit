@@ -11,6 +11,7 @@ use super::{prelude::*, types::RequestError};
 pub enum Msg<T: CrudMainTrait> {
     Back,
     LoadedEntity(Result<Option<T::ReadModel>, RequestError>),
+    TabSelected(Label),
 }
 
 #[derive(Properties, PartialEq)]
@@ -21,6 +22,7 @@ pub struct Props<T: CrudMainTrait> {
     pub id: u32,
     pub list_view_available: bool,
     pub on_list_view: Callback<()>,
+    pub on_tab_selected: Callback<Label>,
 }
 
 pub struct CrudReadView<T: CrudMainTrait> {
@@ -57,6 +59,10 @@ impl<T: 'static + CrudMainTrait> Component for CrudReadView<T> {
                 };
                 true
             }
+            Msg::TabSelected(label) => {
+                ctx.props().on_tab_selected.emit(label);
+                false
+            }
         }
     }
 
@@ -90,6 +96,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudReadView<T> {
                                     mode={FieldMode::Readable}
                                     current_view={CrudView::Read(ctx.props().id)}
                                     value_changed={|_| {}}
+                                    on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                                 />
                                 </>
                             }
