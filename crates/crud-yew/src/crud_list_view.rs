@@ -41,7 +41,7 @@ pub struct Props<T: CrudMainTrait + 'static> {
     pub children: ChildrenRenderer<Item>,
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
-    pub static_config: CrudStaticInstanceConfig,
+    pub static_config: CrudStaticInstanceConfig<T>,
     pub on_create: Callback<()>,
     pub on_read: Callback<T::UpdateModel>,
     pub on_edit: Callback<T::UpdateModel>,

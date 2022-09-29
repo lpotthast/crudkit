@@ -42,6 +42,7 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     PageSelected(u64),
     TabSelected(Label),
     EntityAction((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
+    CustomEntityAction(CrudActionAftermath),
     GlobalAction(CrudActionAftermath),
     SaveInput((CreateOrUpdateField<T>, Value)),
     GetInput((CreateOrUpdateField<T>, Box<dyn FnOnce(Value)>)),
@@ -86,8 +87,9 @@ pub struct CrudInstanceConfig<T: CrudMainTrait> {
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct CrudStaticInstanceConfig {
+pub struct CrudStaticInstanceConfig<T: CrudMainTrait> {
     pub actions: Vec<CrudAction>,
+    pub entity_actions: Vec<CrudEntityAction<T>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -182,7 +184,7 @@ pub struct Props<T: CrudMainTrait> {
     pub children: ChildrenRenderer<Item>,
     pub name: String,
     pub config: CrudInstanceConfig<T>,
-    pub static_config: CrudStaticInstanceConfig,
+    pub static_config: CrudStaticInstanceConfig<T>,
     pub portal_target: Option<String>,
 }
 
@@ -205,7 +207,7 @@ pub struct CrudInstance<T: 'static + CrudMainTrait> {
     view_link: Option<ViewLink<T>>,
 
     config: CrudInstanceConfig<T>,
-    static_config: CrudStaticInstanceConfig,
+    static_config: CrudStaticInstanceConfig<T>,
     data_provider: CrudRestDataProvider<T>,
     entity_to_delete: Option<T::UpdateModel>,
     parent_id: Option<u32>,
@@ -291,6 +293,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         data_provider={self.data_provider.clone()}
                                         children={ctx.props().children.clone()}
                                         config={self.config.clone()}
+                                        static_config={self.static_config.clone()}
                                         id={id}
                                         list_view_available={true}
                                         on_entity_updated={ctx.link().callback(Msg::EntityUpdated)}
@@ -302,6 +305,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         on_link={ctx.link().callback(|link: Option<Scope<CrudEditView<T>>>|
                                             Msg::ViewLinked(link.map(|link| ViewLink::Edit(link))))}
                                         on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
+                                        on_entity_action={ctx.link().callback(Msg::CustomEntityAction)}
                                     />
                                 }
                             },
@@ -442,6 +446,16 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                     "Received action {:?} but no handler was specified for it!",
                     action
                 );
+                false
+            }
+            Msg::CustomEntityAction(action) => {
+                if let Some(toast) = action.show_toast {
+                    self.toasts_dispatch
+                        .reduce_mut(|state| state.push_toast(toast));
+                }
+                if action.reload_data {
+                    ctx.link().send_message(Msg::Reload)
+                }
                 false
             }
             Msg::GlobalAction(action) => {
@@ -775,7 +789,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             link.send_message(<CrudListView<T> as Component>::Message::Reload)
                         }
                         ViewLink::Create(_link) => todo!(),
-                        ViewLink::Edit(_link) => todo!(),
+                        ViewLink::Edit(link) => {
+                            link.send_message(<CrudEditView<T> as Component>::Message::Reload)
+                        },
                         ViewLink::Read(_link) => todo!(),
                     }
                 }

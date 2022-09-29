@@ -76,6 +76,8 @@ pub mod prelude {
     pub use super::crud_action::CrudAction;
     pub use super::crud_action::CrudActionAftermath;
     pub use super::crud_action::CrudActionTrait;
+    pub use super::crud_action::CrudEntityAction;
+    pub use super::crud_action::States;
     pub use super::crud_alert::CrudAlert;
     pub use super::crud_btn::CrudBtn;
     pub use super::crud_btn_group::CrudBtnGroup;

@@ -2,7 +2,82 @@ use std::fmt::Debug;
 use yew::Callback;
 use yewbi::Bi;
 
-use crate::{Variant, types::toasts::Toast};
+use crate::{types::toasts::Toast, CrudMainTrait, Variant};
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum States {
+    Create,
+    Update,
+    Read,
+}
+
+#[derive(Clone)]
+pub enum CrudEntityAction<T: CrudMainTrait> {
+    Custom {
+        id: &'static str,
+        name: String,
+        icon: Option<Bi>,
+        variant: Variant,
+        valid_in: Vec<States>,
+        action: Callback<(
+            T::UpdateModel,
+            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
+        )>,
+    },
+}
+
+impl<T: CrudMainTrait> Debug for CrudEntityAction<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Custom {
+                id,
+                name,
+                icon,
+                variant,
+                valid_in,
+                action: _,
+            } => f
+                .debug_struct("Custom")
+                .field("id", id)
+                .field("name", name)
+                .field("icon", icon)
+                .field("variant", variant)
+                .field("valid_in", valid_in)
+                .finish(),
+        }
+    }
+}
+
+impl<T: CrudMainTrait> PartialEq for CrudEntityAction<T> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Self::Custom {
+                    id: l_id,
+                    name: l_name,
+                    icon: l_icon,
+                    variant: l_variant,
+                    valid_in: l_valid_in,
+                    action: _l_action,
+                },
+                Self::Custom {
+                    id: r_id,
+                    name: r_name,
+                    icon: r_icon,
+                    variant: r_variant,
+                    valid_in: r_valid_in,
+                    action: _r_action,
+                },
+            ) => {
+                l_id == r_id
+                    && l_name == r_name
+                    && l_icon == r_icon
+                    && l_variant == r_variant
+                    && l_valid_in == r_valid_in
+            }
+        }
+    }
+}
 
 #[derive(Clone)]
 pub enum CrudAction {

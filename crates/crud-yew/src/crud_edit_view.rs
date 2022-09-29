@@ -33,6 +33,18 @@ pub enum Msg<T: CrudMainTrait> {
             Box<dyn FnOnce(Value)>,
         ),
     ),
+    ActionTriggered {
+        action_id: &'static str,
+        action: Callback<(
+            T::UpdateModel,
+            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
+        )>,
+    },
+    ActionExecuted {
+        action_id: &'static str,
+        result: Result<CrudActionAftermath, CrudActionAftermath>,
+    },
+    Reload,
 }
 
 #[derive(Properties, PartialEq)]
@@ -41,6 +53,7 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub children: ChildrenRenderer<Item>,
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
+    pub static_config: CrudStaticInstanceConfig<T>,
     pub id: u32,
     pub list_view_available: bool,
     pub on_entity_updated: Callback<Saved<T::UpdateModel>>,
@@ -50,6 +63,7 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub on_create: Callback<()>,
     pub on_delete: Callback<T::UpdateModel>,
     pub on_tab_selected: Callback<Label>,
+    pub on_entity_action: Callback<CrudActionAftermath>,
 }
 
 pub struct CrudEditView<T: CrudMainTrait> {
@@ -59,6 +73,7 @@ pub struct CrudEditView<T: CrudMainTrait> {
     // We might want to store ReadModel as entity_read here, and entity_orig as an updatable version of it...
     entity: Result<T::UpdateModel, NoData>,
     ongoing_save: bool,
+    actions_executing: Vec<&'static str>,
 }
 
 enum SetFrom {
@@ -74,6 +89,13 @@ pub enum Then {
 
 impl<T: 'static + CrudMainTrait> CrudEditView<T> {
     // TODO: Remove this code duplication!
+
+    fn load_entity(ctx: &Context<Self>) {
+        let id = ctx.props().id;
+        let data_provider = ctx.props().data_provider.clone();
+        ctx.link()
+            .send_future(async move { Msg::LoadedEntity(load_entity(data_provider, id).await) });
+    }
 
     fn set_entity(&mut self, data: Result<Option<T::ReadModel>, RequestError>, from: SetFrom) {
         self.entity = match data {
@@ -152,16 +174,14 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
 
     fn create(ctx: &Context<Self>) -> Self {
         ctx.props().on_link.emit(Some(ctx.link().clone()));
-        let id = ctx.props().id;
-        let data_provider = ctx.props().data_provider.clone();
-        ctx.link()
-            .send_future(async move { Msg::LoadedEntity(load_entity(data_provider, id).await) });
+        CrudEditView::load_entity(ctx);
         Self {
             input: Default::default(),
             input_dirty: false,
             user_wants_to_leave: false,
             entity: Err(NoData::NotYetLoaded),
             ongoing_save: false,
+            actions_executing: vec![],
         }
     }
 
@@ -262,6 +282,42 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                 receiver(field.get_value(&self.input));
                 false
             }
+            Msg::ActionTriggered { action_id, action } => {
+                action.emit((
+                    self.input.clone(),
+                    ctx.link()
+                        .callback(move |result| Msg::ActionExecuted { action_id, result }),
+                ));
+                if !self.actions_executing.contains(&action_id) {
+                    self.actions_executing.push(action_id);
+                    true
+                } else {
+                    false
+                }
+            }
+            Msg::ActionExecuted { action_id, result } => {
+                // We currently handle both the success and the error path in the same way. This might need to be changes in the future.
+                // But the user should always state in which path we are!
+                match result {
+                    Ok(aftermath) => ctx.props().on_entity_action.emit(aftermath),
+                    Err(aftermath) => ctx.props().on_entity_action.emit(aftermath),
+                }
+                if let Some(index) = self
+                    .actions_executing
+                    .iter()
+                    .position(|it| *it == action_id)
+                {
+                    self.actions_executing.remove(index);
+                    true
+                } else {
+                    false
+                }
+            }
+            Msg::Reload => {
+                CrudEditView::load_entity(ctx);
+                // load_entity triggers an async operation. Handler will re-render!
+                false
+            }
         }
     }
 
@@ -281,6 +337,27 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                                 <CrudBtn name={"Speichern und neu"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::SaveAndNew)} />
                                             </CrudBtn>
                                             <CrudBtn name={"Löschen"} variant={Variant::Danger} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::Delete)} />
+
+                                            {
+                                                ctx.props().static_config.entity_actions.iter()
+                                                    .filter_map(|action| match action {
+                                                        CrudEntityAction::Custom {id, name, icon, variant, valid_in, action} => {
+                                                            valid_in.contains(&States::Update).then(|| {
+                                                                let action_id = id.clone();
+                                                                let action = action.clone();
+                                                                html! {
+                                                                    <CrudBtn
+                                                                        name={name.clone()}
+                                                                        variant={variant.clone()}
+                                                                        icon={icon.clone()}
+                                                                        disabled={self.actions_executing.contains(&id)}
+                                                                        onclick={ctx.link().callback(move |_| Msg::ActionTriggered { action_id, action: action.clone()}) }/>
+                                                                }
+                                                            })
+                                                        }
+                                                    })
+                                                    .collect::<Html>()
+                                            }
                                         </CrudBtnWrapper>
                                     </div>
 
