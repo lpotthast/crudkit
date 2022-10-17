@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use chrono_utc_date_time::prelude::*;
 use dyn_clone::DynClone;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -198,10 +199,10 @@ impl From<Variant> for Classes {
 }
 
 // TODO: impl Clone if both types are clone, same for debug, ...
-pub trait CrudMainTrait: CrudResourceTrait + PartialEq + Default + Debug + Clone {
-    type CreateModel: CrudDataTrait;
-    type ReadModel: CrudDataTrait + Into<Self::UpdateModel>;
-    type UpdateModel: CrudDataTrait;
+pub trait CrudMainTrait: CrudResourceTrait + PartialEq + Default + Debug + Clone + Send {
+    type CreateModel: CrudDataTrait + Send;
+    type ReadModel: CrudDataTrait + Into<Self::UpdateModel> + Send;
+    type UpdateModel: CrudDataTrait + Send;
 }
 
 pub trait CrudDataTrait:
@@ -213,6 +214,7 @@ pub trait CrudDataTrait:
     + Debug
     + Serialize
     + DeserializeOwned
+    + Send
 {
     type Field: CrudFieldNameTrait
         + CrudFieldValueTrait<Self>
@@ -223,7 +225,8 @@ pub trait CrudDataTrait:
         + Clone
         + Debug
         + Serialize
-        + DeserializeOwned;
+        + DeserializeOwned
+        + Send;
 }
 
 // TODO: Rename to CrudFieldAccessTrait
@@ -242,15 +245,18 @@ pub trait CrudResourceTrait {
         Self: Sized;
 }
 
+#[async_trait]
 pub trait CrudSelectableSource: Debug {
     type Selectable: CrudSelectableTrait;
 
     fn new() -> Self;
 
-    fn load(&mut self, finished: Box<dyn FnOnce()>);
+    async fn load() -> Result<Vec<Self::Selectable>, Box<dyn std::error::Error + Send + Sync + 'static>>;
 
-    /// Returns Option, as selectable options might not have been loaded yet.
-    fn options(&self) -> Option<Vec<Self::Selectable>>;
+    fn set_selectable(&mut self, selectable: Vec<Self::Selectable>);
+
+    /// May return None if selectable options were not yet loaded.
+    fn get_selectable(&self) -> Option<Vec<Self::Selectable>>;
 }
 
 pub trait CrudSelectableTrait: Debug + Display + DynClone {
@@ -262,7 +268,7 @@ dyn_clone::clone_trait_object!(CrudSelectableTrait);
 #[derive(Debug, Clone)]
 pub enum Value {
     String(String), // TODO: Add optional string!
-    Text(String),
+    Text(String), // TODO: Add optional text!
     U32(u32),
     OptionalU32(Option<u32>),
     I32(i32),

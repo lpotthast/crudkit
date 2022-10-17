@@ -249,7 +249,7 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> Component for CrudR
 
                         link.send_message(<CrudInstance<P> as Component>::Message::SaveInput((
                             ctx.props().parent_field.clone(),
-                            value,
+                            Ok(value),
                         )));
                     }
                     None => {

@@ -8,8 +8,13 @@ use yewdux::prelude::Dispatch;
 
 use crate::{stores, CrudMainTrait};
 
-pub enum Msg<P: 'static + CrudMainTrait, T: CrudSelectableTrait + Clone + PartialEq> {
-    SourceLoaded,
+pub enum Msg<P, S, T>
+where
+    P: 'static + CrudMainTrait,
+    S: 'static + CrudSelectableSource<Selectable = T>,
+    T: 'static + CrudSelectableTrait + Clone + PartialEq
+{
+    SourcesLoaded(Result<Vec<S::Selectable>, Box<dyn std::error::Error + Send + Sync + 'static>>),
     ParentInstanceLinksStoreUpdated(Rc<stores::instance_links::InstanceLinksStore<P>>),
     CurrentValue(Value),
     SelectionChanged(Selection<T>),
@@ -59,11 +64,14 @@ where
     S: 'static + CrudSelectableSource<Selectable = T>,
     T: 'static + CrudSelectableTrait + Clone + PartialEq,
 {
-    type Message = Msg<P, T>;
+    type Message = Msg<P, S, T>;
     type Properties = Props<P>;
 
     fn create(ctx: &Context<Self>) -> Self {
-        let mut this = Self {
+        ctx.link().send_future(async move {
+            Msg::SourcesLoaded(S::load().await)
+        });
+        Self {
             _parent_instance_links_dispatch: Dispatch::subscribe(
                 ctx.link().callback(Msg::ParentInstanceLinksStoreUpdated),
             ),
@@ -72,16 +80,14 @@ where
             source: S::new(),
             selected: Selection::None,
             phantom_data_s: PhantomData {},
-        };
-        let link = ctx.link().clone();
-        this.source
-            .load(Box::new(move || link.send_message(Msg::SourceLoaded)));
-        this
+        }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::SourceLoaded => {
+            Msg::SourcesLoaded(result) => {
+                log::info!("loaded results");
+                self.source.set_selectable(result.expect("error loading selectables..."));
                 // Selectable options are now available.
                 true
             }
@@ -159,7 +165,7 @@ where
 
                         link.send_message(<CrudInstance<P> as Component>::Message::SaveInput((
                             ctx.props().parent_field.clone(),
-                            value,
+                            Ok(value),
                         )));
                     }
                     None => {
@@ -173,7 +179,7 @@ where
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
-            if let Some(selectable) = self.source.options() {
+            if let Some(selectable) = self.source.get_selectable() {
                 <CrudSelect<T>
                     options={selectable}
                     selected={self.selected.clone()}

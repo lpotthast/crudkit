@@ -10,6 +10,7 @@ use yewbi::Bi;
 
 pub enum Msg {
     Send(Value),
+    // TODO: Add SendErr variant...?
     LogInputRetrievalErr(Box<dyn std::error::Error>),
 }
 
@@ -23,7 +24,7 @@ pub struct Props<T: CrudDataTrait> {
     pub field_mode: FieldMode,
     // TODO: Must not OWN the complete entity!
     pub entity: Option<T>,
-    pub value_changed: Callback<(T::Field, Value)>, // how can we handle all possible types? serialization?
+    pub value_changed: Callback<(T::Field, Result<Value, String>)>, // how can we handle all possible types? serialization?
 }
 
 pub struct CrudField<T> {
@@ -68,7 +69,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
             Msg::Send(value) => {
                 ctx.props()
                     .value_changed
-                    .emit((ctx.props().field_type.clone(), value));
+                    .emit((ctx.props().field_type.clone(), Ok(value)));
                 false
             }
             Msg::LogInputRetrievalErr(err) => {
@@ -82,6 +83,9 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
         let options = &ctx.props().field_options;
         html! {
             match ctx.props().field_type.get_value(&self.entity) {
+                // Value::Error => html! {
+                //     "Field is in an error sate. This should not be shown!"
+                // },
                 Value::OneToOneRelation(_referenced_id) => match &ctx.props().field_mode {
                     FieldMode::Display => html! {
                         <div>{"FieldMode::Display wird von Feldern des Typs OneToOneRelation aktuell nicht unterstützt."}</div>

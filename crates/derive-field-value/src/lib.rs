@@ -128,6 +128,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         let value_clone = match value_type {
             ValueType::String => quote! { entity.#field_ident.clone() },
             ValueType::Text => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalText => quote! { entity.#field_ident.clone().unwrap_or_default() },
             // We use .unwrap_or_default(), as we feed that string into Value::String (see From<ValueType>). We should get rid of this.
             ValueType::OptionalString => quote! { entity.#field_ident.clone().unwrap_or_default() },
             ValueType::Bool => quote! { entity.#field_ident },
@@ -174,6 +175,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         let take_op = match value_type {
             ValueType::String => quote! { value.take_string() },
             ValueType::Text => quote! { value.take_string() },
+            ValueType::OptionalText => quote! { std::option::Option::Some(value.take_string()) },
             // TODO: value should contain Option. do not force Some type...
             ValueType::OptionalString => quote! { std::option::Option::Some(value.take_string()) },
             ValueType::Bool => quote! { value.take_bool() },
@@ -226,6 +228,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 enum ValueType {
     String,
     Text,
+    OptionalText,
     OptionalString,
     Bool,
     ValidationStatus,
@@ -251,6 +254,7 @@ impl From<ValueType> for Ident {
             match value_type {
                 ValueType::String => "String",
                 ValueType::Text => "Text",
+                ValueType::OptionalText => "Text",
                 ValueType::OptionalString => "String",
                 ValueType::Bool => "Bool",
                 ValueType::ValidationStatus => "ValidationStatus",

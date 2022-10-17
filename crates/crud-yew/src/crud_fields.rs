@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use yew::{html::ChildrenRenderer, prelude::*};
 
 pub enum Msg<T: CrudDataTrait> {
-    ValueChanged((T::Field, Value)),
+    ValueChanged((T::Field, Result<Value, String>)),
     TabSelected(Label),
 }
 
@@ -17,7 +17,7 @@ pub struct Props<T: CrudDataTrait> {
     pub entity: Option<T>,
     pub mode: FieldMode,
     pub current_view: CrudView,
-    pub value_changed: Callback<(T::Field, Value)>,
+    pub value_changed: Callback<(T::Field, Result<Value, String>)>,
     pub active_tab: Option<Label>,
     pub on_tab_selection: Callback<Label>,
 }

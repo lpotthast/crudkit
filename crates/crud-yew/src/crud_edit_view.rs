@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crud_shared_types::{
     Condition, ConditionClause, ConditionClauseValue, ConditionElement, Operator, SaveResult, Saved,
 };
@@ -26,7 +28,7 @@ pub enum Msg<T: CrudMainTrait> {
     SaveAndNew,
     Delete,
     TabSelected(Label),
-    ValueChanged((<T::UpdateModel as CrudDataTrait>::Field, Value)),
+    ValueChanged((<T::UpdateModel as CrudDataTrait>::Field, Result<Value, String>)),
     GetInput(
         (
             <T::UpdateModel as CrudDataTrait>::Field,
@@ -68,7 +70,13 @@ pub struct Props<T: 'static + CrudMainTrait> {
 
 pub struct CrudEditView<T: CrudMainTrait> {
     input: T::UpdateModel,
+
+    /// The input is 'dirty' if was changed: The current state of `input` is not the state we started with.
     input_dirty: bool,
+
+    /// The input is erroneous if at least one field is contained in this list.
+    input_errors: HashMap<<T::UpdateModel as CrudDataTrait>::Field, String>,
+
     user_wants_to_leave: bool,
     // We might want to store ReadModel as entity_read here, and entity_orig as an updatable version of it...
     entity: Result<T::UpdateModel, NoData>,
@@ -89,6 +97,14 @@ pub enum Then {
 
 impl<T: 'static + CrudMainTrait> CrudEditView<T> {
     // TODO: Remove this code duplication!
+
+    fn is_save_disabled(&self) -> bool {
+        self.ongoing_save || !self.input_errors.is_empty()
+    }
+    
+    fn is_delete_disabled(&self) -> bool {
+        self.ongoing_save
+    }
 
     fn load_entity(ctx: &Context<Self>) {
         let id = ctx.props().id;
@@ -178,6 +194,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
         Self {
             input: Default::default(),
             input_dirty: false,
+            input_errors: HashMap::new(),
             user_wants_to_leave: false,
             entity: Err(NoData::NotYetLoaded),
             ongoing_save: false,
@@ -269,14 +286,24 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                 ctx.props().on_tab_selected.emit(label);
                 false
             }
-            Msg::ValueChanged((field, value)) => {
-                field.set_value(&mut self.input, value);
-                // We might only want to set this to true if the new value was actually different to the old value!
-                match &self.entity {
-                    Ok(entity) => self.input_dirty = &self.input != entity,
-                    Err(_) => self.input_dirty = false,
+            Msg::ValueChanged((field, result)) => {
+                match result {
+                    Ok(value) => {
+                        field.set_value(&mut self.input, value);
+                        self.input_errors.remove(&field);
+                        // We might only want to set this to true if the new value was actually different to the old value!
+                        match &self.entity {
+                            Ok(entity) => self.input_dirty = &self.input != entity,
+                            Err(_) => self.input_dirty = false,
+                        }
+                        false
+                    },
+                    Err(err) => {
+                        self.input_errors.insert(field, err);
+                        // When we want to render the errors, set this to true.
+                        false
+                    },
                 }
-                false
             }
             Msg::GetInput((field, receiver)) => {
                 receiver(field.get_value(&self.input));
@@ -332,11 +359,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                 <div class={"crud-row crud-nav"}>
                                     <div class={"crud-col"}>
                                         <CrudBtnWrapper>
-                                            <CrudBtn name={"Speichern"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::Save)}>
-                                                <CrudBtn name={"Speichern und zurück"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::SaveAndReturn)} />
-                                                <CrudBtn name={"Speichern und neu"} variant={Variant::Primary} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::SaveAndNew)} />
+                                            <CrudBtn name={"Speichern"} variant={Variant::Primary} disabled={self.is_save_disabled()} onclick={ctx.link().callback(|_| Msg::Save)}>
+                                                <CrudBtn name={"Speichern und zurück"} variant={Variant::Primary} disabled={self.is_save_disabled()} onclick={ctx.link().callback(|_| Msg::SaveAndReturn)} />
+                                                <CrudBtn name={"Speichern und neu"} variant={Variant::Primary} disabled={self.is_save_disabled()} onclick={ctx.link().callback(|_| Msg::SaveAndNew)} />
                                             </CrudBtn>
-                                            <CrudBtn name={"Löschen"} variant={Variant::Danger} disabled={self.ongoing_save} onclick={ctx.link().callback(|_| Msg::Delete)} />
+                                            <CrudBtn name={"Löschen"} variant={Variant::Danger} disabled={self.is_delete_disabled()} onclick={ctx.link().callback(|_| Msg::Delete)} />
 
                                             {
                                                 ctx.props().static_config.entity_actions.iter()

@@ -44,7 +44,8 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     EntityAction((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
     CustomEntityAction(CrudActionAftermath),
     GlobalAction(CrudActionAftermath),
-    SaveInput((CreateOrUpdateField<T>, Value)),
+    /// Save input for a field or set this field into its error state.
+    SaveInput((CreateOrUpdateField<T>, Result<Value, String>)),
     GetInput((CreateOrUpdateField<T>, Box<dyn FnOnce(Value)>)),
     Reload,
 }

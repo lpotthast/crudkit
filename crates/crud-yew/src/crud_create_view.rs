@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crud_shared_types::{SaveResult, Saved};
 use yew::{
     html::{ChildrenRenderer, Scope},
@@ -17,12 +19,26 @@ pub enum Msg<T: CrudMainTrait> {
     SaveAndReturn,
     SaveAndNew,
     TabSelected(Label),
+
     /// This message must only be sent if the component is actually using the CreateModel, the program will otherwise panic!
-    CreateModelFieldChanged((<T::CreateModel as CrudDataTrait>::Field, Value)),
+    CreateModelFieldChanged(
+        (
+            <T::CreateModel as CrudDataTrait>::Field,
+            Result<Value, String>,
+        ),
+    ),
+
     /// This message must only be sent if the component is actually using the UpdateModel, the program will otherwise panic!
-    UpdateModelFieldChanged((<T::UpdateModel as CrudDataTrait>::Field, Value)),
+    UpdateModelFieldChanged(
+        (
+            <T::UpdateModel as CrudDataTrait>::Field,
+            Result<Value, String>,
+        ),
+    ),
+
     // After saving an entity, the CRUD system always return the UpdateModel!
     CreatedEntity(Result<SaveResult<T::UpdateModel>, RequestError>, Then),
+
     /// This message must only be sent if the component is actually using the CreateModel, the program will otherwise panic!
     GetCreateModelFieldValue(
         (
@@ -30,6 +46,7 @@ pub enum Msg<T: CrudMainTrait> {
             Box<dyn FnOnce(Value)>,
         ),
     ),
+
     /// This message must only be sent if the component is actually using the UpdateModel, the program will otherwise panic!
     GetUpdateModelFieldValue(
         (
@@ -70,6 +87,11 @@ pub struct Props<T: 'static + CrudMainTrait> {
 pub struct CrudCreateView<T: CrudMainTrait> {
     mode: Mode<T>,
     ongoing_save: bool,
+
+    // TODO: input_dirty like in EditView? Why not here?
+    /// The input is erroneous if at least one field is contained in this list.
+    create_input_errors: HashMap<<T::CreateModel as CrudDataTrait>::Field, String>,
+    update_input_errors: HashMap<<T::UpdateModel as CrudDataTrait>::Field, String>,
 }
 
 enum Mode<T: CrudMainTrait> {
@@ -198,6 +220,8 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
         Self {
             mode,
             ongoing_save: false,
+            create_input_errors: HashMap::new(),
+            update_input_errors: HashMap::new(),
         }
     }
 
@@ -227,14 +251,21 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                 ctx.props().on_tab_selected.emit(label);
                 false
             }
-            Msg::CreateModelFieldChanged((field, value)) => match &mut self.mode {
+            Msg::CreateModelFieldChanged((field, result)) => match &mut self.mode {
                 Mode::UseCreateModel {
                     initial_data: _,
                     input,
-                } => {
-                    field.set_value(input, value);
-                    false
-                }
+                } => match result {
+                    Ok(value) => {
+                        field.set_value(input, value);
+                        self.create_input_errors.remove(&field);
+                        false
+                    }
+                    Err(err) => {
+                        self.create_input_errors.insert(field, err);
+                        false
+                    }
+                },
                 Mode::UseUpdateModel {
                     initial_data: _,
                     input: _,
@@ -242,7 +273,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                     panic!("Cannot process CrudCreateView::Msg::CreateModelFieldChanged, as we are using Mode::UseUpdateModel! Sending this message is not allowed.");
                 }
             },
-            Msg::UpdateModelFieldChanged((field, value)) => match &mut self.mode {
+            Msg::UpdateModelFieldChanged((field, result)) => match &mut self.mode {
                 Mode::UseCreateModel {
                     initial_data: _,
                     input: _,
@@ -252,10 +283,17 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                 Mode::UseUpdateModel {
                     initial_data: _,
                     input,
-                } => {
-                    field.set_value(input, value);
-                    false
-                }
+                } => match result {
+                    Ok(value) => {
+                        field.set_value(input, value);
+                        self.update_input_errors.remove(&field);
+                        false
+                    }
+                    Err(err) => {
+                        self.update_input_errors.insert(field, err);
+                        false
+                    }
+                },
             },
             Msg::CreatedEntity(result, then) => {
                 self.ongoing_save = false;
