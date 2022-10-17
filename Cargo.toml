@@ -7,6 +7,6 @@ default-members = ["crates/crud-yew"]
 # Dependencies used in proc-macro implementations
 darling = "0.14.1"
 proc-macro-error = "1.0.4"
-proc-macro2 = "1.0.44"
+proc-macro2 = "1.0.47"
 quote = "1.0.21"
-syn = { version = "1.0.101", features = ["extra-traits"] }
+syn = { version = "1.0.102", features = ["extra-traits"] }

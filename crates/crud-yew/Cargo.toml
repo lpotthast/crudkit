@@ -23,7 +23,7 @@ yew-router = { git = "https://github.com/yewstack/yew.git" }
 yewdux = { git = "https://github.com/intendednull/yewdux" }
 log = "0.4.17"
 serde = { version = "1.0.145", features = ["derive"] }
-serde_json = { version = "1.0.85", features = ["raw_value"] }
+serde_json = { version = "1.0.86", features = ["raw_value"] }
 web-sys = { version = "0.3.60", features = [
     "Document",
     "Element",
@@ -40,7 +40,7 @@ indexmap = { version = "1.9.1", features = ["serde"] }
 js-sys = "0.3.60"
 gloo = "0.8.0"
 reqwest = { version = "0.11.12", features = ["json", "multipart"] }
-uuid = { version = "1.1.2", features = ["js", "v4"], default-features = false }
+uuid = { version = "1.2.1", features = ["js", "v4"], default-features = false }
 lazy_static = "1.4.0"
 parking_lot = "0.12.1"
 dotenv_codegen = "0.15.0"
