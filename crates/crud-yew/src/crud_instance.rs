@@ -2,7 +2,7 @@ use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::{
     Condition, ConditionClause, ConditionClauseValue, ConditionElement, DeleteResult, Order, Saved,
 };
-use indexmap::IndexMap;
+use indexmap::{IndexMap, indexmap};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 use uuid::Uuid;
@@ -101,8 +101,6 @@ pub enum CreateElements<T: CrudMainTrait> {
 
 impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {
     fn default() -> Self {
-        let mut order_by = IndexMap::default();
-        order_by.insert(T::ReadModel::get_id_field(), Order::Asc);
         Self {
             api_base_url: "".to_owned(),
             view: CrudView::default(),
@@ -117,7 +115,9 @@ impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {
             )],
             create_elements: CreateElements::Default,
             elements: vec![],
-            order_by,
+            order_by: indexmap! {
+                T::ReadModel::get_id_field() => Order::Asc,
+            },
             items_per_page: 10,
             page: 1,
             active_tab: None,
