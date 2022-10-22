@@ -135,6 +135,16 @@ pub fn to_i32(value: ConditionClauseValue) -> Result<Value, String> {
     }
 }
 
+pub fn to_u32(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::U32(num) => Ok(Value::U32(num)),
+        ConditionClauseValue::String(string) => parse::<u32>(&string).map(Value::U32),
+        _ => Err(format!(
+            "{value:?} can not be converted to an u32. Expected u32 or String."
+        )),
+    }
+}
+
 pub fn to_bool(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
         ConditionClauseValue::Bool(bool) => Ok(Value::Bool(bool)),
