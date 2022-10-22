@@ -118,6 +118,7 @@ impl Condition {
 pub enum Value {
     String(String),
     I32(i32),
+    U32(u32),
     Bool(bool),
     DateTime(chrono::NaiveDateTime),
 }
