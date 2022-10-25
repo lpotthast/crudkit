@@ -148,7 +148,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
             }
             Msg::CountRead(data) => {
                 self.item_count = data.map_err(NoData::FetchFailed).map(|val| val as u64);
-                false
+                true
             }
             Msg::Reset => {
                 ctx.props().on_reset.emit(());
