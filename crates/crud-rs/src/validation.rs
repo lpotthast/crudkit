@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use crud_shared_types::validation::{
-    EntityViolations, StrictEntityInfo, StrictOwnedEntityInfo, ValidationViolation, ValidatorInfo, Violations,
+    EntityViolations, StrictEntityInfo, StrictOwnedEntityInfo, ValidationViolation, ValidatorInfo,
+    Violations,
 };
-use sea_orm::{DeriveActiveEnum, EnumIter};
+use sea_orm::{ActiveEnum, DeriveActiveEnum, EnumIter, Iden};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,7 +18,7 @@ pub enum CrudAction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum When {
     Before,
-    After
+    After,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,6 +59,7 @@ pub trait EntityValidatorsTrait<T> {
 pub enum ValidationViolationType {
     #[sea_orm(string_value = "MAJOR")]
     Major,
+
     #[sea_orm(string_value = "CRITICAL")]
     Critical,
 }
@@ -132,7 +134,9 @@ pub struct PersistableViolation {
 
 /// Removes critical validations and validations without an id.
 /// TODO: Add test
-pub fn into_persistable(data: EntityViolations) -> HashMap<StrictEntityInfo, HashMap<ValidatorInfo, Vec<PersistableViolation>>> {
+pub fn into_persistable(
+    data: EntityViolations,
+) -> HashMap<StrictEntityInfo, HashMap<ValidatorInfo, Vec<PersistableViolation>>> {
     let mut entity_violations = HashMap::with_capacity(data.entity_violations.len());
     for (entity_info, validators) in data.entity_violations {
         if let Some(entity_id) = entity_info.entity_id {

@@ -5,9 +5,11 @@ edition = "2021"
 
 [dependencies]
 # Internal
-axum-websockets = {path = "../../../../axum-websockets"}
-crud-shared-types = {path = "../../../crud-shared-types"}
-chrono-utc-date-time = {path = "../../../../chrono-utc-date-time", features = [ "sea-orm" ]}
+axum-websockets = { path = "../../../../axum-websockets" }
+crud-shared-types = { path = "../../../crud-shared-types" }
+chrono-utc-date-time = { path = "../../../../chrono-utc-date-time", features = [
+    "sea-orm",
+] }
 
 # Macros
 derive-crud-columns = { path = "../derive-crud-columns" }
@@ -16,15 +18,22 @@ derive-crud-resource-context = { path = "../derive-crud-resource-context" }
 derive-update-model = { path = "../derive-update-model" }
 
 # External
-serde = { version = "1.0.145", features = ["derive"] }
-serde_json = "1.0.86"
+serde = { version = "1.0.147", features = ["derive"] }
+serde_json = "1.0.87"
 chrono = "0.4.22"
-axum = "0.5.16"
+axum = "0.5.17"
 indexmap = { version = "1.9.1", features = ["serde"] }
 paste = "1.0.9"
 log = "0.4.17"
-async-trait = "0.1.57"
+async-trait = "0.1.58"
 
-sea-orm = { version = "0.9.3", features = [ "debug-print", "runtime-tokio-rustls", "sqlx", "sqlx-postgres" ] }
-sea-query = { version = "0.27.0" }
-sea-schema = { version = "0.9.4", default-features = false, features = [ "debug-print" ] }
+sea-orm = { version = "0.10.0", features = [
+    "debug-print",
+    "runtime-tokio-rustls",
+    "sqlx",
+    "sqlx-postgres",
+] }
+sea-query = { version = "0.27.1" }
+sea-schema = { version = "0.10.1", default-features = false, features = [
+    "debug-print",
+] }
