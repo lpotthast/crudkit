@@ -135,12 +135,32 @@ pub fn to_i32(value: ConditionClauseValue) -> Result<Value, String> {
     }
 }
 
+pub fn to_i64(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::I64(num) => Ok(Value::I64(num)),
+        ConditionClauseValue::String(string) => parse::<i64>(&string).map(Value::I64),
+        _ => Err(format!(
+            "{value:?} can not be converted to an i64. Expected i64 or String."
+        )),
+    }
+}
+
 pub fn to_u32(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
         ConditionClauseValue::U32(num) => Ok(Value::U32(num)),
         ConditionClauseValue::String(string) => parse::<u32>(&string).map(Value::U32),
         _ => Err(format!(
             "{value:?} can not be converted to an u32. Expected u32 or String."
+        )),
+    }
+}
+
+pub fn to_f32(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::F32(num) => Ok(Value::F32(num)),
+        ConditionClauseValue::String(string) => parse::<f32>(&string).map(Value::F32),
+        _ => Err(format!(
+            "{value:?} can not be converted to an f32. Expected f32 or String."
         )),
     }
 }

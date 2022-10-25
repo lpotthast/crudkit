@@ -128,7 +128,13 @@ fn build_condition_tree<T: MaybeColumnTrait>(
                                 Value::I32(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }
+                                Value::I64(val) => {
+                                    tree = add_condition(tree, col, clause.operator, val)
+                                }
                                 Value::U32(val) => {
+                                    tree = add_condition(tree, col, clause.operator, val)
+                                }
+                                Value::F32(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }
                                 Value::Bool(val) => {

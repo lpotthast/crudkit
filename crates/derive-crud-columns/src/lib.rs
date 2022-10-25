@@ -70,6 +70,8 @@ pub fn store(input: TokenStream) -> TokenStream {
                             "bool" => "to_bool",
                             "u32" => "to_u32",
                             "i32" => "to_i32",
+                            "i64" => "to_i64",
+                            "f32" => "to_f32",
                             "String" => "to_string",
                             "UtcDateTime" => "to_date_time",
                             "Option" => match &path.path.segments[0].arguments {
@@ -82,6 +84,8 @@ pub fn store(input: TokenStream) -> TokenStream {
                                                 match path.path.segments[0].ident.to_string().as_str() {
                                                     "u32" => "to_u32",
                                                     "i32" => "to_i32",
+                                                    "i64" => "to_i64",
+                                                    "f32" => "to_f32",
                                                     "String" => "to_string",
                                                     "UtcDateTime" => "to_date_time",
                                                     other => {
