@@ -13,6 +13,9 @@ use crate::{
 
 use super::{prelude::*, types::RequestError};
 
+// TODO: Disable the reset button as long as there is an ongoing request!
+// TODO: Disable the reset button when a reset is going on...
+
 pub enum Msg<T: CrudMainTrait> {
     ComponentCreated,
     PageSelected(u64),
@@ -33,6 +36,7 @@ pub enum Msg<T: CrudMainTrait> {
         result: Result<CrudActionAftermath, CrudActionAftermath>,
     },
     EntityActionTriggered((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
+    Reset,
     Reload,
 }
 
@@ -42,6 +46,7 @@ pub struct Props<T: CrudMainTrait + 'static> {
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
     pub static_config: CrudStaticInstanceConfig<T>,
+    pub on_reset: Callback<()>,
     pub on_create: Callback<()>,
     pub on_read: Callback<T::UpdateModel>,
     pub on_edit: Callback<T::UpdateModel>,
@@ -143,6 +148,10 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
             }
             Msg::CountRead(data) => {
                 self.item_count = data.map_err(NoData::FetchFailed).map(|val| val as u64);
+                false
+            }
+            Msg::Reset => {
+                ctx.props().on_reset.emit(());
                 true
             }
             Msg::ToggleFilter => todo!(),
@@ -248,6 +257,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
 
                     <div class={"crud-col crud-col-flex-end"}>
                         <CrudBtnWrapper>
+                            <CrudBtn name={""} variant={Variant::Default} icon={Bi::ArrowRepeat} disabled={false} onclick={ctx.link().callback(|_| Msg::Reset)}>
+                                <CrudBtnName>
+                                    {"Reset"}
+                                </CrudBtnName>
+                            </CrudBtn>
                             <CrudBtn name={""} variant={Variant::Primary} icon={Bi::Search} disabled={true} onclick={ctx.link().callback(|_| Msg::ToggleFilter)}>
                                 <CrudBtnName>
                                     {"Filter"}

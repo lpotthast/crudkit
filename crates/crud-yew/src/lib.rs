@@ -251,7 +251,8 @@ pub trait CrudSelectableSource: Debug {
 
     fn new() -> Self;
 
-    async fn load() -> Result<Vec<Self::Selectable>, Box<dyn std::error::Error + Send + Sync + 'static>>;
+    async fn load(
+    ) -> Result<Vec<Self::Selectable>, Box<dyn std::error::Error + Send + Sync + 'static>>;
 
     fn set_selectable(&mut self, selectable: Vec<Self::Selectable>);
 
@@ -268,10 +269,12 @@ dyn_clone::clone_trait_object!(CrudSelectableTrait);
 #[derive(Debug, Clone)]
 pub enum Value {
     String(String), // TODO: Add optional string!
-    Text(String), // TODO: Add optional text!
+    Text(String),   // TODO: Add optional text!
     U32(u32),
     OptionalU32(Option<u32>),
     I32(i32),
+    I64(i64),
+    OptionalI64(Option<i64>),
     F32(f32),
     Bool(bool),
     // Specialized bool-case, render as a green check mark if false and an orange exclamation mark if true.
@@ -319,6 +322,26 @@ impl Value {
             // This has some potential data loss...
             // TODO: Can we remove this? Without, this created a panic in fcs/servers/labels/new
             Self::U32(u32) => u32 as i32,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_i64(self) -> i64 {
+        match self {
+            Self::I64(i64) => i64,
+            // This has some potential data loss...
+            // TODO: Can we remove this? Without, this created a panic in fcs/servers/labels/new
+            //Self::U32(u32) => u32 as i32,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_i64(self) -> Option<i64> {
+        match self {
+            Self::I64(value) => Some(value),
+            Self::OptionalI64(value) => value,
+            Self::String(string) => string
+                .parse::<i64>()
+                .map_err(|err| log::warn!("take_optional_i64 could not pase string: {err}"))
+                .ok(),
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -417,27 +440,32 @@ impl Value {
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::String(string) => f.write_str(string),
-            Value::Text(string) => f.write_str(string),
-            Value::U32(u32) => f.write_str(&u32.to_string()),
-            Value::OptionalU32(optional_u32) => match optional_u32 {
-                Some(u32) => f.write_str(&u32.to_string()),
+            Value::String(value) => f.write_str(value),
+            Value::Text(value) => f.write_str(value),
+            Value::U32(value) => f.write_str(&value.to_string()),
+            Value::OptionalU32(value) => match value {
+                Some(value) => f.write_str(&value.to_string()),
                 None => f.write_str("-"),
             },
-            Value::I32(i32) => f.write_str(&i32.to_string()),
-            Value::F32(f32) => f.write_str(&f32.to_string()),
-            Value::Bool(bool) => f.write_str(&bool.to_string()),
-            Value::ValidationStatus(bool) => f.write_str(&bool.to_string()),
-            Value::UtcDateTime(utc_date_time) => f.write_str(&utc_date_time.to_rfc3339()),
-            Value::OptionalUtcDateTime(optional_utc_date_time) => match optional_utc_date_time {
-                Some(utc_date_time) => f.write_str(&utc_date_time.to_rfc3339()),
+            Value::I32(value) => f.write_str(&value.to_string()),
+            Value::I64(value) => f.write_str(&value.to_string()),
+            Value::OptionalI64(value) => match value {
+                Some(value) => f.write_str(&value.to_string()),
+                None => f.write_str("-"),
+            },
+            Value::F32(value) => f.write_str(&value.to_string()),
+            Value::Bool(value) => f.write_str(&value.to_string()),
+            Value::ValidationStatus(value) => f.write_str(&value.to_string()),
+            Value::UtcDateTime(value) => f.write_str(&value.to_rfc3339()),
+            Value::OptionalUtcDateTime(value) => match value {
+                Some(value) => f.write_str(&value.to_rfc3339()),
                 None => f.write_str(""),
             },
-            Value::OneToOneRelation(option_u32) => match option_u32 {
-                Some(u32) => f.write_str(&u32.to_string()),
+            Value::OneToOneRelation(value) => match value {
+                Some(value) => f.write_str(&value.to_string()),
                 None => f.write_str(""),
             },
-            Value::NestedTable(u32) => f.write_str(&u32.to_string()),
+            Value::NestedTable(value) => f.write_str(&value.to_string()),
             Value::Select(selected) => f.write_str(&selected.to_string()),
             Value::OptionalSelect(selected) => match selected {
                 Some(selected) => f.write_str(&selected.to_string()),

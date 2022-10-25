@@ -47,6 +47,7 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     /// Save input for a field or set this field into its error state.
     SaveInput((CreateOrUpdateField<T>, Result<Value, String>)),
     GetInput((CreateOrUpdateField<T>, Box<dyn FnOnce(Value)>)),
+    Reset,
     Reload,
 }
 
@@ -244,6 +245,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         children={ctx.props().children.clone()}
                                         config={self.config.clone()}
                                         static_config={self.static_config.clone()}
+                                        on_reset={ctx.link().callback(|_| Msg::Reset)}
                                         on_create={ctx.link().callback(|_| Msg::Create)}
                                         on_read={ctx.link().callback(Msg::Read)}
                                         on_edit={ctx.link().callback(Msg::Edit)}
@@ -781,6 +783,15 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                     log::warn!("Could not forward GetInput message, as neither a create view nor an edit view registered.");
                 }
                 false
+            }
+            Msg::Reset => {
+                self.config = ctx.props().config.clone();
+                self.static_config = ctx.props().static_config.clone();
+                self.store_config(ctx);
+                // This will ultimately trigger a rerender, but...
+                ctx.link().send_message(Msg::Reload);
+                // We have to propagate the new state first, so that the view fetches the correct data (as stated in the default config)!
+                true
             }
             Msg::Reload => {
                 // TODO: Can we also reload in create, edit or read view?

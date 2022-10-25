@@ -47,6 +47,8 @@ pub fn store(input: TokenStream) -> TokenStream {
                 "bool" => ValueType::Bool,
                 "u32" => ValueType::U32,
                 "i32" => ValueType::I32,
+                "i64" => ValueType::I64,
+                "f32" => ValueType::F32,
                 "String" => ValueType::String,
                 "UtcDateTime" => ValueType::UtcDateTime,
                 "Option" => match &path.path.segments[0].arguments {
@@ -57,6 +59,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                             syn::GenericArgument::Type(ty) => {
                                 if let syn::Type::Path(path) = ty {
                                     match path.path.segments[0].ident.to_string().as_str() {
+                                        "i64" => ValueType::OptionalI64,
                                         "u32" => ValueType::OptionalU32,
                                         "String" => ValueType::OptionalString,
                                         "UtcDateTime" => ValueType::OptionalUtcDateTime,
@@ -134,6 +137,8 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::Bool => quote! { entity.#field_ident },
             ValueType::ValidationStatus => quote! { entity.#field_ident },
             ValueType::I32 => quote! { entity.#field_ident },
+            ValueType::I64 => quote! { entity.#field_ident },
+            ValueType::OptionalI64 => quote! { entity.#field_ident.clone() },
             ValueType::U32 => quote! { entity.#field_ident },
             ValueType::OptionalU32 => quote! { entity.#field_ident.clone() },
             ValueType::F32 => quote! { entity.#field_ident },
@@ -181,6 +186,8 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::Bool => quote! { value.take_bool() },
             ValueType::ValidationStatus => quote! { value.take_bool() },
             ValueType::I32 => quote! { value.take_i32() },
+            ValueType::I64 => quote! { value.take_i64() },
+            ValueType::OptionalI64 => quote! { value.take_optional_i64() },
             ValueType::U32 => quote! { value.take_u32() },
             ValueType::OptionalU32 => quote! { value.take_optional_u32() },
             ValueType::F32 => quote! { value.take_f32() },
@@ -233,6 +240,8 @@ enum ValueType {
     Bool,
     ValidationStatus,
     I32,
+    I64,
+    OptionalI64,
     U32,
     OptionalU32,
     F32,
@@ -259,6 +268,8 @@ impl From<ValueType> for Ident {
                 ValueType::Bool => "Bool",
                 ValueType::ValidationStatus => "ValidationStatus",
                 ValueType::I32 => "I32",
+                ValueType::I64 => "I64",
+                ValueType::OptionalI64 => "OptionalI64",
                 ValueType::U32 => "U32",
                 ValueType::OptionalU32 => "OptionalU32",
                 ValueType::F32 => "F32",

@@ -362,6 +362,95 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         </div>
                     },
                 },
+                Value::I64(value) => match &ctx.props().field_mode {
+                    FieldMode::Display => html! {
+                        <div>{format!("{}", value)}</div>
+                    },
+                    FieldMode::Readable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            <input
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                type={"number"}
+                                value={format!("{}", value)}
+                                disabled={true}
+                            />
+                        </div>
+                    },
+                    FieldMode::Editable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            <input
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                type={"number"}
+                                value={format!("{}", value)}
+                                onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => match input.value().parse::<i64>() {
+                                        Ok(i64) => Msg::Send(Value::I64(i64)),
+                                        Err(err) =>Msg::LogInputRetrievalErr(err.into()),
+                                    }
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
+                                onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => match input.value().parse::<i64>() {
+                                        Ok(i64) => Msg::Send(Value::I64(i64)),
+                                        Err(err) =>Msg::LogInputRetrievalErr(err.into()),
+                                    }
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
+                                disabled={options.disabled}
+                            />
+                        </div>
+                    },
+                },
+                Value::OptionalI64(value) => match &ctx.props().field_mode {
+                    FieldMode::Display => match value {
+                        Some(value) => html! { <div>{format!("{}", value)}</div> },
+                        None => html! { "-" },
+                    },
+                    // TODO: Use nullable input field!
+                    FieldMode::Readable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            <input
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                type={"number"}
+                                value={format!("{}", value.unwrap_or_default())}
+                                disabled={true}
+                            />
+                        </div>
+                    },
+                    // TODO: Use nullable input field!
+                    FieldMode::Editable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            <input
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                type={"number"}
+                                value={format!("{}", value.unwrap_or_default())}
+                                onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => match input.value().parse::<i64>() {
+                                        Ok(i64) => Msg::Send(Value::OptionalI64(Some(i64))),
+                                        Err(err) =>Msg::LogInputRetrievalErr(err.into()),
+                                    }
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
+                                onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
+                                    Ok(input) => match input.value().parse::<i64>() {
+                                        Ok(i64) => Msg::Send(Value::OptionalI64(Some(i64))),
+                                        Err(err) =>Msg::LogInputRetrievalErr(err.into()),
+                                    }
+                                    Err(err) => Msg::LogInputRetrievalErr(err.into())
+                                })}
+                                disabled={options.disabled}
+                            />
+                        </div>
+                    },
+                },
                 Value::F32(value) => match &ctx.props().field_mode {
                     FieldMode::Display => html! {
                         <div>{format!("{}", value)}</div>
