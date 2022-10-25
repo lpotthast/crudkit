@@ -7,10 +7,10 @@ edition = "2021"
 
 [dependencies]
 # Internal
-derive-field = { path = "../derive-field"}
-derive-field-value = { path = "../derive-field-value"}
-derive-crud-resource= { path = "../derive-crud-resource"}
-derive-crud-selectable= { path = "../derive-crud-selectable"}
+derive-field = { path = "../derive-field" }
+derive-field-value = { path = "../derive-field-value" }
+derive-crud-resource = { path = "../derive-crud-resource" }
+derive-crud-selectable = { path = "../derive-crud-selectable" }
 
 yewbi = { path = "../../../../yewbi" }
 yewdux-global-stores = { path = "../../../../yewdux-global-stores" }
@@ -18,12 +18,12 @@ chrono-utc-date-time = { path = "../../../../chrono-utc-date-time" }
 crud-shared-types = { path = "../../../crud-shared-types" }
 
 # External
-yew = { git = "https://github.com/yewstack/yew", features = ["tokio", "csr"] }
+yew = { git = "https://github.com/yewstack/yew", features = ["csr"] }
 yew-router = { git = "https://github.com/yewstack/yew.git" }
 yewdux = { git = "https://github.com/intendednull/yewdux" }
 log = "0.4.17"
-serde = { version = "1.0.145", features = ["derive"] }
-serde_json = { version = "1.0.86", features = ["raw_value"] }
+serde = { version = "1.0.147", features = ["derive"] }
+serde_json = { version = "1.0.87", features = ["raw_value"] }
 web-sys = { version = "0.3.60", features = [
     "Document",
     "Element",
@@ -48,7 +48,7 @@ thiserror = "1.0.37"
 urlencoding = "2.1.2"
 derive_more = "0.99.17"
 dyn-clone = "1.0.9"
-async-trait = "0.1.57"
+async-trait = "0.1.58"
 
 # Only used in crud-datetime
 chrono = "0.4.22"
