@@ -11,6 +11,7 @@ pub mod context;
 pub mod controller;
 pub mod create;
 pub mod delete;
+pub mod lifetime;
 pub mod query;
 pub mod read;
 pub mod resource;

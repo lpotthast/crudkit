@@ -164,9 +164,10 @@ macro_rules! impl_add_crud_routes {
                 async fn delete_by_id(
                     Extension(ref controller): Extension<Arc<CrudController>>,
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
+                    Extension(ref res_context): Extension<std::sync::Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<DeleteById>,
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
-                    crud_rs::delete::delete_by_id::<$resource_type>(controller.clone(), context.clone(), body)
+                    crud_rs::delete::delete_by_id::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
                         .await
                         .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))
@@ -175,9 +176,10 @@ macro_rules! impl_add_crud_routes {
                 async fn delete_one(
                     Extension(ref controller): Extension<Arc<CrudController>>,
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
+                    Extension(ref res_context): Extension<std::sync::Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<DeleteOne<$resource_type>>,
                 ) -> Result<Json<JsonValue>, AxumCrudError> {
-                    crud_rs::delete::delete_one::<$resource_type>(controller.clone(), context.clone(), body)
+                    crud_rs::delete::delete_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
                         .await
                         .map(|res| Json(json!(res)))
                         .map_err(|err| AxumCrudError(err))

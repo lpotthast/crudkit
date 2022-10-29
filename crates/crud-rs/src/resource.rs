@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{lifetime::CrudLifetime, prelude::*};
 use sea_orm::{
     ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, FromQueryResult,
     IntoActiveModel, ModelTrait,
@@ -105,6 +105,9 @@ pub trait CrudResource: Sized {
     type ResourceType: Debug + Into<&'static str> + Clone + Copy;
 
     type Context: CrudResourceContext + Send + Sync + 'static;
+
+    type HookData: Default + Send + Sync + 'static;
+    type Lifetime: CrudLifetime<Self>;
 
     const TYPE: Self::ResourceType;
 }

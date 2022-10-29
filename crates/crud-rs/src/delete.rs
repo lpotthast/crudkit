@@ -1,6 +1,7 @@
 use crate::{
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
+    lifetime::{CrudLifetime, Abort},
 };
 use crud_shared_types::{
     validation::StrictOwnedEntityInfo,
@@ -33,6 +34,7 @@ pub struct DeleteMany {
 pub async fn delete_by_id<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
+    res_context: Arc<R::Context>,
     body: DeleteById,
 ) -> Result<DeleteResult, CrudError> {
     let select = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
@@ -48,14 +50,21 @@ pub async fn delete_by_id<R: CrudResource>(
         )])),
     )?;
 
-    let entity = select
+    let model = select
         .one(controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?
         .ok_or(CrudError::ReadOneFoundNone)?;
 
-    let active_entity = entity.clone().into();
-    let entity_id = R::CrudColumn::get_id(&active_entity)
+    let hook_data = R::HookData::default();
+    let (abort, hook_data) = R::Lifetime::before_delete(&model, &res_context, hook_data).await.expect("before_create to no error");
+
+    if let Abort::Yes { reason } = abort {
+        return Ok(DeleteResult::Aborted { reason })
+    }
+
+    let active_model = model.clone().into();
+    let entity_id = R::CrudColumn::get_id(&active_model)
         .expect("Stored entity without an ID should be impossible!");
 
     // Validate the entity, so that we can block its deletion if validators say so.
@@ -63,7 +72,7 @@ pub async fn delete_by_id<R: CrudResource>(
         action: CrudAction::Delete,
         when: When::Before,
     });
-    let partial_validation_results = context.validator.validate_single(&active_entity, trigger);
+    let partial_validation_results = context.validator.validate_single(&active_model, trigger);
 
     // Prevent deletion on critical errors.
     if partial_validation_results.has_critical_violations() {
@@ -77,9 +86,13 @@ pub async fn delete_by_id<R: CrudResource>(
     }
 
     // Delete the entity in the database.
-    let delete_result = R::Model::delete(entity, controller.get_database_connection())
+    let cloned_model = model.clone();
+    let delete_result = R::Model::delete(model, controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;
+
+
+    let _hook_data = R::Lifetime::after_delete(&cloned_model, &res_context, hook_data).await;
 
     // Deleting the entity could have introduced new validation errors in other parts ot the system.
     // TODO: let validation run again...
@@ -108,6 +121,7 @@ pub async fn delete_by_id<R: CrudResource>(
 pub async fn delete_one<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
+    res_context: Arc<R::Context>,
     body: DeleteOne<R>,
 ) -> Result<DeleteResult, CrudError> {
     let select = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
@@ -117,14 +131,21 @@ pub async fn delete_one<R: CrudResource>(
         &body.condition,
     )?;
 
-    let entity = select
+    let model = select
         .one(controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?
         .ok_or(CrudError::ReadOneFoundNone)?;
 
-    let active_entity = entity.clone().into();
-    let entity_id = R::CrudColumn::get_id(&active_entity)
+    let hook_data = R::HookData::default();
+    let (abort, hook_data) = R::Lifetime::before_delete(&model, &res_context, hook_data).await.expect("before_create to no error");
+
+    if let Abort::Yes { reason } = abort {
+        return Ok(DeleteResult::Aborted { reason })
+    }
+
+    let active_model = model.clone().into();
+    let entity_id = R::CrudColumn::get_id(&active_model)
         .expect("Stored entity without an ID should be impossible!");
 
     // Validate the entity, so that we can block its deletion if validators say so.
@@ -132,7 +153,7 @@ pub async fn delete_one<R: CrudResource>(
         action: CrudAction::Delete,
         when: When::Before,
     });
-    let partial_validation_results = context.validator.validate_single(&active_entity, trigger);
+    let partial_validation_results = context.validator.validate_single(&active_model, trigger);
 
     // Prevent deletion on critical errors.
     if partial_validation_results.has_critical_violations() {
@@ -146,9 +167,12 @@ pub async fn delete_one<R: CrudResource>(
     }
 
     // Delete the entity in the database.
-    let delete_result = R::Model::delete(entity, controller.get_database_connection())
+    let cloned_model = model.clone();
+    let delete_result = R::Model::delete(model, controller.get_database_connection())
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;
+
+    let _hook_data = R::Lifetime::after_delete(&cloned_model, &res_context, hook_data).await;
 
     // All previous validations regarding this entity must be deleted!
     context
@@ -176,6 +200,7 @@ pub async fn delete_many<R: CrudResource>(
     _context: Arc<CrudContext<R>>,
     body: DeleteMany,
 ) -> Result<DeleteResult, CrudError> {
+    todo!();
     // TODO: Add missing validation logic to this function.
     let delete_many = build_delete_many_query::<R::Entity>(&body.condition)?;
     let delete_result = delete_many
