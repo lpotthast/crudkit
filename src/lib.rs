@@ -134,11 +134,17 @@ pub struct Saved<T> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SaveResult<T> {
     Saved(Saved<T>),
+    Aborted {
+        reason: String,
+    },
     CriticalValidationErrors,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DeleteResult {
     Deleted(u64),
+    Aborted {
+        reason: String,
+    },
     CriticalValidationErrors,
 }
