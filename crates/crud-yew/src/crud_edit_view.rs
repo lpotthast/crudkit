@@ -59,6 +59,7 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub id: u32,
     pub list_view_available: bool,
     pub on_entity_updated: Callback<Saved<T::UpdateModel>>,
+    pub on_entity_update_aborted: Callback<String>,
     pub on_entity_not_updated_critical_errors: Callback<()>,
     pub on_entity_update_failed: Callback<RequestError>,
     pub on_list: Callback<()>,
@@ -144,6 +145,9 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
                     self.input = saved.entity.clone();
                     self.input_dirty = false;
                     self.entity = Ok(saved.entity);
+                }
+                SaveResult::Aborted { reason: _ } => {
+                    // Do nothing...
                 }
                 SaveResult::CriticalValidationErrors => {
                     // TODO: Do something with the critical errors?
@@ -245,6 +249,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                 Then::OpenListView => ctx.props().on_list.emit(()),
                                 Then::OpenCreateView => ctx.props().on_create.emit(()),
                             }
+                        }
+                        SaveResult::Aborted { reason } => {
+                            ctx.props().on_entity_update_aborted.emit(reason);
                         }
                         SaveResult::CriticalValidationErrors => {
                             log::info!("Entity was not updated due to critical validation errors.");

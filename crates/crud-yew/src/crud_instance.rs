@@ -27,9 +27,11 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     List,
     Create,
     EntityCreated((Saved<T::UpdateModel>, Option<CrudView>)),
+    EntityCreationAborted(String),
     EntityNotCreatedDueToCriticalErrors,
     EntityCreationFailed(RequestError),
     EntityUpdated(Saved<T::UpdateModel>),
+    EntityUpdateAborted(String),
     EntityNotUpdatedDueToCriticalErrors,
     EntityUpdateFailed(RequestError),
     Read(T::UpdateModel),
@@ -269,6 +271,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         list_view_available={true}
                                         on_list_view={ctx.link().callback(|_| Msg::List)}
                                         on_entity_created={ctx.link().callback(Msg::EntityCreated)}
+                                        on_entity_creation_aborted={ctx.link().callback(Msg::EntityCreationAborted)}
                                         on_entity_not_created_critical_errors={ctx.link().callback(|_| Msg::EntityNotCreatedDueToCriticalErrors)}
                                         on_entity_creation_failed={ctx.link().callback(Msg::EntityCreationFailed)}
                                         on_link={ctx.link().callback(|link: Option<Scope<CrudCreateView<T>>>|
@@ -300,6 +303,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         id={id}
                                         list_view_available={true}
                                         on_entity_updated={ctx.link().callback(Msg::EntityUpdated)}
+                                        on_entity_update_aborted={ctx.link().callback(Msg::EntityUpdateAborted)}
                                         on_entity_not_updated_critical_errors={ctx.link().callback(|_| Msg::EntityNotUpdatedDueToCriticalErrors)}
                                         on_entity_update_failed={ctx.link().callback(Msg::EntityUpdateFailed)}
                                         on_list={ctx.link().callback(|_| Msg::List)}
@@ -510,6 +514,23 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 });
                 true
             }
+            Msg::EntityCreationAborted(reason) => {
+                self.toasts_dispatch.reduce_mut(move |state| {
+                    state.push_toast(Toast {
+                        id: Uuid::new_v4(),
+                        created_at: UtcDateTime::now(),
+                        variant: ToastVariant::Error,
+                        heading: "Nicht erstellt".to_owned(),
+                        message: format!("Speichern abgebrochen: {reason}"),
+                        dismissible: false,
+                        automatically_closing: ToastAutomaticallyClosing::WithDelay {
+                            millis: 4000,
+                        },
+                        close_callback: None,
+                    })
+                });
+                false
+            }
             Msg::EntityNotCreatedDueToCriticalErrors => {
                 self.toasts_dispatch.reduce_mut(move |state| {
                     state.push_toast(Toast {
@@ -521,7 +542,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             .to_owned(),
                         dismissible: false,
                         automatically_closing: ToastAutomaticallyClosing::WithDelay {
-                            millis: 3000,
+                            millis: 4000,
                         },
                         close_callback: None,
                     })
@@ -541,7 +562,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                         ),
                         dismissible: false,
                         automatically_closing: ToastAutomaticallyClosing::WithDelay {
-                            millis: 3000,
+                            millis: 4000,
                         },
                         close_callback: None,
                     })
@@ -571,6 +592,23 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 });
                 true
             }
+            Msg::EntityUpdateAborted(reason) => {
+                self.toasts_dispatch.reduce_mut(move |state| {
+                    state.push_toast(Toast {
+                        id: Uuid::new_v4(),
+                        created_at: UtcDateTime::now(),
+                        variant: ToastVariant::Error,
+                        heading: "Nicht aktualisiert".to_owned(),
+                        message: format!("Speichern abgebrochen: {reason}"),
+                        dismissible: false,
+                        automatically_closing: ToastAutomaticallyClosing::WithDelay {
+                            millis: 4000,
+                        },
+                        close_callback: None,
+                    })
+                });
+                false
+            }
             Msg::EntityNotUpdatedDueToCriticalErrors => {
                 self.toasts_dispatch.reduce_mut(move |state| {
                     state.push_toast(Toast {
@@ -582,7 +620,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             .to_owned(),
                         dismissible: false,
                         automatically_closing: ToastAutomaticallyClosing::WithDelay {
-                            millis: 3000,
+                            millis: 4000,
                         },
                         close_callback: None,
                     })
@@ -602,7 +640,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                         ),
                         dismissible: false,
                         automatically_closing: ToastAutomaticallyClosing::WithDelay {
-                            millis: 3000,
+                            millis: 4000,
                         },
                         close_callback: None,
                     })
@@ -658,6 +696,23 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             }
                             self.entity_to_delete = None;
                             true
+                        }
+                        DeleteResult::Aborted { reason } => {
+                            self.toasts_dispatch.reduce_mut(move |state| {
+                                state.push_toast(Toast {
+                                    id: Uuid::new_v4(),
+                                    created_at: UtcDateTime::now(),
+                                    variant: ToastVariant::Error,
+                                    heading: "Entfernen".to_owned(),
+                                    message: format!("Entfernen abgebrochen: {reason}"),
+                                    dismissible: false,
+                                    automatically_closing: ToastAutomaticallyClosing::WithDelay {
+                                        millis: 4000,
+                                    },
+                                    close_callback: None,
+                                })
+                            });
+                            false
                         }
                         DeleteResult::CriticalValidationErrors => {
                             log::warn!("Server did not respond with an error but also did not send the deleted entity back. Something seems wrong..");

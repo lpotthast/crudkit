@@ -73,6 +73,7 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub on_list_view: Callback<()>,
     // TODO: consolidate these into one "on_entity_creation_attempt" with type Result<CreateResult<T::UpdateModel>, RequestError>?
     pub on_entity_created: Callback<(Saved<T::UpdateModel>, Option<CrudView>)>,
+    pub on_entity_creation_aborted: Callback<String>,
     pub on_entity_not_created_critical_errors: Callback<()>,
     pub on_entity_creation_failed: Callback<RequestError>,
     pub on_tab_selected: Callback<Label>,
@@ -314,7 +315,10 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                                     .emit((created, Some(CrudView::Create)));
                                 self.reset(ctx);
                             }
-                        },
+                        }
+                        SaveResult::Aborted { reason } => {
+                            ctx.props().on_entity_creation_aborted.emit(reason);
+                        }
                         SaveResult::CriticalValidationErrors => {
                             log::info!("Entity was not created due to critical validation errors.");
                             ctx.props().on_entity_not_created_critical_errors.emit(());
