@@ -5,7 +5,7 @@ use crud_shared_types::validation::{
     EntityViolations, StrictEntityInfo, StrictOwnedEntityInfo, ValidationViolation, ValidatorInfo,
     Violations,
 };
-use sea_orm::{ActiveEnum, DeriveActiveEnum, EnumIter, Iden};
+use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,9 +1,7 @@
 use proc_macro::TokenStream;
-use proc_macro2::{Ident, Span, TokenTree};
-use proc_macro_error::{abort, emit_error, proc_macro_error};
+use proc_macro_error::proc_macro_error;
 use quote::quote;
-use syn::spanned::Spanned;
-use syn::{parse_macro_input, DeriveInput, Field};
+use syn::{parse_macro_input, DeriveInput};
 
 #[proc_macro_derive(CrudResourceContext, attributes(crud_resource_context))]
 #[proc_macro_error]

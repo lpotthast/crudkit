@@ -5,6 +5,8 @@ use quote::quote;
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput, Field};
 
+// TODO: Automatically derive Eq on new type if source type is already able to derive it!
+
 #[proc_macro_derive(UpdateModel, attributes(update_model))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {

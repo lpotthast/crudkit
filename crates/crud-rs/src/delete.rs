@@ -195,6 +195,7 @@ pub async fn delete_one<R: CrudResource>(
     Ok(DeleteResult::Deleted(delete_result.rows_affected))
 }
 
+// TODO: IMPLEMENT. Match implementations above. Extract logic, reducing duplication if possible.
 pub async fn delete_many<R: CrudResource>(
     controller: Arc<CrudController>,
     _context: Arc<CrudContext<R>>,
