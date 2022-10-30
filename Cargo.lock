@@ -81,9 +81,9 @@ checksum = "ec8a7b6a70fde80372154c65702f00a0f56f3e1c36abbc6c440484be248856db"
 
 [[package]]
 name = "cc"
-version = "1.0.73"
+version = "1.0.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fff2a6927b3bb87f9595d67196a70493f627687a71d87a0d692242c33f58c11"
+checksum = "581f5dba903aac52ea3feb5ec4810848460ee833876f1f9b0fdeab1f19091574"
 
 [[package]]
 name = "cfg-if"
@@ -201,7 +201,6 @@ dependencies = [
  "derive-field",
  "derive-field-value",
  "derive_more",
- "dotenv_codegen",
  "dyn-clone",
  "gloo",
  "indexmap",
@@ -219,7 +218,6 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "yew",
- "yew-router",
  "yewbi",
  "yewdux",
  "yewdux-global-stores",
@@ -281,12 +279,12 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.14.1"
+version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4529658bdda7fd6769b8614be250cdcfc3aeb0ee72fe66f9e41e5e5eb73eac02"
+checksum = "b0dd3cd20dc6b5a876612a6e5accfe7f3dd883db6d07acfbf14c128f61550dfa"
 dependencies = [
- "darling_core 0.14.1",
- "darling_macro 0.14.1",
+ "darling_core 0.14.2",
+ "darling_macro 0.14.2",
 ]
 
 [[package]]
@@ -305,9 +303,9 @@ dependencies = [
 
 [[package]]
 name = "darling_core"
-version = "0.14.1"
+version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "649c91bc01e8b1eac09fb91e8dbc7d517684ca6be8ebc75bb9cafc894f9fdb6f"
+checksum = "a784d2ccaf7c98501746bf0be29b2022ba41fd62a2e622af997a03e9f972859f"
 dependencies = [
  "fnv",
  "ident_case",
@@ -330,11 +328,11 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.14.1"
+version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddfc69c5bfcbd2fc09a0f38451d2daf0e372e367986a83906d1b0dbc88134fb5"
+checksum = "7618812407e9402654622dd402b0a89dff9ba93badd6540781526117b92aab7e"
 dependencies = [
- "darling_core 0.14.1",
+ "darling_core 0.14.2",
  "quote",
  "syn",
 ]
@@ -343,7 +341,7 @@ dependencies = [
 name = "derive-crud-resource"
 version = "0.0.1"
 dependencies = [
- "darling 0.14.1",
+ "darling 0.14.2",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -354,7 +352,7 @@ dependencies = [
 name = "derive-crud-selectable"
 version = "0.0.1"
 dependencies = [
- "darling 0.14.1",
+ "darling 0.14.2",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -365,7 +363,7 @@ dependencies = [
 name = "derive-field"
 version = "0.0.1"
 dependencies = [
- "darling 0.14.1",
+ "darling 0.14.2",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -376,7 +374,7 @@ dependencies = [
 name = "derive-field-value"
 version = "0.0.1"
 dependencies = [
- "darling 0.14.1",
+ "darling 0.14.2",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -395,35 +393,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version",
- "syn",
-]
-
-[[package]]
-name = "dotenv"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
-
-[[package]]
-name = "dotenv_codegen"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56966279c10e4f8ee8c22123a15ed74e7c8150b658b26c619c53f4a56eb4a8aa"
-dependencies = [
- "dotenv_codegen_implementation",
- "proc-macro-hack",
-]
-
-[[package]]
-name = "dotenv_codegen_implementation"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53e737a3522cd45f6adc19b644ce43ef53e1e9045f2d2de425c1f468abd4cf33"
-dependencies = [
- "dotenv",
- "proc-macro-hack",
- "proc-macro2",
- "quote",
  "syn",
 ]
 
@@ -629,7 +598,6 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8d5564e570a38b43d78bdc063374a0c3098c4f0d64005b12f9bbe87e869b6d7"
 dependencies = [
- "futures-channel",
  "gloo-events",
  "js-sys",
  "wasm-bindgen",
@@ -703,8 +671,6 @@ version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fb7d06c1c8cc2a29bee7ec961009a0b2caa0793ee4900c2ffb348734ba1c8f9"
 dependencies = [
- "futures-channel",
- "futures-core",
  "js-sys",
  "wasm-bindgen",
 ]
@@ -846,9 +812,9 @@ dependencies = [
 
 [[package]]
 name = "iana-time-zone"
-version = "0.1.51"
+version = "0.1.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5a6ef98976b22b3b7f2f3a806f858cb862044cfa66805aa3ad84cb3d3b785ed"
+checksum = "64c122667b287044802d6ce17ee2ddf13207ed924c712de9a66a5814d5b64765"
 dependencies = [
  "android_system_properties",
  "core-foundation-sys",
@@ -942,9 +908,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.136"
+version = "0.2.137"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55edcf6c0bb319052dea84732cf99db461780fd5e8d3eb46ab6ff312ab31f197"
+checksum = "fc7fcc620a3bff7cdd7a365be3376c97191aeaccc2a603e600951e452615bf89"
 
 [[package]]
 name = "link-cplusplus"
@@ -1057,9 +1023,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.15.0"
+version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e82dad04139b71a90c080c8463fe0dc7902db5192d939bd0950f074d014339e1"
+checksum = "86f0b0d4bf799edbc74508c1e8bf170ff5f41238e5f8225603ca7caaae2b7860"
 
 [[package]]
 name = "openssl"
@@ -1227,9 +1193,9 @@ dependencies = [
 
 [[package]]
 name = "pkg-config"
-version = "0.3.25"
+version = "0.3.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
+checksum = "6ac9a59f73473f1b8d852421e59e64809f025994837ef743615c6d0c5b305160"
 
 [[package]]
 name = "prettyplease"
@@ -1264,12 +1230,6 @@ dependencies = [
  "quote",
  "version_check",
 ]
-
-[[package]]
-name = "proc-macro-hack"
-version = "0.5.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
@@ -1391,12 +1351,6 @@ dependencies = [
  "web-sys",
  "winreg",
 ]
-
-[[package]]
-name = "route-recognizer"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
 
 [[package]]
 name = "rustc_version"
@@ -2091,33 +2045,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "yew-router"
-version = "0.16.0"
-source = "git+https://github.com/yewstack/yew#da09755c27bfeb113e0c4b1096214a826f1e8388"
-dependencies = [
- "gloo",
- "js-sys",
- "route-recognizer",
- "serde",
- "serde_urlencoded",
- "tracing",
- "wasm-bindgen",
- "web-sys",
- "yew",
- "yew-router-macro",
-]
-
-[[package]]
-name = "yew-router-macro"
-version = "0.16.0"
-source = "git+https://github.com/yewstack/yew#da09755c27bfeb113e0c4b1096214a826f1e8388"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "yewbi"
 version = "1.8.3"
 dependencies = [
@@ -2128,7 +2055,7 @@ dependencies = [
 [[package]]
 name = "yewdux"
 version = "0.8.0"
-source = "git+https://github.com/intendednull/yewdux#327b3c36971f44c185fcb9bab3695dc236613dfa"
+source = "git+https://github.com/intendednull/yewdux#520ef6388910c78db2cd2d13eebcd1da2e4b10a0"
 dependencies = [
  "anymap",
  "log",
@@ -2155,7 +2082,7 @@ dependencies = [
 [[package]]
 name = "yewdux-macros"
 version = "0.8.0"
-source = "git+https://github.com/intendednull/yewdux#327b3c36971f44c185fcb9bab3695dc236613dfa"
+source = "git+https://github.com/intendednull/yewdux#520ef6388910c78db2cd2d13eebcd1da2e4b10a0"
 dependencies = [
  "darling 0.13.4",
  "proc-macro-error",

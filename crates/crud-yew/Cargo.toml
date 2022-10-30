@@ -19,7 +19,6 @@ crud-shared-types = { path = "../../../crud-shared-types" }
 
 # External
 yew = { git = "https://github.com/yewstack/yew", features = ["csr"] }
-yew-router = { git = "https://github.com/yewstack/yew.git" }
 yewdux = { git = "https://github.com/intendednull/yewdux" }
 log = "0.4.17"
 serde = { version = "1.0.147", features = ["derive"] }
@@ -43,7 +42,6 @@ reqwest = { version = "0.11.12", features = ["json", "multipart"] }
 uuid = { version = "1.2.1", features = ["js", "v4"], default-features = false }
 lazy_static = "1.4.0"
 parking_lot = "0.12.1"
-dotenv_codegen = "0.15.0"
 thiserror = "1.0.37"
 urlencoding = "2.1.2"
 derive_more = "0.99.17"
