@@ -33,7 +33,6 @@ pub mod prelude {
 
     pub use super::AsColType;
     pub use super::CreateModelTrait;
-    pub use super::SimpleCreateModelTrait;
     pub use super::UpdateModelTrait;
     pub use super::CrudColumns;
     pub use super::MaybeColumnTrait;
@@ -86,13 +85,8 @@ pub trait CrudColumns<C: ColumnTrait, A: ActiveModelTrait> {
 }
 
 #[async_trait]
-pub trait CreateModelTrait<A: ActiveModelTrait, Context> {
-   async fn into_active_model(self, context: &Context) -> A;
-}
-
-#[async_trait]
-pub trait SimpleCreateModelTrait<A: ActiveModelTrait> {
-   async fn into_active_model_without_context(self) -> A;
+pub trait CreateModelTrait<A: ActiveModelTrait> {
+   async fn into_active_model(self) -> A;
 }
 
 pub trait UpdateModelTrait {}
@@ -103,8 +97,8 @@ pub trait NewCreateModelTrait<R: CrudResource, M: ModelTrait> {
 }
 
 /// This trait must be implemented for sea-orm *ActiveModel types. It allows to update them with arbitrary types.
-pub trait UpdateActiveModelTrait<UpdateModel, Context> {
-    fn update_with(&mut self, update: UpdateModel, context: &Context);
+pub trait UpdateActiveModelTrait<UpdateModel> {
+    fn update_with(&mut self, update: UpdateModel);
 }
 
 pub trait AsColType {

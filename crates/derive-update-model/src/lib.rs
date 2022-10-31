@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use proc_macro2::{Ident, Span, TokenTree};
+use proc_macro2::{Span, TokenTree};
 use proc_macro_error::{abort, emit_error, proc_macro_error};
 use quote::quote;
 use syn::spanned::Spanned;
@@ -25,13 +25,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             )),
         }
     }
-
-    // The type of the *CrudContext to use in trait implementations.
-    let context_type = match expect_context_type_name(&ast) {
-        Ok(ident) => ident,
-        Err(err) => abort!(err),
-    };
-
+    
     let struct_field_meta = struct_fields(&ast.data)
         .map(|field| match read_meta(field) {
             Ok(meta) => Some(meta),
@@ -103,82 +97,13 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         impl crud_rs::UpdateModelTrait for UpdateModel {}
 
-        impl crud_rs::UpdateActiveModelTrait<UpdateModel, #context_type> for ActiveModel {
-            fn update_with(&mut self, update: UpdateModel, _context: &#context_type) {
+        impl crud_rs::UpdateActiveModelTrait<UpdateModel> for ActiveModel {
+            fn update_with(&mut self, update: UpdateModel) {
                 #(#update_active_model_stmts)*
             }
         }
     }
     .into()
-}
-
-fn expect_context_type_name(ast: &DeriveInput) -> Result<Ident, syn::Error> {
-    const EXPECTATION: &str = "Expected #[update_model(context = \"...\")]";
-
-    fn err(reason: &str, span: Span) -> syn::Error {
-        syn::Error::new(span, format!("{EXPECTATION}. Error: {reason}"))
-    }
-
-    let span = ast.span();
-    for attr in &ast.attrs {
-        let span = attr.span();
-        if attr.path.is_ident("update_model") {
-            let meta = match attr.parse_meta() {
-                Ok(meta) => meta,
-                Err(_error) => return Err(err("Expected parsable meta information.", span)),
-            };
-            let span = meta.span();
-            match meta {
-                syn::Meta::Path(_) => return Err(err("Expected list as top-level element.", span)),
-                syn::Meta::NameValue(_) => {
-                    return Err(err("Expected list as top-level element.", span))
-                }
-                syn::Meta::List(list) => {
-                    let nested = match list.nested.first() {
-                        Some(nested) => nested,
-                        None => return Err(err("Expected at least one nested meta info.", span)),
-                    };
-                    match nested {
-                        syn::NestedMeta::Meta(nested) => match nested {
-                            syn::Meta::Path(_) => {
-                                return Err(err(
-                                    "Expected nested meta to be of variant NameValue.",
-                                    span,
-                                ))
-                            }
-                            syn::Meta::List(_) => {
-                                return Err(err(
-                                    "Expected nested meta to be of variant NameValue.",
-                                    span,
-                                ))
-                            }
-                            syn::Meta::NameValue(name_value) => {
-                                if !name_value.path.is_ident("context") {
-                                    return Err(err("Expected context ident.", span));
-                                }
-                                match &name_value.lit {
-                                    syn::Lit::Str(str) => {
-                                        return Ok(Ident::new(str.value().as_str(), span))
-                                    }
-                                    _ => return Err(err(
-                                        "Expected a LitStr that contains the context type name.",
-                                        span,
-                                    )),
-                                }
-                            }
-                        },
-                        syn::NestedMeta::Lit(_) => {
-                            return Err(err(
-                                "Expected first nested element to be of variant Meta.",
-                                span,
-                            ))
-                        }
-                    }
-                }
-            }
-        }
-    }
-    Err(err("No matching attribute.", span))
 }
 
 struct Meta {

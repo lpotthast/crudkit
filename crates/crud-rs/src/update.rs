@@ -40,8 +40,9 @@ pub async fn update_one<R: CrudResource>(
     // Convert the model into an ActiveModel, allowing mutations.
     let mut active_model: R::ActiveModel = model.into();
 
+    // TODO: beforeUpdate and afterUpdate with context res_context!
     // Update the persisted active_model!
-    active_model.update_with(update, &res_context);
+    active_model.update_with(update);
     let entity_id = R::CrudColumn::get_id(&active_model).expect("Updatable entities must be stored and therefor have an ID!");
 
     // Run validations ON THE NEW STATE(!) but before updating the entity in the database.

@@ -57,7 +57,7 @@ pub trait CrudResource: Sized {
         + 'static;
 
     // Used to create en entity
-    type CreateModel: CreateModelTrait<Self::ActiveModel, Self::Context>
+    type CreateModel: CreateModelTrait<Self::ActiveModel>
         + DeserializeOwned
         + Debug
         + Clone
@@ -80,7 +80,7 @@ pub trait CrudResource: Sized {
     type ActiveModel: ActiveModelTrait<Entity = Self::Entity>
         + ActiveModelBehavior
         + From<Self::Model>
-        + UpdateActiveModelTrait<Self::UpdateModel, Self::Context>
+        + UpdateActiveModelTrait<Self::UpdateModel>
         + Clone
         + Send
         + Sync
