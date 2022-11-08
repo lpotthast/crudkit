@@ -11,6 +11,7 @@ derive-field = { path = "../derive-field" }
 derive-field-value = { path = "../derive-field-value" }
 derive-crud-resource = { path = "../derive-crud-resource" }
 derive-crud-selectable = { path = "../derive-crud-selectable" }
+derive-crud-action-payload = { path = "../derive-crud-action-payload" }
 
 yewbi = { path = "../../../../yewbi" }
 yewdux-global-stores = { path = "../../../../yewdux-global-stores" }

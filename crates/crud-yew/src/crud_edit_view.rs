@@ -10,7 +10,7 @@ use yew::{
 
 use crate::{
     crud_instance::Item,
-    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne, UpdateOne},
+    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne, UpdateOne}, crud_action::ModalGeneration,
 };
 
 use super::{prelude::*, types::RequestError};
@@ -35,10 +35,18 @@ pub enum Msg<T: CrudMainTrait> {
             Box<dyn FnOnce(Value)>,
         ),
     ),
+    ActionInitialized {
+        action_id: &'static str,
+    },
+    ActionCancelled {
+        action_id: &'static str,
+    },
     ActionTriggered {
         action_id: &'static str,
+        action_payload: Option<T::ActionPayload>,
         action: Callback<(
             T::UpdateModel,
+            Option<T::ActionPayload>,
             Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
     },
@@ -77,6 +85,8 @@ pub struct CrudEditView<T: CrudMainTrait> {
 
     /// The input is erroneous if at least one field is contained in this list.
     input_errors: HashMap<<T::UpdateModel as CrudDataTrait>::Field, String>,
+
+    user_wants_to_activate: Vec<String>,
 
     user_wants_to_leave: bool,
     // We might want to store ReadModel as entity_read here, and entity_orig as an updatable version of it...
@@ -199,6 +209,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
             input: Default::default(),
             input_dirty: false,
             input_errors: HashMap::new(),
+            user_wants_to_activate: vec![],
             user_wants_to_leave: false,
             entity: Err(NoData::NotYetLoaded),
             ongoing_save: false,
@@ -316,9 +327,25 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                 receiver(field.get_value(&self.input));
                 false
             }
-            Msg::ActionTriggered { action_id, action } => {
+            Msg::ActionInitialized { action_id } => {
+                self.user_wants_to_activate.push(action_id.to_string());
+                true
+            }
+            Msg::ActionCancelled { action_id } => {
+                if let Some(index) = self.user_wants_to_activate.iter().position(|it| it.as_str() == action_id) {
+                    self.user_wants_to_activate.remove(index);
+                    true
+                } else {
+                    false
+                }
+            }
+            Msg::ActionTriggered { action_id, action_payload, action } => {
+                if let Some(index) = self.user_wants_to_activate.iter().position(|it| it.as_str() == action_id) {
+                    self.user_wants_to_activate.remove(index);
+                }
                 action.emit((
                     self.input.clone(),
+                    action_payload,
                     ctx.link()
                         .callback(move |result| Msg::ActionExecuted { action_id, result }),
                 ));
@@ -375,17 +402,42 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                             {
                                                 ctx.props().static_config.entity_actions.iter()
                                                     .filter_map(|action| match action {
-                                                        CrudEntityAction::Custom {id, name, icon, variant, valid_in, action} => {
+                                                        CrudEntityAction::Custom {id, name, icon, variant, valid_in, action, modal} => {
                                                             valid_in.contains(&States::Update).then(|| {
                                                                 let action_id = id.clone();
                                                                 let action = action.clone();
-                                                                html! {
-                                                                    <CrudBtn
-                                                                        name={name.clone()}
-                                                                        variant={variant.clone()}
-                                                                        icon={icon.clone()}
-                                                                        disabled={self.actions_executing.contains(&id)}
-                                                                        onclick={ctx.link().callback(move |_| Msg::ActionTriggered { action_id, action: action.clone()}) }/>
+
+                                                                if let Some(modal) = modal {
+                                                                    html! {
+                                                                        <>
+                                                                        <CrudBtn
+                                                                            name={name.clone()}
+                                                                            variant={variant.clone()}
+                                                                            icon={icon.clone()}
+                                                                            disabled={self.actions_executing.contains(&id)}
+                                                                            onclick={ctx.link().callback(move |_| Msg::ActionInitialized { action_id }) }
+                                                                        />
+                                                                        if self.user_wants_to_activate.iter().any(|it| it.as_str() == action_id) {
+                                                                            <CrudModal>
+                                                                                {{ modal(ModalGeneration {
+                                                                                    state: self.input.clone(),
+                                                                                    cancel: ctx.link().callback(move |_| Msg::ActionCancelled { action_id }),
+                                                                                    execute: ctx.link().callback(move |action_payload| Msg::ActionTriggered { action_id, action_payload, action: action.clone() }),
+                                                                                }) }}
+                                                                            </CrudModal>
+                                                                        }
+                                                                        </>
+                                                                    }
+                                                                } else {
+                                                                    html! {
+                                                                        <CrudBtn
+                                                                            name={name.clone()}
+                                                                            variant={variant.clone()}
+                                                                            icon={icon.clone()}
+                                                                            disabled={self.actions_executing.contains(&id)}
+                                                                            onclick={ctx.link().callback(move |_| Msg::ActionTriggered { action_id, action_payload: None, action: action.clone() }) }
+                                                                        />
+                                                                    }
                                                                 }
                                                             })
                                                         }

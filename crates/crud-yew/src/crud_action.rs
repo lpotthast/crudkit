@@ -1,5 +1,5 @@
-use std::fmt::Debug;
-use yew::Callback;
+use std::{fmt::Debug, sync::Arc};
+use yew::{Callback, Html};
 use yewbi::Bi;
 
 use crate::{types::toasts::Toast, CrudMainTrait, Variant};
@@ -9,6 +9,12 @@ pub enum States {
     Create,
     Update,
     Read,
+}
+
+pub struct ModalGeneration<T: CrudMainTrait> {
+    pub state: T::UpdateModel,
+    pub cancel: Callback<()>,
+    pub execute: Callback<Option<T::ActionPayload>>,
 }
 
 #[derive(Clone)]
@@ -21,8 +27,10 @@ pub enum CrudEntityAction<T: CrudMainTrait> {
         valid_in: Vec<States>,
         action: Callback<(
             T::UpdateModel,
+            Option<T::ActionPayload>,
             Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
+        modal: Option<Box<Arc<dyn Fn(ModalGeneration<T>) -> Html>>>,
     },
 }
 
@@ -36,6 +44,7 @@ impl<T: CrudMainTrait> Debug for CrudEntityAction<T> {
                 variant,
                 valid_in,
                 action: _,
+                modal: _,
             } => f
                 .debug_struct("Custom")
                 .field("id", id)
@@ -59,6 +68,7 @@ impl<T: CrudMainTrait> PartialEq for CrudEntityAction<T> {
                     variant: l_variant,
                     valid_in: l_valid_in,
                     action: _l_action,
+                    modal: _l_modal,
                 },
                 Self::Custom {
                     id: r_id,
@@ -67,6 +77,7 @@ impl<T: CrudMainTrait> PartialEq for CrudEntityAction<T> {
                     variant: r_variant,
                     valid_in: r_valid_in,
                     action: _r_action,
+                    modal: _r_modal,
                 },
             ) => {
                 l_id == r_id
@@ -87,6 +98,7 @@ pub enum CrudAction {
         icon: Option<Bi>,
         variant: Variant,
         action: Callback<Callback<Result<CrudActionAftermath, CrudActionAftermath>>>,
+        modal: Option<Html>,
     },
 }
 
@@ -99,6 +111,7 @@ impl Debug for CrudAction {
                 icon,
                 variant,
                 action: _,
+                modal: _,
             } => f
                 .debug_struct("Custom")
                 .field("id", id)
@@ -120,6 +133,7 @@ impl PartialEq for CrudAction {
                     icon: l_icon,
                     variant: l_variant,
                     action: _l_action,
+                    modal: _l_modal,
                 },
                 Self::Custom {
                     id: r_id,
@@ -127,6 +141,7 @@ impl PartialEq for CrudAction {
                     icon: r_icon,
                     variant: r_variant,
                     action: _r_action,
+                    modal: _r_modal,
                 },
             ) => l_id == r_id && l_name == r_name && l_icon == r_icon && l_variant == r_variant,
         }

@@ -237,7 +237,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                             {
                                 ctx.props().static_config.actions.iter()
                                     .map(|action| match action {
-                                        CrudAction::Custom {id, name, icon, variant, action} => {
+                                        CrudAction::Custom {id, name, icon, variant, action, modal} => {
                                             let action_id = id.clone();
                                             let action = action.clone();
                                             html! {

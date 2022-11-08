@@ -71,6 +71,7 @@ mod event_functions;
 pub mod prelude {
     pub use derive_crud_resource::CrudResource;
     pub use derive_crud_selectable::CrudSelectable;
+    pub use derive_crud_action_payload::CrudActionPayload;
     pub use derive_field::Field;
     pub use derive_field_value::FieldValue;
 
@@ -134,6 +135,8 @@ pub mod prelude {
     pub use super::types::toasts::ToastAutomaticallyClosing;
     pub use super::types::toasts::ToastVariant;
     pub use super::CrudDataTrait;
+    pub use super::CrudActionPayload;
+    pub use super::EmptyActionPayload;
     pub use super::CrudFieldNameTrait;
     pub use super::CrudFieldTrait;
     pub use super::CrudFieldValueTrait;
@@ -203,7 +206,23 @@ pub trait CrudMainTrait: CrudResourceTrait + PartialEq + Default + Debug + Clone
     type CreateModel: CrudDataTrait + Send;
     type ReadModel: CrudDataTrait + Into<Self::UpdateModel> + Send;
     type UpdateModel: CrudDataTrait + Send;
+
+    type ActionPayload: CrudActionPayload;
 }
+
+pub trait CrudActionPayload:
+    PartialEq
+    + Clone
+    + Debug
+    + Serialize
+    + DeserializeOwned
+    + Send {
+    }
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+pub struct EmptyActionPayload {}
+
+impl CrudActionPayload for EmptyActionPayload {}
 
 pub trait CrudDataTrait:
     CrudFieldTrait<Self::Field, Self>

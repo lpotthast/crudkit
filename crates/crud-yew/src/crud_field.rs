@@ -8,6 +8,8 @@ use uuid::Uuid;
 use yew::{html::ChildrenRenderer, prelude::*};
 use yewbi::Bi;
 
+// TODO: Extract fields to separate components
+
 pub enum Msg {
     Send(Value),
     // TODO: Add SendErr variant...?
