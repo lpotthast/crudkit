@@ -69,7 +69,7 @@ pub struct NestedConfig {
     pub parent_field: String,
 
     /// The `own` field in which the reference is stored.
-    pub reference_field: String,
+    pub reference_field: String, // TODO: This should be: T::ReadModel::Field? (ClusterCertificateField::CreatedAt)
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
