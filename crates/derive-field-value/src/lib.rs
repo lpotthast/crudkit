@@ -152,7 +152,9 @@ pub fn store(input: TokenStream) -> TokenStream {
                 quote! { entity.#field_ident.clone().map(|it| it.map(Into::into)) }
             }
             ValueType::OneToOneRelation => quote! { entity.#field_ident },
-            ValueType::NestedTable => quote! { entity.#id_field_ident }, // not important, panics anyway...
+            ValueType::NestedTable => quote! {
+                crud_shared_types::Id::fields(&entity.get_id())
+            }, // not important, panics anyway...
         };
 
         quote! {

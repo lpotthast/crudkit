@@ -152,6 +152,6 @@ pub fn set_image(id: String, src: String, alt: String, title: String) {
 }
 
 pub fn get_state(id: String) -> State {
-    let state: State = js::getState(id).into_serde().unwrap();
+    let state: State = js::getState(id).into_serde().unwrap(); // TODO: Standalone: Fix deprecation warning!
     state
 }

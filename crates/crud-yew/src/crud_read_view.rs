@@ -1,5 +1,6 @@
-use crud_shared_types::{Condition, ConditionClause, ConditionElement};
 use yew::{html::ChildrenRenderer, prelude::*};
+
+use crud_shared_types::IntoAllEqualCondition;
 
 use crate::{
     crud_instance::Item,
@@ -19,7 +20,7 @@ pub struct Props<T: CrudMainTrait> {
     pub children: ChildrenRenderer<Item>,
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
-    pub id: u32,
+    pub id: T::ReadModelId,
     pub list_view_available: bool,
     pub on_list_view: Callback<()>,
     pub on_tab_selected: Callback<Label>,
@@ -34,7 +35,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudReadView<T> {
     type Properties = Props<T>;
 
     fn create(ctx: &Context<Self>) -> Self {
-        let id = ctx.props().id;
+        let id = ctx.props().id.clone();
         let data_provider = ctx.props().data_provider.clone();
         ctx.link()
             .send_future(async move { Msg::LoadedEntity(load_entity(data_provider, id).await) });
@@ -94,7 +95,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudReadView<T> {
                                     elements={ctx.props().config.elements.clone()}
                                     entity={entity.clone()}
                                     mode={FieldMode::Readable}
-                                    current_view={CrudView::Read(ctx.props().id)}
+                                    current_view={CrudSimpleView::Read}
                                     value_changed={|_| {}}
                                     on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                                 />
@@ -130,19 +131,14 @@ impl<T: 'static + CrudMainTrait> Component for CrudReadView<T> {
 
 pub async fn load_entity<T: CrudMainTrait>(
     data_provider: CrudRestDataProvider<T>,
-    id: u32,
+    id: T::ReadModelId,
 ) -> Result<Option<T::ReadModel>, RequestError> {
+    let condition = <T as CrudMainTrait>::ReadModelId::into_all_equal_condition(id);
     data_provider
         .read_one(ReadOne {
             skip: None,
             order_by: None,
-            condition: Some(Condition::All(vec![ConditionElement::Clause(
-                ConditionClause {
-                    column_name: String::from(T::ReadModel::get_id_field().get_name()),
-                    operator: crud_shared_types::Operator::Equal,
-                    value: crud_shared_types::ConditionClauseValue::U32(id),
-                },
-            )])),
+            condition: Some(condition),
         })
         .await
 }

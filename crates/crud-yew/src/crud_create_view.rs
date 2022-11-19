@@ -67,12 +67,17 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub on_link: Callback<Option<Scope<CrudCreateView<T>>>>,
     pub children: ChildrenRenderer<Item>,
     pub data_provider: CrudRestDataProvider<T>,
-    pub parent_id: Option<u32>,
+    /// Required because when creating the initial CreateModel, we have to set the "parent id" field of that model to the given id.
+    /// TODO: Only a subset of the parent id might be required to for matching. Consider a CreateModel#initialize_with_parent_id(ParentId)...
+    pub parent_id: Option<SerializableId>,
     pub config: CrudInstanceConfig<T>,
     pub list_view_available: bool,
     pub on_list_view: Callback<()>,
-    // TODO: consolidate these into one "on_entity_creation_attempt" with type Result<CreateResult<T::UpdateModel>, RequestError>?
-    pub on_entity_created: Callback<(Saved<T::UpdateModel>, Option<CrudView>)>,
+    // TODO: consolidate these into one "on_entity_creation_attempt" with type Result<CreateResult<T::UpdateModel>, SomeErrorType>?
+    pub on_entity_created: Callback<(
+        Saved<T::UpdateModel>,
+        Option<CrudView<T::ReadModelId, T::UpdateModelId>>
+    )>,
     pub on_entity_creation_aborted: Callback<String>,
     pub on_entity_not_created_critical_errors: Callback<()>,
     pub on_entity_creation_failed: Callback<RequestError>,
@@ -167,9 +172,13 @@ fn default_create_model<T: CrudMainTrait + 'static>(
 ) -> T::CreateModel {
     let mut entity: T::CreateModel = Default::default();
     if let Some(nested) = &ctx.props().config.nested {
-        if let Some(parent_id) = ctx.props().parent_id {
+        if let Some(parent_id) = &ctx.props().parent_id {
+            let (_field_name, value) = parent_id.0.iter()
+                .find(|(field_name, _value)| field_name == nested.parent_field.as_str())
+                .expect("related parent field must be part of the parents id!");
+
             T::CreateModel::get_field(nested.reference_field.as_str())
-                .set_value(&mut entity, Value::U32(parent_id));
+                .set_value(&mut entity, value.clone().into());
             log::info!("successfully set parent id to reference field");
         } else {
             log::error!("CrudInstance is configured to be a nested instance but no parent id was passed down!");
@@ -183,9 +192,13 @@ fn default_update_model<T: CrudMainTrait + 'static>(
 ) -> T::UpdateModel {
     let mut entity: T::UpdateModel = Default::default();
     if let Some(nested) = &ctx.props().config.nested {
-        if let Some(parent_id) = ctx.props().parent_id {
+        if let Some(parent_id) = &ctx.props().parent_id {
+            let (_field_name, value) = parent_id.0.iter()
+                .find(|(field_name, _value)| field_name == nested.parent_field.as_str())
+                .expect("related parent field must be part of the parents id!");
+
             T::UpdateModel::get_field(nested.reference_field.as_str())
-                .set_value(&mut entity, Value::U32(parent_id));
+                .set_value(&mut entity, value.clone().into());
             log::info!("successfully set parent id to reference field");
         } else {
             log::error!("CrudInstance is configured to be a nested instance but no parent id was passed down!");
@@ -407,7 +420,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                                 },
                             }}
                             mode={FieldMode::Editable}
-                            current_view={CrudView::Create}
+                            current_view={CrudSimpleView::Create}
                             value_changed={ctx.link().callback(Msg::UpdateModelFieldChanged)}
                             active_tab={ctx.props().config.active_tab.clone()}
                             on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
@@ -431,7 +444,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                                 },
                             }}
                             mode={FieldMode::Editable}
-                            current_view={CrudView::Create}
+                            current_view={CrudSimpleView::Create}
                             value_changed={ctx.link().callback(Msg::CreateModelFieldChanged)}
                             active_tab={ctx.props().config.active_tab.clone()}
                             on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}

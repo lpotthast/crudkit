@@ -20,7 +20,7 @@ pub enum Msg {
 pub struct Props<T: CrudDataTrait> {
     pub children: ChildrenRenderer<Item>,
     pub api_base_url: String,
-    pub current_view: CrudView,
+    pub current_view: CrudSimpleView,
     pub field_type: T::Field,
     pub field_options: FieldOptions,
     pub field_mode: FieldMode,
@@ -119,10 +119,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                 },
                 Value::NestedTable(_referenced_id) => {
                     match ctx.props().current_view {
-                        CrudView::List => html! {
+                        CrudSimpleView::List => html! {
                             <div>{"Felder des Typs NestedTable können aktuell nicht in der Listenansicht dargestellt werden."}</div>
                         },
-                        CrudView::Create => html! {
+                        CrudSimpleView::Create => html! {
                             <>
                                 if let Some(label) = &options.label {
                                     <CrudFieldLabel label={label.clone()} />
@@ -130,7 +130,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                                 <div>{"Diese Informationen können erst bearbeitet werden, nachdem der Eintrag gespeichert wurde."}</div>
                             </>
                         },
-                        CrudView::Read(_) | CrudView::Edit(_) => match &ctx.props().field_mode {
+                        CrudSimpleView::Read | CrudSimpleView::Edit => match &ctx.props().field_mode {
                             FieldMode::Display => html! {
                                 <div>{"FieldMode::Display wird von Feldern des Typs NestedTable aktuell nicht unterstützt."}</div>
                             },

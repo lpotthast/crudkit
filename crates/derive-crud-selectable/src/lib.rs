@@ -11,6 +11,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     let ident = &ast.ident;
 
     quote! {
+        //#[typetag::serde]
         impl crud_yew::CrudSelectableTrait for #ident {
             fn as_any(&self) -> &dyn std::any::Any {
                 self

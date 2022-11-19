@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use chrono_utc_date_time::prelude::*;
+use crud_shared_types::prelude::*;
 use dyn_clone::DynClone;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
@@ -138,14 +139,18 @@ pub mod prelude {
     pub use super::CrudActionPayload;
     pub use super::EmptyActionPayload;
     pub use super::CrudFieldNameTrait;
-    pub use super::CrudFieldTrait;
     pub use super::CrudFieldValueTrait;
     pub use super::CrudIdTrait;
     pub use super::CrudMainTrait;
     pub use super::CrudResourceTrait;
     pub use super::CrudSelectableSource;
+    pub use super::CrudSimpleView;
     pub use super::CrudSelectableTrait;
+    pub use super::DeletableModel;
+    pub use super::SerializableId;
     pub use super::CrudView;
+    pub use super::SerializableCrudView;
+    pub use super::ReadOrUpdateId;
     pub use super::Elem;
     pub use super::Enclosing;
     pub use super::FieldMode;
@@ -202,12 +207,24 @@ impl From<Variant> for Classes {
 }
 
 // TODO: impl Clone if both types are clone, same for debug, ...
-pub trait CrudMainTrait: CrudResourceTrait + PartialEq + Default + Debug + Clone + Send {
-    type CreateModel: CrudDataTrait + Send;
-    type ReadModel: CrudDataTrait + Into<Self::UpdateModel> + Send;
-    type UpdateModel: CrudDataTrait + Send;
+pub trait CrudMainTrait: CrudResourceTrait + PartialEq + Default + Debug + Clone + Serialize + Send {
 
-    type ActionPayload: CrudActionPayload;
+    type CreateModel: CrudDataTrait + Send;
+
+    type ReadModelIdField: IdField<Value = Value> + Serialize + Send;
+    type ReadModelId: Serialize + DeserializeOwned + Id<Field = Self::ReadModelIdField> + PartialEq + Clone + Send;
+    type ReadModel: Serialize + CrudDataTrait
+        + Into<Self::UpdateModel>
+        + CrudIdTrait<Id = Self::ReadModelId>
+        + Send;
+
+    type UpdateModelIdField: IdField<Value = Value> + Serialize + Send;
+    type UpdateModelId: Serialize + DeserializeOwned + Id<Field = Self::UpdateModelIdField> + PartialEq + Clone + Send;
+    type UpdateModel: Serialize + CrudDataTrait
+        + CrudIdTrait<Id = Self::UpdateModelId>
+        + Send;
+
+    type ActionPayload: Serialize + CrudActionPayload;
 }
 
 pub trait CrudActionPayload:
@@ -225,9 +242,7 @@ pub struct EmptyActionPayload {}
 impl CrudActionPayload for EmptyActionPayload {}
 
 pub trait CrudDataTrait:
-    CrudFieldTrait<Self::Field, Self>
-    + CrudIdTrait<Self::Field, Self>
-    + Default
+    Default
     + PartialEq
     + Clone
     + Debug
@@ -237,7 +252,6 @@ pub trait CrudDataTrait:
 {
     type Field: CrudFieldNameTrait
         + CrudFieldValueTrait<Self>
-        + Default
         + PartialEq
         + Eq
         + Hash
@@ -246,16 +260,16 @@ pub trait CrudDataTrait:
         + Serialize
         + DeserializeOwned
         + Send;
+
+    fn get_field(field_name: &str) -> Self::Field;
 }
 
-// TODO: Rename to CrudFieldAccessTrait
-pub trait CrudFieldTrait<F: CrudFieldValueTrait<C>, C: CrudDataTrait> {
-    fn get_field(field_name: &str) -> F;
-}
+/// Allows us to access the ID of an entity.
+/// The ID type must provide more fine grained access (for example to individual fields).
+pub trait CrudIdTrait {
+    type Id: Id;
 
-pub trait CrudIdTrait<F: CrudFieldValueTrait<C>, C: CrudDataTrait> {
-    fn get_id_field() -> F;
-    fn get_id(&self) -> u32;
+    fn get_id(&self) -> Self::Id;
 }
 
 pub trait CrudResourceTrait {
@@ -279,12 +293,19 @@ pub trait CrudSelectableSource: Debug {
     fn get_selectable(&self) -> Option<Vec<Self::Selectable>>;
 }
 
-pub trait CrudSelectableTrait: Debug + Display + DynClone {
+//#[typetag::serde(tag = "type")]
+pub trait CrudSelectableTrait: Debug + Display + DynClone{
     fn as_any(&self) -> &dyn Any;
 }
 dyn_clone::clone_trait_object!(CrudSelectableTrait);
 
+pub trait Foo {
+
+    fn as_any(&self) -> &dyn Any;
+}
+
 /// All variants should be stateless / copy-replaceable.
+// TODO: DEFERRED: Implement Serialize and Deserialize with typetag when wasm is supported in typetag. Comment in "typetag" occurrences.
 #[derive(Debug, Clone)]
 pub enum Value {
     String(String), // TODO: Add optional string!
@@ -301,12 +322,104 @@ pub enum Value {
     UtcDateTime(UtcDateTime),
     OptionalUtcDateTime(Option<UtcDateTime>),
     OneToOneRelation(Option<u32>),
-    NestedTable(u32),
+    NestedTable(Vec<Box<dyn DynIdField>>),
     Select(Box<dyn CrudSelectableTrait>),
     Multiselect(Vec<Box<dyn CrudSelectableTrait>>),
     OptionalSelect(Option<Box<dyn CrudSelectableTrait>>),
     OptionalMultiselect(Option<Vec<Box<dyn CrudSelectableTrait>>>),
     //Select(Box<dyn CrudSelectableSource<Selectable = dyn CrudSelectableTrait>>),
+}
+
+// TODO: DEFERRED: Remove when Value type is Serializable and Deserializable on its own.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum SerializableValue {
+    String(String), // TODO: Add optional string!
+    Text(String),   // TODO: Add optional text!
+    U32(u32),
+    OptionalU32(Option<u32>),
+    I32(i32),
+    I64(i64),
+    OptionalI64(Option<i64>),
+    F32(f32),
+    Bool(bool),
+    ValidationStatus(bool),
+    UtcDateTime(UtcDateTime),
+    OptionalUtcDateTime(Option<UtcDateTime>),
+    OneToOneRelation(Option<u32>),
+}
+
+impl IntoSerializableValue for Value {
+    type SerializableValue = SerializableValue;
+
+    fn into_serializable_value(&self) -> Self::SerializableValue {
+        self.clone().into()
+    }
+}
+
+impl Into<SerializableValue> for Value {
+    fn into(self) -> SerializableValue {
+        match self {
+            Value::String(value) => SerializableValue::String(value),
+            Value::Text(value) => SerializableValue::Text(value),
+            Value::U32(value) => SerializableValue::U32(value),
+            Value::OptionalU32(value) => SerializableValue::OptionalU32(value),
+            Value::I32(value) => SerializableValue::I32(value),
+            Value::I64(value) => SerializableValue::I64(value),
+            Value::OptionalI64(value) => SerializableValue::OptionalI64(value),
+            Value::F32(value) => SerializableValue::F32(value),
+            Value::Bool(value) => SerializableValue::Bool(value),
+            Value::ValidationStatus(value) => SerializableValue::ValidationStatus(value),
+            Value::UtcDateTime(value) => SerializableValue::UtcDateTime(value),
+            Value::OptionalUtcDateTime(value) => SerializableValue::OptionalUtcDateTime(value),
+            Value::OneToOneRelation(_) => panic!("not serializable.."),
+            Value::NestedTable(_) => panic!("not serializable.."),
+            Value::Select(_) => panic!("not serializable.."),
+            Value::Multiselect(_) => panic!("not serializable.."),
+            Value::OptionalSelect(_) => panic!("not serializable.."),
+            Value::OptionalMultiselect(_) => panic!("not serializable.."),
+        }
+    }
+}
+
+impl Into<Value> for SerializableValue {
+    fn into(self) -> Value {
+        match self {
+            SerializableValue::String(value) => Value::String(value),
+            SerializableValue::Text(value) => Value::Text(value),
+            SerializableValue::U32(value) => Value::U32(value),
+            SerializableValue::OptionalU32(value) => Value::OptionalU32(value),
+            SerializableValue::I32(value) => Value::I32(value),
+            SerializableValue::I64(value) => Value::I64(value),
+            SerializableValue::OptionalI64(value) => Value::OptionalI64(value),
+            SerializableValue::F32(value) => Value::F32(value),
+            SerializableValue::Bool(value) => Value::Bool(value),
+            SerializableValue::ValidationStatus(value) => Value::ValidationStatus(value),
+            SerializableValue::UtcDateTime(value) => Value::UtcDateTime(value),
+            SerializableValue::OptionalUtcDateTime(value) => Value::OptionalUtcDateTime(value),
+            SerializableValue::OneToOneRelation(value) => Value::OneToOneRelation(value),
+        }
+    }
+}
+
+// TODO: complete
+impl Into<ConditionClauseValue> for SerializableValue {
+    fn into(self) -> ConditionClauseValue {
+        match self {
+            SerializableValue::String(value) => ConditionClauseValue::String(value),
+            SerializableValue::Text(value) => ConditionClauseValue::String(value),
+            SerializableValue::U32(value) => ConditionClauseValue::U32(value),
+            SerializableValue::OptionalU32(value) => todo!(),
+            SerializableValue::I32(value) => ConditionClauseValue::I32(value),
+            SerializableValue::I64(value) => ConditionClauseValue::I64(value),
+            SerializableValue::OptionalI64(value) => todo!(),
+            SerializableValue::F32(value) => ConditionClauseValue::F32(value),
+            SerializableValue::Bool(value) => ConditionClauseValue::Bool(value),
+            SerializableValue::ValidationStatus(value) => todo!(),
+            SerializableValue::UtcDateTime(value) => todo!(),
+            SerializableValue::OptionalUtcDateTime(value) => todo!(),
+            SerializableValue::OneToOneRelation(value) => todo!(),
+        }
+    }
 }
 
 impl Value {
@@ -484,7 +597,12 @@ impl Display for Value {
                 Some(value) => f.write_str(&value.to_string()),
                 None => f.write_str(""),
             },
-            Value::NestedTable(value) => f.write_str(&value.to_string()),
+            Value::NestedTable(id) => {
+                for field in id {
+                    f.write_fmt(format_args!("'{}': {:?}", field.dyn_name(), field.into_dyn_value()))?;
+                }
+                Ok(())
+            },
             Value::Select(selected) => f.write_str(&selected.to_string()),
             Value::OptionalSelect(selected) => match selected {
                 Some(selected) => f.write_str(&selected.to_string()),
@@ -509,6 +627,40 @@ impl Display for Value {
     }
 }
 
+impl Into<ConditionClauseValue> for Value {
+    fn into(self) -> ConditionClauseValue {
+        match self {
+            // TODO: Complete mapping!!
+            Value::String(value) => ConditionClauseValue::String(value),
+            Value::Text(value) => ConditionClauseValue::String(value),
+            Value::U32(value) => ConditionClauseValue::U32(value),
+            Value::OptionalU32(value) => todo!(),
+            Value::I32(value) => ConditionClauseValue::I32(value),
+            Value::I64(value) => ConditionClauseValue::I64(value),
+            Value::OptionalI64(value) => todo!(),
+            Value::F32(value) => ConditionClauseValue::F32(value),
+            Value::Bool(value) => ConditionClauseValue::Bool(value),
+            Value::ValidationStatus(value) => todo!(),
+            Value::UtcDateTime(value) => todo!(),
+            Value::OptionalUtcDateTime(value) => todo!(),
+            Value::OneToOneRelation(value) => todo!(),
+            Value::NestedTable(value) => todo!(),
+            Value::Select(value) => todo!(),
+            Value::Multiselect(value) => todo!(),
+            Value::OptionalSelect(value) => todo!(),
+            Value::OptionalMultiselect(value) => todo!(),
+        }
+    }
+}
+
+//#[typetag::serde]
+impl crud_shared_types::IdFieldValue for Value {
+    fn into_condition_clause_value(&self) -> ConditionClauseValue {
+        // Note: This requires clone, because we take &self. We take &self, so that the trait remains dynamically usable.
+        self.clone().into()
+    }
+}
+
 pub trait CrudFieldNameTrait {
     fn get_name(&self) -> &'static str;
 }
@@ -518,12 +670,142 @@ pub trait CrudFieldValueTrait<T> {
     fn set_value(&self, entity: &mut T, value: Value);
 }
 
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum ReadOrUpdateId<T: CrudMainTrait> {
+    Read(T::ReadModelId),
+    Update(T::UpdateModelId),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] // TODO: Serde passthrough?
+pub struct SerializableId(Vec<(String, SerializableValue)>);
+
+impl IntoAllEqualCondition for SerializableId {
+    fn into_all_equal_condition(self) -> Condition {
+        Condition::All(
+            self.0.iter()
+            .map(|(field_name, serializable_value)| {
+                    ConditionElement::Clause(ConditionClause {
+                        column_name: String::from(field_name),
+                        operator: Operator::Equal,
+                        value: serializable_value.clone().into(),
+                    })
+                })
+                .collect::<Vec<_>>(),
+        )
+    }
+}
+
+pub struct IdWrapper<T: Id>(T);
+
+impl<F, T> Into<SerializableId> for IdWrapper<T>
+where
+    F: IdField<Value = Value>,
+    T: Id<Field = F> + Serialize + DeserializeOwned,
+{
+    fn into(self) -> SerializableId {
+        SerializableId(
+            self.0.fields_iter()
+                .map(|field| (
+                    field.name().to_owned(),
+                    field.into_value().into_serializable_value()
+                ))
+                .collect()
+        )
+    }
+}
+
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum CrudView {
+pub enum CrudView<ReadId, UpdateId>
+where
+    ReadId: Id + Serialize + DeserializeOwned,
+    UpdateId: Id + Serialize + DeserializeOwned,
+{
     List,
     Create,
-    Read(u32),
-    Edit(u32),
+    #[serde(bound = "")]
+    Read(ReadId),
+    #[serde(bound = "")]
+    Edit(UpdateId),
+}
+
+
+// TODO :PartialEq
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum SerializableCrudView {
+    List,
+    Create,
+    #[serde(bound = "")]
+    Read(SerializableId),
+    #[serde(bound = "")]
+    Edit(SerializableId),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum CrudSimpleView {
+    List,
+    Create,
+    Read,
+    Edit,
+}
+
+impl<ReadId, UpdateId> Into<SerializableCrudView> for CrudView<ReadId, UpdateId>
+where
+    ReadId: Id + Serialize + DeserializeOwned,
+    UpdateId: Id + Serialize + DeserializeOwned,
+    // TODO: Can we get rid of these ugly bounds?
+    Vec<(std::string::String, SerializableValue)>: FromIterator<(std::string::String, <<<ReadId as Id>::Field as IdField>::Value as IntoSerializableValue>::SerializableValue)>,
+    Vec<(std::string::String, SerializableValue)>: FromIterator<(std::string::String, <<<UpdateId as Id>::Field as IdField>::Value as IntoSerializableValue>::SerializableValue)>,
+{
+    fn into(self) -> SerializableCrudView {
+        match self {
+            CrudView::List => SerializableCrudView::List,
+            CrudView::Create => SerializableCrudView::Create,
+            CrudView::Read(id) => SerializableCrudView::Read(SerializableId(
+                id.fields_iter()
+                    .map(|field| (
+                        field.name().to_owned(),
+                        field.into_value().into_serializable_value()
+                    ))
+                    .collect()
+            )),
+            CrudView::Edit(id) => SerializableCrudView::Edit(SerializableId(
+                id.fields_iter()
+                    .map(|field| (
+                        field.name().to_owned(),
+                        field.into_value().into_serializable_value()
+                    ))
+                    .collect()
+            )),
+        }
+    }
+}
+
+impl<ReadId, UpdateId> Into<CrudSimpleView> for CrudView<ReadId, UpdateId>
+where
+    ReadId: Id + Serialize + DeserializeOwned,
+    UpdateId: Id + Serialize + DeserializeOwned,
+{
+    fn into(self) -> CrudSimpleView {
+        match self {
+            CrudView::List => CrudSimpleView::List,
+            CrudView::Create => CrudSimpleView::Create,
+            CrudView::Read(_) => CrudSimpleView::Read,
+            CrudView::Edit(_) => CrudSimpleView::Edit,
+        }
+    }
+}
+
+impl <ReadId, UpdateId> Default for CrudView<ReadId, UpdateId>
+where
+    ReadId: Id + Serialize + DeserializeOwned,
+    UpdateId: Id + Serialize + DeserializeOwned,
+    <<ReadId as Id>::Field as IdField>::Value: Into<SerializableValue>,
+    <<UpdateId as Id>::Field as IdField>::Value: Into<SerializableValue>,
+{
+    fn default() -> Self {
+        Self::List
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -533,10 +815,10 @@ pub enum FieldMode {
     Editable,
 }
 
-impl Default for CrudView {
-    fn default() -> Self {
-        Self::List
-    }
+#[derive(Debug, Clone, PartialEq)]
+pub enum DeletableModel<ReadModel: CrudDataTrait + CrudIdTrait, UpdateModel: CrudDataTrait + CrudIdTrait> {
+    Read(ReadModel),
+    Update(UpdateModel),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -1,7 +1,5 @@
 use chrono_utc_date_time::UtcDateTime;
-use crud_shared_types::{
-    Condition, ConditionClause, ConditionClauseValue, ConditionElement, DeleteResult, Order, Saved,
-};
+use crud_shared_types::{DeleteResult, Order, Saved, Condition, ConditionClause, ConditionElement};
 use indexmap::{IndexMap, indexmap};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
@@ -15,7 +13,6 @@ use yewdux::prelude::*;
 
 use crate::{
     services::crud_rest_data_provider::{CrudRestDataProvider, DeleteById},
-    DateTimeDisplay,
 };
 
 use super::{prelude::*, stores, types::RequestError};
@@ -26,7 +23,7 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     ViewLinked(Option<ViewLink<T>>),
     List,
     Create,
-    EntityCreated((Saved<T::UpdateModel>, Option<CrudView>)),
+    EntityCreated((Saved<T::UpdateModel>, Option<CrudView<T::ReadModelId, T::UpdateModelId>>)),
     EntityCreationAborted(String),
     EntityNotCreatedDueToCriticalErrors,
     EntityCreationFailed(RequestError),
@@ -34,9 +31,9 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     EntityUpdateAborted(String),
     EntityNotUpdatedDueToCriticalErrors,
     EntityUpdateFailed(RequestError),
-    Read(T::UpdateModel),
+    Read(T::ReadModel),
     Edit(T::UpdateModel),
-    Delete(T::UpdateModel),
+    Delete(DeletableModel<T::ReadModel, T::UpdateModel>),
     DeleteCanceled,
     DeleteApproved,
     Deleted(Result<DeleteResult, RequestError>),
@@ -65,17 +62,17 @@ pub struct NestedConfig {
     /// The name of the parent instance from which the referenced id should be loaded.
     pub parent_instance: String,
 
-    /// The field of the parent instance from which the referenced id should be loaded.
+    /// The field of the parent instance from which the referenced id should be loaded. For example: "id".
     pub parent_field: String,
 
-    /// The `own` field in which the reference is stored.
+    /// The `own` field in which the reference is stored. For example: "server_id", when referencing the Server entity.
     pub reference_field: String, // TODO: This should be: T::ReadModel::Field? (ClusterCertificateField::CreatedAt)
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CrudInstanceConfig<T: CrudMainTrait> {
     pub api_base_url: String,
-    pub view: CrudView,
+    pub view: CrudView<T::ReadModelId, T::UpdateModelId>,
     pub headers: Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>,
     // serde bound used as described in: https://github.com/serde-rs/serde/issues/1296
     #[serde(bound = "")]
@@ -107,20 +104,22 @@ impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {
         Self {
             api_base_url: "".to_owned(),
             view: CrudView::default(),
-            headers: vec![(
-                T::ReadModel::get_id_field(),
-                HeaderOptions {
-                    display_name: "ID".to_owned(),
-                    min_width: true,
-                    ordering_allowed: true,
-                    date_time_display: DateTimeDisplay::LocalizedLocal,
-                },
-            )],
+            // headers: vec![( // TODO: build from id fields_iter
+            //     T::ReadModel::get_id_field(),
+            //     HeaderOptions {
+            //         display_name: "ID".to_owned(),
+            //         min_width: true,
+            //         ordering_allowed: true,
+            //         date_time_display: DateTimeDisplay::LocalizedLocal,
+            //     },
+            // )],
+            headers: vec![],
             create_elements: CreateElements::Default,
             elements: vec![],
-            order_by: indexmap! {
-                T::ReadModel::get_id_field() => Order::Asc,
-            },
+            // order_by: indexmap! { // TODO: Nothing? First id field? All id fields?
+            //     T::ReadModel::get_id_field() => Order::Asc,
+            // },
+            order_by: indexmap! { },
             items_per_page: 10,
             page: 1,
             active_tab: None,
@@ -213,8 +212,8 @@ pub struct CrudInstance<T: 'static + CrudMainTrait> {
     config: CrudInstanceConfig<T>,
     static_config: CrudStaticInstanceConfig<T>,
     data_provider: CrudRestDataProvider<T>,
-    entity_to_delete: Option<T::UpdateModel>,
-    parent_id: Option<u32>,
+    entity_to_delete: Option<DeletableModel<T::ReadModel, T::UpdateModel>>,
+    parent_id: Option<SerializableId>,
 }
 
 impl<T: 'static + CrudMainTrait> CrudInstance<T> {
@@ -226,11 +225,14 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
 
         let name = ctx.props().name.clone();
         let view = self.config.view.clone();
+
+        let serializable_view: SerializableCrudView = view.into();
+
         self.instance_views_dispatch
-            .reduce_mut(|state| state.save(name, view));
+            .reduce_mut(|state| state.save(name, serializable_view));
     }
 
-    fn set_view(&mut self, view: CrudView) {
+    fn set_view(&mut self, view: CrudView<T::ReadModelId, T::UpdateModelId>) {
         self.config.view = view;
     }
 
@@ -239,7 +241,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
             <div class={"crud-instance"}>
                 <div class={"body"}>
                     {
-                        match self.config.view {
+                        match &self.config.view {
                             CrudView::List => {
                                 html! {
                                     <CrudListView<T>
@@ -250,8 +252,8 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         on_reset={ctx.link().callback(|_| Msg::Reset)}
                                         on_create={ctx.link().callback(|_| Msg::Create)}
                                         on_read={ctx.link().callback(Msg::Read)}
-                                        on_edit={ctx.link().callback(Msg::Edit)}
-                                        on_delete={ctx.link().callback(Msg::Delete)}
+                                        on_edit={ctx.link().callback(|read_model: T::ReadModel| Msg::Edit(read_model.into()))}
+                                        on_delete={ctx.link().callback(|entity| Msg::Delete(DeletableModel::Read(entity)))}
                                         on_order_by={ctx.link().callback(Msg::OrderBy)}
                                         on_page_selected={ctx.link().callback(Msg::PageSelected)}
                                         on_entity_action={ctx.link().callback(Msg::EntityAction)}
@@ -286,7 +288,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         data_provider={self.data_provider.clone()}
                                         children={ctx.props().children.clone()}
                                         config={self.config.clone()}
-                                        id={id}
+                                        id={id.clone()}
                                         list_view_available={true}
                                         on_list_view={ctx.link().callback(|_| Msg::List)}
                                         on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
@@ -300,7 +302,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         children={ctx.props().children.clone()}
                                         config={self.config.clone()}
                                         static_config={self.static_config.clone()}
-                                        id={id}
+                                        id={id.clone()}
                                         list_view_available={true}
                                         on_entity_updated={ctx.link().callback(Msg::EntityUpdated)}
                                         on_entity_update_aborted={ctx.link().callback(Msg::EntityUpdateAborted)}
@@ -308,7 +310,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         on_entity_update_failed={ctx.link().callback(Msg::EntityUpdateFailed)}
                                         on_list={ctx.link().callback(|_| Msg::List)}
                                         on_create={ctx.link().callback(|_| Msg::Create)}
-                                        on_delete={ctx.link().callback(Msg::Delete)}
+                                        on_delete={ctx.link().callback(|entity| Msg::Delete(DeletableModel::Update(entity)))}
                                         on_link={ctx.link().callback(|link: Option<Scope<CrudEditView<T>>>|
                                             Msg::ViewLinked(link.map(|link| ViewLink::Edit(link))))}
                                         on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
@@ -321,15 +323,26 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
 
                     {
                         match &self.entity_to_delete {
-                            Some(entity) => html! {
-                                <CrudModal>
-                                    <CrudDeleteModal<T::UpdateModel>
-                                        entity={entity.clone()}
-                                        on_cancel={ctx.link().callback(|_| Msg::DeleteCanceled)}
-                                        on_delete={ctx.link().callback(|_| Msg::DeleteApproved)}
-                                    />
-                                </CrudModal>
-                            },
+                            Some(deletable_model) => match deletable_model {
+                                DeletableModel::Read(read_model) => html! {
+                                    <CrudModal>
+                                        <CrudDeleteModal<T::ReadModel>
+                                            entity={read_model.clone()}
+                                            on_cancel={ctx.link().callback(|_| Msg::DeleteCanceled)}
+                                            on_delete={ctx.link().callback(|_| Msg::DeleteApproved)}>
+                                        </CrudDeleteModal<T::ReadModel>>
+                                    </CrudModal>
+                                },
+                                DeletableModel::Update(update_model) => html! {
+                                    <CrudModal>
+                                        <CrudDeleteModal<T::UpdateModel>
+                                            entity={update_model.clone()}
+                                            on_cancel={ctx.link().callback(|_| Msg::DeleteCanceled)}
+                                            on_delete={ctx.link().callback(|_| Msg::DeleteApproved)}>
+                                        </CrudDeleteModal<T::UpdateModel>>
+                                    </CrudModal>
+                                }
+                            }
                             None => html! {}
                         }
                     }
@@ -408,34 +421,39 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 self.instance_views_store = store;
 
                 if let Some(nested) = &ctx.props().config.nested {
+                    // TODO: How do we get the parents ID type?
                     match self
                         .instance_views_store
                         .get(nested.parent_instance.as_str())
                     {
                         Some(parent_view) => {
                             let parent_id = match parent_view {
-                                CrudView::List => None,
-                                CrudView::Create => None,
-                                CrudView::Read(id) => Some(id),
-                                CrudView::Edit(id) => Some(id),
+                                SerializableCrudView::List => None,
+                                SerializableCrudView::Create => None,
+                                SerializableCrudView::Read(id) => Some(id),
+                                SerializableCrudView::Edit(id) => Some(id),
                             };
-                            if let Some(id) = parent_id {
-                                self.data_provider
-                                    .set_base_condition(Some(Condition::All(vec![
-                                        ConditionElement::Clause(ConditionClause {
-                                            column_name: nested.reference_field.clone(),
-                                            operator: crud_shared_types::Operator::Equal,
-                                            value: ConditionClauseValue::U32(id),
-                                        }),
-                                    ])));
+                            if let Some(parent_id) = &parent_id {
+                                let (_field_name, value) = parent_id.0.iter()
+                                    .find(|(field_name, _value)| field_name == nested.parent_field.as_str())
+                                    .expect("related parent field must be part of the parents id!");
+
+                                self.data_provider.set_base_condition(Some(Condition::All(vec![
+                                    ConditionElement::Clause(ConditionClause {
+                                        column_name: nested.reference_field.clone(),
+                                        operator: crud_shared_types::Operator::Equal,
+                                        value: value.clone().into(),
+                                    }),
+                                ])));
                             } else {
                                 self.data_provider.set_base_condition(None);
                             }
-                            self.parent_id = parent_id;
+                            self.parent_id = parent_id.clone();
                             true
                         }
                         None => {
-                            // log::info!("no parent config");
+                            log::info!("no parent config");
+                            log::warn!("does .instance_views_store.get(nested.parent_instance.as_str()) work correctly now that we have a generic store?");
                             false
                         }
                     }
@@ -657,8 +675,8 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 self.store_config(ctx);
                 true
             }
-            Msg::Delete(entity) => {
-                self.entity_to_delete = Some(entity);
+            Msg::Delete(deletable_model) => {
+                self.entity_to_delete = Some(deletable_model);
                 true
             }
             Msg::DeleteCanceled => {
@@ -667,9 +685,12 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
             }
             Msg::DeleteApproved => {
                 match &self.entity_to_delete {
-                    Some(entity) => {
-                        let id = entity.get_id();
+                    Some(deletable_model) => {
                         let data_provider = self.data_provider.clone();
+                        let id = match deletable_model {
+                            DeletableModel::Read(read_model) => ReadOrUpdateId::Read(read_model.get_id()),
+                            DeletableModel::Update(update_model) => ReadOrUpdateId::Update(update_model.get_id()),
+                        };
                         ctx.link().send_future(async move {
                             Msg::Deleted(data_provider.delete_by_id(DeleteById { id }).await)
                         });
@@ -683,15 +704,41 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                     Ok(delete_result) => match delete_result {
                         DeleteResult::Deleted(_amount) => {
                             match &self.entity_to_delete {
-                                Some(entity) => match self.config.view {
-                                    CrudView::Read(id) | CrudView::Edit(id) => {
-                                        if id == entity.get_id() {
-                                            self.set_view(CrudView::List);
-                                            self.store_config(ctx);
-                                        }
+                                Some(deletable_model) => match deletable_model {
+                                    DeletableModel::Read(read_model) => {
+                                        match &self.config.view {
+                                            CrudView::Read(id) => {
+                                                if id == &read_model.get_id() {
+                                                    self.set_view(CrudView::List);
+                                                    self.store_config(ctx);
+                                                }
+                                            }
+                                            CrudView::Edit(id) => {
+                                                let update_model: T::UpdateModel = (*read_model).clone().into();
+                                                if id == &update_model.get_id() {
+                                                    self.set_view(CrudView::List);
+                                                    self.store_config(ctx);
+                                                }
+                                            }
+                                            _ => {}
+                                        };
                                     }
-                                    _ => {}
-                                },
+                                    DeletableModel::Update(update_model) => {
+                                        match &self.config.view {
+                                            CrudView::Read(id) => {
+                                                // TODO: We cannot do anything here as the UpdateModel cannot be converted into the ReadModel and the ReadModelId cannot be converted into an UpdateModelId...
+                                                log::warn!("possibly needs implementation... crud_instance#Msg::Deleted handler");
+                                            }
+                                            CrudView::Edit(id) => {
+                                                if id == &update_model.get_id() {
+                                                    self.set_view(CrudView::List);
+                                                    self.store_config(ctx);
+                                                }
+                                            }
+                                            _ => {}
+                                        };
+                                    }
+                                }
                                 None => {}
                             }
                             self.entity_to_delete = None;

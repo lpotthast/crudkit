@@ -1,24 +1,30 @@
 use std::collections::HashMap;
 
-use log::error;
 use serde::{Deserialize, Serialize};
 use yewdux::{prelude::*, storage};
 
-use crate::CrudView;
+use crate::SerializableCrudView;
 
+// NOTE: This type is not generic, as every crud instance should have access to the current view state of instances of arbitrary generic T.
+// Therefor there must only be one single store, which only is the case if not generic itself.
+// This limits what we can store, so we store a type erased ID in the form of SerializableCrudViews.
 #[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct InstanceViewsStore {
     // serde bound used as described in: https://github.com/serde-rs/serde/issues/1296
     #[serde(bound = "")]
-    instances: HashMap<String, CrudView>,
+    instances: HashMap<String, SerializableCrudView>,
 }
 
 impl InstanceViewsStore {
-    pub fn get(&self, instance_name: &str) -> Option<CrudView> {
+    pub fn get(&self, instance_name: &str) -> Option<SerializableCrudView> {
         self.instances.get(instance_name).cloned()
     }
 
-    pub fn save(&mut self, instance_name: String, crud_view: CrudView) {
+    pub fn save(
+        &mut self,
+        instance_name: String,
+        crud_view: SerializableCrudView,
+    ) {
         self.instances.insert(instance_name, crud_view);
     }
 }
@@ -30,7 +36,7 @@ impl Store for InstanceViewsStore {
         storage::load(storage::Area::Local)
             .map_err(|error| {
                 // TODO: Erase from local store
-                error!("Unable to load state due to StorageError: {}", error);
+                log::error!("Unable to load state due to StorageError: {}", error);
             })
             .ok()
             .flatten()

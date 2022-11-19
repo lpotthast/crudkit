@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use crud_shared_types::{
-    Condition, ConditionClause, ConditionClauseValue, ConditionElement, Operator, SaveResult, Saved,
-};
+use crud_shared_types::{SaveResult, Saved, IntoAllEqualCondition};
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,
@@ -64,7 +62,8 @@ pub struct Props<T: 'static + CrudMainTrait> {
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
     pub static_config: CrudStaticInstanceConfig<T>,
-    pub id: u32,
+    /// The ID of the entity being edited.
+    pub id: T::UpdateModelId,
     pub list_view_available: bool,
     pub on_entity_updated: Callback<Saved<T::UpdateModel>>,
     pub on_entity_update_aborted: Callback<String>,
@@ -112,16 +111,16 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
     fn is_save_disabled(&self) -> bool {
         self.ongoing_save || !self.input_errors.is_empty()
     }
-    
+
     fn is_delete_disabled(&self) -> bool {
         self.ongoing_save
     }
 
     fn load_entity(ctx: &Context<Self>) {
-        let id = ctx.props().id;
+        let id = ctx.props().id.clone();
         let data_provider = ctx.props().data_provider.clone();
         ctx.link()
-            .send_future(async move { Msg::LoadedEntity(load_entity(data_provider, id).await) });
+            .send_future(async move { Msg::LoadedEntity(load_entity::<T>(data_provider, id).await) });
     }
 
     fn set_entity(&mut self, data: Result<Option<T::ReadModel>, RequestError>, from: SetFrom) {
@@ -175,7 +174,8 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
 
     fn save_entity(&self, ctx: &Context<Self>, and_then: Then) {
         let entity = self.input.clone();
-        let id = ctx.props().id;
+        let id = ctx.props().id.clone();
+        let condition = <T as CrudMainTrait>::UpdateModelId::into_all_equal_condition(id);
         let data_provider = ctx.props().data_provider.clone();
         // TODO: Like in create_view, store ongoing_save!!
         ctx.link().send_future(async move {
@@ -183,13 +183,7 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
                 data_provider
                     .update_one(UpdateOne {
                         entity,
-                        condition: Some(Condition::All(vec![ConditionElement::Clause(
-                            ConditionClause {
-                                column_name: T::UpdateModel::get_id_field().get_name().to_owned(),
-                                operator: Operator::Equal,
-                                value: ConditionClauseValue::U32(id),
-                            },
-                        )])),
+                        condition: Some(condition),
                     })
                     .await,
                 and_then,
@@ -404,7 +398,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                                     .filter_map(|action| match action {
                                                         CrudEntityAction::Custom {id, name, icon, variant, valid_in, action, modal} => {
                                                             valid_in.contains(&States::Update).then(|| {
-                                                                let action_id = id.clone();
+                                                                let action_id: &str = (&id).clone();
                                                                 let action = action.clone();
 
                                                                 if let Some(modal) = modal {
@@ -468,7 +462,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                     elements={ctx.props().config.elements.clone()}
                                     entity={self.input.clone()}
                                     mode={FieldMode::Editable}
-                                    current_view={CrudView::Edit(ctx.props().id)}
+                                    current_view={CrudSimpleView::Edit}
                                     value_changed={ctx.link().callback(Msg::ValueChanged)}
                                     active_tab={ctx.props().config.active_tab.clone()}
                                     on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
@@ -513,19 +507,14 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
 
 pub async fn load_entity<T: CrudMainTrait>(
     data_provider: CrudRestDataProvider<T>,
-    id: u32,
+    id: T::UpdateModelId,
 ) -> Result<Option<T::ReadModel>, RequestError> {
+    let condition = <T as CrudMainTrait>::UpdateModelId::into_all_equal_condition(id);
     data_provider
         .read_one(ReadOne {
             skip: None,
             order_by: None,
-            condition: Some(Condition::All(vec![ConditionElement::Clause(
-                ConditionClause {
-                    column_name: String::from(T::ReadModel::get_id_field().get_name()),
-                    operator: crud_shared_types::Operator::Equal,
-                    value: crud_shared_types::ConditionClauseValue::U32(id),
-                },
-            )])),
+            condition: Some(condition),
         })
         .await
 }

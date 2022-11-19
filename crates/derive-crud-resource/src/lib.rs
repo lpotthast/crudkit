@@ -22,19 +22,17 @@ struct Args {
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
-    let ident = &ast.ident;
+    let update_model_ident = &ast.ident;
+    let update_model_id_ident = Ident::new(format!("{update_model_ident}Id").as_str(), Span::call_site());
+    let update_model_id_field_ident = Ident::new(format!("{update_model_ident}IdField").as_str(), Span::call_site());
 
-    let create_ident = Ident::new(
-        format!("Create{}", ident.to_string()).as_str(),
-        ident.span(),
-    );
+    let read_model_ident = Ident::new(format!("Read{update_model_ident}").as_str(), Span::call_site());
+    let read_model_id_ident = Ident::new(format!("Read{update_model_ident}Id").as_str(), Span::call_site());
+    let read_model_id_field_ident = Ident::new(format!("Read{update_model_ident}IdField").as_str(), Span::call_site());
 
-    let read_ident = Ident::new(format!("Read{}", ident.to_string()).as_str(), ident.span());
+    let create_model_ident = Ident::new(format!("Create{update_model_ident}").as_str(), Span::call_site());
 
-    let resource_ident = Ident::new(
-        format!("Crud{}Resource", ident.to_string()).as_str(),
-        ident.span(),
-    );
+    let resource_ident = Ident::new(format!("Crud{update_model_ident}Resource").as_str(), Span::call_site());
 
     let args: Args = match FromDeriveInput::from_derive_input(&ast) {
         Ok(args) => args,
@@ -53,7 +51,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         .unwrap_or_else(|| quote! { crud_yew::EmptyActionPayload });
 
     quote! {
-        #[derive(Debug, Clone, Default, PartialEq, Eq)]
+        #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
         pub struct #resource_ident {}
 
         impl crud_yew::CrudResourceTrait for #resource_ident {
@@ -63,9 +61,15 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
 
         impl crud_yew::CrudMainTrait for #resource_ident {
-            type CreateModel = #create_ident;
-            type ReadModel = #read_ident;
-            type UpdateModel = #ident;
+            type CreateModel = #create_model_ident;
+
+            type ReadModelIdField = #read_model_id_field_ident;
+            type ReadModelId = #read_model_id_ident;
+            type ReadModel = #read_model_ident;
+
+            type UpdateModelIdField = #update_model_id_field_ident;
+            type UpdateModelId = #update_model_id_ident;
+            type UpdateModel = #update_model_ident;
 
             type ActionPayload = #action_payload_type;
         }

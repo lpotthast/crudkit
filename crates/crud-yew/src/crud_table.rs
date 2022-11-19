@@ -1,6 +1,7 @@
+use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::Order;
 use std::{marker::PhantomData, rc::Rc};
-use yew::{prelude::*, html::ChildrenRenderer};
+use yew::{html::ChildrenRenderer, prelude::*};
 use yewbi::Bi;
 
 use crate::crud_instance::Item;
@@ -23,7 +24,7 @@ where
     pub children: ChildrenRenderer<Item>,
     pub api_base_url: String,
     pub data: Option<Rc<Vec<T>>>,
-    pub no_data: Option<NoData>,
+    pub no_data: Option<(NoData, UtcDateTime)>,
     pub headers: Vec<(T::Field, HeaderOptions, Option<Order>)>,
     pub on_order_by: Callback<(T::Field, OrderByUpdateOptions)>,
     pub read_allowed: bool,
@@ -140,7 +141,7 @@ where
                                                                 <CrudField<T>
                                                                     children={ctx.props().children.clone()}
                                                                     api_base_url={ctx.props().api_base_url.clone()}
-                                                                    current_view={CrudView::List}
+                                                                    current_view={CrudSimpleView::List}
                                                                     field_type={field.clone()}
                                                                     field_options={FieldOptions { disabled: false, label: None, date_time_display: options.date_time_display }}
                                                                     entity={entity.clone()}
@@ -200,13 +201,22 @@ where
                                     }).collect::<Html>()
                                 }
                             }
-                            else if let Some(no_data) = &ctx.props().no_data {
-                                html! {
-                                    <tr>
-                                        <td colspan={"100%"}>
-                                            {format!("No data available: {:?}", no_data)}
-                                        </td>
-                                    </tr>
+                            else if let Some((reason, since)) = &ctx.props().no_data {
+                                if since.secs_till_now() > 5 {
+                                    html! {
+                                        <tr>
+                                            <td colspan={"100%"}>
+                                                {format!("No data available: {reason:?}")}
+                                            </td>
+                                        </tr>
+                                    }
+                                } else {
+                                    html! {
+                                        <tr>
+                                            <td colspan={"100%"}>
+                                            </td>
+                                        </tr>
+                                    }
                                 }
                             }
                             else {

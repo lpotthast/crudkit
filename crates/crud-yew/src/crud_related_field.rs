@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::{crud_select::Selection, prelude::*, crud_instance::CreateOrUpdateField};
-use crud_shared_types::{Condition, ConditionClause, ConditionClauseValue, ConditionElement};
+use crud_shared_types::{Condition, ConditionClause, ConditionElement};
 use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
 
@@ -29,7 +29,7 @@ pub struct Props<P: CrudMainTrait, T: CrudMainTrait> {
     pub parent_instance: String,
     /// The field of the parent, where another entry is referenced.
     pub parent_field: CreateOrUpdateField<P>,
-    /// The field of the related entry whose value is stored in the parent. 
+    /// The field of the related entry whose value is stored in the parent.
     pub connect_field: <T::ReadModel as CrudDataTrait>::Field,
     /// The field in which the reference to the parent is store.
     pub parent_reverse_field: <T::ReadModel as CrudDataTrait>::Field,
@@ -193,20 +193,23 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> Component for CrudR
                 // TODO: Do we really need to store this?
                 match store.get(ctx.props().parent_instance.as_str()) {
                     Some(parent_view) => match parent_view {
-                        crate::CrudView::List | crate::CrudView::Create => {
+                        SerializableCrudView::List | SerializableCrudView::Create => {
                             log::warn!("Cannot show this field in List or Create view...");
                         }
-                        crate::CrudView::Read(id) | crate::CrudView::Edit(id) => {
-                            let mut data_provider: CrudRestDataProvider<T> =
-                                CrudRestDataProvider::new(ctx.props().api_base_url.clone());
+                        SerializableCrudView::Read(id) | SerializableCrudView::Edit(id) => {
+                            let mut data_provider: CrudRestDataProvider<T> = CrudRestDataProvider::new(ctx.props().api_base_url.clone());
+
+                            let (_field_name, value) = id.0.iter()
+                                .find(|(field_name, _value)| field_name == ctx.props().parent_reverse_field.get_name())
+                                .expect("related parent field must be part of the parents id!");
+
                             data_provider.set_base_condition(Some(Condition::All(vec![
                                 ConditionElement::Clause(ConditionClause {
                                     column_name: ctx.props().parent_reverse_field.get_name().to_owned(),
                                     operator: crud_shared_types::Operator::Equal,
-                                    value: ConditionClauseValue::U32(id),
+                                    value: value.clone().into(),
                                 }),
                             ])));
-
                             ctx.link().send_future(async move {
                                 Msg::LoadedData(
                                     data_provider

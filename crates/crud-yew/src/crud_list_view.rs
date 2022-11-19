@@ -1,3 +1,4 @@
+use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::Order;
 use std::rc::Rc;
 use yew::{
@@ -48,9 +49,9 @@ pub struct Props<T: CrudMainTrait + 'static> {
     pub static_config: CrudStaticInstanceConfig<T>,
     pub on_reset: Callback<()>,
     pub on_create: Callback<()>,
-    pub on_read: Callback<T::UpdateModel>,
-    pub on_edit: Callback<T::UpdateModel>,
-    pub on_delete: Callback<T::UpdateModel>,
+    pub on_read: Callback<T::ReadModel>,
+    pub on_edit: Callback<T::ReadModel>,
+    pub on_delete: Callback<T::ReadModel>,
     pub on_order_by: Callback<(<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)>,
     pub on_page_selected: Callback<u64>,
     pub on_entity_action: Callback<(Rc<Box<dyn CrudActionTrait>>, T::ReadModel)>,
@@ -59,9 +60,9 @@ pub struct Props<T: CrudMainTrait + 'static> {
 }
 
 pub struct CrudListView<T: 'static + CrudMainTrait> {
-    data: Result<Rc<Vec<T::ReadModel>>, NoData>,
+    data: Result<Rc<Vec<T::ReadModel>>, (NoData, UtcDateTime)>,
     filter: Option<()>,
-    item_count: Result<u64, NoData>,
+    item_count: Result<u64, (NoData, UtcDateTime)>,
     actions_executing: Vec<&'static str>,
 }
 
@@ -103,7 +104,7 @@ impl<T: CrudMainTrait> CrudListView<T> {
         }
     }
 
-    fn get_data_error(&self) -> Option<NoData> {
+    fn get_data_error(&self) -> Option<(NoData, UtcDateTime)> {
         match &self.data {
             Ok(_) => None,
             Err(err) => Some(err.clone()),
@@ -119,9 +120,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
         ctx.props().on_link.emit(Some(ctx.link().clone()));
         ctx.link().send_future(async move { Msg::ComponentCreated });
         Self {
-            data: Err(NoData::NotYetLoaded),
+            data: Err((NoData::NotYetLoaded, UtcDateTime::now())),
             filter: None,
-            item_count: Err(NoData::NotYetLoaded),
+            item_count: Err((NoData::NotYetLoaded, UtcDateTime::now())),
             actions_executing: vec![],
         }
     }
@@ -143,11 +144,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                 false
             }
             Msg::PageLoaded(data) => {
-                self.data = data.map(Rc::new).map_err(NoData::FetchFailed);
+                self.data = data.map(Rc::new).map_err(|err| (NoData::FetchFailed(err), UtcDateTime::now()));
                 true
             }
             Msg::CountRead(data) => {
-                self.item_count = data.map_err(NoData::FetchFailed).map(|val| val as u64);
+                self.item_count = data.map_err(|err| (NoData::FetchFailed(err), UtcDateTime::now())).map(|val| val as u64);
                 true
             }
             Msg::Reset => {
@@ -164,15 +165,15 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                 false
             }
             Msg::Read(entity) => {
-                ctx.props().on_read.emit(entity.into());
+                ctx.props().on_read.emit(entity);
                 false
             }
             Msg::Edit(entity) => {
-                ctx.props().on_edit.emit(entity.into());
+                ctx.props().on_edit.emit(entity);
                 false
             }
             Msg::Delete(entity) => {
-                ctx.props().on_delete.emit(entity.into());
+                ctx.props().on_delete.emit(entity);
                 false
             }
             Msg::ActionTriggered { action_id, action } => {
@@ -238,7 +239,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                                 ctx.props().static_config.actions.iter()
                                     .map(|action| match action {
                                         CrudAction::Custom {id, name, icon, variant, action, modal} => {
-                                            let action_id = id.clone();
+                                            let action_id: &str = (&id).clone();
                                             let action = action.clone();
                                             html! {
                                                 <CrudBtn
@@ -305,8 +306,12 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                                 on_page_select={ctx.link().callback(|page| Msg::PageSelected(page))}
                             />
                         },
-                        Err(no_data) => html! {
-                            <div>{format!("Keine Daten verfügbar: {:?}", no_data)}</div>
+                        Err((reason, since)) => if since.secs_till_now() > 5 {
+                            html! {
+                                <div>{format!("Keine Daten verfügbar: {reason:?}")}</div>
+                            }
+                        } else {
+                            html! {}
                         },
                     }
                 }

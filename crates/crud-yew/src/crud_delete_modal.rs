@@ -11,18 +11,18 @@ pub enum Msg {
 }
 
 #[derive(Properties, PartialEq)]
-pub struct Props<T: CrudDataTrait> {
+pub struct Props<T: CrudDataTrait + CrudIdTrait> {
     pub entity: T,
     pub on_cancel: Callback<()>,
     pub on_delete: Callback<()>,
 }
 
-pub struct CrudDeleteModal<T: CrudDataTrait> {
+pub struct CrudDeleteModal<T: CrudDataTrait + CrudIdTrait> {
     _global_key_up_dispatch: Dispatch<GlobalKeyUp>,
     phantom_data: PhantomData<T>,
 }
 
-impl<T: 'static + CrudDataTrait> Component for CrudDeleteModal<T> {
+impl<T: 'static + CrudDataTrait + CrudIdTrait> Component for CrudDeleteModal<T> {
     type Message = Msg;
     type Properties = Props<T>;
 

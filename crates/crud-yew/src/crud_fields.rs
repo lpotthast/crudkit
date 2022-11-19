@@ -16,7 +16,7 @@ pub struct Props<T: CrudDataTrait> {
     pub elements: Vec<Elem<T>>,
     pub entity: Option<T>,
     pub mode: FieldMode,
-    pub current_view: CrudView,
+    pub current_view: CrudSimpleView,
     pub value_changed: Callback<(T::Field, Result<Value, String>)>,
     pub active_tab: Option<Label>,
     pub on_tab_selection: Callback<Label>,
