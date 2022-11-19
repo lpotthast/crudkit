@@ -18,18 +18,18 @@ derive-crud-resource-context = { path = "../derive-crud-resource-context" }
 derive-update-model = { path = "../derive-update-model" }
 
 # External
-serde = { version = "1.0.147", features = ["derive"] }
-serde_json = "1.0.87"
-chrono = "0.4.22"
-axum = "0.5.17"
-indexmap = { version = "1.9.1", features = ["serde"] }
-paste = "1.0.9"
-log = "0.4.17"
-async-trait = "0.1.58"
-sea-orm = { version = "0.10.1", features = [
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = "0.4"
+axum = "0.5"
+indexmap = { version = "1.9", features = ["serde"] }
+paste = "1.0"
+log = "0.4"
+async-trait = "0.1"
+sea-orm = { version = "0.10", features = [
     "debug-print",
     "runtime-tokio-rustls",
     "sqlx",
     "sqlx-postgres",
 ] }
-sea-query = { version = "0.27.1" }
+sea-query = { version = "0.27" }
