@@ -21,10 +21,10 @@ crud-shared-types = { path = "../../../crud-shared-types" }
 # External
 yew = { git = "https://github.com/yewstack/yew", features = ["csr"] }
 yewdux = { git = "https://github.com/intendednull/yewdux" }
-log = "0.4.17"
-serde = { version = "1.0.147", features = ["derive"] }
-serde_json = { version = "1.0.87", features = ["raw_value"] }
-web-sys = { version = "0.3.60", features = [
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["raw_value"] }
+web-sys = { version = "0.3", features = [
     "Document",
     "Element",
     "HtmlElement",
@@ -34,20 +34,20 @@ web-sys = { version = "0.3.60", features = [
     "EventTarget",
     "DomRect",
 ] }
-wasm-bindgen = "0.2.83"
-wasm-bindgen-futures = "0.4.33"
-indexmap = { version = "1.9.1", features = ["serde"] }
-js-sys = "0.3.60"
-gloo = "0.8.0"
-reqwest = { version = "0.11.12", features = ["json", "multipart"] }
-uuid = { version = "1.2.1", features = ["js", "v4"], default-features = false }
-lazy_static = "1.4.0"
-parking_lot = "0.12.1"
-thiserror = "1.0.37"
-urlencoding = "2.1.2"
-derive_more = "0.99.17"
-dyn-clone = "1.0.9"
-async-trait = "0.1.58"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+indexmap = { version = "1.9", features = ["serde"] }
+js-sys = "0.3"
+gloo = "0.8"
+reqwest = { version = "0.11", features = ["json", "multipart"] }
+uuid = { version = "1.2", features = ["js", "v4"], default-features = false }
+lazy_static = "1.4"
+parking_lot = "0.12"
+thiserror = "1.0"
+urlencoding = "2.1"
+derive_more = "0.99"
+dyn-clone = "1.0"
+async-trait = "0.1"
 
 # Only used in crud-datetime
-chrono = "0.4.22"
+chrono = "0.4"
