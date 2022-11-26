@@ -1,14 +1,63 @@
+use darling::*;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
 use serde::Deserialize;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Field};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
+
+// TODO: This should create a darling error instead of panicking... See https://github.com/TedDriggs/darling/issues/207
+fn parse_type(string: Option<String>) -> Option<ValueType> {
+    string.map(|ty| match serde_json::from_str(format!("\"{ty}\"").as_str()) {
+        Ok(value_type) => value_type,
+        Err(err) => panic!("expected `field_value(type = ...)`, where '...' (actual: {ty}) is of a known variant. serde error: {err:?}"),
+    })
+}
+
+#[derive(Debug, FromField)]
+#[darling(attributes(field_value))]
+struct MyFieldReceiver {
+    ident: Option<syn::Ident>,
+
+    ty: syn::Type,
+
+    #[darling(rename = "type")]
+    #[darling(map = "parse_type")]
+    value_type: Option<ValueType>,
+}
+
+impl MyFieldReceiver {
+    pub fn value_type(&self) -> ValueType {
+        self.value_type.unwrap_or_else(|| (&self.ty).into())
+    }
+}
+
+#[derive(Debug, FromDeriveInput)]
+#[darling(attributes(field_value), supports(struct_any))]
+struct MyInputReceiver {
+    ident: syn::Ident,
+
+    data: ast::Data<(), MyFieldReceiver>,
+}
+
+impl MyInputReceiver {
+    pub fn fields(&self) -> &ast::Fields<MyFieldReceiver> {
+        match &self.data {
+            ast::Data::Enum(_) => panic!("Only structs are supported"),
+            ast::Data::Struct(fields) => fields,
+        }
+    }
+}
 
 #[proc_macro_derive(FieldValue, attributes(field_value))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
+
+    let input: MyInputReceiver = match FromDeriveInput::from_derive_input(&ast) {
+        Ok(args) => args,
+        Err(err) => return darling::Error::write_errors(err).into(),
+    };
 
     fn capitalize_first_letter(s: &str) -> String {
         s[0..1].to_uppercase() + &s[1..]
@@ -22,18 +71,178 @@ pub fn store(input: TokenStream) -> TokenStream {
         type_name
     }
 
-    fn struct_fields(data: &syn::Data) -> impl Iterator<Item = &syn::Field> {
-        match data {
-            syn::Data::Struct(data) => data.fields.iter(),
-            syn::Data::Enum(_) => panic!("Deriving a builder for enums is not supported."),
-            syn::Data::Union(_) => panic!("Deriving a builder for unions is not supported."),
-        }
-    }
-
-    let ident = &ast.ident;
+    let ident = &input.ident;
     let field_enum_ident = Ident::new(format!("{ident}Field").as_str(), ident.span());
 
-    fn field_type_to_value_type(ty: &syn::Type) -> ValueType {
+    // Self::Id => Value::U32(entity.id),
+    let get_field_value_arms = input.fields().iter().map(|field| {
+        let field_ident = field.ident.as_ref().expect("Expected named field!");
+        let field_name = field_ident.to_string();
+        let field_name_as_type_name = field_name_as_type_name(&field_name);
+        let field_name_as_type_ident =
+            Ident::new(field_name_as_type_name.as_str(), Span::call_site());
+
+        let value_type = field.value_type();
+        let value_type_ident: Ident = value_type.clone().into();
+
+        // Code that clones or copies the fields value.
+        let value_clone = match value_type {
+            ValueType::String => quote! { entity.#field_ident.clone() },
+            ValueType::Text => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalText => quote! { entity.#field_ident.clone().unwrap_or_default() },
+            // We use .unwrap_or_default(), as we feed that string into Value::String (see From<ValueType>). We should get rid of this.
+            ValueType::OptionalString => quote! { entity.#field_ident.clone().unwrap_or_default() },
+            ValueType::Bool => quote! { entity.#field_ident },
+            ValueType::ValidationStatus => quote! { entity.#field_ident },
+            ValueType::I32 => quote! { entity.#field_ident },
+            ValueType::I64 => quote! { entity.#field_ident },
+            ValueType::OptionalI64 => quote! { entity.#field_ident.clone() },
+            ValueType::U32 => quote! { entity.#field_ident },
+            ValueType::OptionalU32 => quote! { entity.#field_ident.clone() },
+            ValueType::F32 => quote! { entity.#field_ident },
+            ValueType::F64 => quote! { entity.#field_ident },
+            ValueType::UtcDateTime => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalUtcDateTime => quote! { entity.#field_ident.clone() },
+            ValueType::Select => quote! { entity.#field_ident.clone().into() },
+            ValueType::Multiselect => quote! { entity.#field_ident.clone().into() },
+            ValueType::OptionalSelect => quote! { entity.#field_ident.clone().map(Into::into) },
+            ValueType::OptionalMultiselect => {
+                quote! { entity.#field_ident.clone().map(|it| it.map(Into::into)) }
+            }
+            ValueType::OneToOneRelation => quote! { entity.#field_ident },
+            ValueType::NestedTable => quote! {
+                crud_shared_types::Id::fields(&entity.get_id())
+            }, // not important, panics anyway...
+        };
+
+        quote! {
+            #field_enum_ident::#field_name_as_type_ident => Value::#value_type_ident(#value_clone)
+        }
+    });
+
+    // Self::Id => entity.id = value.take_u32(),
+    let set_field_value_arms = input.fields().iter().map(|field| {
+        let field_ty = &field.ty;
+        let field_ident = field.ident.as_ref().expect("Expected named field!");
+        let field_name = field_ident.to_string();
+        let field_name_as_type_name = field_name_as_type_name(&field_name);
+        let field_name_as_type_ident =
+            Ident::new(field_name_as_type_name.as_str(), Span::call_site());
+
+        // An expression that, given a `value`, constructs the necessary data type value to be assigned to the field.
+        let take_op = match field.value_type() {
+            ValueType::String => quote! { value.take_string() },
+            ValueType::Text => quote! { value.take_string() },
+            ValueType::OptionalText => quote! { std::option::Option::Some(value.take_string()) },
+            // TODO: value should contain Option. do not force Some type...
+            ValueType::OptionalString => quote! { std::option::Option::Some(value.take_string()) },
+            ValueType::Bool => quote! { value.take_bool() },
+            ValueType::ValidationStatus => quote! { value.take_bool() },
+            ValueType::I32 => quote! { value.take_i32() },
+            ValueType::I64 => quote! { value.take_i64() },
+            ValueType::OptionalI64 => quote! { value.take_optional_i64() },
+            ValueType::U32 => quote! { value.take_u32() },
+            ValueType::OptionalU32 => quote! { value.take_optional_u32() },
+            ValueType::F32 => quote! { value.take_f32() },
+            ValueType::F64 => quote! { value.take_f64() },
+            ValueType::UtcDateTime => quote! { value.take_date_time() },
+            ValueType::OptionalUtcDateTime => quote! { value.take_optional_date_time() },
+            ValueType::Select => quote! { value.take_select_downcast_to::<#field_ty>().into() },
+            ValueType::Multiselect => quote! { value.take_multiselect_downcast_to().into() },
+            ValueType::OptionalSelect => quote! { value.take_optional_select_downcast_to().into() },
+            ValueType::OptionalMultiselect => {
+                quote! { value.take_optional_multiselect_downcast_to().into() }
+            }
+            ValueType::OneToOneRelation => quote! { value.take_one_to_one_relation() },
+            ValueType::NestedTable => {
+                quote! { {
+                    log::warn!("Setting a nested table dummy field is not allowed");
+                    // implicitly returns `()`
+                } }
+            }
+        };
+        quote! {
+            #field_enum_ident::#field_name_as_type_ident => entity.#field_ident = #take_op
+        }
+    });
+
+    quote! {
+        impl crud_yew::CrudFieldValueTrait<#ident> for #field_enum_ident {
+            fn get_value(&self, entity: &#ident) -> crud_yew::Value {
+                match self {
+                    #(#get_field_value_arms),*,
+                }
+            }
+
+            fn set_value(&self, entity: &mut #ident, value: crud_yew::Value) {
+                match self {
+                    #(#set_field_value_arms),*,
+                }
+            }
+        }
+    }
+    .into()
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, FromMeta, Deserialize)]
+enum ValueType {
+    String,
+    Text,
+    OptionalText,
+    OptionalString,
+    Bool,
+    ValidationStatus,
+    I32,
+    I64,
+    OptionalI64,
+    U32,
+    OptionalU32,
+    F32,
+    F64,
+    UtcDateTime,
+    OptionalUtcDateTime,
+    Select,
+    Multiselect,
+    OptionalSelect,
+    OptionalMultiselect,
+    OneToOneRelation,
+    NestedTable,
+}
+
+/// Converts to the name of the `crud_yew::Value` variant which should be used.
+impl From<ValueType> for Ident {
+    fn from(value_type: ValueType) -> Self {
+        Ident::new(
+            match value_type {
+                ValueType::String => "String",
+                ValueType::Text => "Text",
+                ValueType::OptionalText => "Text",
+                ValueType::OptionalString => "String",
+                ValueType::Bool => "Bool",
+                ValueType::ValidationStatus => "ValidationStatus",
+                ValueType::I32 => "I32",
+                ValueType::I64 => "I64",
+                ValueType::OptionalI64 => "OptionalI64",
+                ValueType::U32 => "U32",
+                ValueType::OptionalU32 => "OptionalU32",
+                ValueType::F32 => "F32",
+                ValueType::F64 => "F64",
+                ValueType::UtcDateTime => "UtcDateTime",
+                ValueType::OptionalUtcDateTime => "OptionalUtcDateTime",
+                ValueType::Select => "Select",
+                ValueType::Multiselect => "Multiselect",
+                ValueType::OptionalSelect => "OptionalSelect",
+                ValueType::OptionalMultiselect => "OptionalMultiselect",
+                ValueType::OneToOneRelation => "OneToOneRelation",
+                ValueType::NestedTable => "NestedTable",
+            },
+            Span::call_site(),
+        )
+    }
+}
+
+impl From<&syn::Type> for ValueType {
+    fn from(ty: &syn::Type) -> Self {
         match &ty {
             syn::Type::Array(_) => todo!(),
             syn::Type::BareFn(_) => todo!(),
@@ -106,243 +315,4 @@ pub fn store(input: TokenStream) -> TokenStream {
             _ => todo!(),
         }
     }
-
-    // Self::Id => Value::U32(entity.id),
-    let get_field_value_arms = struct_fields(&ast.data).map(|field| {
-        let field_ident = field.ident.as_ref().expect("Expected named field!");
-        let field_name = field_ident.to_string();
-        let field_name_as_type_name = field_name_as_type_name(&field_name);
-        let field_name_as_type_ident =
-            Ident::new(field_name_as_type_name.as_str(), Span::call_site());
-
-        let value_type = match type_attr(&field) {
-            Ok(ok) => match ok {
-                Some(attr) => attr.ty,
-                None => field_type_to_value_type(&field.ty),
-            },
-            Err(err) => abort!(err),
-        };
-        let value_type_ident: Ident = value_type.clone().into();
-
-        let id_field_name = "id";
-        let id_field_ident = Ident::new(id_field_name, Span::call_site());
-
-        // Code that clones or copies the fields value.
-        let value_clone = match value_type {
-            ValueType::String => quote! { entity.#field_ident.clone() },
-            ValueType::Text => quote! { entity.#field_ident.clone() },
-            ValueType::OptionalText => quote! { entity.#field_ident.clone().unwrap_or_default() },
-            // We use .unwrap_or_default(), as we feed that string into Value::String (see From<ValueType>). We should get rid of this.
-            ValueType::OptionalString => quote! { entity.#field_ident.clone().unwrap_or_default() },
-            ValueType::Bool => quote! { entity.#field_ident },
-            ValueType::ValidationStatus => quote! { entity.#field_ident },
-            ValueType::I32 => quote! { entity.#field_ident },
-            ValueType::I64 => quote! { entity.#field_ident },
-            ValueType::OptionalI64 => quote! { entity.#field_ident.clone() },
-            ValueType::U32 => quote! { entity.#field_ident },
-            ValueType::OptionalU32 => quote! { entity.#field_ident.clone() },
-            ValueType::F32 => quote! { entity.#field_ident },
-            ValueType::F64 => quote! { entity.#field_ident },
-            ValueType::UtcDateTime => quote! { entity.#field_ident.clone() },
-            ValueType::OptionalUtcDateTime => quote! { entity.#field_ident.clone() },
-            ValueType::Select => quote! { entity.#field_ident.clone().into() },
-            ValueType::Multiselect => quote! { entity.#field_ident.clone().into() },
-            ValueType::OptionalSelect => quote! { entity.#field_ident.clone().map(Into::into) },
-            ValueType::OptionalMultiselect => {
-                quote! { entity.#field_ident.clone().map(|it| it.map(Into::into)) }
-            }
-            ValueType::OneToOneRelation => quote! { entity.#field_ident },
-            ValueType::NestedTable => quote! {
-                crud_shared_types::Id::fields(&entity.get_id())
-            }, // not important, panics anyway...
-        };
-
-        quote! {
-            #field_enum_ident::#field_name_as_type_ident => Value::#value_type_ident(#value_clone)
-        }
-    });
-
-    // Self::Id => entity.id = value.take_u32(),
-    let set_field_value_arms = struct_fields(&ast.data).map(|field| {
-        let field_ty = &field.ty;
-        let field_ident = field.ident.as_ref().expect("Expected named field!");
-        let field_name = field_ident.to_string();
-        let field_name_as_type_name = field_name_as_type_name(&field_name);
-        let field_name_as_type_ident =
-            Ident::new(field_name_as_type_name.as_str(), Span::call_site());
-
-        let value_type = match type_attr(&field) {
-            Ok(ok) => match ok {
-                Some(attr) => attr.ty,
-                None => field_type_to_value_type(&field.ty),
-            },
-            Err(err) => abort!(err),
-        };
-        // An expression that, given a `value`, constructs the necessary data type value to be assigned to the field.
-        let take_op = match value_type {
-            ValueType::String => quote! { value.take_string() },
-            ValueType::Text => quote! { value.take_string() },
-            ValueType::OptionalText => quote! { std::option::Option::Some(value.take_string()) },
-            // TODO: value should contain Option. do not force Some type...
-            ValueType::OptionalString => quote! { std::option::Option::Some(value.take_string()) },
-            ValueType::Bool => quote! { value.take_bool() },
-            ValueType::ValidationStatus => quote! { value.take_bool() },
-            ValueType::I32 => quote! { value.take_i32() },
-            ValueType::I64 => quote! { value.take_i64() },
-            ValueType::OptionalI64 => quote! { value.take_optional_i64() },
-            ValueType::U32 => quote! { value.take_u32() },
-            ValueType::OptionalU32 => quote! { value.take_optional_u32() },
-            ValueType::F32 => quote! { value.take_f32() },
-            ValueType::F64 => quote! { value.take_f64() },
-            ValueType::UtcDateTime => quote! { value.take_date_time() },
-            ValueType::OptionalUtcDateTime => quote! { value.take_optional_date_time() },
-            ValueType::Select => quote! { value.take_select_downcast_to::<#field_ty>().into() },
-            ValueType::Multiselect => quote! { value.take_multiselect_downcast_to().into() },
-            ValueType::OptionalSelect => quote! { value.take_optional_select_downcast_to().into() },
-            ValueType::OptionalMultiselect => {
-                quote! { value.take_optional_multiselect_downcast_to().into() }
-            }
-            ValueType::OneToOneRelation => quote! { value.take_one_to_one_relation() },
-            ValueType::NestedTable => {
-                quote! { {
-                    log::warn!("Setting a nested table dummy field is not allowed");
-                    // implicitly returns `()`
-                } }
-            }
-        };
-        quote! {
-            #field_enum_ident::#field_name_as_type_ident => entity.#field_ident = #take_op
-        }
-    });
-
-    quote! {
-        impl crud_yew::CrudFieldValueTrait<#ident> for #field_enum_ident {
-            fn get_value(&self, entity: &#ident) -> crud_yew::Value {
-                match self {
-                    #(#get_field_value_arms),*,
-                }
-            }
-
-            fn set_value(&self, entity: &mut #ident, value: crud_yew::Value) {
-                match self {
-                    #(#set_field_value_arms),*,
-                }
-            }
-        }
-    }
-    .into()
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize)]
-enum ValueType {
-    String,
-    Text,
-    OptionalText,
-    OptionalString,
-    Bool,
-    ValidationStatus,
-    I32,
-    I64,
-    OptionalI64,
-    U32,
-    OptionalU32,
-    F32,
-    F64,
-    UtcDateTime,
-    OptionalUtcDateTime,
-    Select,
-    Multiselect,
-    OptionalSelect,
-    OptionalMultiselect,
-    OneToOneRelation,
-    NestedTable,
-}
-
-/// Converts to the name of the `crud_yew::Value` variant which should be used.
-impl From<ValueType> for Ident {
-    fn from(value_type: ValueType) -> Self {
-        Ident::new(
-            match value_type {
-                ValueType::String => "String",
-                ValueType::Text => "Text",
-                ValueType::OptionalText => "Text",
-                ValueType::OptionalString => "String",
-                ValueType::Bool => "Bool",
-                ValueType::ValidationStatus => "ValidationStatus",
-                ValueType::I32 => "I32",
-                ValueType::I64 => "I64",
-                ValueType::OptionalI64 => "OptionalI64",
-                ValueType::U32 => "U32",
-                ValueType::OptionalU32 => "OptionalU32",
-                ValueType::F32 => "F32",
-                ValueType::F64 => "F64",
-                ValueType::UtcDateTime => "UtcDateTime",
-                ValueType::OptionalUtcDateTime => "OptionalUtcDateTime",
-                ValueType::Select => "Select",
-                ValueType::Multiselect => "Multiselect",
-                ValueType::OptionalSelect => "OptionalSelect",
-                ValueType::OptionalMultiselect => "OptionalMultiselect",
-                ValueType::OneToOneRelation => "OneToOneRelation",
-                ValueType::NestedTable => "NestedTable",
-            },
-            Span::call_site(),
-        )
-    }
-}
-
-struct TypeAttr {
-    ty: ValueType,
-}
-
-fn type_attr(field: &Field) -> Result<Option<TypeAttr>, syn::Error> {
-    for attr in &field.attrs {
-        if attr.path.segments.len() == 1 && attr.path.segments[0].ident == "field_value" {
-            let span = attr.span();
-            if let Some(proc_macro2::TokenTree::Group(group)) =
-                attr.tokens.clone().into_iter().next()
-            {
-                let mut ts = group.stream().into_iter();
-                match ts.next().expect("Expected 'type'. Found nothing.") {
-                    proc_macro2::TokenTree::Ident(ident) => {
-                        if ident != "type" {
-                            return Err(syn::Error::new(
-                                span,
-                                format!("expected `field_value(type = ...)`, found '{ident} =' instead of 'type ='"),
-                            ));
-                        }
-                    }
-                    _ => {
-                        return Err(syn::Error::new(span, "expected `field_value(type = ...)`"));
-                    }
-                }
-                match ts.next().expect("Expected '='. Found nothing.") {
-                    proc_macro2::TokenTree::Punct(punct) => assert_eq!(punct.as_char(), '='),
-                    _ => {
-                        return Err(syn::Error::new(span, "expected `field_value(type = ...)`"));
-                    }
-                }
-                let ty = match ts.next().unwrap() {
-                    proc_macro2::TokenTree::Literal(literal) => {
-                        literal.to_string().trim_matches('"').trim().to_string()
-                    }
-                    _ => {
-                        return Err(syn::Error::new(span, "expected `field_value(type = ...)`"));
-                    }
-                };
-                if ty.is_empty() {
-                    return Err(syn::Error::new(span, "expected `field_value(type = ...)`"));
-                }
-                return match serde_json::from_str(format!("\"{ty}\"").as_str()) {
-                    Ok(ty) => Ok(Some(TypeAttr { ty })),
-                    Err(err) => Err(syn::Error::new(
-                        span,
-                        format!("expected `field_value(type = ...)`, where '...' (actual: {ty}) is of a known variant. serde error: {err:?}"),
-                    )),
-                };
-            } else {
-                return Err(syn::Error::new(span, "expected `field_value(type = ...)` "));
-            }
-        }
-    }
-    return Ok(None);
 }
