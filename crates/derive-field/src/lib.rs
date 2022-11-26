@@ -1,13 +1,53 @@
+use darling::*;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use proc_macro_error::proc_macro_error;
+use proc_macro_error::{proc_macro_error, abort};
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{parse_macro_input, DeriveInput, spanned::Spanned};
+
+#[derive(Debug, FromField)]
+#[darling(attributes(field))]
+struct MyFieldReceiver {
+    ident: Option<syn::Ident>,
+
+    ty: syn::Type,
+
+    /// Determines whether this field is part of the aggregate id.
+    id: Option<bool>,
+}
+
+impl MyFieldReceiver {
+    pub fn is_id(&self) -> bool {
+        self.id.is_some() || self.ident.as_ref().unwrap() == "id"
+    }
+}
+
+#[derive(Debug, FromDeriveInput)]
+#[darling(attributes(field), supports(struct_any))]
+struct MyInputReceiver {
+    ident: syn::Ident,
+
+    data: ast::Data<(), MyFieldReceiver>,
+}
+
+impl MyInputReceiver {
+    pub fn fields(&self) -> &ast::Fields<MyFieldReceiver> {
+        match &self.data {
+            ast::Data::Enum(_) => panic!("Only structs are supported"),
+            ast::Data::Struct(fields) => fields,
+        }
+    }
+}
 
 #[proc_macro_derive(Field, attributes(field))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
+
+    let input: MyInputReceiver = match FromDeriveInput::from_derive_input(&ast) {
+        Ok(args) => args,
+        Err(err) => return darling::Error::write_errors(err).into(),
+    };
 
     fn capitalize_first_letter(s: &str) -> String {
         s[0..1].to_uppercase() + &s[1..]
@@ -21,15 +61,9 @@ pub fn store(input: TokenStream) -> TokenStream {
         type_name
     }
 
-    fn struct_fields(data: &syn::Data) -> impl Iterator<Item = &syn::Field> {
-        match data {
-            syn::Data::Struct(data) => data.fields.iter(),
-            syn::Data::Enum(_) => panic!("Deriving a builder for enums is not supported."),
-            syn::Data::Union(_) => panic!("Deriving a builder for unions is not supported."),
-        }
-    }
-
-    let typified_fields = struct_fields(&ast.data)
+    let typified_fields = input
+        .fields()
+        .iter()
         .map(|field| {
             let name = field.ident.as_ref().expect("Expected named field!");
             let type_name = field_name_as_type_name(&name.to_string());
@@ -37,10 +71,10 @@ pub fn store(input: TokenStream) -> TokenStream {
         })
         .collect::<Vec<Ident>>();
 
-    let name = &ast.ident;
+    let name = &input.ident;
     let field_name = Ident::new(format!("{name}Field").as_str(), name.span());
 
-    let match_field_name_to_str_arms = struct_fields(&ast.data).map(|field| {
+    let match_field_name_to_str_arms = input.fields().iter().map(|field| {
         let name = field.ident.as_ref().expect("Expected named field!");
         let name = name.to_string();
         let type_name = field_name_as_type_name(&name);
@@ -50,61 +84,111 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
     });
 
-    // Find multiple ID field(s)!!!, either by name of by annotation.
-    // TODO: Find fields annotated with "id"
-    // TODO: Create ID struct use that struct in the ID trait impl.
-    let id_field = struct_fields(&ast.data).find(|field| {
-        field
-            .ident
-            .as_ref()
-            .and_then(|ident| Some(ident.to_string().as_str() == "id"))
-            .unwrap_or(false)
-    });
+    // "FooId" - struct
+    let id_struct_ident = Ident::new(format!("{name}Id").as_str(), Span::call_site());
 
-    // Implement the `crud_yew::CrudIdTrait` trait if possible.
-    let id_trait_impl = match id_field {
-        Some(field) => {
-            // "id" - name of original field
-            let field_ident = field.ident.as_ref().expect("Ident to be present");
-            let field_name = field_ident.to_string();
+    // "FooIdField" - enum
+    let id_field_enum_ident = Ident::new(format!("{name}IdField").as_str(), Span::call_site());
 
-            // "Id" - enum variant
-            let field_type_name = Ident::new(
-                field_name_as_type_name(&field_ident.to_string()).as_str(),
-                Span::call_site(),
-            );
+    let id_fields = input
+        .fields()
+        .iter()
+        .filter(|field| field.is_id())
+        .collect::<Vec<_>>();
 
-            // i32 - type of original field
-            let field_type = &field.ty;
+    // Implement the `crud_yew::CrudIdTrait` trait if there are id fields in the struct.
+    let id_trait_impl = match id_fields.len() {
+        0 => quote! {}, // TODO: Create an error, as every aggregate needs an id?
+        _ => {
+            struct IdField {
+                ident: Ident,
+                name: String,
 
-            // "FooIdField" - enum
-            let id_field_enum_ident =
-                Ident::new(format!("{name}IdField").as_str(), Span::call_site());
+                variant: proc_macro2::TokenStream,
+                variant_to_name_arm: proc_macro2::TokenStream,
+                variant_to_value_arm: proc_macro2::TokenStream,
+                variant_to_boxed_value_arm: proc_macro2::TokenStream,
+                display_arm: proc_macro2::TokenStream,
+                struct_field: proc_macro2::TokenStream,
+                create_enum_variant: proc_macro2::TokenStream,
+                create_boxed_enum_variant: proc_macro2::TokenStream,
+                init_struct_field: proc_macro2::TokenStream,
+            }
 
-            // "FooId" - struct
-            let id_struct_ident = Ident::new(format!("{name}Id").as_str(), Span::call_site());
+            let f = id_fields.into_iter().map(|field| {
+                // "id" - name of original field
+                let ident = field.ident.as_ref().expect("Ident to be present").clone();
+                let name = ident.to_string();
 
-            // FooIdField::Id(value) => f.write_fmt(format_args!("{}", value))
-            let id_field_display = vec![
-                quote! { #id_field_enum_ident::#field_type_name(value) => f.write_fmt(format_args!("{}", value)) },
-            ];
+                // "Id" - enum variant
+                let type_name = Ident::new(
+                    field_name_as_type_name(&ident.to_string()).as_str(),
+                    Span::call_site(),
+                );
 
-            let id_field_variants = vec![quote! { #field_type_name(#field_type) }];
-            let id_field_variants_to_name = vec![quote! { Self::#field_type_name(_) => #field_name }];
-            let id_field_variants_into_value = vec![quote! { Self::#field_type_name(value) => crud_yew::Value::I32(*value) }]; // TODO: dynamic!!
-            let id_field_variants_into_boxed_value = vec![quote! { Self::#field_type_name(value) => Box::new(crud_yew::Value::I32(*value)) }]; // TODO: dynamic!!
+                // i32 - type of original field
+                let ty = &field.ty.clone();
+
+                // Example: Id(i32)
+                let variant = quote! { #type_name(#ty) };
+
+                // Example: Self::Id(_) => "id"
+                let variant_to_name_arm = quote! { Self::#type_name(_) => #name };
+
+                let crud_value = to_crud_value(&field.ty);
+
+                // Example: Self::Id(value) => crud_yew::Value::I32(*value)
+                let variant_to_value_arm = quote! { Self::#type_name(value) => #crud_value(value.clone()) }; // TODO: always call clone?
+
+                // Example: Self::Id(value) => Box::new(crud_yew::Value::I32(*value))
+                let variant_to_boxed_value_arm = quote! { Self::#type_name(value) => Box::new(#crud_value(value.clone())) }; // TODO: always call clone?
+
+                // Example: FooIdField::Id(value) => f.write_fmt(format_args!("{}", value))
+                let display_arm = quote! { #id_field_enum_ident::#type_name(value) => f.write_fmt(format_args!("{}", value)) };
+
+                // Example: pub id: i32,
+                let struct_field = quote! { pub #ident: #ty };
+
+                // Example: FooIdField::Id(self.id)
+                let create_enum_variant = quote! { #id_field_enum_ident::#type_name(self.#ident.clone()) }; // TODO: Always clone here?
+
+                // Example: Box::new(FooIdField::Id(self.id))
+                let create_boxed_enum_variant = quote! { Box::new(#id_field_enum_ident::#type_name(self.#ident.clone())) }; // TODO: Always clone here?
+
+                // Example: id: self.id.clone()
+                let init_struct_field = quote! { #ident: self.#ident.clone() }; // TODO: Always clone here?
+
+                IdField { ident, name, variant, variant_to_name_arm, variant_to_value_arm, variant_to_boxed_value_arm, display_arm, struct_field, create_enum_variant, create_boxed_enum_variant, init_struct_field }
+            }).collect::<Vec<_>>();
+
+            let variants = f.iter().map(|it| it.variant.clone()).collect::<Vec<_>>();
+            let variants_to_name_arms = f.iter().map(|it| it.variant_to_name_arm.clone()).collect::<Vec<_>>();
+            let variants_to_value_arms = f.iter().map(|it| it.variant_to_value_arm.clone()).collect::<Vec<_>>();
+            let variants_to_boxed_value_arms = f.iter().map(|it| it.variant_to_boxed_value_arm.clone()).collect::<Vec<_>>();
+            let display_arms = f.iter().map(|it| it.display_arm.clone()).collect::<Vec<_>>();
+
+            let struct_fields = f.iter().map(|it| it.struct_field.clone()).collect::<Vec<_>>();
+            let struct_display_format_str = format!("({})", f.iter().map(|it| format!("{}: {{}}", it.name)).collect::<Vec<_>>().join(", "));
+            let struct_display_format_args = f.iter().map(|it| {
+                let ident = &it.ident;
+                quote! { self.#ident }
+            }).collect::<Vec<_>>();
+            let struct_display_write_call = quote! { f.write_fmt(format_args!(#struct_display_format_str, #(#struct_display_format_args),*)) };
+            let create_enum_variants = f.iter().map(|it| it.create_enum_variant.clone()).collect::<Vec<_>>();
+            let create_boxed_enum_variants = f.iter().map(|it| it.create_boxed_enum_variant.clone()).collect::<Vec<_>>();
+            let init_struct_fields = f.iter().map(|it| it.init_struct_field.clone()).collect::<Vec<_>>();
 
             // Implements the '*IdField' enum as well as the 'IdField' and 'DynIdField' traits.
             let enum_impl = quote! {
                 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
                 pub enum #id_field_enum_ident {
-                    #(#id_field_variants),*
+                    #(#variants),*
                 }
 
                 impl std::fmt::Display for #id_field_enum_ident {
                     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                         match self {
-                            #(#id_field_display),*
+                            #(#display_arms),*
                         }
                     }
                 }
@@ -114,13 +198,13 @@ pub fn store(input: TokenStream) -> TokenStream {
 
                     fn name(&self) -> &'static str {
                         match self {
-                            #(#id_field_variants_to_name),*
+                            #(#variants_to_name_arms),*
                         }
                     }
 
                     fn into_value(&self) -> Self::Value {
                         match self {
-                            #(#id_field_variants_into_value),*
+                            #(#variants_to_value_arms),*
                         }
                     }
                 }
@@ -129,13 +213,13 @@ pub fn store(input: TokenStream) -> TokenStream {
                 impl crud_shared_types::DynIdField for #id_field_enum_ident {
                     fn dyn_name(&self) -> &'static str {
                         match self {
-                            #(#id_field_variants_to_name),*
+                            #(#variants_to_name_arms),*
                         }
                     }
 
                     fn into_dyn_value(&self) -> Box<dyn crud_shared_types::IdFieldValue> {
                         match self {
-                            #(#id_field_variants_into_boxed_value),*
+                            #(#variants_to_boxed_value_arms),*
                         }
                     }
                 }
@@ -145,14 +229,12 @@ pub fn store(input: TokenStream) -> TokenStream {
             let struct_impl = quote! {
                 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
                 pub struct #id_struct_ident {
-                    // TODO: make this more generic / configurable
-                    pub #field_ident: #field_type,
+                    #(#struct_fields),*
                 }
 
                 impl std::fmt::Display for #id_struct_ident {
                     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                        // TODO: make this more generic / configurable
-                        f.write_fmt(format_args!("{}", self.#field_ident))
+                        #struct_display_write_call
                     }
                 }
 
@@ -160,16 +242,15 @@ pub fn store(input: TokenStream) -> TokenStream {
                     type Field = #id_field_enum_ident;
                     type FieldIter = std::vec::IntoIter<Self::Field>;
 
-                    // TODO: Add all id fields
                     fn fields_iter(&self) -> Self::FieldIter {
                         vec![
-                            #id_field_enum_ident::#field_type_name(self.#field_ident),
+                            #(#create_enum_variants),*
                         ].into_iter()
                     }
 
                     fn fields(&self) -> Vec<Box<dyn crud_shared_types::DynIdField>> {
                         vec![
-                            Box::new(#id_field_enum_ident::#field_type_name(self.#field_ident)),
+                            #(#create_boxed_enum_variants),*
                         ]
                     }
                 }
@@ -182,7 +263,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
                     fn get_id(&self) -> Self::Id {
                         Self::Id {
-                            id: self.#field_ident
+                            #(#init_struct_fields),*
                         }
                     }
                 }
@@ -194,10 +275,9 @@ pub fn store(input: TokenStream) -> TokenStream {
                 #id_trait_impl
             }
         }
-        None => quote! {},
     };
 
-    let get_field_arms = struct_fields(&ast.data).map(|field| {
+    let get_field_arms = input.fields().iter().map(|field| {
         let name = field.ident.as_ref().expect("Expected named field!");
         let name = name.to_string();
         let type_name = field_name_as_type_name(&name);
@@ -235,4 +315,79 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
     }
     .into()
+}
+
+
+fn to_crud_value(ty: &syn::Type) -> proc_macro2::TokenStream {
+    match &ty {
+        syn::Type::Array(_) => todo!(),
+        syn::Type::BareFn(_) => todo!(),
+        syn::Type::Group(_) => todo!(),
+        syn::Type::ImplTrait(_) => todo!(),
+        syn::Type::Infer(_) => todo!(),
+        syn::Type::Macro(_) => todo!(),
+        syn::Type::Never(_) => todo!(),
+        syn::Type::Paren(_) => todo!(),
+        syn::Type::Path(path) => match path.path.segments[0].ident.to_string().as_str() {
+            "bool" => quote! { crud_yew::Value::Bool },
+            "u32" => quote! { crud_yew::Value::U32 },
+            "i32" => quote! { crud_yew::Value::I32 },
+            "i64" => quote! { crud_yew::Value::I64 },
+            "f32" => quote! { crud_yew::Value::F32 },
+            "String" => quote! { crud_yew::Value::String },
+            "UtcDateTime" => quote! { crud_yew::Value::UtcDateTime },
+            "Option" => match &path.path.segments[0].arguments {
+                syn::PathArguments::None => todo!(),
+                syn::PathArguments::AngleBracketed(args) => {
+                    match args.args.iter().next().unwrap() {
+                        syn::GenericArgument::Lifetime(_) => todo!(),
+                        syn::GenericArgument::Type(ty) => {
+                            if let syn::Type::Path(path) = ty {
+                                match path.path.segments[0].ident.to_string().as_str() {
+                                    "i64" => quote! { crud_yew::Value::OptionalI64 },
+                                    "u32" => quote! { crud_yew::Value::OptionalU32 },
+                                    "String" => quote! { crud_yew::Value::OptionalString },
+                                    "UtcDateTime" => quote! { crud_yew::Value::OptionalUtcDateTime },
+                                    other => {
+                                        let span = ty.span();
+                                        let message = format!("Unknown argument to Option type: {other:?}. Expected a known type.");
+                                        abort!(
+                                            span, message;
+                                            help = "use one of the following types: [...]";
+                                        );
+                                    }
+                                }
+                            } else {
+                                let span = ty.span();
+                                let message = format!("Option did not contain a 'Type'.");
+                                abort!(
+                                    span, message;
+                                    help = "Use Option<String> or other type...";
+                                );
+                            }
+                        }
+                        syn::GenericArgument::Binding(_) => todo!(),
+                        syn::GenericArgument::Constraint(_) => todo!(),
+                        syn::GenericArgument::Const(_) => todo!(),
+                    }
+                }
+                syn::PathArguments::Parenthesized(_) => todo!(),
+            },
+            other => {
+                let span = ty.span();
+                let message = format!("Unknown type {other:?}. Expected a known type.");
+                abort!(
+                    span, message;
+                    help = "use one of the following types: [...]";
+                );
+            }
+        },
+        syn::Type::Ptr(_) => todo!(),
+        syn::Type::Reference(_) => todo!(),
+        syn::Type::Slice(_) => todo!(),
+        syn::Type::TraitObject(_) => todo!(),
+        syn::Type::Tuple(_) => todo!(),
+        syn::Type::Verbatim(_) => todo!(),
+        _ => todo!(),
+    }
 }
