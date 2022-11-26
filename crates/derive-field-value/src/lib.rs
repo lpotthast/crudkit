@@ -6,6 +6,14 @@ use quote::quote;
 use serde::Deserialize;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
+
+
+
+// TODO: Merge FieldValue into Field, only use "field" attribute!
+
+
+
+
 // TODO: This should create a darling error instead of panicking... See https://github.com/TedDriggs/darling/issues/207
 fn parse_type(string: Option<String>) -> Option<ValueType> {
     string.map(|ty| match serde_json::from_str(format!("\"{ty}\"").as_str()) {
@@ -74,7 +82,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     let ident = &input.ident;
     let field_enum_ident = Ident::new(format!("{ident}Field").as_str(), ident.span());
 
-    // Self::Id => Value::U32(entity.id),
+    // Self::Id => crud_yew::Value::U32(entity.id),
     let get_field_value_arms = input.fields().iter().map(|field| {
         let field_ident = field.ident.as_ref().expect("Expected named field!");
         let field_name = field_ident.to_string();
@@ -83,7 +91,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             Ident::new(field_name_as_type_name.as_str(), Span::call_site());
 
         let value_type = field.value_type();
-        let value_type_ident: Ident = value_type.clone().into();
+        let value_type_ident: Ident = value_type.clone().into(); // Uses: impl From<ValueType> for Ident!
 
         // Code that clones or copies the fields value.
         let value_clone = match value_type {
@@ -116,7 +124,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         };
 
         quote! {
-            #field_enum_ident::#field_name_as_type_ident => Value::#value_type_ident(#value_clone)
+            #field_enum_ident::#field_name_as_type_ident => crud_yew::Value::#value_type_ident(#value_clone)
         }
     });
 
