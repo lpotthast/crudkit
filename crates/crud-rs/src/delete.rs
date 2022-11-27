@@ -6,8 +6,10 @@ use crate::{
 use crud_shared_types::{
     validation::StrictOwnedEntityInfo,
     ws_messages::{CrudWsMessage, EntityDeleted},
-    Condition, ConditionClause, ConditionClauseValue, ConditionElement, CrudError, DeleteResult,
-    Operator, Order,
+    condition::{Condition, ConditionClause, ConditionClauseValue, ConditionElement, Operator},
+    error::CrudError,
+    DeleteResult,
+    Order,
 };
 use indexmap::IndexMap;
 use sea_orm::ModelTrait;

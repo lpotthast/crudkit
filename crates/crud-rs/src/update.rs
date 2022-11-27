@@ -2,7 +2,8 @@ use crate::{prelude::*, validation::{into_persistable, ValidationTrigger, Valida
 use crud_shared_types::{
     validation::{EntityViolations, StrictOwnedEntityInfo},
     ws_messages::{CrudWsMessage, EntityUpdated},
-    Condition, CrudError, SaveResult, Saved,
+    condition::Condition,
+    error::CrudError, SaveResult, Saved,
 };
 use sea_orm::ActiveModelTrait;
 use serde::Deserialize;

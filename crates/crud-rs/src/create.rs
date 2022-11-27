@@ -2,7 +2,7 @@ use crate::{prelude::*, validation::{into_persistable, ValidationTrigger, Valida
 use crud_shared_types::{
     validation::PartialSerializableValidations,
     ws_messages::{CrudWsMessage, EntityCreated},
-    CrudError, SaveResult, Saved,
+    error::CrudError, SaveResult, Saved,
 };
 use serde::Deserialize;
 use std::sync::Arc;

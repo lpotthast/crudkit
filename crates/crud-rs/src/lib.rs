@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use async_trait::async_trait;
-use crud_shared_types::{ConditionClauseValue, Value};
+use crud_shared_types::{condition::ConditionClauseValue, Value};
 use prelude::{CrudContext, CrudResource};
 use sea_orm::{ActiveModelTrait, ColumnTrait, ModelTrait};
 use std::str::FromStr;

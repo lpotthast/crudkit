@@ -3,7 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use crud_shared_types::CrudError;
+use crud_shared_types::error::CrudError;
 use serde_json::json;
 
 pub struct AxumCrudError(pub CrudError);
@@ -56,7 +56,7 @@ macro_rules! impl_add_crud_routes {
                     routing::post,
                     Extension, Json, Router,
                 };
-                use crud_shared_types::CrudError;
+                use crud_shared_types::error::CrudError;
                 use sea_orm::JsonValue;
                 use serde_json::json;
 

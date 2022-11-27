@@ -1,5 +1,9 @@
 use crate::prelude::*;
-use crud_shared_types::{Condition, ConditionElement, CrudError, Operator, Order, Value};
+use crud_shared_types::{
+    condition::{Condition, ConditionElement, Operator},
+    error::CrudError,
+    Order, Value,
+};
 use indexmap::IndexMap;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DeleteMany, EntityTrait, FromQueryResult, Insert, QueryFilter,
@@ -120,7 +124,10 @@ fn build_condition_tree<T: MaybeColumnTrait>(
                     ConditionElement::Clause(clause) => match T::get_col(&clause.column_name) {
                         Some(col) => {
                             match col.as_col_type(clause.value.clone()).map_err(|err| {
-                                CrudError::UnableToParseValueAsColType(clause.column_name.clone(), err)
+                                CrudError::UnableToParseValueAsColType(
+                                    clause.column_name.clone(),
+                                    err,
+                                )
                             })? {
                                 Value::String(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
@@ -145,7 +152,11 @@ fn build_condition_tree<T: MaybeColumnTrait>(
                                 }
                             }
                         }
-                        None => return Err(CrudError::UnknownColumnSpecified(clause.column_name.clone())),
+                        None => {
+                            return Err(CrudError::UnknownColumnSpecified(
+                                clause.column_name.clone(),
+                            ))
+                        }
                     },
                     ConditionElement::Condition(nested_condition) => {
                         tree = tree.add(build_condition_tree::<T>(nested_condition)?);

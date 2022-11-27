@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use crud_shared_types::{Condition, CrudError, Order};
+use crud_shared_types::{condition::Condition, error::CrudError, Order};
 use indexmap::IndexMap;
 use sea_orm::{JsonValue, PaginatorTrait};
 use serde::Deserialize;
