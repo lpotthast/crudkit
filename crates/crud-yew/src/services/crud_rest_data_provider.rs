@@ -1,6 +1,6 @@
 use super::requests::*;
 use crate::{types::RequestError, CrudDataTrait, CrudMainTrait, ReadOrUpdateId};
-use crud_shared_types::{Condition, DeleteResult, Order, SaveResult};
+use crud_shared_types::prelude::*;
 use indexmap::IndexMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
@@ -144,24 +144,5 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
             delete_by_id,
         )
         .await
-    }
-}
-
-pub fn merge_conditions(a: Option<Condition>, b: Option<Condition>) -> Option<Condition> {
-    if a.is_none() && b.is_none() {
-        None
-    } else if a.is_some() && b.is_none() {
-        a
-    } else if a.is_none() && b.is_some() {
-        b
-    } else {
-        let mut combined = Condition::all();
-        combined.push_condition(a.unwrap());
-        combined.push_condition(b.unwrap());
-        if combined.is_empty() {
-            None
-        } else {
-            Some(combined)
-        }
     }
 }

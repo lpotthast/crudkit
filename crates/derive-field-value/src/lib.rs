@@ -119,7 +119,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
             ValueType::OneToOneRelation => quote! { entity.#field_ident },
             ValueType::NestedTable => quote! {
-                crud_shared_types::Id::fields(&entity.get_id())
+                crud_shared_types::id::Id::fields(&entity.get_id())
             }, // not important, panics anyway...
         };
 

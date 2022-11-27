@@ -193,7 +193,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                impl crud_shared_types::IdField for #id_field_enum_ident {
+                impl crud_shared_types::id::IdField for #id_field_enum_ident {
                     type Value = crud_yew::Value;
 
                     fn name(&self) -> &'static str {
@@ -210,14 +210,14 @@ pub fn store(input: TokenStream) -> TokenStream {
                 }
 
                 //#[typetag::serde]
-                impl crud_shared_types::DynIdField for #id_field_enum_ident {
+                impl crud_shared_types::id::DynIdField for #id_field_enum_ident {
                     fn dyn_name(&self) -> &'static str {
                         match self {
                             #(#variants_to_name_arms),*
                         }
                     }
 
-                    fn into_dyn_value(&self) -> Box<dyn crud_shared_types::IdFieldValue> {
+                    fn into_dyn_value(&self) -> Box<dyn crud_shared_types::id::IdFieldValue> {
                         match self {
                             #(#variants_to_boxed_value_arms),*
                         }
@@ -238,7 +238,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                impl crud_shared_types::Id for #id_struct_ident {
+                impl crud_shared_types::id::Id for #id_struct_ident {
                     type Field = #id_field_enum_ident;
                     type FieldIter = std::vec::IntoIter<Self::Field>;
 
@@ -248,7 +248,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                         ].into_iter()
                     }
 
-                    fn fields(&self) -> Vec<Box<dyn crud_shared_types::DynIdField>> {
+                    fn fields(&self) -> Vec<Box<dyn crud_shared_types::id::DynIdField>> {
                         vec![
                             #(#create_boxed_enum_variants),*
                         ]

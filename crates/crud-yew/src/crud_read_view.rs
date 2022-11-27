@@ -1,6 +1,6 @@
 use yew::{html::ChildrenRenderer, prelude::*};
 
-use crud_shared_types::IntoAllEqualCondition;
+use crud_shared_types::condition::IntoAllEqualCondition;
 
 use crate::{
     crud_instance::Item,

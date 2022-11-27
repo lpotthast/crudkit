@@ -1,5 +1,5 @@
 use chrono_utc_date_time::UtcDateTime;
-use crud_shared_types::{DeleteResult, Order, Saved, Condition, ConditionClause, ConditionElement};
+use crud_shared_types::{DeleteResult, Order, Saved, condition::Condition, condition::ConditionClause, condition::ConditionElement};
 use indexmap::{IndexMap, indexmap};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
@@ -441,7 +441,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                                 self.data_provider.set_base_condition(Some(Condition::All(vec![
                                     ConditionElement::Clause(ConditionClause {
                                         column_name: nested.reference_field.clone(),
-                                        operator: crud_shared_types::Operator::Equal,
+                                        operator: crud_shared_types::condition::Operator::Equal,
                                         value: value.clone().into(),
                                     }),
                                 ])));

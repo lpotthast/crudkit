@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crud_shared_types::{SaveResult, Saved, IntoAllEqualCondition};
+use crud_shared_types::{SaveResult, Saved, condition::IntoAllEqualCondition};
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,

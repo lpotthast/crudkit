@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::{crud_select::Selection, prelude::*, crud_instance::CreateOrUpdateField};
-use crud_shared_types::{Condition, ConditionClause, ConditionElement};
+use crud_shared_types::condition::{Condition, ConditionClause, ConditionElement};
 use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
 
@@ -206,7 +206,7 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> Component for CrudR
                             data_provider.set_base_condition(Some(Condition::All(vec![
                                 ConditionElement::Clause(ConditionClause {
                                     column_name: ctx.props().parent_reverse_field.get_name().to_owned(),
-                                    operator: crud_shared_types::Operator::Equal,
+                                    operator: crud_shared_types::condition::Operator::Equal,
                                     value: value.clone().into(),
                                 }),
                             ])));

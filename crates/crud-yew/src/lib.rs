@@ -654,7 +654,7 @@ impl Into<ConditionClauseValue> for Value {
 }
 
 //#[typetag::serde]
-impl crud_shared_types::IdFieldValue for Value {
+impl crud_shared_types::id::IdFieldValue for Value {
     fn into_condition_clause_value(&self) -> ConditionClauseValue {
         // Note: This requires clone, because we take &self. We take &self, so that the trait remains dynamically usable.
         self.clone().into()
