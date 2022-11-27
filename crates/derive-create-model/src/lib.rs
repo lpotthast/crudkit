@@ -1,6 +1,5 @@
 use darling::*;
 use proc_macro::TokenStream;
-use proc_macro_error::proc_macro_error;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
@@ -56,7 +55,6 @@ impl MyInputReceiver {
 }
 
 #[proc_macro_derive(CreateModel, attributes(create_model))]
-#[proc_macro_error] // TODO: remove this?
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
