@@ -1,5 +1,5 @@
 use super::requests::*;
-use crate::{types::RequestError, CrudDataTrait, CrudMainTrait, ReadOrUpdateId};
+use crate::{types::RequestError, CrudDataTrait, CrudMainTrait};
 use crud_shared_types::prelude::*;
 use indexmap::IndexMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -37,8 +37,8 @@ pub struct UpdateOne<T: Serialize + DeserializeOwned> {
 }
 
 #[derive(Debug, Serialize)]
-pub struct DeleteById<T: CrudMainTrait> {
-    pub id: ReadOrUpdateId<T>,
+pub struct DeleteById {
+    pub id: SerializableId,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -136,7 +136,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
 
     pub async fn delete_by_id(
         &self,
-        delete_by_id: DeleteById<T>,
+        delete_by_id: DeleteById,
     ) -> Result<DeleteResult, RequestError> {
         let resource = T::get_resource_name();
         request_post(

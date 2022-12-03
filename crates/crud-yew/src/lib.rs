@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono_utc_date_time::prelude::*;
-use crud_shared_types::prelude::*;
+use crud_shared_types::{prelude::*, id::SerializableId};
 use dyn_clone::DynClone;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
@@ -147,10 +147,8 @@ pub mod prelude {
     pub use super::CrudSimpleView;
     pub use super::CrudSelectableTrait;
     pub use super::DeletableModel;
-    pub use super::SerializableId;
     pub use super::CrudView;
     pub use super::SerializableCrudView;
-    pub use super::ReadOrUpdateId;
     pub use super::Elem;
     pub use super::Enclosing;
     pub use super::FieldMode;
@@ -211,14 +209,14 @@ pub trait CrudMainTrait: CrudResourceTrait + PartialEq + Default + Debug + Clone
 
     type CreateModel: CrudDataTrait + Send;
 
-    type ReadModelIdField: IdField<Value = Value> + Serialize + Send;
+    type ReadModelIdField: IdField<Value = crud_shared_types::IdValue> + Serialize + Send;
     type ReadModelId: Serialize + DeserializeOwned + Id<Field = Self::ReadModelIdField> + PartialEq + Clone + Send;
     type ReadModel: Serialize + CrudDataTrait
         + Into<Self::UpdateModel>
         + CrudIdTrait<Id = Self::ReadModelId>
         + Send;
 
-    type UpdateModelIdField: IdField<Value = Value> + Serialize + Send;
+    type UpdateModelIdField: IdField<Value = crud_shared_types::IdValue> + Serialize + Send;
     type UpdateModelId: Serialize + DeserializeOwned + Id<Field = Self::UpdateModelIdField> + PartialEq + Clone + Send;
     type UpdateModel: Serialize + CrudDataTrait
         + CrudIdTrait<Id = Self::UpdateModelId>
@@ -234,13 +232,14 @@ pub trait CrudActionPayload:
     + Serialize
     + DeserializeOwned
     + Send {
-    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct EmptyActionPayload {}
 
 impl CrudActionPayload for EmptyActionPayload {}
 
+// Note: This does not have CrudIdTrait as a super trait, as not all data model (namely the CreateModel) can supply an ID!
 pub trait CrudDataTrait:
     Default
     + PartialEq
@@ -330,7 +329,36 @@ pub enum Value {
     //Select(Box<dyn CrudSelectableSource<Selectable = dyn CrudSelectableTrait>>),
 }
 
+impl Into<Value> for crud_shared_types::Value {
+    fn into(self) -> Value {
+        match self {
+            crud_shared_types::Value::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
+            crud_shared_types::Value::I32(value) => Value::I32(value),
+            crud_shared_types::Value::I64(value) => Value::I64(value),
+            crud_shared_types::Value::U32(value) => Value::U32(value),
+            crud_shared_types::Value::F32(value) => Value::F32(value),
+            crud_shared_types::Value::Bool(value) => Value::Bool(value),
+            crud_shared_types::Value::DateTime(value) => Value::UtcDateTime(value),
+        }
+    }
+}
+
+impl Into<Value> for crud_shared_types::IdValue {
+    fn into(self) -> Value {
+        match self {
+            crud_shared_types::IdValue::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
+            crud_shared_types::IdValue::I32(value) => Value::I32(value),
+            crud_shared_types::IdValue::I64(value) => Value::I64(value),
+            crud_shared_types::IdValue::U32(value) => Value::U32(value),
+            crud_shared_types::IdValue::Bool(value) => Value::Bool(value),
+            crud_shared_types::IdValue::DateTime(value) => Value::UtcDateTime(value),
+        }
+    }
+}
+
+// TODO: Delete?
 // TODO: DEFERRED: Remove when Value type is Serializable and Deserializable on its own.
+/*
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SerializableValue {
     String(String), // TODO: Add optional string!
@@ -421,6 +449,8 @@ impl Into<ConditionClauseValue> for SerializableValue {
         }
     }
 }
+
+*/
 
 impl Value {
     pub fn take_string(self) -> String {
@@ -653,13 +683,16 @@ impl Into<ConditionClauseValue> for Value {
     }
 }
 
+// TODO: Remove
 //#[typetag::serde]
+/*
 impl crud_shared_types::id::IdFieldValue for Value {
     fn into_condition_clause_value(&self) -> ConditionClauseValue {
         // Note: This requires clone, because we take &self. We take &self, so that the trait remains dynamically usable.
         self.clone().into()
     }
 }
+*/
 
 pub trait CrudFieldNameTrait {
     fn get_name(&self) -> &'static str;
@@ -669,51 +702,6 @@ pub trait CrudFieldValueTrait<T> {
     fn get_value(&self, entity: &T) -> Value;
     fn set_value(&self, entity: &mut T, value: Value);
 }
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub enum ReadOrUpdateId<T: CrudMainTrait> {
-    Read(T::ReadModelId),
-    Update(T::UpdateModelId),
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] // TODO: Serde passthrough?
-pub struct SerializableId(Vec<(String, SerializableValue)>);
-
-impl IntoAllEqualCondition for SerializableId {
-    fn into_all_equal_condition(self) -> Condition {
-        Condition::All(
-            self.0.iter()
-            .map(|(field_name, serializable_value)| {
-                    ConditionElement::Clause(ConditionClause {
-                        column_name: String::from(field_name),
-                        operator: Operator::Equal,
-                        value: serializable_value.clone().into(),
-                    })
-                })
-                .collect::<Vec<_>>(),
-        )
-    }
-}
-
-pub struct IdWrapper<T: Id>(T);
-
-impl<F, T> Into<SerializableId> for IdWrapper<T>
-where
-    F: IdField<Value = Value>,
-    T: Id<Field = F> + Serialize + DeserializeOwned,
-{
-    fn into(self) -> SerializableId {
-        SerializableId(
-            self.0.fields_iter()
-                .map(|field| (
-                    field.name().to_owned(),
-                    field.into_value().into_serializable_value()
-                ))
-                .collect()
-        )
-    }
-}
-
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CrudView<ReadId, UpdateId>
@@ -753,30 +741,13 @@ impl<ReadId, UpdateId> Into<SerializableCrudView> for CrudView<ReadId, UpdateId>
 where
     ReadId: Id + Serialize + DeserializeOwned,
     UpdateId: Id + Serialize + DeserializeOwned,
-    // TODO: Can we get rid of these ugly bounds?
-    Vec<(std::string::String, SerializableValue)>: FromIterator<(std::string::String, <<<ReadId as Id>::Field as IdField>::Value as IntoSerializableValue>::SerializableValue)>,
-    Vec<(std::string::String, SerializableValue)>: FromIterator<(std::string::String, <<<UpdateId as Id>::Field as IdField>::Value as IntoSerializableValue>::SerializableValue)>,
 {
     fn into(self) -> SerializableCrudView {
         match self {
             CrudView::List => SerializableCrudView::List,
             CrudView::Create => SerializableCrudView::Create,
-            CrudView::Read(id) => SerializableCrudView::Read(SerializableId(
-                id.fields_iter()
-                    .map(|field| (
-                        field.name().to_owned(),
-                        field.into_value().into_serializable_value()
-                    ))
-                    .collect()
-            )),
-            CrudView::Edit(id) => SerializableCrudView::Edit(SerializableId(
-                id.fields_iter()
-                    .map(|field| (
-                        field.name().to_owned(),
-                        field.into_value().into_serializable_value()
-                    ))
-                    .collect()
-            )),
+            CrudView::Read(id) => SerializableCrudView::Read(id.into_serializable_id()),
+            CrudView::Edit(id) => SerializableCrudView::Edit(id.into_serializable_id()),
         }
     }
 }
@@ -800,8 +771,6 @@ impl <ReadId, UpdateId> Default for CrudView<ReadId, UpdateId>
 where
     ReadId: Id + Serialize + DeserializeOwned,
     UpdateId: Id + Serialize + DeserializeOwned,
-    <<ReadId as Id>::Field as IdField>::Value: Into<SerializableValue>,
-    <<UpdateId as Id>::Field as IdField>::Value: Into<SerializableValue>,
 {
     fn default() -> Self {
         Self::List

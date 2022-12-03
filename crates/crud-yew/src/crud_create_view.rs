@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crud_shared_types::{SaveResult, Saved};
+use crud_shared_types::{SaveResult, Saved, id::SerializableId};
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,

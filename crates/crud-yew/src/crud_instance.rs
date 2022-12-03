@@ -1,5 +1,5 @@
 use chrono_utc_date_time::UtcDateTime;
-use crud_shared_types::{DeleteResult, Order, Saved, condition::Condition, condition::ConditionClause, condition::ConditionElement};
+use crud_shared_types::{DeleteResult, Order, Saved, condition::Condition, condition::ConditionClause, condition::ConditionElement, id::SerializableId, prelude::Id};
 use indexmap::{IndexMap, indexmap};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
@@ -687,12 +687,12 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 match &self.entity_to_delete {
                     Some(deletable_model) => {
                         let data_provider = self.data_provider.clone();
-                        let id = match deletable_model {
-                            DeletableModel::Read(read_model) => ReadOrUpdateId::Read(read_model.get_id()),
-                            DeletableModel::Update(update_model) => ReadOrUpdateId::Update(update_model.get_id()),
+                        let serializable_id = match deletable_model {
+                            DeletableModel::Read(read_model) => read_model.get_id().into_serializable_id(),
+                            DeletableModel::Update(update_model) => update_model.get_id().into_serializable_id(),
                         };
                         ctx.link().send_future(async move {
-                            Msg::Deleted(data_provider.delete_by_id(DeleteById { id }).await)
+                            Msg::Deleted(data_provider.delete_by_id(DeleteById { id: serializable_id }).await)
                         });
                     },
                     None => log::warn!("Delete was approved, but instance already lost track of the 'entity_to_delete'!"),
