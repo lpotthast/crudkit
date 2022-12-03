@@ -1,0 +1,15 @@
+[package]
+name = "crud-shared-types"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# Internal
+chrono-utc-date-time = { path = "../../../../chrono-utc-date-time" }
+
+# External
+serde = { version = "1.0", features = ["derive"] }
+chrono = "0.4"
+dyn-clone = "1.0"

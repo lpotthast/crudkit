@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-use crate::validation::{PartialSerializableValidations, FullSerializableValidations};
+use crate::{validation::{PartialSerializableValidations, FullSerializableValidations}, id::SerializableId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CrudWsMessage {
@@ -14,19 +14,19 @@ pub enum CrudWsMessage {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EntityCreated {
     pub aggregate_name: String,
-    pub entity_id: i32,
+    pub entity_id: SerializableId,
     pub with_validation_errors: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EntityUpdated {
     pub aggregate_name: String,
-    pub entity_id: i32,
+    pub entity_id: SerializableId,
     pub with_validation_errors: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EntityDeleted {
     pub aggregate_name: String,
-    pub entity_id: i32,
+    pub entity_id: SerializableId,
 }

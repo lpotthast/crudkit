@@ -1,10 +1,15 @@
 use std::fmt::{Debug, Display};
+use std::hash::Hash;
 
-use crate::prelude::{
-    Condition, ConditionClause, ConditionClauseValue, ConditionElement, IntoAllEqualCondition,
-    Operator,
+use crate::{
+    prelude::{
+        Condition, ConditionClause, ConditionClauseValue, ConditionElement, IntoAllEqualCondition,
+        Operator,
+    },
+    IdValue,
 };
 use dyn_clone::DynClone;
+use serde::{Deserialize, Serialize};
 
 //#[typetag::serde(tag = "type")]
 pub trait IdFieldValue: Debug {
@@ -32,13 +37,19 @@ pub trait DynIdField: Debug + DynClone {
 dyn_clone::clone_trait_object!(DynIdField);
 
 /// Structs marked with this trait might be used as IDs in the crud system.
-pub trait Id: Debug + Display + DynClone {
+///
+/// Id's might be used as keys in data structures, as they are guaranteed to be Eq, Ord and Hash!
+///
+/// You might want to generate a type-erased `SerializableId` using `into_serializable_id`.
+pub trait Id: Debug + Display + DynClone + PartialEq + Eq + Hash + PartialOrd + Ord {
     /// This might be an enum, providing all possible fields.
     type Field: IdField;
     type FieldIter: Iterator<Item = Self::Field>;
 
     fn fields_iter(&self) -> Self::FieldIter;
     fn fields(&self) -> Vec<Box<dyn DynIdField>>;
+
+    fn into_serializable_id(&self) -> SerializableId;
 }
 
 impl<I> IntoAllEqualCondition for I
@@ -53,6 +64,26 @@ where
                         column_name: String::from(field.name()),
                         operator: Operator::Equal,
                         value: field.into_value().into_condition_clause_value(),
+                    })
+                })
+                .collect::<Vec<_>>(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)] // TODO: Serde passthrough?
+pub struct SerializableId(pub Vec<(String, IdValue)>);
+
+impl IntoAllEqualCondition for SerializableId {
+    fn into_all_equal_condition(self) -> Condition {
+        Condition::All(
+            self.0
+                .iter()
+                .map(|(field_name, serializable_value)| {
+                    ConditionElement::Clause(ConditionClause {
+                        column_name: String::from(field_name),
+                        operator: Operator::Equal,
+                        value: serializable_value.clone().into(),
                     })
                 })
                 .collect::<Vec<_>>(),

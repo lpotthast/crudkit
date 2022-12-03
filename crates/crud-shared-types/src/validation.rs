@@ -2,6 +2,8 @@ use std::{collections::HashMap, hash::Hash};
 
 use serde::{Deserialize, Serialize};
 
+use crate::id::{SerializableId, Id};
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
 pub struct ValidatorInfo {
     pub validator_name: &'static str,
@@ -14,26 +16,27 @@ pub struct OwnedValidatorInfo {
     pub validator_version: i32,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
-pub struct EntityInfo {
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
+pub struct EntityInfo<I: Id> {
     // TODO: use a safer enum type here?
     pub aggregate_name: &'static str,
     /// We might generate violations for entities which do not have an id yet, because they were not yet created!
-    pub entity_id: Option<i32>,
+    pub entity_id: Option<I>,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
+// TODO: Rename to PersistableEntityInfo, as it is only used in validation persistance?
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
 pub struct StrictEntityInfo {
     // TODO: use a safer enum type here?
     pub aggregate_name: &'static str,
-    pub entity_id: i32,
+    pub entity_id: SerializableId,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
 pub struct StrictOwnedEntityInfo {
     // TODO: use a safer enum type here?
     pub aggregate_name: String,
-    pub entity_id: i32,
+    pub entity_id: SerializableId,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
@@ -73,36 +76,37 @@ impl Violations {
     }
 }
 
+// TODO: Delete?
 pub enum ValidationResult {
     Unrelated(),
 }
 
-pub struct AggregateValidations {
-    pub map: HashMap<String, AggregateViolations>,
+pub struct AggregateValidations<I: Id> {
+    pub map: HashMap<String, AggregateViolations<I>>,
 }
 
-pub struct AggregateViolations {
+pub struct AggregateViolations<I: Id> {
     /// Violations targeting the resource as a whole. Not tied to a specific entity.
     pub general: Violations,
     /// Violations unrelated to a specific entity.
     pub create: Violations,
     /// Violations targeting specific entities.
-    pub by_entity: EntityViolations,
+    pub by_entity: EntityViolations<I>,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct EntityViolations {
-    pub entity_violations: HashMap<EntityInfo, HashMap<ValidatorInfo, Violations>>,
+pub struct EntityViolations<I: Id> {
+    pub entity_violations: HashMap<EntityInfo<I>, HashMap<ValidatorInfo, Violations>>,
 }
 
-impl EntityViolations {
+impl<I: Id> EntityViolations<I> {
     pub fn empty() -> Self {
         Self {
             entity_violations: HashMap::new(),
         }
     }
 
-    pub fn of(entity: EntityInfo, validator: ValidatorInfo, violations: Violations) -> Self {
+    pub fn of(entity: EntityInfo<I>, validator: ValidatorInfo, violations: Violations) -> Self {
         let mut validator_violations = HashMap::new();
         validator_violations.insert(validator, violations);
 
@@ -123,7 +127,7 @@ impl EntityViolations {
     }
 
     pub fn has_violations(&self) -> bool {
-        for (_entity_info, validator_violations) in &self.entity_violations {
+        for (_entity_id, validator_violations) in &self.entity_violations {
             for (_validator_info, violations) in validator_violations {
                 if !violations.is_empty() {
                     return true;
@@ -134,7 +138,7 @@ impl EntityViolations {
     }
 
     pub fn has_critical_violations(&self) -> bool {
-        for (_entity_info, validator_violations) in &self.entity_violations {
+        for (_entity_id, validator_violations) in &self.entity_violations {
             for (_validator_info, violations) in validator_violations {
                 if violations.has_critical_violations() {
                     return true;
@@ -156,7 +160,7 @@ pub struct FullSerializableAggregateViolations {
     /// Violations targeting specific entities.
     /// If the map does not contain an entry for an entity ID, then no information is present.
     /// If it does, the contained Vec must hold ALL violations for the entity at hand.
-    pub by_entity: HashMap<i32, Vec<ValidationViolation>>,
+    pub by_entity: HashMap<SerializableId, Vec<ValidationViolation>>,
 }
 
 impl FullSerializableAggregateViolations {
@@ -185,7 +189,7 @@ pub struct SerializableAggregateViolations {
     /// Violations targeting specific entities.
     /// If the map does not contain an entry for an entity ID, then no information is present.
     /// If it does, the contained Vec must hold ALL violations for the entity at hand.
-    pub by_entity: HashMap<i32, Vec<ValidationViolation>>,
+    pub by_entity: HashMap<SerializableId, Vec<ValidationViolation>>,
 }
 
 pub type AggregateName = String;
@@ -194,7 +198,7 @@ pub type FullSerializableValidations = HashMap<String, FullSerializableAggregate
 
 pub type PartialSerializableValidations = HashMap<String, SerializableAggregateViolations>;
 
-impl Into<PartialSerializableValidations> for EntityViolations {
+impl<I: Id> Into<PartialSerializableValidations> for EntityViolations<I> {
     fn into(self) -> PartialSerializableValidations {
         let mut result: PartialSerializableValidations =
             HashMap::with_capacity(self.entity_violations.len());

@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Value;
+use crate::{Value, IdValue};
 
 pub trait IntoAllEqualCondition {
     fn into_all_equal_condition(self) -> Condition;
@@ -57,6 +57,20 @@ impl Into<ConditionClauseValue> for Value {
             Value::Bool(value) => ConditionClauseValue::Bool(value),
             //Value::DateTime(value) => ConditionClauseValue::DateTime(value), // TODO: implement
             Value::DateTime(_value) => panic!("Not implemented...."),
+        }
+    }
+}
+
+impl Into<ConditionClauseValue> for IdValue {
+    fn into(self) -> ConditionClauseValue {
+        match self {
+            IdValue::String(value) => ConditionClauseValue::String(value),
+            IdValue::I32(value) => ConditionClauseValue::I32(value),
+            IdValue::I64(value) => ConditionClauseValue::I64(value),
+            IdValue::U32(value) => ConditionClauseValue::U32(value),
+            IdValue::Bool(value) => ConditionClauseValue::Bool(value),
+            //IdValue::DateTime(value) => ConditionClauseValue::DateTime(value), // TODO: implement
+            IdValue::DateTime(_value) => panic!("Not implemented...."),
         }
     }
 }

@@ -1,14 +1,12 @@
-[package]
-name = "crud-shared-types"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = ["crates/*"]
+default-members = ["crates/crud-shared-types"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace.dependencies]
 
-[dependencies]
-# Internal
-
-# External
-serde = { version = "1.0", features = ["derive"] }
-chrono = "0.4"
-dyn-clone = "1.0"
+# Dependencies used in proc-macro implementations
+darling = "0.14"
+proc-macro-error = "1.0"
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "1.0", features = ["extra-traits"] }
