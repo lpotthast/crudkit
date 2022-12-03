@@ -4,12 +4,8 @@ use crate::{
     lifetime::{CrudLifetime, Abort},
 };
 use crud_shared_types::{
-    validation::StrictOwnedEntityInfo,
+    prelude::*,
     ws_messages::{CrudWsMessage, EntityDeleted},
-    condition::{Condition, ConditionClause, ConditionClauseValue, ConditionElement, Operator},
-    error::CrudError,
-    DeleteResult,
-    Order,
 };
 use indexmap::IndexMap;
 use sea_orm::ModelTrait;
@@ -18,7 +14,7 @@ use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct DeleteById {
-    pub id: u32,
+    pub id: SerializableId,
 }
 
 #[derive(Deserialize)]
@@ -38,18 +34,12 @@ pub async fn delete_by_id<R: CrudResource>(
     context: Arc<CrudContext<R>>,
     res_context: Arc<R::Context>,
     body: DeleteById,
-) -> Result<DeleteResult, CrudError> {
+) -> Result<DeleteResult, CrudError> { 
     let select = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
         None,
         None,
         None,
-        &Some(Condition::All(vec![ConditionElement::Clause(
-            ConditionClause {
-                column_name: R::CrudColumn::get_id_field_name(),
-                operator: Operator::Equal,
-                value: ConditionClauseValue::I32(body.id.try_into().unwrap()),
-            },
-        )])),
+        &Some(body.id.into_all_equal_condition()),
     )?;
 
     let model = select
@@ -57,6 +47,8 @@ pub async fn delete_by_id<R: CrudResource>(
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?
         .ok_or(CrudError::ReadOneFoundNone)?;
+
+    // TODO: Make sure that the user really has the right to delete this entry!!! Maybe an additional lifetime check?
 
     let hook_data = R::HookData::default();
     let (abort, hook_data) = R::Lifetime::before_delete(&model, &res_context, hook_data).await.expect("before_create to no error");
@@ -68,6 +60,8 @@ pub async fn delete_by_id<R: CrudResource>(
     let active_model = model.clone().into();
     let entity_id = R::CrudColumn::get_id(&active_model)
         .expect("Stored entity without an ID should be impossible!");
+
+    let serializable_id = entity_id.into_serializable_id();
 
     // Validate the entity, so that we can block its deletion if validators say so.
     let trigger = ValidationTrigger::CrudAction(ValidationContext {
@@ -102,10 +96,7 @@ pub async fn delete_by_id<R: CrudResource>(
     // All previous validations regarding this entity must be deleted!
     context
         .validation_result_repository
-        .delete_for(StrictOwnedEntityInfo {
-            aggregate_name: String::from(R::TYPE.into()),
-            entity_id,
-        })
+        .delete_for(String::from(R::TYPE.into()), &serializable_id)
         .await;
 
     // Inform all participants that the entity was deleted.
@@ -114,7 +105,7 @@ pub async fn delete_by_id<R: CrudResource>(
         .get_websocket_controller()
         .broadcast_json(&CrudWsMessage::EntityDeleted(EntityDeleted {
             aggregate_name: R::TYPE.into().to_owned(),
-            entity_id,
+            entity_id: serializable_id,
         }));
 
     Ok(DeleteResult::Deleted(delete_result.rows_affected))
@@ -150,6 +141,8 @@ pub async fn delete_one<R: CrudResource>(
     let entity_id = R::CrudColumn::get_id(&active_model)
         .expect("Stored entity without an ID should be impossible!");
 
+    let serializable_id = entity_id.into_serializable_id();
+
     // Validate the entity, so that we can block its deletion if validators say so.
     let trigger = ValidationTrigger::CrudAction(ValidationContext {
         action: CrudAction::Delete,
@@ -179,10 +172,7 @@ pub async fn delete_one<R: CrudResource>(
     // All previous validations regarding this entity must be deleted!
     context
         .validation_result_repository
-        .delete_for(StrictOwnedEntityInfo {
-            aggregate_name: String::from(R::TYPE.into()),
-            entity_id,
-        })
+        .delete_for(String::from(R::TYPE.into()), &serializable_id)
         .await;
 
     // Inform all participants that the entity was deleted.
@@ -191,7 +181,7 @@ pub async fn delete_one<R: CrudResource>(
         .get_websocket_controller()
         .broadcast_json(&CrudWsMessage::EntityDeleted(EntityDeleted {
             aggregate_name: R::TYPE.into().to_owned(),
-            entity_id,
+            entity_id: serializable_id,
         }));
 
     Ok(DeleteResult::Deleted(delete_result.rows_affected))

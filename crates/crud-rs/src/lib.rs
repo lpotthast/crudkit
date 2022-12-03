@@ -1,7 +1,8 @@
 #![forbid(unsafe_code)]
 
 use async_trait::async_trait;
-use crud_shared_types::{condition::ConditionClauseValue, Value};
+use chrono_utc_date_time::UtcDateTime;
+use crud_shared_types::{condition::ConditionClauseValue, Value, prelude::Id};
 use prelude::{CrudContext, CrudResource};
 use sea_orm::{ActiveModelTrait, ColumnTrait, ModelTrait};
 use std::str::FromStr;
@@ -25,6 +26,7 @@ pub mod prelude {
     pub use derive_create_model::CreateModel;
     pub use derive_crud_resource_context::CrudResourceContext;
     pub use derive_update_model::UpdateModel;
+    pub use derive_validation_model::ValidationModel;
 
     pub use super::context::CrudContext;
     pub use super::context::CrudResourceContext;
@@ -43,6 +45,7 @@ pub mod prelude {
     pub use super::validation::EntityValidatorsTrait;
     pub use super::validation::ValidationResultSaverTrait;
     pub use super::validation::ValidationViolationType;
+    pub use super::validation::ValidationTrigger;
     pub use super::validation::ValidationViolationTypeExt;
 
     pub use super::validate::validate_max_length;
@@ -78,10 +81,11 @@ pub mod prelude {
 }
 
 pub trait CrudColumns<C: ColumnTrait, A: ActiveModelTrait> {
+    type Id: Id;
+
     fn to_sea_orm_column(&self) -> C;
-    fn get_id(model: &A) -> Option<i32>;
-    fn get_id_field() -> C;
-    fn get_id_field_name() -> String;
+
+    fn get_id(model: &A) -> Result<Self::Id, String>;
 }
 
 #[async_trait]
@@ -181,9 +185,8 @@ pub fn to_string(value: ConditionClauseValue) -> Result<Value, String> {
 
 pub fn to_date_time(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
-        ConditionClauseValue::String(string) => chrono::DateTime::parse_from_rfc3339(&string)
+        ConditionClauseValue::String(string) => UtcDateTime::parse_from_rfc3339(&string)
             .map_err(|e| format!("{}", e))
-            .map(|value| value.naive_utc())
             .map(Value::DateTime),
         _ => Err(format!(
             "{value:?} can not be converted to a DateTime. Expected String."

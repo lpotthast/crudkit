@@ -1,9 +1,9 @@
 use crate::{prelude::*, validation::{into_persistable, ValidationTrigger, ValidationContext, CrudAction, When}};
 use crud_shared_types::{
-    validation::{EntityViolations, StrictOwnedEntityInfo},
+    validation::EntityViolations,
     ws_messages::{CrudWsMessage, EntityUpdated},
     condition::Condition,
-    error::CrudError, SaveResult, Saved,
+    error::CrudError, SaveResult, Saved, prelude::Id,
 };
 use sea_orm::ActiveModelTrait;
 use serde::Deserialize;
@@ -46,6 +46,8 @@ pub async fn update_one<R: CrudResource>(
     active_model.update_with(update);
     let entity_id = R::CrudColumn::get_id(&active_model).expect("Updatable entities must be stored and therefor have an ID!");
 
+    let serializable_id = entity_id.into_serializable_id();
+
     // Run validations ON THE NEW STATE(!) but before updating the entity in the database.
     let trigger = ValidationTrigger::CrudAction(ValidationContext {
         action: CrudAction::Update,
@@ -80,14 +82,16 @@ pub async fn update_one<R: CrudResource>(
     } else {
         // We know that the entity is valid and therefor need to delete all previously stored violations for this entity.
         // The active_model might not have an id, thou that is unlikely when doing an "update".
-        if let Some(id) = R::CrudColumn::get_id(&active_model) {
-            context
+        match R::CrudColumn::get_id(&active_model) {
+            Ok(id) => {
+                context
                 .validation_result_repository
-                .delete_for(StrictOwnedEntityInfo {
-                    aggregate_name: String::from(R::TYPE.into()),
-                    entity_id: id,
-                })
+                .delete_for(String::from(R::TYPE.into()), &id.into_serializable_id())
                 .await;
+            },
+            Err(err) => {
+                log::error!("Could not extract ID from active_model {active_model:?}. Error was: {err}")
+            },
         }
 
         // Inform the websocket listeners.
@@ -108,7 +112,7 @@ pub async fn update_one<R: CrudResource>(
         .get_websocket_controller()
         .broadcast_json(&CrudWsMessage::EntityUpdated(EntityUpdated {
             aggregate_name: R::TYPE.into().to_owned(),
-            entity_id,
+            entity_id: serializable_id,
             with_validation_errors: has_violations
         }));
 

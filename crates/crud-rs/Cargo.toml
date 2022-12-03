@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 # Internal
 axum-websockets = { path = "../../../../axum-websockets" }
-crud-shared-types = { path = "../../../crud-shared-types" }
+crud-shared-types = { path = "../../../crud-shared-types/crates/crud-shared-types" }
 chrono-utc-date-time = { path = "../../../../chrono-utc-date-time", features = [
     "sea-orm",
 ] }
@@ -16,6 +16,7 @@ derive-crud-columns = { path = "../derive-crud-columns" }
 derive-create-model = { path = "../derive-create-model" }
 derive-crud-resource-context = { path = "../derive-crud-resource-context" }
 derive-update-model = { path = "../derive-update-model" }
+derive-validation-model = { path = "../derive-validation-model" }
 
 # External
 serde = { version = "1.0", features = ["derive"] }

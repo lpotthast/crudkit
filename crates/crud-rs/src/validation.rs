@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use crud_shared_types::validation::{
-    EntityViolations, StrictEntityInfo, StrictOwnedEntityInfo, ValidationViolation, ValidatorInfo,
+use crud_shared_types::{validation::{
+    EntityViolations, StrictEntityInfo, ValidationViolation, ValidatorInfo,
     Violations,
-};
+}, id::Id};
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +42,7 @@ pub trait AggregateValidator {
     fn validate(&self) -> Violations;
 }
 
+// TODO: delete?
 pub trait EntityValidatorTrait<T> {
     fn validate_single(&self, entity: &T, trigger: ValidationTrigger) -> EntityViolations;
     fn validate_updated(&self, old: &T, new: &T, trigger: ValidationTrigger) -> EntityViolations;
@@ -115,16 +116,10 @@ impl EntityValidationsExt for EntityViolations {
 }
 
 #[async_trait]
-pub trait ValidationResultSaverTrait {
-    async fn delete_for(&self, entity_info: StrictOwnedEntityInfo);
+pub trait ValidationResultSaverTrait<I: Id> {
+    async fn delete_all_for(&self, entity_id: &I);
 
-    async fn save_all(
-        &self,
-        validation_results: HashMap<
-            StrictEntityInfo,
-            HashMap<ValidatorInfo, Vec<PersistableViolation>>,
-        >,
-    );
+    async fn save_all(&self, validation_results: HashMap<I, HashMap<ValidatorInfo, Vec<PersistableViolation>>>,);
 }
 
 pub struct PersistableViolation {
@@ -134,6 +129,7 @@ pub struct PersistableViolation {
 
 /// Removes critical validations and validations without an id.
 /// TODO: Add test
+/// TODO: Convert SerializableId to String right here, not later
 pub fn into_persistable(
     data: EntityViolations,
 ) -> HashMap<StrictEntityInfo, HashMap<ValidatorInfo, Vec<PersistableViolation>>> {

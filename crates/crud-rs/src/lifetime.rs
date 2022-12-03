@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use crate::resource::CrudResource;
 
+#[derive(Debug)]
 pub enum Abort {
     Yes {
         reason: String,
