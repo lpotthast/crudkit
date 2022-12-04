@@ -71,7 +71,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         .fields()
         .iter()
         .map(|field| {
-            let name = &field.ident.as_ref().expect("Expected named field!");
+            let name = field.ident.as_ref().expect("Expected named field!");
             let mut column_name = String::new();
             for part in name.to_string().split('_') {
                 column_name.push_str(capitalize_first_letter(part).as_str());
@@ -122,6 +122,13 @@ pub fn store(input: TokenStream) -> TokenStream {
     let init_id_struct_fields = id_fields.iter().map(|field| {
         let ident = field.ident.as_ref().expect("Ident to be present").clone();
         // Example: id: self.id.clone()
+        quote! { #ident: model.#ident.clone() }
+        // TODO: Always clone here?
+    });
+
+    let init_active_id_struct_fields = id_fields.iter().map(|field| {
+        let ident = field.ident.as_ref().expect("Ident to be present").clone();
+        // Example: id: self.id.clone()
         quote! { #ident: active_model.#ident.clone().into_value().map(|v| v.unwrap()).unwrap() }
         // TODO: Always clone here?
     });
@@ -134,7 +141,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         #code
 
-        impl crud_rs::CrudColumns<Column, ActiveModel> for Col {
+        impl crud_rs::CrudColumns<Column, Model, ActiveModel> for Col {
             type Id = #struct_ident;
 
             fn to_sea_orm_column(&self) -> Column {
@@ -144,10 +151,17 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
 
             // We use #struct_ident instead of Self::Id, as `for Col`, Col being an enum, can lead to indistinguishable types.
-            fn get_id(active_model: &ActiveModel) -> std::result::Result<#struct_ident, String> {
-                // TODO: The init_id_struct_fields code unwraps() and therefore panics. Catch missing data and return an error.
-                Ok(#struct_ident {
+            fn get_id(model: &Model) -> #struct_ident {
+                #struct_ident {
                     #(#init_id_struct_fields),*
+                }
+            }
+
+            // We use #struct_ident instead of Self::Id, as `for Col`, Col being an enum, can lead to indistinguishable types.
+            fn get_id_active(active_model: &ActiveModel) -> std::result::Result<#struct_ident, String> {
+                // TODO: The init_active_id_struct_fields code unwraps() and therefore panics. Catch missing data and return an error.
+                Ok(#struct_ident {
+                    #(#init_active_id_struct_fields),*
                 })
             }
         }

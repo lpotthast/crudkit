@@ -5,7 +5,7 @@ use crud_shared_types::{
     error::CrudError, SaveResult, Saved, id::Id,
 };
 use serde::Deserialize;
-use std::sync::Arc;
+use std::{sync::Arc, collections::HashMap};
 
 #[derive(Deserialize)]
 pub struct CreateOne {
@@ -51,8 +51,11 @@ pub async fn create_one<R: CrudResource>(
     if partial_validation_results.has_critical_violations() {
         // TODO: Only notify the user that issued THIS REQUEST!!!
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
+        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([
+            (String::from(R::TYPE.into()), partial_validation_results.clone().into())
+        ]);
         controller.get_websocket_controller().broadcast_json(
-            &CrudWsMessage::PartialValidationResult(partial_validation_results.clone().into()),
+            &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
         );
 
         // NOTE: Nothing must be persisted, as the entity is not yet created!
@@ -71,33 +74,39 @@ pub async fn create_one<R: CrudResource>(
 
     let _hook_data = R::Lifetime::after_create(&create_model_clone, &inserted_entity, &res_context, hook_data).await;
 
-    // TODO: Performing another conversion into the ActiveModel seems unnecessary. Can we avoid this?
-    let active_inserted_entity: R::ActiveModel = inserted_entity.clone().into();
-    let entity_id = R::CrudColumn::get_id(&active_inserted_entity)
-        .expect("Already inserted entities must have an ID!");
+    let entity_id = R::CrudColumn::get_id(&inserted_entity);
+        //.expect("Already inserted entities must have an ID!");
 
     let serializable_id = entity_id.into_serializable_id();
+
+    // TODO: Performing another conversion into the ActiveModel seems unnecessary. Can we avoid this?
+    let active_inserted_entity: R::ActiveModel = inserted_entity.clone().into();
 
     // Reevaluate the entity for violations and broadcast all of them if some exist.
     let trigger = ValidationTrigger::CrudAction(ValidationContext {
         action: CrudAction::Create,
         when: When::After,
     });
+
+    // TODO: Validate using the model, not the active model? active_inserted_entity would then be obsolete!
     let partial_validation_results = context.validator.validate_single(&active_inserted_entity, trigger);
     let with_validation_errors = partial_validation_results.has_violations();
     if with_validation_errors {
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
-        let mut serializable: PartialSerializableValidations = partial_validation_results.clone().into();
+        let mut partial_serializable_validations: PartialSerializableValidations = HashMap::from([
+            (String::from(R::TYPE.into()), partial_validation_results.clone().into())
+        ]);
 
         // We successfully created the entry at this point. To delete any leftover "create" violations in the frontend, set create to Some empty vector!
-        serializable
+        partial_serializable_validations
             .entry(R::TYPE.into().to_owned())
             .and_modify(|s| {
                 s.create = Some(Vec::new());
             });
+
         controller
             .get_websocket_controller()
-            .broadcast_json(&CrudWsMessage::PartialValidationResult(serializable));
+            .broadcast_json(&CrudWsMessage::PartialValidationResult(partial_serializable_validations));
 
         // Persist the validation results for later access/use.
         let persistable = into_persistable(partial_validation_results);

@@ -1,5 +1,6 @@
 use darling::*;
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident, Type};
 
@@ -61,6 +62,55 @@ pub fn store(input: TokenStream) -> TokenStream {
             quote! { pub #ident: #ty, }
         });
 
+    let set_pk_active_fields = input
+        .fields()
+        .iter()
+        .filter(|field| field.is_id())
+        .map(|field| {
+            let original_ident = field.ident.as_ref().expect("Named field");
+            let ident = Ident::new(
+                format!("entity_{original_ident}").as_str(),
+                field.ident.span(),
+            );
+
+            quote! { #ident: sea_orm::ActiveValue::Set(entity_id.#original_ident.clone()), }
+        });
+
+    fn capitalize_first_letter(s: &str) -> String {
+        s[0..1].to_uppercase() + &s[1..]
+    }
+
+    // id: self.entity_id.clone(),
+    let super_id_field_init = input
+        .fields()
+        .iter()
+        .filter(|field| field.is_id())
+        .map(|field| {
+            let original_ident = field.ident.as_ref().expect("Named field");
+            let ident = Ident::new(
+                format!("entity_{original_ident}").as_str(),
+                field.ident.span(),
+            );
+            quote! { #original_ident: self.#ident.clone(), }
+        });
+
+    // vec.push(Column::Id); ...
+    let pk_columns = input
+        .fields()
+        .iter()
+        .filter(|field| field.is_id())
+        .map(|field| {
+            let name = field.ident.as_ref().expect("Expected named field!");
+            let mut column_name = String::new();
+            for part in name.to_string().split('_') {
+                column_name.push_str(capitalize_first_letter(part).as_str());
+            }
+            let ident = Ident::new(column_name.as_str(), Span::call_site());
+            quote! { vec.push(Column::#ident); }
+        })
+        .collect::<Vec<_>>();
+    let pk_columns_len = pk_columns.len();
+
     quote! {
         pub mod validation_model {
             use sea_orm::entity::prelude::*;
@@ -89,12 +139,69 @@ pub fn store(input: TokenStream) -> TokenStream {
 
             impl sea_orm::entity::ActiveModelBehavior for ActiveModel {}
 
-            impl core::convert::From<Model> for crud_shared_types::validation::ValidationViolation {
-                fn from(val: Model) -> Self {
-                    match val.violation_severity {
-                        crud_rs::validation::ValidationViolationType::Major => crud_shared_types::validation::ValidationViolation::Major(val.violation_message),
-                        crud_rs::validation::ValidationViolationType::Critical => crud_shared_types::validation::ValidationViolation::Critical(val.violation_message),
+            impl core::convert::Into<crud_shared_types::validation::ValidationViolation> for Model {
+                fn into(self) -> crud_shared_types::validation::ValidationViolation {
+                    match self.violation_severity {
+                        crud_rs::validation::ValidationViolationType::Major => crud_shared_types::validation::ValidationViolation::Major(self.violation_message),
+                        crud_rs::validation::ValidationViolationType::Critical => crud_shared_types::validation::ValidationViolation::Critical(self.violation_message),
                     }
+                }
+            }
+
+            impl crud_rs::NewActiveValidationModel<super::Id> for ActiveModel {
+                fn new(entity_id: super::Id, validator_name: String, validator_version: i32, violation: crud_rs::validation::PersistableViolation, now: chrono_utc_date_time::UtcDateTime) -> Self {
+                    Self {
+                        id: sea_orm::ActiveValue::NotSet,
+
+                        #(#set_pk_active_fields)*
+
+                        validator_name: sea_orm::ActiveValue::Set(validator_name.to_owned()),
+                        validator_version: sea_orm::ActiveValue::Set(validator_version),
+
+                        violation_severity: sea_orm::ActiveValue::Set(violation.violation_severity),
+                        violation_message: sea_orm::ActiveValue::Set(violation.violation_message),
+
+                        created_at: sea_orm::ActiveValue::Set(now.clone()),
+                        updated_at: sea_orm::ActiveValue::Set(now.clone()),
+                    }
+                }
+            }
+
+            impl crud_rs::ValidatorModel<super::Id> for Model {
+                fn get_id(&self) -> super::Id {
+                    super::Id {
+                        #(#super_id_field_init)*
+                    }
+                }
+
+                fn get_validator_name(&self) -> String {
+                    self.validator_name.clone()
+                }
+
+                fn get_validator_version(&self) -> i32 {
+                    self.validator_version
+                }
+            }
+
+            impl crud_rs::ValidationColumns for Column {
+                fn get_validator_name_column() -> Self {
+                    Self::ValidatorName
+                }
+
+                fn get_validator_version_column() -> Self {
+                    Self::ValidatorVersion
+                }
+
+                fn get_violation_severity_column() -> Self {
+                    Self::ViolationSeverity
+                }
+            }
+
+            impl crud_rs::IdColumns for Column {
+                fn get_id_columns() -> Vec<Column> {
+                    let mut vec = Vec::with_capacity(#pk_columns_len);
+                    #(#pk_columns)*
+                    vec
                 }
             }
         }

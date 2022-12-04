@@ -1,4 +1,5 @@
 use crate::{lifetime::CrudLifetime, prelude::*};
+use crud_shared_types::prelude::Id;
 use sea_orm::{
     ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, FromQueryResult,
     IntoActiveModel, ModelTrait,
@@ -39,7 +40,7 @@ pub trait CrudResource: Sized {
     // The 'real' column type (an enum) of the read / queried data.
     type ReadViewColumn: ColumnTrait + Clone + Send + Sync + 'static;
 
-    type ReadViewCrudColumn: CrudColumns<Self::ReadViewColumn, Self::ReadViewActiveModel>
+    type ReadViewCrudColumn: CrudColumns<Self::ReadViewColumn, Self::ReadViewModel, Self::ReadViewActiveModel>
         + Eq
         + Hash
         + DeserializeOwned
@@ -88,7 +89,7 @@ pub trait CrudResource: Sized {
 
     type Column: ColumnTrait + Clone + Send + Sync + 'static;
 
-    type CrudColumn: CrudColumns<Self::Column, Self::ActiveModel>
+    type CrudColumn: CrudColumns<Self::Column, Self::Model, Self::ActiveModel, Id = Self::Id>
         + Eq
         + Hash
         + DeserializeOwned
@@ -97,10 +98,12 @@ pub trait CrudResource: Sized {
         + Sync
         + 'static;
 
-    type Validator: EntityValidatorsTrait<Self::ActiveModel>;
+    type Id: Id + Clone;
+
+    type Validator: EntityValidatorsTrait<Self::ActiveModel, <Self::CrudColumn as CrudColumns<Self::Column, Self::Model, Self::ActiveModel>>::Id>;
 
     // The service with which validation results can be managed: read, stored, ...
-    type ValidationResultRepository: ValidationResultSaverTrait<<Self::CrudColumn as CrudColumns<Self::Column, Self::ActiveModel>>::Id>;
+    type ValidationResultRepository: ValidationResultSaverTrait<<Self::CrudColumn as CrudColumns<Self::Column, Self::Model, Self::ActiveModel>>::Id>;
 
     type ResourceType: Debug + Into<&'static str> + Clone + Copy;
 

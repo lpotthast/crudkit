@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use crud_shared_types::{validation::{
-    EntityViolations, StrictEntityInfo, ValidationViolation, ValidatorInfo,
-    Violations,
+    EntityViolations, ValidationViolation, ValidatorInfo,
+    Violations, OwnedValidatorInfo,
 }, id::Id};
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
@@ -43,16 +43,16 @@ pub trait AggregateValidator {
 }
 
 // TODO: delete?
-pub trait EntityValidatorTrait<T> {
-    fn validate_single(&self, entity: &T, trigger: ValidationTrigger) -> EntityViolations;
-    fn validate_updated(&self, old: &T, new: &T, trigger: ValidationTrigger) -> EntityViolations;
+pub trait EntityValidatorTrait<T, I: Id> {
+    fn validate_single(&self, entity: &T, trigger: ValidationTrigger) -> EntityViolations<I>;
+    fn validate_updated(&self, old: &T, new: &T, trigger: ValidationTrigger) -> EntityViolations<I>;
     fn get_name(&self) -> &'static str;
     fn get_version(&self) -> u32;
 }
 
-pub trait EntityValidatorsTrait<T> {
-    fn validate_single(&self, entity: &T, trigger: ValidationTrigger) -> EntityViolations;
-    fn validate_updated(&self, old: &T, new: &T, trigger: ValidationTrigger) -> EntityViolations;
+pub trait EntityValidatorsTrait<T, I: Id + Clone> {
+    fn validate_single(&self, entity: &T, trigger: ValidationTrigger) -> EntityViolations<I>;
+    fn validate_updated(&self, old: &T, new: &T, trigger: ValidationTrigger) -> EntityViolations<I>;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, EnumIter, DeriveActiveEnum)]
@@ -100,7 +100,7 @@ pub trait EntityValidationsExt {
     fn has_violation_of_type(&self, violation_type: ValidationViolationType) -> bool;
 }
 
-impl EntityValidationsExt for EntityViolations {
+impl<I: Id> EntityValidationsExt for EntityViolations<I> {
     fn has_violation_of_type(&self, violation_type: ValidationViolationType) -> bool {
         for validator_violations in self.entity_violations.values() {
             for violations in validator_violations.values() {
@@ -119,7 +119,9 @@ impl EntityValidationsExt for EntityViolations {
 pub trait ValidationResultSaverTrait<I: Id> {
     async fn delete_all_for(&self, entity_id: &I);
 
-    async fn save_all(&self, validation_results: HashMap<I, HashMap<ValidatorInfo, Vec<PersistableViolation>>>,);
+    async fn save_all(&self, validation_results: HashMap<I, HashMap<ValidatorInfo, Vec<PersistableViolation>>>);
+
+    async fn list_all(&self) -> HashMap<I, HashMap<OwnedValidatorInfo, Vec<ValidationViolation>>>;
 }
 
 pub struct PersistableViolation {
@@ -130,12 +132,10 @@ pub struct PersistableViolation {
 /// Removes critical validations and validations without an id.
 /// TODO: Add test
 /// TODO: Convert SerializableId to String right here, not later
-pub fn into_persistable(
-    data: EntityViolations,
-) -> HashMap<StrictEntityInfo, HashMap<ValidatorInfo, Vec<PersistableViolation>>> {
+pub fn into_persistable<I: Id>(data: EntityViolations<I>) -> HashMap<I, HashMap<ValidatorInfo, Vec<PersistableViolation>>> {
     let mut entity_violations = HashMap::with_capacity(data.entity_violations.len());
-    for (entity_info, validators) in data.entity_violations {
-        if let Some(entity_id) = entity_info.entity_id {
+    for (entity_id, validators) in data.entity_violations {
+        if let Some(entity_id) = entity_id {
             let mut validator_validations = HashMap::with_capacity(validators.len());
             for (validator_info, violations) in validators {
                 let mut vec = Vec::with_capacity(violations.violations.len());
@@ -152,13 +152,7 @@ pub fn into_persistable(
                 }
                 validator_validations.insert(validator_info, vec);
             }
-            entity_violations.insert(
-                StrictEntityInfo {
-                    aggregate_name: entity_info.aggregate_name,
-                    entity_id,
-                },
-                validator_validations,
-            );
+            entity_violations.insert(entity_id, validator_validations);
         }
     }
     entity_violations

@@ -1,13 +1,13 @@
 use crate::{prelude::*, validation::{into_persistable, ValidationTrigger, ValidationContext, CrudAction, When}};
 use crud_shared_types::{
-    validation::EntityViolations,
+    validation::{PartialSerializableValidations},
     ws_messages::{CrudWsMessage, EntityUpdated},
     condition::Condition,
     error::CrudError, SaveResult, Saved, prelude::Id,
 };
 use sea_orm::ActiveModelTrait;
 use serde::Deserialize;
-use std::sync::Arc;
+use std::{sync::Arc, collections::HashMap};
 
 #[derive(Deserialize)]
 pub struct UpdateOne {
@@ -44,7 +44,9 @@ pub async fn update_one<R: CrudResource>(
     // TODO: beforeUpdate and afterUpdate with context res_context!
     // Update the persisted active_model!
     active_model.update_with(update);
-    let entity_id = R::CrudColumn::get_id(&active_model).expect("Updatable entities must be stored and therefor have an ID!");
+
+    let entity_id = R::CrudColumn::get_id_active(&active_model)
+        .expect("Updatable entities must be stored and therefor have an ID!");
 
     let serializable_id = entity_id.into_serializable_id();
 
@@ -53,8 +55,8 @@ pub async fn update_one<R: CrudResource>(
         action: CrudAction::Update,
         when: When::Before,
     });
-    let partial_validation_results: EntityViolations =
-        context.validator.validate_single(&active_model, trigger);
+
+    let partial_validation_results = context.validator.validate_single(&active_model, trigger);
 
     let has_violations = partial_validation_results.has_violations();
 
@@ -63,8 +65,12 @@ pub async fn update_one<R: CrudResource>(
             partial_validation_results.has_violation_of_type(ValidationViolationType::Critical);
 
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
+        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([
+            (String::from(R::TYPE.into()), partial_validation_results.clone().into())
+        ]);
+
         controller.get_websocket_controller().broadcast_json(
-            &CrudWsMessage::PartialValidationResult(partial_validation_results.clone().into()),
+            &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
         );
 
         // Persist the validation results for later access/use.
@@ -82,11 +88,11 @@ pub async fn update_one<R: CrudResource>(
     } else {
         // We know that the entity is valid and therefor need to delete all previously stored violations for this entity.
         // The active_model might not have an id, thou that is unlikely when doing an "update".
-        match R::CrudColumn::get_id(&active_model) {
+        match R::CrudColumn::get_id_active(&active_model) {
             Ok(id) => {
                 context
                 .validation_result_repository
-                .delete_for(String::from(R::TYPE.into()), &id.into_serializable_id())
+                .delete_all_for(&id)
                 .await;
             },
             Err(err) => {
@@ -95,8 +101,12 @@ pub async fn update_one<R: CrudResource>(
         }
 
         // Inform the websocket listeners.
+        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([
+            (String::from(R::TYPE.into()), partial_validation_results.clone().into())
+        ]);
+
         controller.get_websocket_controller().broadcast_json(
-            &CrudWsMessage::PartialValidationResult(partial_validation_results.clone().into()),
+            &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
         );
     }
 

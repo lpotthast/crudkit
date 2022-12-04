@@ -5,6 +5,7 @@ use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::{condition::ConditionClauseValue, Value, prelude::Id};
 use prelude::{CrudContext, CrudResource};
 use sea_orm::{ActiveModelTrait, ColumnTrait, ModelTrait};
+use validation::PersistableViolation;
 use std::str::FromStr;
 
 pub mod axum_routes;
@@ -80,12 +81,33 @@ pub mod prelude {
     pub use super::update::UpdateOne;
 }
 
-pub trait CrudColumns<C: ColumnTrait, A: ActiveModelTrait> {
-    type Id: Id;
+pub trait ValidatorModel<I: Id> {
+    fn get_id(&self) -> I;
+    fn get_validator_name(&self) -> String;
+    fn get_validator_version(&self) -> i32;
+}
+
+pub trait ValidationColumns {
+    fn get_validator_name_column() -> Self;
+    fn get_validator_version_column() -> Self;
+    fn get_violation_severity_column() -> Self;
+}
+
+pub trait IdColumns: Sized {
+    fn get_id_columns() -> Vec<Self>;
+}
+
+pub trait NewActiveValidationModel<I: Id> {
+    fn new(entity_id: I, validator_name: String, validator_version: i32, violation: PersistableViolation, now: UtcDateTime) -> Self;
+}
+
+pub trait CrudColumns<C: ColumnTrait, M: ModelTrait, A: ActiveModelTrait> {
+    type Id: Id + Clone;
 
     fn to_sea_orm_column(&self) -> C;
 
-    fn get_id(model: &A) -> Result<Self::Id, String>;
+    fn get_id(model: &M) -> Self::Id;
+    fn get_id_active(model: &A) -> Result<Self::Id, String>;
 }
 
 #[async_trait]

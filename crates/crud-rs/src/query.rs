@@ -7,7 +7,7 @@ use crud_shared_types::{
 use indexmap::IndexMap;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DeleteMany, EntityTrait, FromQueryResult, Insert, QueryFilter,
-    QueryOrder, QuerySelect, Select,
+    QueryOrder, QuerySelect, Select, ModelTrait,
 };
 use serde::de::DeserializeOwned;
 use std::hash::Hash;
@@ -34,10 +34,10 @@ pub fn build_delete_many_query<T: EntityTrait + MaybeColumnTrait>(
 
 pub fn build_select_query<
     E: EntityTrait<Model = M, Column = C> + MaybeColumnTrait,
-    M: FromQueryResult + Sized + Send + Sync,
+    M: ModelTrait + FromQueryResult + Sized + Send + Sync,
     A: ActiveModelTrait,
     C: ColumnTrait,
-    CC: CrudColumns<C, A> + Eq + Hash + DeserializeOwned,
+    CC: CrudColumns<C, M, A> + Eq + Hash + DeserializeOwned,
 >(
     limit: Option<u64>,
     skip: Option<u64>,
@@ -55,7 +55,7 @@ pub fn build_select_query<
     }
 
     if let Some(map) = order_by {
-        select = apply_order_by::<E, A, C, CC>(select, map)?;
+        select = apply_order_by::<E, M, A, C, CC>(select, map)?;
     }
 
     if let Some(condition) = condition {
@@ -81,14 +81,15 @@ pub fn build_select_query<
 //}
 
 fn apply_order_by<
-    T: EntityTrait<Column = C> + MaybeColumnTrait,
+    E: EntityTrait<Column = C> + MaybeColumnTrait,
+    M: ModelTrait,
     A: ActiveModelTrait,
     C: ColumnTrait,
-    CC: CrudColumns<C, A> + Eq + Hash + DeserializeOwned,
+    CC: CrudColumns<C, M, A> + Eq + Hash + DeserializeOwned,
 >(
-    mut select: Select<T>,
+    mut select: Select<E>,
     order_by: IndexMap<CC, Order>,
-) -> Result<Select<T>, CrudError> {
+) -> Result<Select<E>, CrudError> {
     for (crud_column, order) in order_by {
         let column = crud_column.to_sea_orm_column();
         select = select.order_by(
@@ -109,7 +110,7 @@ fn apply_order_by<
 //    }
 //}
 
-fn build_condition_tree<T: MaybeColumnTrait>(
+pub fn build_condition_tree<T: MaybeColumnTrait>(
     condition: &Condition,
 ) -> Result<sea_orm::sea_query::Condition, CrudError> {
     let mut tree = match &condition {

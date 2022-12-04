@@ -5,12 +5,12 @@ use crate::{
 };
 use crud_shared_types::{
     prelude::*,
-    ws_messages::{CrudWsMessage, EntityDeleted},
+    ws_messages::{CrudWsMessage, EntityDeleted}, validation::PartialSerializableValidations,
 };
 use indexmap::IndexMap;
 use sea_orm::ModelTrait;
 use serde::Deserialize;
-use std::sync::Arc;
+use std::{sync::Arc, collections::HashMap};
 
 #[derive(Deserialize)]
 pub struct DeleteById {
@@ -57,11 +57,12 @@ pub async fn delete_by_id<R: CrudResource>(
         return Ok(DeleteResult::Aborted { reason })
     }
 
-    let active_model = model.clone().into();
-    let entity_id = R::CrudColumn::get_id(&active_model)
-        .expect("Stored entity without an ID should be impossible!");
+    let entity_id = R::CrudColumn::get_id(&model);
+        //.expect("Stored entity without an ID should be impossible!");
 
     let serializable_id = entity_id.into_serializable_id();
+
+    let active_model = model.clone().into();
 
     // Validate the entity, so that we can block its deletion if validators say so.
     let trigger = ValidationTrigger::CrudAction(ValidationContext {
@@ -73,8 +74,13 @@ pub async fn delete_by_id<R: CrudResource>(
     // Prevent deletion on critical errors.
     if partial_validation_results.has_critical_violations() {
         // TODO: Only notify the user that issued THIS REQUEST!!!
+
+        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([
+            (String::from(R::TYPE.into()), partial_validation_results.clone().into())
+        ]);
+
         controller.get_websocket_controller().broadcast_json(
-            &CrudWsMessage::PartialValidationResult(partial_validation_results.clone().into()),
+            &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
         );
 
         // NOTE: Validations done before a deletion are only there to prevent it if necessary. Nothing must be persisted.
@@ -96,7 +102,7 @@ pub async fn delete_by_id<R: CrudResource>(
     // All previous validations regarding this entity must be deleted!
     context
         .validation_result_repository
-        .delete_for(String::from(R::TYPE.into()), &serializable_id)
+        .delete_all_for(&entity_id) // String::from(R::TYPE.into()), 
         .await;
 
     // Inform all participants that the entity was deleted.
@@ -137,11 +143,12 @@ pub async fn delete_one<R: CrudResource>(
         return Ok(DeleteResult::Aborted { reason })
     }
 
-    let active_model = model.clone().into();
-    let entity_id = R::CrudColumn::get_id(&active_model)
-        .expect("Stored entity without an ID should be impossible!");
+    let entity_id = R::CrudColumn::get_id(&model);
+        //.expect("Stored entity without an ID should be impossible!");
 
     let serializable_id = entity_id.into_serializable_id();
+
+    let active_model = model.clone().into();
 
     // Validate the entity, so that we can block its deletion if validators say so.
     let trigger = ValidationTrigger::CrudAction(ValidationContext {
@@ -153,8 +160,13 @@ pub async fn delete_one<R: CrudResource>(
     // Prevent deletion on critical errors.
     if partial_validation_results.has_critical_violations() {
         // TODO: Only notify the user that issued THIS REQUEST!!!
+
+        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([
+            (String::from(R::TYPE.into()), partial_validation_results.clone().into())
+        ]);
+
         controller.get_websocket_controller().broadcast_json(
-            &CrudWsMessage::PartialValidationResult(partial_validation_results.clone().into()),
+            &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
         );
 
         // NOTE: Validations done before a deletion are only there to prevent it if necessary. Nothing must be persisted.
@@ -172,7 +184,7 @@ pub async fn delete_one<R: CrudResource>(
     // All previous validations regarding this entity must be deleted!
     context
         .validation_result_repository
-        .delete_for(String::from(R::TYPE.into()), &serializable_id)
+        .delete_all_for(&entity_id) // String::from(R::TYPE.into()),
         .await;
 
     // Inform all participants that the entity was deleted.
