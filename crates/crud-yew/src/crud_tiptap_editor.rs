@@ -1,4 +1,4 @@
-use crate::{prelude::*, types::files::FileResource, js_tiptap::State};
+use crate::{js_tiptap::State, prelude::*, types::files::FileResource};
 use wasm_bindgen::prelude::Closure;
 use yew::prelude::*;
 use yewbi::Bi;
@@ -58,8 +58,7 @@ impl Component for CrudTipTapEditor {
             Closure::wrap(Box::new(move |text| yew_callback.emit(text)) as Box<dyn Fn(String)>);
 
         let yew_callback = ctx.link().callback(|_| Msg::SelectionChanged);
-        let selected =
-            Closure::wrap(Box::new(move || yew_callback.emit(())) as Box<dyn Fn()>);
+        let selected = Closure::wrap(Box::new(move || yew_callback.emit(())) as Box<dyn Fn()>);
         Self {
             on_change: changed,
             on_selection: selected,
@@ -71,14 +70,26 @@ impl Component for CrudTipTapEditor {
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::SelectionChanged => {
-                self.state = js_tiptap::get_state(ctx.props().id.clone());
+                self.state = match js_tiptap::get_state(ctx.props().id.clone()) {
+                    Ok(state) => state,
+                    Err(err) => {
+                        log::error!("Could not parse JsValue as TipTap state. Deserialization error: '{err}'. Falling back to default state.");
+                        Default::default()
+                    }
+                };
                 true
             }
             Msg::Changed(text) => {
                 if let Some(onchange) = &ctx.props().onchange {
                     onchange.emit(text);
                 }
-                self.state = js_tiptap::get_state(ctx.props().id.clone());
+                self.state = match js_tiptap::get_state(ctx.props().id.clone()) {
+                    Ok(state) => state,
+                    Err(err) => {
+                        log::error!("Could not parse JsValue as TipTap state. Deserialization error: '{err}'. Falling back to default state.");
+                        Default::default()
+                    }
+                };
                 true
             }
             Msg::H1 => {
@@ -216,12 +227,12 @@ impl Component for CrudTipTapEditor {
                         <CrudIcon variant={Bi::TextLeft}/>
                         {"left"}
                     </div>
-                    
+
                     <div class={classes!("tiptap-btn", self.state.align_center.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::AlignCenter)}>
                         <CrudIcon variant={Bi::TextCenter}/>
                         {"center"}
                     </div>
-                    
+
                     <div class={classes!("tiptap-btn", self.state.align_right.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::AlignRight)}>
                         <CrudIcon variant={Bi::TextRight}/>
                         {"right"}

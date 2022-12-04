@@ -151,7 +151,6 @@ pub fn set_image(id: String, src: String, alt: String, title: String) {
     js::setImage(id, src, alt, title);
 }
 
-pub fn get_state(id: String) -> State {
-    let state: State = js::getState(id).into_serde().unwrap(); // TODO: Standalone: Fix deprecation warning!
-    state
+pub fn get_state(id: String) -> Result<State, serde_wasm_bindgen::Error> {
+    serde_wasm_bindgen::from_value(js::getState(id))
 }
