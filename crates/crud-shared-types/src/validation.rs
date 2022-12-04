@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::id::{SerializableId, Id};
 
+// TODO: Combine this and OwnedValidatorInfo and use Cow?
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
 pub struct ValidatorInfo {
     pub validator_name: &'static str,
@@ -14,22 +15,6 @@ pub struct ValidatorInfo {
 pub struct OwnedValidatorInfo {
     pub validator_name: String,
     pub validator_version: i32,
-}
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
-pub struct EntityInfo<I: Id> {
-    // TODO: use a safer enum type here?
-    pub aggregate_name: &'static str,
-    /// We might generate violations for entities which do not have an id yet, because they were not yet created!
-    pub entity_id: Option<I>,
-}
-
-// TODO: Rename to PersistableEntityInfo, as it is only used in validation persistance?
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
-pub struct StrictEntityInfo {
-    // TODO: use a safer enum type here?
-    pub aggregate_name: &'static str,
-    pub entity_id: SerializableId,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
@@ -96,7 +81,8 @@ pub struct AggregateViolations<I: Id> {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct EntityViolations<I: Id> {
-    pub entity_violations: HashMap<EntityInfo<I>, HashMap<ValidatorInfo, Violations>>,
+    // Might contain violation for an entity without an ID (create mode).
+    pub entity_violations: HashMap<Option<I>, HashMap<ValidatorInfo, Violations>>,
 }
 
 impl<I: Id> EntityViolations<I> {
@@ -106,12 +92,12 @@ impl<I: Id> EntityViolations<I> {
         }
     }
 
-    pub fn of(entity: EntityInfo<I>, validator: ValidatorInfo, violations: Violations) -> Self {
+    pub fn of(entity_id: Option<I>, validator: ValidatorInfo, violations: Violations) -> Self {
         let mut validator_violations = HashMap::new();
         validator_violations.insert(validator, violations);
 
         let mut entity_violations = HashMap::new();
-        entity_violations.insert(entity, validator_violations);
+        entity_violations.insert(entity_id, validator_violations);
 
         Self { entity_violations }
     }
@@ -198,20 +184,19 @@ pub type FullSerializableValidations = HashMap<String, FullSerializableAggregate
 
 pub type PartialSerializableValidations = HashMap<String, SerializableAggregateViolations>;
 
-impl<I: Id> Into<PartialSerializableValidations> for EntityViolations<I> {
-    fn into(self) -> PartialSerializableValidations {
-        let mut result: PartialSerializableValidations =
-            HashMap::with_capacity(self.entity_violations.len());
-        for (entity_info, validators) in self.entity_violations {
-            let aggregate_violations = result
-                .entry(entity_info.aggregate_name.to_owned())
-                .or_insert_with(Default::default);
+impl<I: Id> Into<SerializableAggregateViolations> for EntityViolations<I> {
+    fn into(self) -> SerializableAggregateViolations {
+        let mut aggregate_violations: SerializableAggregateViolations = Default::default();
 
-            if let Some(entity_id) = entity_info.entity_id {
+        for (entity_id, validators) in self.entity_violations {
+            if let Some(entity_id) = entity_id {
+                let serializable_id = entity_id.into_serializable_id();
+
                 let entity_violations = aggregate_violations
                     .by_entity
-                    .entry(entity_id)
+                    .entry(serializable_id)
                     .or_insert_with(Default::default);
+
                 for (_, mut violations) in validators {
                     entity_violations.append(&mut violations.violations);
                 }
@@ -224,6 +209,7 @@ impl<I: Id> Into<PartialSerializableValidations> for EntityViolations<I> {
                 }
             }
         }
-        result
+
+        aggregate_violations
     }
 }
