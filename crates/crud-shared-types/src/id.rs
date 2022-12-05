@@ -56,7 +56,7 @@ impl<I> IntoAllEqualCondition for I
 where
     I: Id,
 {
-    fn into_all_equal_condition(self) -> Condition {
+    fn to_all_equal_condition(&self) -> Condition {
         Condition::All(
             self.fields_iter()
                 .map(|field| {
@@ -75,7 +75,7 @@ where
 pub struct SerializableId(pub Vec<(String, IdValue)>);
 
 impl IntoAllEqualCondition for SerializableId {
-    fn into_all_equal_condition(self) -> Condition {
+    fn to_all_equal_condition(&self) -> Condition {
         Condition::All(
             self.0
                 .iter()

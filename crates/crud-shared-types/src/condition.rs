@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Value, IdValue};
 
 pub trait IntoAllEqualCondition {
-    fn into_all_equal_condition(self) -> Condition;
+    fn to_all_equal_condition(&self) -> Condition;
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, Serialize, Deserialize)]
