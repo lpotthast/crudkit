@@ -45,6 +45,7 @@ pub async fn update_one<R: CrudResource>(
     // Update the persisted active_model!
     active_model.update_with(update);
 
+    // TODO: Just like model.get_id(), provide an active_model.get_id() implementation...?
     let entity_id = R::CrudColumn::get_id_active(&active_model)
         .expect("Updatable entities must be stored and therefor have an ID!");
 

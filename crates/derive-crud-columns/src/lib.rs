@@ -98,6 +98,13 @@ pub fn store(input: TokenStream) -> TokenStream {
         // TODO: Always clone here?
     });
 
+    let init_id_struct_fields_self = id_fields.iter().map(|field| {
+        let ident = field.ident.as_ref().expect("Ident to be present").clone();
+        // Example: id: self.id.clone()
+        quote! { #ident: self.#ident.clone() }
+        // TODO: Always clone here?
+    });
+
     let init_active_id_struct_fields = id_fields.iter().map(|field| {
         let ident = field.ident.as_ref().expect("Ident to be present").clone();
         // Example: id: self.id.clone()
@@ -156,6 +163,17 @@ pub fn store(input: TokenStream) -> TokenStream {
                 Ok(#struct_ident {
                     #(#init_active_id_struct_fields),*
                 })
+            }
+        }
+
+        impl crud_rs::GetIdFromModel for Model {
+            type Id = #struct_ident;
+
+            // We use #struct_ident instead of Self::Id, as `for Col`, Col being an enum, can lead to indistinguishable types.
+            fn get_id(&self) -> #struct_ident {
+                #struct_ident {
+                    #(#init_id_struct_fields_self),*
+                }
             }
         }
 

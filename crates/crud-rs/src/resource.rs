@@ -1,4 +1,4 @@
-use crate::{lifetime::CrudLifetime, prelude::*};
+use crate::{lifetime::CrudLifetime, prelude::*, GetIdFromModel};
 use crud_shared_types::prelude::Id;
 use sea_orm::{
     ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, FromQueryResult,
@@ -18,6 +18,7 @@ pub trait CrudResource: Sized {
 
     // The model of the read / queried data.
     type ReadViewModel: ModelTrait<Entity = Self::ReadViewEntity>
+        // TODO: + GetIdFromModel<Id = ReadViewId>
         + IntoActiveModel<Self::ReadViewActiveModel>
         + FromQueryResult
         + Serialize
@@ -71,6 +72,7 @@ pub trait CrudResource: Sized {
 
     type Model: ModelTrait<Entity = Self::Entity>
         + IntoActiveModel<Self::ActiveModel>
+        + GetIdFromModel<Id = Self::Id>
         + FromQueryResult
         + Serialize
         + Clone

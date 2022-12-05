@@ -84,6 +84,7 @@ pub mod prelude {
 
 pub trait ValidatorModel<I: Id> {
     fn get_id(&self) -> I;
+
     fn get_validator_name(&self) -> String;
     fn get_validator_version(&self) -> i32;
 }
@@ -109,6 +110,12 @@ pub trait CrudColumns<C: ColumnTrait, M: ModelTrait, A: ActiveModelTrait> {
 
     fn get_id(model: &M) -> Self::Id;
     fn get_id_active(model: &A) -> Result<Self::Id, String>;
+}
+
+pub trait GetIdFromModel {
+    type Id: Id + Clone;
+
+    fn get_id(&self) -> Self::Id;
 }
 
 #[async_trait]

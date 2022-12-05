@@ -1,7 +1,7 @@
 use crate::{
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
-    lifetime::{CrudLifetime, Abort},
+    lifetime::{CrudLifetime, Abort}, GetIdFromModel,
 };
 use crud_shared_types::{
     prelude::*,
@@ -39,7 +39,7 @@ pub async fn delete_by_id<R: CrudResource>(
         None,
         None,
         None,
-        &Some(body.id.into_all_equal_condition()),
+        &Some(body.id.to_all_equal_condition()),
     )?;
 
     let model = select
@@ -57,7 +57,7 @@ pub async fn delete_by_id<R: CrudResource>(
         return Ok(DeleteResult::Aborted { reason })
     }
 
-    let entity_id = R::CrudColumn::get_id(&model);
+    let entity_id = model.get_id();
         //.expect("Stored entity without an ID should be impossible!");
 
     let serializable_id = entity_id.into_serializable_id();
@@ -143,7 +143,7 @@ pub async fn delete_one<R: CrudResource>(
         return Ok(DeleteResult::Aborted { reason })
     }
 
-    let entity_id = R::CrudColumn::get_id(&model);
+    let entity_id = model.get_id();
         //.expect("Stored entity without an ID should be impossible!");
 
     let serializable_id = entity_id.into_serializable_id();

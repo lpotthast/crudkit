@@ -1,4 +1,4 @@
-use crate::{prelude::*, validation::{into_persistable, ValidationTrigger, ValidationContext, CrudAction, When}, lifetime::{CrudLifetime, Abort}};
+use crate::{prelude::*, validation::{into_persistable, ValidationTrigger, ValidationContext, CrudAction, When}, lifetime::{CrudLifetime, Abort}, GetIdFromModel};
 use crud_shared_types::{
     validation::PartialSerializableValidations,
     ws_messages::{CrudWsMessage, EntityCreated},
@@ -74,7 +74,7 @@ pub async fn create_one<R: CrudResource>(
 
     let _hook_data = R::Lifetime::after_create(&create_model_clone, &inserted_entity, &res_context, hook_data).await;
 
-    let entity_id = R::CrudColumn::get_id(&inserted_entity);
+    let entity_id = inserted_entity.get_id();
         //.expect("Already inserted entities must have an ID!");
 
     let serializable_id = entity_id.into_serializable_id();

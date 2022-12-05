@@ -114,6 +114,8 @@ pub fn store(input: TokenStream) -> TokenStream {
             use sea_orm::entity::prelude::*;
             use serde::{Deserialize, Serialize};
 
+            type ParentId = <super::Col as CrudColumns<super::Column, super::Model, super::ActiveModel>>::Id;
+
             #[derive(Clone, Debug, PartialEq, Eq, CrudColumns, sea_orm::DeriveEntityModel, Serialize, Deserialize)]
             #[sea_orm(table_name = #table_name)]
             pub struct Model {
@@ -148,8 +150,8 @@ pub fn store(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl crud_rs::NewActiveValidationModel<super::Id> for ActiveModel {
-                fn new(entity_id: super::Id, validator_name: String, validator_version: i32, violation: crud_rs::validation::PersistableViolation, now: chrono_utc_date_time::UtcDateTime) -> Self {
+            impl crud_rs::NewActiveValidationModel<ParentId> for ActiveModel {
+                fn new(entity_id: ParentId, validator_name: String, validator_version: i32, violation: crud_rs::validation::PersistableViolation, now: chrono_utc_date_time::UtcDateTime) -> Self {
                     Self {
                         id: sea_orm::ActiveValue::NotSet,
 
@@ -167,9 +169,9 @@ pub fn store(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl crud_rs::ValidatorModel<super::Id> for Model {
-                fn get_id(&self) -> super::Id {
-                    super::Id {
+            impl crud_rs::ValidatorModel<ParentId> for Model {
+                fn get_id(&self) -> ParentId {
+                    ParentId {
                         #(#super_id_field_init)*
                     }
                 }
