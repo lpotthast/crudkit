@@ -120,7 +120,7 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
         let id = ctx.props().id.clone();
         let data_provider = ctx.props().data_provider.clone();
         ctx.link()
-            .send_future(async move { Msg::LoadedEntity(load_entity::<T>(data_provider, id).await) });
+            .send_future(async move { Msg::LoadedEntity(load_entity::<T>(data_provider, &id).await) });
     }
 
     fn set_entity(&mut self, data: Result<Option<T::ReadModel>, RequestError>, from: SetFrom) {
@@ -174,8 +174,7 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
 
     fn save_entity(&self, ctx: &Context<Self>, and_then: Then) {
         let entity = self.input.clone();
-        let id = ctx.props().id.clone();
-        let condition = <T as CrudMainTrait>::UpdateModelId::into_all_equal_condition(id);
+        let condition = <T as CrudMainTrait>::UpdateModelId::to_all_equal_condition(&ctx.props().id);
         let data_provider = ctx.props().data_provider.clone();
         // TODO: Like in create_view, store ongoing_save!!
         ctx.link().send_future(async move {
@@ -507,9 +506,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
 
 pub async fn load_entity<T: CrudMainTrait>(
     data_provider: CrudRestDataProvider<T>,
-    id: T::UpdateModelId,
+    id: &T::UpdateModelId,
 ) -> Result<Option<T::ReadModel>, RequestError> {
-    let condition = <T as CrudMainTrait>::UpdateModelId::into_all_equal_condition(id);
+    let condition = <T as CrudMainTrait>::UpdateModelId::to_all_equal_condition(id);
     data_provider
         .read_one(ReadOne {
             skip: None,

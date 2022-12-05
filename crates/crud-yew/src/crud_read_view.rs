@@ -38,7 +38,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudReadView<T> {
         let id = ctx.props().id.clone();
         let data_provider = ctx.props().data_provider.clone();
         ctx.link()
-            .send_future(async move { Msg::LoadedEntity(load_entity(data_provider, id).await) });
+            .send_future(async move { Msg::LoadedEntity(load_entity(data_provider, &id).await) });
         Self {
             entity: Err(NoData::NotYetLoaded),
         }
@@ -131,9 +131,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudReadView<T> {
 
 pub async fn load_entity<T: CrudMainTrait>(
     data_provider: CrudRestDataProvider<T>,
-    id: T::ReadModelId,
+    id: &T::ReadModelId,
 ) -> Result<Option<T::ReadModel>, RequestError> {
-    let condition = <T as CrudMainTrait>::ReadModelId::into_all_equal_condition(id);
+    let condition = <T as CrudMainTrait>::ReadModelId::to_all_equal_condition(id);
     data_provider
         .read_one(ReadOne {
             skip: None,
