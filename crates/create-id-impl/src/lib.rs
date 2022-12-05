@@ -3,9 +3,9 @@ use proc_macro_error::abort;
 use quote::quote;
 use syn::spanned::Spanned;
 
-pub trait IdInfo {
+pub trait FieldData {
     fn get_ident(&self) -> Option<&syn::Ident>;
-    fn get_ty(&self) -> &syn::Type;
+    fn get_type(&self) -> &syn::Type;
 }
 
 pub struct IdImpl {
@@ -17,7 +17,7 @@ pub struct IdImpl {
 /// Assumption: id_fields is not empty! The functions `abort!`s if the vec is empty.
 pub fn create_id_impl<F>(source_struct_name: &syn::Ident, id_fields: &Vec<F>) -> IdImpl
 where
-    F: IdInfo,
+    F: FieldData,
 {
     if id_fields.len() == 0 {
         let message = format!("Error in usage of create_id_impl: id_fields vec must not be empty!");
@@ -74,7 +74,7 @@ where
         );
 
         // i32 - type of original field
-        let ty = &field.get_ty().clone();
+        let ty = &field.get_type().clone();
 
         // Example: Id(i32)
         let variant = quote! { #type_name(#ty) };
@@ -250,15 +250,7 @@ where
 fn to_id_value(ty: &syn::Type) -> proc_macro2::TokenStream {
     let span = ty.span();
     match &ty {
-        syn::Type::Array(_) => todo!(),
-        syn::Type::BareFn(_) => todo!(),
-        syn::Type::Group(_) => todo!(),
-        syn::Type::ImplTrait(_) => todo!(),
-        syn::Type::Infer(_) => todo!(),
-        syn::Type::Macro(_) => todo!(),
-        syn::Type::Never(_) => todo!(),
-        syn::Type::Paren(_) => todo!(),
-        syn::Type::Path(path) => match path.path.segments[0].ident.to_string().as_str() {
+        syn::Type::Path(path) => match derive_helper::join_path(&path.path).as_str() {
             "bool" => quote! { crud_shared_types::IdValue::Bool },
             "u32" => quote! { crud_shared_types::IdValue::U32 },
             "i32" => quote! { crud_shared_types::IdValue::I32 },
@@ -268,46 +260,21 @@ fn to_id_value(ty: &syn::Type) -> proc_macro2::TokenStream {
                 help = "use one of the following types: [...]";
             ),
             "String" => quote! { crud_shared_types::IdValue::String },
+            "chrono_utc_date_time::UtcDateTime" => {
+                quote! { crud_shared_types::IdValue::UtcDateTime }
+            }
             "UtcDateTime" => quote! { crud_shared_types::IdValue::UtcDateTime },
-            "Option" => match &path.path.segments[0].arguments {
-                syn::PathArguments::None => todo!(),
-                syn::PathArguments::AngleBracketed(args) => {
-                    match args.args.iter().next().unwrap() {
-                        syn::GenericArgument::Lifetime(_) => todo!(),
-                        syn::GenericArgument::Type(ty) => {
-                            if let syn::Type::Path(path) = ty {
-                                match path.path.segments[0].ident.to_string().as_str() {
-                                    "i64" => quote! { crud_shared_types::IdValue::OptionalI64 },
-                                    "u32" => quote! { crud_shared_types::IdValue::OptionalU32 },
-                                    "String" => quote! { crud_shared_types::IdValue::OptionalString },
-                                    "UtcDateTime" => {
-                                        quote! { crud_shared_types::IdValue::OptionalUtcDateTime }
-                                    }
-                                    other => {
-                                        let span = ty.span();
-                                        let message = format!("Unknown argument to Option type: {other:?}. Expected a known type.");
-                                        abort!(
-                                            span, message;
-                                            help = "use one of the following types: [...]";
-                                        );
-                                    }
-                                }
-                            } else {
-                                let span = ty.span();
-                                let message = format!("Option did not contain a 'Type'.");
-                                abort!(
-                                    span, message;
-                                    help = "Use Option<String> or other type...";
-                                );
-                            }
-                        }
-                        syn::GenericArgument::Binding(_) => todo!(),
-                        syn::GenericArgument::Constraint(_) => todo!(),
-                        syn::GenericArgument::Const(_) => todo!(),
-                    }
-                }
-                syn::PathArguments::Parenthesized(_) => todo!(),
-            },
+            "Option<i64>" => quote! { crud_shared_types::IdValue::OptionalI64 },
+            "Option<u32>" => quote! { crud_shared_types::IdValue::OptionalU32 },
+            "Option<f32>" => abort!(
+                span, "Option<f32> is an invalid type for an ID field as f32 it is not `Eq` comparable!";
+                help = "use one of the following types: [...]";
+            ),
+            "Option<String>" => quote! { crud_shared_types::IdValue::OptionalString },
+            "Option<chrono_utc_date_time::UtcDateTime>" => {
+                quote! { crud_shared_types::IdValue::OptionalUtcDateTime }
+            }
+            "Option<UtcDateTime>" => quote! { crud_shared_types::IdValue::OptionalUtcDateTime },
             other => {
                 let span = ty.span();
                 let message = format!("Unknown type {other:?}. Expected a known type.");
@@ -317,12 +284,10 @@ fn to_id_value(ty: &syn::Type) -> proc_macro2::TokenStream {
                 );
             }
         },
-        syn::Type::Ptr(_) => todo!(),
-        syn::Type::Reference(_) => todo!(),
-        syn::Type::Slice(_) => todo!(),
-        syn::Type::TraitObject(_) => todo!(),
-        syn::Type::Tuple(_) => todo!(),
-        syn::Type::Verbatim(_) => todo!(),
-        _ => todo!(),
+        other => {
+            let span = ty.span();
+            let message = format!("Unknown type {other:?}. Expected a 'Path' type variant.");
+            abort!(span, message);
+        }
     }
 }
