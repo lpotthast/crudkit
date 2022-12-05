@@ -8,6 +8,8 @@ use crud_shared_types::{validation::{
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 
+use crate::resource::CrudResource;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CrudAction {
     Create,
@@ -43,16 +45,17 @@ pub trait AggregateValidator {
 }
 
 // TODO: delete?
-pub trait EntityValidatorTrait<T, I: Id> {
-    fn validate_single(&self, entity: &T, trigger: ValidationTrigger) -> EntityViolations<I>;
-    fn validate_updated(&self, old: &T, new: &T, trigger: ValidationTrigger) -> EntityViolations<I>;
+pub trait EntityValidatorTrait<R: CrudResource> {
+    fn validate_single(&self, entity: &R::ActiveModel, trigger: ValidationTrigger) -> EntityViolations<R::Id>;
+    fn validate_updated(&self, old: &R::ActiveModel, new: &R::ActiveModel, trigger: ValidationTrigger) -> EntityViolations<R::Id>;
+
     fn get_name(&self) -> &'static str;
     fn get_version(&self) -> u32;
 }
 
-pub trait EntityValidatorsTrait<T, I: Id + Clone> {
-    fn validate_single(&self, entity: &T, trigger: ValidationTrigger) -> EntityViolations<I>;
-    fn validate_updated(&self, old: &T, new: &T, trigger: ValidationTrigger) -> EntityViolations<I>;
+pub trait EntityValidatorsTrait<R: CrudResource> {
+    fn validate_single(&self, entity: &R::ActiveModel, trigger: ValidationTrigger) -> EntityViolations<R::Id>;
+    fn validate_updated(&self, old: &R::ActiveModel, new: &R::ActiveModel, trigger: ValidationTrigger) -> EntityViolations<R::Id>;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, EnumIter, DeriveActiveEnum)]
@@ -156,4 +159,25 @@ pub fn into_persistable<I: Id>(data: EntityViolations<I>) -> HashMap<I, HashMap<
         }
     }
     entity_violations
+}
+
+pub struct AlwaysValidValidator {}
+
+impl<R: CrudResource> EntityValidatorsTrait<R> for AlwaysValidValidator {
+    fn validate_single(
+        &self,
+        _entity: &R::ActiveModel,
+        _trigger: ValidationTrigger,
+    ) -> EntityViolations<R::Id> {
+        EntityViolations::empty()
+    }
+
+    fn validate_updated(
+        &self,
+        _old: &R::ActiveModel,
+        _new: &R::ActiveModel,
+        _trigger: ValidationTrigger,
+    ) -> EntityViolations<R::Id> {
+        EntityViolations::empty()
+    }
 }

@@ -1,4 +1,5 @@
 use darling::*;
+use derive_helper::ToTypeName;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
@@ -76,10 +77,6 @@ pub fn store(input: TokenStream) -> TokenStream {
             quote! { #ident: sea_orm::ActiveValue::Set(entity_id.#original_ident.clone()), }
         });
 
-    fn capitalize_first_letter(s: &str) -> String {
-        s[0..1].to_uppercase() + &s[1..]
-    }
-
     // id: self.entity_id.clone(),
     let super_id_field_init = input
         .fields()
@@ -100,12 +97,11 @@ pub fn store(input: TokenStream) -> TokenStream {
         .iter()
         .filter(|field| field.is_id())
         .map(|field| {
-            let name = field.ident.as_ref().expect("Expected named field!");
-            let mut column_name = String::new();
-            for part in name.to_string().split('_') {
-                column_name.push_str(capitalize_first_letter(part).as_str());
-            }
-            let ident = Ident::new(column_name.as_str(), Span::call_site());
+            let ident = field
+                .ident
+                .as_ref()
+                .expect("Expected named field!")
+                .to_type_ident(Span::call_site());
             quote! { vec.push(Column::#ident); }
         })
         .collect::<Vec<_>>();
@@ -113,9 +109,12 @@ pub fn store(input: TokenStream) -> TokenStream {
 
     quote! {
         pub mod validation_model {
+            use crud_rs::prelude::*;
+            use crud_shared_types::prelude::*;
             use sea_orm::entity::prelude::*;
+            use serde::{Deserialize, Serialize};
 
-            #[derive(Clone, Debug, PartialEq, Eq, sea_orm::DeriveEntityModel, serde::Serialize, serde::Deserialize)]
+            #[derive(Clone, Debug, PartialEq, Eq, CrudColumns, sea_orm::DeriveEntityModel, Serialize, Deserialize)]
             #[sea_orm(table_name = #table_name)]
             pub struct Model {
                 #[sea_orm(primary_key)]
@@ -127,6 +126,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
                 pub validator_name: String,
                 pub validator_version: i32,
+                #[crud_columns(convert_ccv = "to_string")]
                 pub violation_severity: crud_rs::validation::ValidationViolationType,
                 pub violation_message: String,
 

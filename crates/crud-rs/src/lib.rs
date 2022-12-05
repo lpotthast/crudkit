@@ -48,6 +48,7 @@ pub mod prelude {
     pub use super::validation::ValidationViolationType;
     pub use super::validation::ValidationTrigger;
     pub use super::validation::ValidationViolationTypeExt;
+    pub use super::validation::AlwaysValidValidator;
 
     pub use super::validate::validate_max_length;
     pub use super::validate::validate_min_length;

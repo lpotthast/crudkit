@@ -100,7 +100,7 @@ pub trait CrudResource: Sized {
 
     type Id: Id + Clone;
 
-    type Validator: EntityValidatorsTrait<Self::ActiveModel, <Self::CrudColumn as CrudColumns<Self::Column, Self::Model, Self::ActiveModel>>::Id>;
+    type Validator: EntityValidatorsTrait<Self>;
 
     // The service with which validation results can be managed: read, stored, ...
     type ValidationResultRepository: ValidationResultSaverTrait<<Self::CrudColumn as CrudColumns<Self::Column, Self::Model, Self::ActiveModel>>::Id>;
