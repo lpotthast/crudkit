@@ -23,12 +23,12 @@ impl MyFieldReceiver {
     }
 }
 
-impl create_id_impl::IdInfo for &MyFieldReceiver {
+impl create_id_impl::FieldData for &MyFieldReceiver {
     fn get_ident(&self) -> Option<&syn::Ident> {
         self.ident.as_ref()
     }
 
-    fn get_ty(&self) -> &syn::Type {
+    fn get_type(&self) -> &syn::Type {
         &self.ty
     }
 }

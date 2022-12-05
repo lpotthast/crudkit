@@ -6,13 +6,7 @@ use quote::quote;
 use serde::Deserialize;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
-
-
-
 // TODO: Merge FieldValue into Field, only use "field" attribute!
-
-
-
 
 // TODO: This should create a darling error instead of panicking... See https://github.com/TedDriggs/darling/issues/207
 fn parse_type(string: Option<String>) -> Option<ValueType> {
@@ -252,59 +246,20 @@ impl From<ValueType> for Ident {
 impl From<&syn::Type> for ValueType {
     fn from(ty: &syn::Type) -> Self {
         match &ty {
-            syn::Type::Array(_) => todo!(),
-            syn::Type::BareFn(_) => todo!(),
-            syn::Type::Group(_) => todo!(),
-            syn::Type::ImplTrait(_) => todo!(),
-            syn::Type::Infer(_) => todo!(),
-            syn::Type::Macro(_) => todo!(),
-            syn::Type::Never(_) => todo!(),
-            syn::Type::Paren(_) => todo!(),
-            syn::Type::Path(path) => match path.path.segments[0].ident.to_string().as_str() {
+            syn::Type::Path(path) => match derive_helper::join_path(&path.path).as_str() {
                 "bool" => ValueType::Bool,
                 "u32" => ValueType::U32,
                 "i32" => ValueType::I32,
                 "i64" => ValueType::I64,
                 "f32" => ValueType::F32,
                 "String" => ValueType::String,
+                "chrono_utc_date_time::UtcDateTime" => ValueType::UtcDateTime,
                 "UtcDateTime" => ValueType::UtcDateTime,
-                "Option" => match &path.path.segments[0].arguments {
-                    syn::PathArguments::None => todo!(),
-                    syn::PathArguments::AngleBracketed(args) => {
-                        match args.args.iter().next().unwrap() {
-                            syn::GenericArgument::Lifetime(_) => todo!(),
-                            syn::GenericArgument::Type(ty) => {
-                                if let syn::Type::Path(path) = ty {
-                                    match path.path.segments[0].ident.to_string().as_str() {
-                                        "i64" => ValueType::OptionalI64,
-                                        "u32" => ValueType::OptionalU32,
-                                        "String" => ValueType::OptionalString,
-                                        "UtcDateTime" => ValueType::OptionalUtcDateTime,
-                                        other => {
-                                            let span = ty.span();
-                                            let message = format!("Unknown argument to Option type: {other:?}. Expected a known type.");
-                                            abort!(
-                                                span, message;
-                                                help = "use one of the following types: [...]";
-                                            );
-                                        }
-                                    }
-                                } else {
-                                    let span = ty.span();
-                                    let message = format!("Option did not contain a 'Type'.");
-                                    abort!(
-                                        span, message;
-                                        help = "Use Option<String> or other type...";
-                                    );
-                                }
-                            }
-                            syn::GenericArgument::Binding(_) => todo!(),
-                            syn::GenericArgument::Constraint(_) => todo!(),
-                            syn::GenericArgument::Const(_) => todo!(),
-                        }
-                    }
-                    syn::PathArguments::Parenthesized(_) => todo!(),
-                },
+                "Option<i64>" => ValueType::OptionalI64,
+                "Option<u32>" => ValueType::OptionalU32,
+                "Option<String>" => ValueType::OptionalString,
+                "Option<chrono_utc_date_time::UtcDateTime>" => ValueType::OptionalUtcDateTime,
+                "Option<UtcDateTime>" => ValueType::OptionalUtcDateTime,
                 other => {
                     let span = ty.span();
                     let message = format!("Unknown type {other:?}. Expected a known type.");
@@ -314,13 +269,11 @@ impl From<&syn::Type> for ValueType {
                     );
                 }
             },
-            syn::Type::Ptr(_) => todo!(),
-            syn::Type::Reference(_) => todo!(),
-            syn::Type::Slice(_) => todo!(),
-            syn::Type::TraitObject(_) => todo!(),
-            syn::Type::Tuple(_) => todo!(),
-            syn::Type::Verbatim(_) => todo!(),
-            _ => todo!(),
+            other => {
+                let span = ty.span();
+                let message = format!("Unknown type {other:?}. Not a 'Path' variant.");
+                abort!(span, message);
+            }
         }
     }
 }
