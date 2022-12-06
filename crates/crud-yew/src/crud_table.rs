@@ -1,5 +1,6 @@
 use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::Order;
+use gloo::timers::callback::Interval;
 use std::{marker::PhantomData, rc::Rc};
 use yew::{html::ChildrenRenderer, prelude::*};
 use yewbi::Bi;
@@ -8,12 +9,15 @@ use crate::crud_instance::Item;
 
 use super::prelude::*;
 
+const MILLIS_UNTIL_ERROR_IS_SHOWN: u32 = 1000;
+
 pub enum Msg<T: CrudDataTrait> {
     OrderBy((T::Field, OrderByUpdateOptions)),
     Read(T),
     Edit(T),
     Delete(T),
     ActionTriggered((Rc<Box<dyn CrudActionTrait>>, T)),
+    SetError(NoData),
 }
 
 #[derive(Properties, PartialEq)]
@@ -47,6 +51,8 @@ impl<T: 'static + CrudDataTrait> Props<T> {
 }
 
 pub struct CrudTable<T> {
+    error: Option<NoData>,
+    clock_handle: Option<Interval>,
     phantom: PhantomData<T>,
 }
 
@@ -77,8 +83,33 @@ where
 
     fn create(_ctx: &Context<Self>) -> Self {
         Self {
+            error: None,
+            clock_handle: None,
             phantom: PhantomData {},
         }
+    }
+
+    /// Checks whether or not the "no_data" property changed. If that is the case:
+    /// And data is present: Creates a new clock, which waits `MILLIS_UNTIL_ERROR_IS_SHOWN` milliseconds and displays the error.
+    /// And data is not present: Removes the error and any leftover clock.
+    fn changed(&mut self, ctx: &Context<Self>, old_props: &Self::Properties) -> bool {
+        if old_props.no_data != ctx.props().no_data {
+            match &ctx.props().no_data {
+                Some((no_data, _since)) => {
+                    let clock_handle = {
+                        let link = ctx.link().clone();
+                        let no_data = no_data.clone();
+                        Interval::new(MILLIS_UNTIL_ERROR_IS_SHOWN, move || link.send_message(Msg::SetError(no_data.clone())))
+                    };
+                    self.clock_handle = Some(clock_handle);
+                },
+                None => {
+                    self.error = None;
+                    self.clock_handle = None;
+                },
+            }
+        }
+        true
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
@@ -102,6 +133,11 @@ where
             Msg::OrderBy(field) => {
                 ctx.props().on_order_by.emit(field);
                 false
+            }
+            Msg::SetError(no_data) => {
+                self.error = Some(no_data);
+                self.clock_handle = None;
+                true
             }
         }
     }
@@ -201,26 +237,36 @@ where
                                     }).collect::<Html>()
                                 }
                             }
-                            else if let Some((reason, since)) = &ctx.props().no_data {
-                                if since.secs_till_now() > 5 {
+                            else if let Some((_reason, _since)) = &ctx.props().no_data {
+                                if self.error.is_none() {
+                                    // Error is not yet set! We just display a single empty row.
                                     html! {
                                         <tr>
                                             <td colspan={"100%"}>
-                                                {format!("No data available: {reason:?}")}
+                                                {"\u{00a0}"} // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
                                             </td>
                                         </tr>
                                     }
                                 } else {
-                                    html! {
-                                        <tr>
-                                            <td colspan={"100%"}>
-                                            </td>
-                                        </tr>
-                                    }
+                                    // Error is present but handled below!
+                                    html! {}
                                 }
                             }
                             else {
                                 html! { "Component misconfigured: Either pass some data or an error, not both." }
+                            }
+                        }
+                        {
+                            if let Some(reason) = &self.error {
+                                html! {
+                                    <tr>
+                                        <td colspan={"100%"}>
+                                            {format!("No data available: {reason:?}")}
+                                        </td>
+                                    </tr>
+                                }
+                            } else {
+                                html! {}
                             }
                         }
                     </tbody>

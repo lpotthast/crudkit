@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crud_shared_types::{SaveResult, Saved, condition::IntoAllEqualCondition};
+use gloo::timers::callback::Interval;
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,
@@ -13,6 +14,8 @@ use crate::{
 
 use super::{prelude::*, types::RequestError};
 
+const MILLIS_UNTIL_ERROR_IS_SHOWN: u32 = 1000;
+
 // TODO: CrudEditView tracks changes, but CrudCreateView does not. Consolidate this logic into a shared component.
 
 pub enum Msg<T: CrudMainTrait> {
@@ -21,6 +24,7 @@ pub enum Msg<T: CrudMainTrait> {
     BackApproved,
     LoadedEntity(Result<Option<T::ReadModel>, RequestError>),
     UpdatedEntity((Result<SaveResult<T::UpdateModel>, RequestError>, Then)),
+    ShowError,
     Save,
     SaveAndReturn,
     SaveAndNew,
@@ -88,8 +92,17 @@ pub struct CrudEditView<T: CrudMainTrait> {
     user_wants_to_activate: Vec<String>,
 
     user_wants_to_leave: bool,
+
+    /// Stores the current state of the entity or an error, if no entity could be fetched.
+    /// Note that, while the initial fetch request is ongoing, this is in the error state!
+    ///
+    /// Holds an error displayed to the user.
+    /// This variable is updated after an error was stored in the `entity` field and stood there for a longer time period.
+    /// This allows us to not immediately show all errors to the user.
+    ///
     // We might want to store ReadModel as entity_read here, and entity_orig as an updatable version of it...
-    entity: Result<T::UpdateModel, NoData>,
+    entity: Result<T::UpdateModel, (NoData, bool, Option<Interval>)>,
+
     ongoing_save: bool,
     actions_executing: Vec<&'static str>,
 }
@@ -123,20 +136,47 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
             .send_future(async move { Msg::LoadedEntity(load_entity::<T>(data_provider, &id).await) });
     }
 
-    fn set_entity(&mut self, data: Result<Option<T::ReadModel>, RequestError>, from: SetFrom) {
-        self.entity = match data {
-            Ok(data) => match data {
-                Some(entity) => Ok(entity.into()),
-                None => Err(match from {
-                    SetFrom::Fetch => NoData::FetchReturnedNothing,
-                    SetFrom::Update => NoData::UpdateReturnedNothing,
+    fn create_error_clock(ctx: &Context<Self>) -> Interval {
+        let clock_handle = {
+            let link = ctx.link().clone();
+            Interval::new(MILLIS_UNTIL_ERROR_IS_SHOWN, move || link.send_message(Msg::ShowError))
+        };
+        clock_handle
+    }
+
+    fn _set_entity(&mut self, entity: Result<T::UpdateModel, (NoData, bool, Option<Interval>)>, ctx: &Context<Self>) {
+        self.entity = entity;
+        match &mut self.entity {
+            Ok(_entity) => {},
+            Err((_reason, shown, clock)) => {
+                match (shown, clock.is_some()) {
+                    (true, true) => *clock = None,
+                    (true, false) => {},
+                    (false, true) => {},
+                    (false, false) => *clock = Some(Self::create_error_clock(ctx)),
+                }
+            },
+        }
+    }
+
+    /// Updates the entity field.
+    fn set_entity_from_fetch_result(&mut self, data: Result<Option<T::ReadModel>, RequestError>, from: SetFrom, ctx: &Context<Self>) {
+        self._set_entity(
+            match data {
+                Ok(data) => match data {
+                    Some(entity) => Ok(entity.into()),
+                    None => Err(match from {
+                        SetFrom::Fetch => (NoData::FetchReturnedNothing, true, None),
+                        SetFrom::Update => (NoData::UpdateReturnedNothing, true, None),
+                    }),
+                },
+                Err(err) => Err(match from {
+                    SetFrom::Fetch => (NoData::FetchFailed(err), true, None),
+                    SetFrom::Update => (NoData::UpdateFailed(err), true, None),
                 }),
             },
-            Err(err) => Err(match from {
-                SetFrom::Fetch => NoData::FetchFailed(err),
-                SetFrom::Update => NoData::UpdateFailed(err),
-            }),
-        };
+            ctx
+        );
         if let Ok(entity) = &self.entity {
             self.input = entity.clone();
             self.input_dirty = false;
@@ -147,13 +187,14 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
         &mut self,
         data: Result<SaveResult<T::UpdateModel>, RequestError>,
         from: SetFrom,
+        ctx: &Context<Self>,
     ) {
         match data {
             Ok(save_result) => match save_result {
                 SaveResult::Saved(saved) => {
                     self.input = saved.entity.clone();
                     self.input_dirty = false;
-                    self.entity = Ok(saved.entity);
+                    self._set_entity(Ok(saved.entity), ctx);
                 }
                 SaveResult::Aborted { reason: _ } => {
                     // Do nothing...
@@ -164,10 +205,10 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
                 }
             },
             Err(err) => {
-                self.entity = Err(match from {
-                    SetFrom::Fetch => NoData::FetchFailed(err),
-                    SetFrom::Update => NoData::UpdateFailed(err),
-                })
+                self._set_entity(Err(match from {
+                    SetFrom::Fetch => (NoData::FetchFailed(err), true, None),
+                    SetFrom::Update => (NoData::UpdateFailed(err), true, None),
+                }), ctx);
             }
         };
     }
@@ -204,7 +245,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
             input_errors: HashMap::new(),
             user_wants_to_activate: vec![],
             user_wants_to_leave: false,
-            entity: Err(NoData::NotYetLoaded),
+            entity: Err((NoData::NotYetLoaded, false, Some(CrudEditView::create_error_clock(ctx)))),
             ongoing_save: false,
             actions_executing: vec![],
         }
@@ -238,11 +279,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                 false
             }
             Msg::LoadedEntity(data) => {
-                self.set_entity(data, SetFrom::Fetch);
+                self.set_entity_from_fetch_result(data, SetFrom::Fetch, ctx);
                 true
             }
             Msg::UpdatedEntity((data, and_then)) => {
-                self.set_entity_from_save_result(data.clone(), SetFrom::Update);
+                self.set_entity_from_save_result(data.clone(), SetFrom::Update, ctx);
 
                 match data {
                     Ok(save_result) => match save_result {
@@ -271,6 +312,18 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                     }
                 }
                 true
+            }
+            Msg::ShowError => {
+                match &mut self.entity {
+                    Ok(_data) => {
+                        false
+                    },
+                    Err((_reason, show, clock)) => {
+                        *show = true;
+                        *clock = None;
+                        true
+                    }
+                }
             }
             Msg::Save => {
                 self.save_entity(ctx, Then::DoNothing);
@@ -469,7 +522,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                 </>
                             }
                         }
-                        Err(reason) => {
+                        Err((reason, show, _)) => {
                             html! {
                                 <>
                                 <div class={"crud-row crud-nav"}>
@@ -483,9 +536,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                         </CrudBtnWrapper>
                                     </div>
                                 </div>
-                                <div>
-                                    {format!("Daten nicht verfügbar: {:?}", reason)}
-                                </div>
+                                if *show {
+                                    <div>
+                                        {format!("Daten nicht verfügbar: {:?}", reason)}
+                                    </div>
+                                }
                                 </>
                             }
                         }
