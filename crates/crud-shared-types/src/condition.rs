@@ -36,6 +36,7 @@ pub struct ConditionClause {
 #[serde(untagged)]
 pub enum ConditionClauseValue {
     String(String),
+    Json(String),
     Bool(bool),
     I32(i32),
     I64(i64),
@@ -50,6 +51,7 @@ impl Into<ConditionClauseValue> for Value {
     fn into(self) -> ConditionClauseValue {
         match self {
             Value::String(value) => ConditionClauseValue::String(value),
+            Value::Json(value) => ConditionClauseValue::Json(value.to_string()),
             Value::I32(value) => ConditionClauseValue::I32(value),
             Value::I64(value) => ConditionClauseValue::I64(value),
             Value::U32(value) => ConditionClauseValue::U32(value),
@@ -64,6 +66,7 @@ impl Into<ConditionClauseValue> for Value {
 impl Into<ConditionClauseValue> for IdValue {
     fn into(self) -> ConditionClauseValue {
         match self {
+            IdValue::String(value) => ConditionClauseValue::String(value),
             IdValue::String(value) => ConditionClauseValue::String(value),
             IdValue::I32(value) => ConditionClauseValue::I32(value),
             IdValue::I64(value) => ConditionClauseValue::I64(value),

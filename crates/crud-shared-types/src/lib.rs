@@ -55,6 +55,7 @@ pub enum Order {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     String(String),
+    Json(serde_json::Value),
     I32(i32),
     I64(i64),
     U32(u32),
