@@ -133,6 +133,9 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
                                 Value::String(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }
+                                Value::Json(val) => {
+                                    tree = add_condition(tree, col, clause.operator, val)
+                                }
                                 Value::I32(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }

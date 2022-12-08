@@ -213,6 +213,15 @@ pub fn to_string(value: ConditionClauseValue) -> Result<Value, String> {
     }
 }
 
+pub fn to_json_value(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::String(string) => Ok(Value::String(string)),
+        _ => Err(format!(
+            "{value:?} can not be converted to a String. Expected String."
+        )),
+    }
+}
+
 pub fn to_date_time(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
         ConditionClauseValue::String(string) => UtcDateTime::parse_from_rfc3339(&string)

@@ -107,13 +107,12 @@ pub trait CrudResource: Sized {
     // The service with which validation results can be managed: read, stored, ...
     type ValidationResultRepository: ValidationResultSaverTrait<<Self::CrudColumn as CrudColumns<Self::Column, Self::Model, Self::ActiveModel>>::Id>;
 
-    type ResourceType: Debug + Into<&'static str> + Clone + Copy;
-
     type Context: CrudResourceContext + Send + Sync + 'static;
 
     type HookData: Default + Send + Sync + 'static;
     type Lifetime: CrudLifetime<Self>;
 
+    type ResourceType: Debug + Into<&'static str> + Clone + Copy;
     const TYPE: Self::ResourceType;
 }
 
