@@ -232,6 +232,67 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         </div>
                     },
                 },
+                Value::Json(value) => match &ctx.props().field_mode {
+                    FieldMode::Display => html! {
+                        <div>{value.get_string_representation()}</div>
+                    },
+                    FieldMode::Readable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            <CrudTipTapEditor
+                                api_base_url={ctx.props().api_base_url.clone()}
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                value={value.get_string_representation().to_owned()}
+                                disabled={true}
+                            />
+                        </div>
+                    },
+                    FieldMode::Editable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            <CrudTipTapEditor
+                                api_base_url={ctx.props().api_base_url.clone()}
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                value={value.get_string_representation().to_owned()}
+                                onchange={ctx.link().callback(|input| Msg::Send(Value::String(input)))}
+                                disabled={options.disabled}
+                            />
+                        </div>
+                    },
+                },
+                // TODO: Find better way to handle `None` variant!
+                Value::OptionalJson(value) => match &ctx.props().field_mode {
+                    FieldMode::Display => html! {
+                        <div>{value.as_ref().map(|it| it.get_string_representation()).unwrap_or("")}</div>
+                    },
+                    FieldMode::Readable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            <CrudTipTapEditor
+                                api_base_url={ctx.props().api_base_url.clone()}
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                value={value.as_ref().map(|it| it.get_string_representation().to_owned()).unwrap_or_default()}
+                                disabled={true}
+                            />
+                        </div>
+                    },
+                    FieldMode::Editable => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            <CrudTipTapEditor
+                                api_base_url={ctx.props().api_base_url.clone()}
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                value={value.as_ref().map(|it| it.get_string_representation().to_owned()).unwrap_or_default()}
+                                onchange={ctx.link().callback(|input| Msg::Send(Value::String(input)))}
+                                disabled={options.disabled}
+                            />
+                        </div>
+                    },
+                },
                 Value::U32(value) => match &ctx.props().field_mode {
                     FieldMode::Display => html! {
                         <div>{format!("{}", value)}</div>

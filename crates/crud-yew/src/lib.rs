@@ -309,6 +309,8 @@ pub trait Foo {
 pub enum Value {
     String(String), // TODO: Add optional string!
     Text(String),   // TODO: Add optional text!
+    Json(JsonValue), // TODO: Add optional json value
+    OptionalJson(Option<JsonValue>),
     U32(u32),
     OptionalU32(Option<u32>),
     I32(i32),
@@ -329,10 +331,52 @@ pub enum Value {
     //Select(Box<dyn CrudSelectableSource<Selectable = dyn CrudSelectableTrait>>),
 }
 
+#[derive(Debug, Clone)]
+pub struct JsonValue {
+    value: serde_json::Value,
+    string_representation: String,
+}
+
+impl JsonValue {
+    pub fn new(value: serde_json::Value) -> Self {
+        let string_representation = serde_json::to_string(&value).unwrap();
+        Self {
+            value,
+            string_representation,
+        }
+    }
+
+    pub fn set_value(&mut self, value: serde_json::Value) {
+        self.value = value;
+        self.string_representation = serde_json::to_string(&self.value).unwrap();
+    }
+
+    pub fn get_value(&self) -> &serde_json::Value {
+        &self.value
+    }
+
+    pub fn get_string_representation(&self) -> &str {
+        self.string_representation.as_str()
+    }
+}
+
+impl Into<serde_json::Value> for JsonValue {
+    fn into(self) -> serde_json::Value {
+        self.value
+    }
+}
+
+impl Into<String> for JsonValue {
+    fn into(self) -> String {
+        self.string_representation
+    }
+}
+
 impl Into<Value> for crud_shared_types::Value {
     fn into(self) -> Value {
         match self {
             crud_shared_types::Value::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
+            crud_shared_types::Value::Json(value) => Value::Json(JsonValue::new(value)),
             crud_shared_types::Value::I32(value) => Value::I32(value),
             crud_shared_types::Value::I64(value) => Value::I64(value),
             crud_shared_types::Value::U32(value) => Value::U32(value),
@@ -356,102 +400,6 @@ impl Into<Value> for crud_shared_types::IdValue {
     }
 }
 
-// TODO: Delete?
-// TODO: DEFERRED: Remove when Value type is Serializable and Deserializable on its own.
-/*
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum SerializableValue {
-    String(String), // TODO: Add optional string!
-    Text(String),   // TODO: Add optional text!
-    U32(u32),
-    OptionalU32(Option<u32>),
-    I32(i32),
-    I64(i64),
-    OptionalI64(Option<i64>),
-    F32(f32),
-    Bool(bool),
-    ValidationStatus(bool),
-    UtcDateTime(UtcDateTime),
-    OptionalUtcDateTime(Option<UtcDateTime>),
-    OneToOneRelation(Option<u32>),
-}
-
-impl IntoSerializableValue for Value {
-    type SerializableValue = SerializableValue;
-
-    fn into_serializable_value(&self) -> Self::SerializableValue {
-        self.clone().into()
-    }
-}
-
-impl Into<SerializableValue> for Value {
-    fn into(self) -> SerializableValue {
-        match self {
-            Value::String(value) => SerializableValue::String(value),
-            Value::Text(value) => SerializableValue::Text(value),
-            Value::U32(value) => SerializableValue::U32(value),
-            Value::OptionalU32(value) => SerializableValue::OptionalU32(value),
-            Value::I32(value) => SerializableValue::I32(value),
-            Value::I64(value) => SerializableValue::I64(value),
-            Value::OptionalI64(value) => SerializableValue::OptionalI64(value),
-            Value::F32(value) => SerializableValue::F32(value),
-            Value::Bool(value) => SerializableValue::Bool(value),
-            Value::ValidationStatus(value) => SerializableValue::ValidationStatus(value),
-            Value::UtcDateTime(value) => SerializableValue::UtcDateTime(value),
-            Value::OptionalUtcDateTime(value) => SerializableValue::OptionalUtcDateTime(value),
-            Value::OneToOneRelation(_) => panic!("not serializable.."),
-            Value::NestedTable(_) => panic!("not serializable.."),
-            Value::Select(_) => panic!("not serializable.."),
-            Value::Multiselect(_) => panic!("not serializable.."),
-            Value::OptionalSelect(_) => panic!("not serializable.."),
-            Value::OptionalMultiselect(_) => panic!("not serializable.."),
-        }
-    }
-}
-
-impl Into<Value> for SerializableValue {
-    fn into(self) -> Value {
-        match self {
-            SerializableValue::String(value) => Value::String(value),
-            SerializableValue::Text(value) => Value::Text(value),
-            SerializableValue::U32(value) => Value::U32(value),
-            SerializableValue::OptionalU32(value) => Value::OptionalU32(value),
-            SerializableValue::I32(value) => Value::I32(value),
-            SerializableValue::I64(value) => Value::I64(value),
-            SerializableValue::OptionalI64(value) => Value::OptionalI64(value),
-            SerializableValue::F32(value) => Value::F32(value),
-            SerializableValue::Bool(value) => Value::Bool(value),
-            SerializableValue::ValidationStatus(value) => Value::ValidationStatus(value),
-            SerializableValue::UtcDateTime(value) => Value::UtcDateTime(value),
-            SerializableValue::OptionalUtcDateTime(value) => Value::OptionalUtcDateTime(value),
-            SerializableValue::OneToOneRelation(value) => Value::OneToOneRelation(value),
-        }
-    }
-}
-
-// TODO: complete
-impl Into<ConditionClauseValue> for SerializableValue {
-    fn into(self) -> ConditionClauseValue {
-        match self {
-            SerializableValue::String(value) => ConditionClauseValue::String(value),
-            SerializableValue::Text(value) => ConditionClauseValue::String(value),
-            SerializableValue::U32(value) => ConditionClauseValue::U32(value),
-            SerializableValue::OptionalU32(value) => todo!(),
-            SerializableValue::I32(value) => ConditionClauseValue::I32(value),
-            SerializableValue::I64(value) => ConditionClauseValue::I64(value),
-            SerializableValue::OptionalI64(value) => todo!(),
-            SerializableValue::F32(value) => ConditionClauseValue::F32(value),
-            SerializableValue::Bool(value) => ConditionClauseValue::Bool(value),
-            SerializableValue::ValidationStatus(value) => todo!(),
-            SerializableValue::UtcDateTime(value) => todo!(),
-            SerializableValue::OptionalUtcDateTime(value) => todo!(),
-            SerializableValue::OneToOneRelation(value) => todo!(),
-        }
-    }
-}
-
-*/
-
 impl Value {
     pub fn take_string(self) -> String {
         match self {
@@ -462,6 +410,12 @@ impl Value {
     pub fn take_text(self) -> String {
         match self {
             Self::Text(string) => string,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_inner_json_value(self) -> serde_json::Value {
+        match self {
+            Self::Json(json) => json.into(),
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -604,6 +558,11 @@ impl Display for Value {
         match self {
             Value::String(value) => f.write_str(value),
             Value::Text(value) => f.write_str(value),
+            Value::Json(value) => f.write_str(value.get_string_representation()),
+            Value::OptionalJson(value) => match value {
+                Some(value) => f.write_str(value.get_string_representation()),
+                None => f.write_str("-")
+            },
             Value::U32(value) => f.write_str(&value.to_string()),
             Value::OptionalU32(value) => match value {
                 Some(value) => f.write_str(&value.to_string()),
@@ -663,6 +622,8 @@ impl Into<ConditionClauseValue> for Value {
             // TODO: Complete mapping!!
             Value::String(value) => ConditionClauseValue::String(value),
             Value::Text(value) => ConditionClauseValue::String(value),
+            Value::Json(value) => ConditionClauseValue::Json(value.into()),
+            Value::OptionalJson(value) => todo!(),
             Value::U32(value) => ConditionClauseValue::U32(value),
             Value::OptionalU32(value) => todo!(),
             Value::I32(value) => ConditionClauseValue::I32(value),

@@ -91,9 +91,11 @@ pub fn store(input: TokenStream) -> TokenStream {
         let value_clone = match value_type {
             ValueType::String => quote! { entity.#field_ident.clone() },
             ValueType::Text => quote! { entity.#field_ident.clone() },
+            ValueType::Json => quote! { crud_yew::JsonValue::new(entity.#field_ident.clone()) },
             ValueType::OptionalText => quote! { entity.#field_ident.clone().unwrap_or_default() },
             // We use .unwrap_or_default(), as we feed that string into Value::String (see From<ValueType>). We should get rid of this.
             ValueType::OptionalString => quote! { entity.#field_ident.clone().unwrap_or_default() },
+            ValueType::OptionalJson => quote! { entity.#field_ident.clone().map(|it| crud_yew::JsonValue::new(it)) },
             ValueType::Bool => quote! { entity.#field_ident },
             ValueType::ValidationStatus => quote! { entity.#field_ident },
             ValueType::I32 => quote! { entity.#field_ident },
@@ -135,9 +137,11 @@ pub fn store(input: TokenStream) -> TokenStream {
         let take_op = match field.value_type() {
             ValueType::String => quote! { value.take_string() },
             ValueType::Text => quote! { value.take_string() },
+            ValueType::Json => quote! { value.take_inner_json_value() },
             ValueType::OptionalText => quote! { std::option::Option::Some(value.take_string()) },
             // TODO: value should contain Option. do not force Some type...
             ValueType::OptionalString => quote! { std::option::Option::Some(value.take_string()) },
+            ValueType::OptionalJson => quote! { std::option::Option::Some(value.take_inner_json_value()) },
             ValueType::Bool => quote! { value.take_bool() },
             ValueType::ValidationStatus => quote! { value.take_bool() },
             ValueType::I32 => quote! { value.take_i32() },
@@ -189,9 +193,11 @@ pub fn store(input: TokenStream) -> TokenStream {
 #[derive(Debug, PartialEq, Eq, Clone, Copy, FromMeta, Deserialize)]
 enum ValueType {
     String,
+    OptionalString,
     Text,
     OptionalText,
-    OptionalString,
+    Json,
+    OptionalJson,
     Bool,
     ValidationStatus,
     I32,
@@ -217,9 +223,11 @@ impl From<ValueType> for Ident {
         Ident::new(
             match value_type {
                 ValueType::String => "String",
+                ValueType::OptionalString => "String",
                 ValueType::Text => "Text",
                 ValueType::OptionalText => "Text",
-                ValueType::OptionalString => "String",
+                ValueType::Json => "Json",
+                ValueType::OptionalJson => "OptionalJson",
                 ValueType::Bool => "Bool",
                 ValueType::ValidationStatus => "ValidationStatus",
                 ValueType::I32 => "I32",
@@ -253,11 +261,13 @@ impl From<&syn::Type> for ValueType {
                 "i64" => ValueType::I64,
                 "f32" => ValueType::F32,
                 "String" => ValueType::String,
+                "serde_json::Value" => ValueType::Json,
                 "chrono_utc_date_time::UtcDateTime" => ValueType::UtcDateTime,
                 "UtcDateTime" => ValueType::UtcDateTime,
                 "Option<i64>" => ValueType::OptionalI64,
                 "Option<u32>" => ValueType::OptionalU32,
                 "Option<String>" => ValueType::OptionalString,
+                "Option<serde_json::Value>" => ValueType::OptionalJson,
                 "Option<chrono_utc_date_time::UtcDateTime>" => ValueType::OptionalUtcDateTime,
                 "Option<UtcDateTime>" => ValueType::OptionalUtcDateTime,
                 other => {
