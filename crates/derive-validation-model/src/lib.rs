@@ -1,7 +1,5 @@
 use darling::*;
-use derive_helper::ToTypeName;
 use proc_macro::TokenStream;
-use proc_macro2::Span;
 use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident, Type};
 
@@ -90,22 +88,6 @@ pub fn store(input: TokenStream) -> TokenStream {
             );
             quote! { #original_ident: self.#ident.clone(), }
         });
-
-    // vec.push(Column::Id); ...
-    let pk_columns = input
-        .fields()
-        .iter()
-        .filter(|field| field.is_id())
-        .map(|field| {
-            let ident = field
-                .ident
-                .as_ref()
-                .expect("Expected named field!")
-                .to_type_ident(Span::call_site());
-            quote! { vec.push(Column::#ident); }
-        })
-        .collect::<Vec<_>>();
-    let pk_columns_len = pk_columns.len();
 
     quote! {
         pub mod validation_model {
@@ -199,10 +181,12 @@ pub fn store(input: TokenStream) -> TokenStream {
                 }
             }
 
+            // Note: This impl returns the ID columns of this validation model (statically known from above), not the parent model!
+            // For that ID, see the `impl crud_rs::ValidatorModel<ParentId> for Model` implementation.
             impl crud_rs::IdColumns for Column {
                 fn get_id_columns() -> Vec<Column> {
-                    let mut vec = Vec::with_capacity(#pk_columns_len);
-                    #(#pk_columns)*
+                    let mut vec = Vec::with_capacity(1);
+                    vec.push(Column::Id);
                     vec
                 }
             }
