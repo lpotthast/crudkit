@@ -56,6 +56,9 @@ pub enum Order {
 pub enum Value {
     String(String),
     Json(serde_json::Value),
+    UuidV4(uuid::Uuid),
+    UuidV7(uuid::Uuid),
+    Ulid(ulid::Ulid),
     I32(i32),
     I64(i64),
     U32(u32),
@@ -69,6 +72,9 @@ pub enum Value {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum IdValue {
     String(String),
+    UuidV4(uuid::Uuid),
+    UuidV7(uuid::Uuid),
+    Ulid(ulid::Ulid),
     I32(i32),
     I64(i64),
     U32(u32),
