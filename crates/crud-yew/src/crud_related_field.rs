@@ -90,6 +90,9 @@ fn value_as_u32_vec(value: &Value) -> Vec<u32> {
         Value::Text(_) => panic!("'Text' unsupported"),
         Value::Json(_) => panic!("'Json' unsupported"),
         Value::OptionalJson(_) => panic!("'OptionalJson' unsupported"),
+        Value::UuidV4(_) => panic!("'UuidV4' unsupported"),
+        Value::UuidV7(_) => panic!("'UuidV7' unsupported"),
+        Value::Ulid(_) => panic!("'Ulid' unsupported"),
         Value::U32(u32) => vec![*u32],
         Value::OptionalU32(optional_u32) => match optional_u32 {
             Some(u32) => vec![*u32],
@@ -121,6 +124,9 @@ fn value_as_u32(value: &Value) -> Option<u32> {
         Value::Text(_) => panic!("'Text' unsupported"),
         Value::Json(_) => panic!("'Json' unsupported"),
         Value::OptionalJson(_) => panic!("'OptionalJson' unsupported"),
+        Value::UuidV4(_) => panic!("'UuidV4' unsupported"),
+        Value::UuidV7(_) => panic!("'UuidV7' unsupported"),
+        Value::Ulid(_) => panic!("'Ulid' unsupported"),
         Value::U32(u32) => Some(*u32),
         Value::OptionalU32(optional_u32) => match optional_u32 {
             Some(u32) => Some(*u32),

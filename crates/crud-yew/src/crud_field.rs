@@ -293,6 +293,60 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                         </div>
                     },
                 },
+                Value::UuidV4(value) => match &ctx.props().field_mode {
+                    FieldMode::Display => html! {
+                        <div>{value.to_string()}</div>
+                    },
+                    // Never editable
+                    FieldMode::Readable | FieldMode::Editable  => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            <input
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                type={"text"}
+                                value={value.to_string()}
+                                disabled={true}
+                            />
+                        </div>
+                    },
+                },
+                Value::UuidV7(value) => match &ctx.props().field_mode {
+                    FieldMode::Display => html! {
+                        <div>{value.to_string()}</div>
+                    },
+                    // Never editable
+                    FieldMode::Readable | FieldMode::Editable  => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            <input
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                type={"text"}
+                                value={value.to_string()}
+                                disabled={true}
+                            />
+                        </div>
+                    },
+                },
+                Value::Ulid(value) => match &ctx.props().field_mode {
+                    FieldMode::Display => html! {
+                        <div>{value.to_string()}</div>
+                    },
+                    // Never editable
+                    FieldMode::Readable | FieldMode::Editable  => html! {
+                        <div class="crud-field">
+                            { render_label(&options) }
+                            <input
+                                id={self.format_id()}
+                                class={"crud-input-field"}
+                                type={"text"}
+                                value={value.to_string()}
+                                disabled={true}
+                            />
+                        </div>
+                    },
+                },
                 Value::U32(value) => match &ctx.props().field_mode {
                     FieldMode::Display => html! {
                         <div>{format!("{}", value)}</div>

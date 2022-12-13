@@ -41,7 +41,9 @@ indexmap = { version = "1.9", features = ["serde"] }
 js-sys = "0.3"
 gloo = "0.8"
 reqwest = { version = "0.11", features = ["json", "multipart"] }
-uuid = { version = "1.2", features = ["js", "v4"], default-features = false }
+uuid = { version = "1.2", features = ["js", "v4", "v7", "serde"] }
+# NOTE: Do not upgrade. Versions above 0.5 do not run on web assembly. We always use 0.5 for compatibility.
+ulid = { version = "0.5", features = ["serde", "uuid"] }
 lazy_static = "1.4"
 parking_lot = "0.12"
 thiserror = "1.0"
