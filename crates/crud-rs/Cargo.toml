@@ -36,4 +36,4 @@ sea-orm = { version = "0.10", features = [
     "sqlx",
     "sqlx-postgres",
 ] }
-sea-query = { version = "0.27" }
+sea-query = { version = "0.28" }
