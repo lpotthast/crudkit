@@ -22,6 +22,9 @@ derive-validation-model = { path = "../derive-validation-model" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = "0.4"
+uuid = { version = "1.2", features = ["v4", "v7", "serde"] }
+# NOTE: Do not upgrade. Versions above 0.5 do not run on web assembly. We always use 0.5 for compatibility.
+ulid = { version = "0.5", features = ["serde"] }
 axum = "0.6"
 indexmap = { version = "1.9", features = ["serde"] }
 paste = "1.0"

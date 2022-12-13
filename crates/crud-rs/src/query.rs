@@ -136,6 +136,17 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
                                 Value::Json(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }
+                                Value::UuidV4(val) => {
+                                    tree = add_condition(tree, col, clause.operator, val)
+                                }
+                                Value::UuidV7(val) => {
+                                    tree = add_condition(tree, col, clause.operator, val)
+                                }
+                                Value::Ulid(val) => {
+                                    let val: u128 = val.0;
+                                    let val: uuid::Uuid = uuid::Uuid::from_u128(val);
+                                    tree = add_condition(tree, col, clause.operator, val)
+                                }
                                 Value::I32(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }

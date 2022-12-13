@@ -222,6 +222,33 @@ pub fn to_json_value(value: ConditionClauseValue) -> Result<Value, String> {
     }
 }
 
+pub fn to_uuid_v4(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::UuidV4(uuid) => Ok(Value::UuidV4(uuid)),
+        _ => Err(format!(
+            "{value:?} can not be converted to a UuidV4. Expected UuidV4."
+        )),
+    }
+}
+
+pub fn to_uuid_v7(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::UuidV7(uuid) => Ok(Value::UuidV7(uuid)),
+        _ => Err(format!(
+            "{value:?} can not be converted to a UuidV7. Expected UuidV7."
+        )),
+    }
+}
+
+pub fn to_ulid(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::Ulid(ulid) => Ok(Value::Ulid(ulid)),
+        _ => Err(format!(
+            "{value:?} can not be converted to a Ulid. Expected Ulid."
+        )),
+    }
+}
+
 pub fn to_date_time(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
         ConditionClauseValue::String(string) => UtcDateTime::parse_from_rfc3339(&string)
