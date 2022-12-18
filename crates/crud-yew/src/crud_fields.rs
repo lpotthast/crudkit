@@ -1,4 +1,4 @@
-use crate::crud_instance::Item;
+use crate::{crud_instance::Item, types::custom_field::CustomFields};
 
 use super::prelude::*;
 use std::marker::PhantomData;
@@ -12,6 +12,7 @@ pub enum Msg<T: CrudDataTrait> {
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
     pub children: ChildrenRenderer<Item>,
+    pub custom_fields: CustomFields<T>,
     pub api_base_url: String,
     pub elements: Vec<Elem<T>>,
     pub entity: Option<T>,
@@ -59,6 +60,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                 Enclosing::None(group) => html! {
                                     <CrudFields<T>
                                         children={ctx.props().children.clone()}
+                                        custom_fields={ctx.props().custom_fields.clone()}
                                         api_base_url={ctx.props().api_base_url.clone()}
                                         elements={group.children.clone()}
                                         entity={ctx.props().entity.clone()}
@@ -80,6 +82,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                                     <CrudTab label={tab.label.clone()}>
                                                         <CrudFields<T>
                                                             children={ctx.props().children.clone()}
+                                                            custom_fields={ctx.props().custom_fields.clone()}
                                                             api_base_url={ctx.props().api_base_url.clone()}
                                                             elements={tab.group.children.clone()}
                                                             entity={ctx.props().entity.clone()}
@@ -99,6 +102,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                                     <div class={"crud-card"}>
                                         <CrudFields<T>
                                             children={ctx.props().children.clone()}
+                                            custom_fields={ctx.props().custom_fields.clone()}
                                             api_base_url={ctx.props().api_base_url.clone()}
                                             elements={group.children.clone()}
                                             entity={ctx.props().entity.clone()}
@@ -116,11 +120,12 @@ impl<T: 'static + CrudDataTrait> Component for CrudFields<T> {
                             html! {
                                 <CrudField<T>
                                     children={ctx.props().children.clone()}
+                                    custom_fields={ctx.props().custom_fields.clone()}
                                     api_base_url={ctx.props().api_base_url.clone()}
                                     current_view={ctx.props().current_view.clone()}
                                     field_type={field_type.clone()}
                                     field_options={field_options.clone()}
-                                    field_mode={ctx.props().mode.clone()}
+                                    field_mode={ctx.props().mode}
                                     entity={ctx.props().entity.clone()}
                                     value_changed={ctx.link().callback(Msg::ValueChanged)}
                                 />

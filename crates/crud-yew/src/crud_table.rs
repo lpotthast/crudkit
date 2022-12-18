@@ -5,7 +5,7 @@ use std::{marker::PhantomData, rc::Rc};
 use yew::{html::ChildrenRenderer, prelude::*};
 use yewbi::Bi;
 
-use crate::crud_instance::Item;
+use crate::{crud_instance::Item, types::custom_field::CustomFields};
 
 use super::prelude::*;
 
@@ -26,6 +26,7 @@ where
     T: CrudDataTrait,
 {
     pub children: ChildrenRenderer<Item>,
+    pub custom_fields: CustomFields<T>,
     pub api_base_url: String,
     pub data: Option<Rc<Vec<T>>>,
     pub no_data: Option<(NoData, UtcDateTime)>,
@@ -99,14 +100,16 @@ where
                     let clock_handle = {
                         let link = ctx.link().clone();
                         let no_data = no_data.clone();
-                        Interval::new(MILLIS_UNTIL_ERROR_IS_SHOWN, move || link.send_message(Msg::SetError(no_data.clone())))
+                        Interval::new(MILLIS_UNTIL_ERROR_IS_SHOWN, move || {
+                            link.send_message(Msg::SetError(no_data.clone()))
+                        })
                     };
                     self.clock_handle = Some(clock_handle);
-                },
+                }
                 None => {
                     self.error = None;
                     self.clock_handle = None;
-                },
+                }
             }
         }
         true
@@ -176,6 +179,7 @@ where
                                                             <td>
                                                                 <CrudField<T>
                                                                     children={ctx.props().children.clone()}
+                                                                    custom_fields={ctx.props().custom_fields.clone()}
                                                                     api_base_url={ctx.props().api_base_url.clone()}
                                                                     current_view={CrudSimpleView::List}
                                                                     field_type={field.clone()}

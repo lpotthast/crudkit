@@ -9,7 +9,7 @@ use yew::{
 
 use crate::{
     crud_instance::Item,
-    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne, UpdateOne}, crud_action::ModalGeneration,
+    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne, UpdateOne}, crud_action::ModalGeneration, types::custom_field::CustomUpdateFields,
 };
 
 use super::{prelude::*, types::RequestError};
@@ -63,6 +63,7 @@ pub enum Msg<T: CrudMainTrait> {
 pub struct Props<T: 'static + CrudMainTrait> {
     pub on_link: Callback<Option<Scope<CrudEditView<T>>>>,
     pub children: ChildrenRenderer<Item>,
+    pub custom_fields: CustomUpdateFields<T>,
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
     pub static_config: CrudStaticInstanceConfig<T>,
@@ -511,6 +512,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                         Item::Relation(_) => true,
                                         Item::Select(select) => select.props.for_model == crate::crud_reset_field::Model::Update,
                                     }).collect::<Vec<Item>>())}
+                                    custom_fields={ctx.props().custom_fields.clone()}
                                     elements={ctx.props().config.elements.clone()}
                                     entity={self.input.clone()}
                                     mode={FieldMode::Editable}

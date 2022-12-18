@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     any::Any,
     fmt::{Debug, Display},
-    hash::Hash,
+    hash::Hash, collections::HashMap, sync::Arc,
 };
 use types::RequestError;
 use wasm_bindgen::JsCast;
@@ -135,6 +135,11 @@ pub mod prelude {
     pub use super::types::toasts::Toast;
     pub use super::types::toasts::ToastAutomaticallyClosing;
     pub use super::types::toasts::ToastVariant;
+    pub use super::types::custom_field::CustomField;
+    pub use super::types::custom_field::CustomFields;
+    pub use super::types::custom_field::CustomCreateFields;
+    pub use super::types::custom_field::CustomUpdateFields;
+    pub use super::types::custom_field::CustomReadFields;
     pub use super::CrudDataTrait;
     pub use super::CrudActionPayload;
     pub use super::EmptyActionPayload;
@@ -327,6 +332,7 @@ pub enum Value {
     OptionalUtcDateTime(Option<UtcDateTime>),
     OneToOneRelation(Option<u32>),
     NestedTable(Vec<Box<dyn DynIdField>>),
+    Custom(()),
     Select(Box<dyn CrudSelectableTrait>),
     Multiselect(Vec<Box<dyn CrudSelectableTrait>>),
     OptionalSelect(Option<Box<dyn CrudSelectableTrait>>),
@@ -604,6 +610,7 @@ impl Display for Value {
                 }
                 Ok(())
             },
+            Value::Custom(_) => f.write_str("Custom"),
             Value::Select(selected) => f.write_str(&selected.to_string()),
             Value::OptionalSelect(selected) => match selected {
                 Some(selected) => f.write_str(&selected.to_string()),
@@ -651,6 +658,7 @@ impl Into<ConditionClauseValue> for Value {
             Value::OptionalUtcDateTime(value) => todo!(),
             Value::OneToOneRelation(value) => todo!(),
             Value::NestedTable(value) => todo!(),
+            Value::Custom(value) => todo!(),
             Value::Select(value) => todo!(),
             Value::Multiselect(value) => todo!(),
             Value::OptionalSelect(value) => todo!(),
@@ -753,7 +761,7 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum FieldMode {
     Display,
     Readable,

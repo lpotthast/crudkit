@@ -1,6 +1,6 @@
 use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::Order;
-use std::rc::Rc;
+use std::{rc::Rc};
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,
@@ -9,7 +9,7 @@ use yewbi::Bi;
 
 use crate::{
     crud_instance::Item,
-    services::crud_rest_data_provider::{CrudRestDataProvider, ReadCount, ReadMany},
+    services::crud_rest_data_provider::{CrudRestDataProvider, ReadCount, ReadMany}, types::custom_field::CustomReadFields,
 };
 
 use super::{prelude::*, types::RequestError};
@@ -44,6 +44,7 @@ pub enum Msg<T: CrudMainTrait> {
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudMainTrait + 'static> {
     pub children: ChildrenRenderer<Item>,
+    pub custom_fields: CustomReadFields<T>,
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
     pub static_config: CrudStaticInstanceConfig<T>,
@@ -279,6 +280,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
 
                 <CrudTable<T::ReadModel>
                     children={ctx.props().children.clone()}
+                    custom_fields={ctx.props().custom_fields.clone()}
                     api_base_url={ctx.props().config.api_base_url.clone()}
                     data={self.get_data()}
                     no_data={self.get_data_error()}

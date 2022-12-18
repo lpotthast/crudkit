@@ -8,7 +8,7 @@ use yew::{
 
 use crate::{
     crud_instance::Item,
-    services::crud_rest_data_provider::{CreateOne, CrudRestDataProvider},
+    services::crud_rest_data_provider::{CreateOne, CrudRestDataProvider}, types::custom_field::{CustomCreateFields, CustomUpdateFields},
 };
 
 use super::{prelude::*, types::RequestError};
@@ -66,6 +66,8 @@ pub enum Then {
 pub struct Props<T: 'static + CrudMainTrait> {
     pub on_link: Callback<Option<Scope<CrudCreateView<T>>>>,
     pub children: ChildrenRenderer<Item>,
+    pub custom_create_fields: CustomCreateFields<T>,
+    pub custom_update_fields: CustomUpdateFields<T>,
     pub data_provider: CrudRestDataProvider<T>,
     /// Required because when creating the initial CreateModel, we have to set the "parent id" field of that model to the given id.
     /// TODO: Only a subset of the parent id might be required to for matching. Consider a CreateModel#initialize_with_parent_id(ParentId)...
@@ -410,6 +412,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                                 Item::Relation(_) => true,
                                 Item::Select(select) => select.props.for_model == crate::crud_reset_field::Model::Update,
                             }).collect::<Vec<Item>>())}
+                            custom_fields={ctx.props().custom_update_fields.clone()}
                             elements={ctx.props().config.elements.clone()}
                             entity={match &self.mode {
                                 Mode::UseCreateModel { initial_data: _, input: _ } => {
@@ -434,6 +437,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                                 Item::Relation(_) => true,
                                 Item::Select(select) => select.props.for_model == crate::crud_reset_field::Model::Create,
                             }).collect::<Vec<Item>>())}
+                            custom_fields={ctx.props().custom_create_fields.clone()}
                             elements={create_elements.clone()}
                             entity={match &self.mode {
                                 Mode::UseCreateModel { initial_data, input: _ } => {

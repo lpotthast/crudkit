@@ -4,7 +4,7 @@ use crud_shared_types::condition::IntoAllEqualCondition;
 
 use crate::{
     crud_instance::Item,
-    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne},
+    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne}, types::custom_field::CustomUpdateFields,
 };
 
 use super::{prelude::*, types::RequestError};
@@ -18,6 +18,7 @@ pub enum Msg<T: CrudMainTrait> {
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudMainTrait> {
     pub children: ChildrenRenderer<Item>,
+    pub custom_fields: CustomUpdateFields<T>,
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
     pub id: T::ReadModelId,
@@ -92,6 +93,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudReadView<T> {
                                 <CrudFields<T::UpdateModel>
                                     api_base_url={ctx.props().config.api_base_url.clone()}
                                     children={ctx.props().children.clone()}
+                                    custom_fields={ctx.props().custom_fields.clone()}
                                     elements={ctx.props().config.elements.clone()}
                                     entity={entity.clone()}
                                     mode={FieldMode::Readable}

@@ -12,7 +12,7 @@ use yew::{
 use yewdux::prelude::*;
 
 use crate::{
-    services::crud_rest_data_provider::{CrudRestDataProvider, DeleteById},
+    services::crud_rest_data_provider::{CrudRestDataProvider, DeleteById}, types::custom_field::{CustomReadFields, CustomCreateFields, CustomUpdateFields},
 };
 
 use super::{prelude::*, stores, types::RequestError};
@@ -91,6 +91,9 @@ pub struct CrudInstanceConfig<T: CrudMainTrait> {
 pub struct CrudStaticInstanceConfig<T: CrudMainTrait> {
     pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction<T>>,
+    pub custom_read_fields: CustomReadFields<T>,
+    pub custom_create_fields: CustomCreateFields<T>,
+    pub custom_update_fields: CustomUpdateFields<T>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -247,6 +250,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                     <CrudListView<T>
                                         data_provider={self.data_provider.clone()}
                                         children={ctx.props().children.clone()}
+                                        custom_fields={self.static_config.custom_read_fields.clone()}
                                         config={self.config.clone()}
                                         static_config={self.static_config.clone()}
                                         on_reset={ctx.link().callback(|_| Msg::Reset)}
@@ -269,6 +273,8 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         data_provider={self.data_provider.clone()}
                                         parent_id={self.parent_id.clone()}
                                         children={ctx.props().children.clone()}
+                                        custom_create_fields={self.static_config.custom_create_fields.clone()}
+                                        custom_update_fields={self.static_config.custom_update_fields.clone()}
                                         config={self.config.clone()}
                                         list_view_available={true}
                                         on_list_view={ctx.link().callback(|_| Msg::List)}
@@ -287,6 +293,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                     <CrudReadView<T>
                                         data_provider={self.data_provider.clone()}
                                         children={ctx.props().children.clone()}
+                                        custom_fields={self.static_config.custom_update_fields.clone()}
                                         config={self.config.clone()}
                                         id={id.clone()}
                                         list_view_available={true}
@@ -300,6 +307,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                     <CrudEditView<T>
                                         data_provider={self.data_provider.clone()}
                                         children={ctx.props().children.clone()}
+                                        custom_fields={self.static_config.custom_update_fields.clone()}
                                         config={self.config.clone()}
                                         static_config={self.static_config.clone()}
                                         id={id.clone()}

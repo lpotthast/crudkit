@@ -1,6 +1,8 @@
 use std::marker::PhantomData;
 
-use crate::{crud_instance::Item, event_target_as, keyboard_event_target_as, DateTimeDisplay};
+use crate::{
+    crud_instance::Item, event_target_as, keyboard_event_target_as, DateTimeDisplay, types::custom_field::CustomFields,
+};
 
 use super::prelude::*;
 use chrono_utc_date_time::UtcDateTime;
@@ -19,6 +21,7 @@ pub enum Msg {
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
     pub children: ChildrenRenderer<Item>,
+    pub custom_fields: CustomFields<T>,
     pub api_base_url: String,
     pub current_view: CrudSimpleView,
     pub field_type: T::Field,
@@ -163,6 +166,16 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                                 </div>
                             },
                         },
+                    }
+                },
+                Value::Custom(_) => { match ctx.props().custom_fields
+                    .get(&ctx.props().field_type) {
+                        Some(custom_field) => custom_field.render(&self.entity, ctx.props().field_mode),
+                        None => html! {
+                            <CrudAlert variant={crate::crud_alert::Variant::Danger}>
+                                { format!("The custom field '{:?}' should have been displayed here, but no renderer for that field was found in the `custom_*_fields` section of the static instance config. You might have forgotten to set the required HashMap entry.", &ctx.props().field_type)}
+                            </CrudAlert>
+                        }
                     }
                 },
                 Value::String(value) => match &ctx.props().field_mode {

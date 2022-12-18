@@ -96,6 +96,9 @@ pub fn store(input: TokenStream) -> TokenStream {
             // We use .unwrap_or_default(), as we feed that string into Value::String (see From<ValueType>). We should get rid of this.
             ValueType::OptionalString => quote! { entity.#field_ident.clone().unwrap_or_default() },
             ValueType::OptionalJson => quote! { entity.#field_ident.clone().map(|it| crud_yew::JsonValue::new(it)) },
+            ValueType::UuidV4 => quote! { entity.#field_ident },
+            ValueType::UuidV7 => quote! { entity.#field_ident },
+            ValueType::Ulid => quote! { entity.#field_ident },
             ValueType::Bool => quote! { entity.#field_ident },
             ValueType::ValidationStatus => quote! { entity.#field_ident },
             ValueType::I32 => quote! { entity.#field_ident },
@@ -117,6 +120,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::NestedTable => quote! {
                 crud_shared_types::id::Id::fields(&entity.get_id())
             }, // not important, panics anyway...
+            ValueType::Custom => quote! { () }, // not important, panics anyway...
         };
 
         quote! {
@@ -141,7 +145,12 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::OptionalText => quote! { std::option::Option::Some(value.take_string()) },
             // TODO: value should contain Option. do not force Some type...
             ValueType::OptionalString => quote! { std::option::Option::Some(value.take_string()) },
-            ValueType::OptionalJson => quote! { std::option::Option::Some(value.take_inner_json_value()) },
+            ValueType::OptionalJson => {
+                quote! { std::option::Option::Some(value.take_inner_json_value()) }
+            }
+            ValueType::UuidV4 => quote! { value.to_uuid_v4() },
+            ValueType::UuidV7 => quote! { value.to_uuid_v7() },
+            ValueType::Ulid => quote! { value.to_ulid() },
             ValueType::Bool => quote! { value.take_bool() },
             ValueType::ValidationStatus => quote! { value.take_bool() },
             ValueType::I32 => quote! { value.take_i32() },
@@ -163,6 +172,12 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::NestedTable => {
                 quote! { {
                     log::warn!("Setting a nested table dummy field is not allowed");
+                    // implicitly returns `()`
+                } }
+            }
+            ValueType::Custom => {
+                quote! { {
+                    log::warn!("Setting a custom field is not allowed");
                     // implicitly returns `()`
                 } }
             }
@@ -198,6 +213,9 @@ enum ValueType {
     OptionalText,
     Json,
     OptionalJson,
+    UuidV4,
+    UuidV7,
+    Ulid,
     Bool,
     ValidationStatus,
     I32,
@@ -215,6 +233,7 @@ enum ValueType {
     OptionalMultiselect,
     OneToOneRelation,
     NestedTable,
+    Custom,
 }
 
 /// Converts to the name of the `crud_yew::Value` variant which should be used.
@@ -228,6 +247,9 @@ impl From<ValueType> for Ident {
                 ValueType::OptionalText => "Text",
                 ValueType::Json => "Json",
                 ValueType::OptionalJson => "OptionalJson",
+                ValueType::UuidV4 => "UuidV4",
+                ValueType::UuidV7 => "UuidV7",
+                ValueType::Ulid => "Ulid",
                 ValueType::Bool => "Bool",
                 ValueType::ValidationStatus => "ValidationStatus",
                 ValueType::I32 => "I32",
@@ -245,6 +267,7 @@ impl From<ValueType> for Ident {
                 ValueType::OptionalMultiselect => "OptionalMultiselect",
                 ValueType::OneToOneRelation => "OneToOneRelation",
                 ValueType::NestedTable => "NestedTable",
+                ValueType::Custom => "Custom",
             },
             Span::call_site(),
         )
@@ -262,6 +285,9 @@ impl From<&syn::Type> for ValueType {
                 "f32" => ValueType::F32,
                 "String" => ValueType::String,
                 "serde_json::Value" => ValueType::Json,
+                "UuidV4" => ValueType::UuidV4,
+                "UuidV7" => ValueType::UuidV7,
+                "Ulid" => ValueType::Ulid,
                 "chrono_utc_date_time::UtcDateTime" => ValueType::UtcDateTime,
                 "UtcDateTime" => ValueType::UtcDateTime,
                 "Option<i64>" => ValueType::OptionalI64,
