@@ -34,6 +34,9 @@ pub mod prelude {
     pub use crate::Saved;
 }
 
+pub type UuidV4 = uuid::Uuid;
+pub type UuidV7 = uuid::Uuid;
+
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Order {
     #[serde(rename(

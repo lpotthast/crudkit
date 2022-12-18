@@ -260,6 +260,9 @@ fn to_id_value(ty: &syn::Type) -> proc_macro2::TokenStream {
                 help = "use one of the following types: [...]";
             ),
             "String" => quote! { crud_shared_types::IdValue::String },
+            "crud_shared_types::UuidV4" => quote! { crud_shared_types::IdValue::UuidV4 },
+            "crud_shared_types::UuidV7" => quote! { crud_shared_types::IdValue::UuidV7 },
+            "Ulid" => quote! { crud_shared_types::IdValue::Ulid },
             "chrono_utc_date_time::UtcDateTime" => {
                 quote! { crud_shared_types::IdValue::UtcDateTime }
             }
@@ -277,7 +280,7 @@ fn to_id_value(ty: &syn::Type) -> proc_macro2::TokenStream {
             "Option<UtcDateTime>" => quote! { crud_shared_types::IdValue::OptionalUtcDateTime },
             other => {
                 let span = ty.span();
-                let message = format!("Unknown type {other:?}. Expected a known type.");
+                let message = format!("to_id_value found unknown type {other:?}. Expected a known type.");
                 abort!(
                     span, message;
                     help = "use one of the following types: [...]";
