@@ -39,6 +39,7 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     Deleted(Result<DeleteResult, RequestError>),
     OrderBy((<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)),
     PageSelected(u64),
+    ItemCountSelected(u64),
     TabSelected(Label),
     EntityAction((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
     CustomEntityAction(CrudActionAftermath),
@@ -260,6 +261,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         on_delete={ctx.link().callback(|entity| Msg::Delete(DeletableModel::Read(entity)))}
                                         on_order_by={ctx.link().callback(Msg::OrderBy)}
                                         on_page_selected={ctx.link().callback(Msg::PageSelected)}
+                                        on_item_count_selected={ctx.link().callback(Msg::ItemCountSelected)}
                                         on_entity_action={ctx.link().callback(Msg::EntityAction)}
                                         on_global_action={ctx.link().callback(Msg::GlobalAction)}
                                         on_link={ctx.link().callback(|link: Option<Scope<CrudListView<T>>>|
@@ -794,6 +796,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
             }
             Msg::PageSelected(page) => {
                 self.config.page = page;
+                self.store_config(ctx);
+                false
+            }
+            Msg::ItemCountSelected(items_per_page) => {
+                self.config.items_per_page = items_per_page;
                 self.store_config(ctx);
                 false
             }

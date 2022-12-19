@@ -20,6 +20,7 @@ use super::{prelude::*, types::RequestError};
 pub enum Msg<T: CrudMainTrait> {
     ComponentCreated,
     PageSelected(u64),
+    ItemCountSelected(u64),
     PageLoaded(Result<Vec<T::ReadModel>, RequestError>),
     CountRead(Result<usize, RequestError>),
     ToggleFilter,
@@ -55,6 +56,7 @@ pub struct Props<T: CrudMainTrait + 'static> {
     pub on_delete: Callback<T::ReadModel>,
     pub on_order_by: Callback<(<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)>,
     pub on_page_selected: Callback<u64>,
+    pub on_item_count_selected: Callback<u64>,
     pub on_entity_action: Callback<(Rc<Box<dyn CrudActionTrait>>, T::ReadModel)>,
     pub on_global_action: Callback<CrudActionAftermath>,
     pub on_link: Callback<Option<Scope<CrudListView<T>>>>,
@@ -141,6 +143,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
             }
             Msg::PageSelected(page) => {
                 ctx.props().on_page_selected.emit(page);
+                //self.data = Err(NoData::NotYetLoaded);
+                false
+            }
+            Msg::ItemCountSelected(page) => {
+                ctx.props().on_item_count_selected.emit(page);
                 //self.data = Err(NoData::NotYetLoaded);
                 false
             }
@@ -306,6 +313,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                                 item_count={*count}
                                 items_per_page={ctx.props().config.items_per_page}
                                 on_page_select={ctx.link().callback(|page| Msg::PageSelected(page))}
+                                on_item_count_select={ctx.link().callback(|page| Msg::ItemCountSelected(page))}
                             />
                         },
                         Err((reason, since)) => if since.secs_till_now() > 5 {

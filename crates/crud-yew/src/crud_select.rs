@@ -20,15 +20,40 @@ pub struct Props<T: Debug + Clone + PartialEq> {
     // TODO: add option to forbid clearing (selecting None)
     // TODO: rename to "selectable"
     pub options: Vec<T>,
+    #[prop_or(None)]
+    pub option_renderer: Option<OptionRenderer<T>>,
     pub selected: Selection<T>,
     #[prop_or(true)]
     pub close_options_menu_on_selection: bool,
     pub selection_changed: Callback<Selection<T>>,
 }
 
+/// Note: PartialEq is implemented by only comparing the name!
+/// If you want to update the renderer of a select, it is important to supply one with a different name.
+pub struct OptionRenderer<T> {
+    pub name: &'static str,
+    pub renderer: fn(&T) -> Html,
+}
+
+impl<T> PartialEq for OptionRenderer<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
 pub struct CrudSelect<T: Debug + Clone + PartialEq> {
     show_options: bool,
     selected: Selection<T>,
+}
+
+impl<T: 'static + Debug + Clone + PartialEq> CrudSelect<T> {
+    pub fn render_option(&self, ctx: &Context<Self>, option: &T) -> Html {
+        ctx.props()
+            .option_renderer
+            .as_ref()
+            .map(|it| (it.renderer)(option))
+            .unwrap_or_else(|| html! { format!("{option:?}") })
+    }
 }
 
 impl<T: 'static + Debug + Clone + PartialEq> Component for CrudSelect<T> {
@@ -41,7 +66,7 @@ impl<T: 'static + Debug + Clone + PartialEq> Component for CrudSelect<T> {
             selected: ctx.props().selected.clone(),
         }
     }
-    
+
     fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
         self.selected = ctx.props().selected.clone();
         true
@@ -61,7 +86,7 @@ impl<T: 'static + Debug + Clone + PartialEq> Component for CrudSelect<T> {
                 }
                 ctx.props().selection_changed.emit(selected);
                 true
-            },
+            }
         }
     }
 
@@ -69,7 +94,20 @@ impl<T: 'static + Debug + Clone + PartialEq> Component for CrudSelect<T> {
         html! {
             <div class={"crud-select"}>
                 <div class={"selected"} onclick={ctx.link().callback(move |_| Msg::ToggleOptionsMenu)}>
-                    {format!("{:?}", self.selected)}
+                    {
+                        match &self.selected {
+                            Selection::None => html! { "" },
+                            Selection::Single(selected) => self.render_option(ctx, selected),
+                            Selection::Multiple(selected) => selected.iter()
+                                .map(|it| html! {
+                                    <>
+                                        { self.render_option(ctx, it) }
+                                        {", "}
+                                    </>
+                                })
+                                .collect::<Html>(),
+                        }
+                    }
                 </div>
                 <div class={classes!("options", self.show_options.then(|| "shown"))}>
                     { ctx.props().options.iter()
@@ -77,7 +115,7 @@ impl<T: 'static + Debug + Clone + PartialEq> Component for CrudSelect<T> {
                             let cloned = option.clone();
                             html! {
                                 <div class={"option"} onclick={ctx.link().callback(move |_| Msg::OptionSelected(cloned.clone()))}>
-                                    {format!("{:?},\n", option)}
+                                    { self.render_option(ctx, option) }
                                 </div>
                             }
                         })
