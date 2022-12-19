@@ -188,8 +188,8 @@ where
                         headers={ctx.props().headers.clone()}
                         on_order_by={ctx.link().callback(Msg::OrderBy)}
                         with_actions={has_actions}
-                        with_select_column={ctx.props().data.is_some()}
-                        all_selected={ctx.props().data.is_some() && self.selected.len() == ctx.props().data.as_ref().unwrap().len()}
+                        with_select_column={ctx.props().data.is_some() && ctx.props().data.as_ref().unwrap().len() > 0}
+                        all_selected={ctx.props().data.is_some() && self.selected.len() == ctx.props().data.as_ref().unwrap().len() && ctx.props().data.as_ref().unwrap().len() > 0}
                         on_select_all={ctx.link().callback(Msg::SelectAll)}
                     />
                     <tbody>

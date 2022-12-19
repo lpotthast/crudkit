@@ -176,8 +176,6 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                 false
             }
             Msg::EntrySelectionChanged(selected) => {
-                log::info!("{} selected", selected.len());
-                log::info!("{selected:#?} selected");
                 self.selected = selected;
                 // TODO: Show special ui for multi-selection.
                 true
