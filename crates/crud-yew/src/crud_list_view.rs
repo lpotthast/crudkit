@@ -26,6 +26,7 @@ pub enum Msg<T: CrudMainTrait> {
     ToggleFilter,
     OrderBy((<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)),
     Create,
+    EntrySelectionChanged(Vec<T::ReadModel>),
     Read(T::ReadModel),
     Edit(T::ReadModel),
     Delete(T::ReadModel),
@@ -64,6 +65,7 @@ pub struct Props<T: CrudMainTrait + 'static> {
 
 pub struct CrudListView<T: 'static + CrudMainTrait> {
     data: Result<Rc<Vec<T::ReadModel>>, (NoData, UtcDateTime)>,
+    selected: Vec<T::ReadModel>,
     filter: Option<()>,
     item_count: Result<u64, (NoData, UtcDateTime)>,
     actions_executing: Vec<&'static str>,
@@ -124,6 +126,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
         ctx.link().send_future(async move { Msg::ComponentCreated });
         Self {
             data: Err((NoData::NotYetLoaded, UtcDateTime::now())),
+            selected: vec![],
             filter: None,
             item_count: Err((NoData::NotYetLoaded, UtcDateTime::now())),
             actions_executing: vec![],
@@ -171,6 +174,13 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
             Msg::Create => {
                 ctx.props().on_create.emit(());
                 false
+            }
+            Msg::EntrySelectionChanged(selected) => {
+                log::info!("{} selected", selected.len());
+                log::info!("{selected:#?} selected");
+                self.selected = selected;
+                // TODO: Show special ui for multi-selection.
+                true
             }
             Msg::Read(entity) => {
                 ctx.props().on_read.emit(entity);
@@ -298,6 +308,8 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                     read_allowed={true}
                     edit_allowed={true}
                     delete_allowed={true}
+                    selected={self.selected.clone()}
+                    on_selection={ctx.link().callback(Msg::EntrySelectionChanged)}
                     on_read={ctx.link().callback(Msg::Read)}
                     on_edit={ctx.link().callback(Msg::Edit)}
                     on_delete={ctx.link().callback(Msg::Delete)}

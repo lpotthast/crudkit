@@ -5,6 +5,7 @@ use yew::prelude::*;
 
 pub enum Msg<T: CrudDataTrait> {
     OrderBy((T::Field, HeaderOptions)),
+    SelectAll(bool),
 }
 
 #[derive(Properties, PartialEq)]
@@ -15,6 +16,10 @@ where
     pub headers: Vec<(T::Field, HeaderOptions, Option<Order>)>,
     pub on_order_by: Callback<(T::Field, OrderByUpdateOptions)>,
     pub with_actions: bool,
+    /// Should be true if all entities are selected.
+    pub with_select_column: bool,
+    pub all_selected: bool,
+    pub on_select_all: Callback<bool>,
 }
 
 pub struct CrudTableHeader<T> {
@@ -41,6 +46,10 @@ impl<T: 'static + CrudDataTrait> Component for CrudTableHeader<T> {
                 }
                 false
             }
+            Msg::SelectAll(state) => {
+                ctx.props().on_select_all.emit(state);
+                false
+            }
         }
     }
 
@@ -48,6 +57,12 @@ impl<T: 'static + CrudDataTrait> Component for CrudTableHeader<T> {
         html! {
             <thead class={"crud-table-header"}>
                 <tr>
+                    if ctx.props().with_select_column {
+                        <th class={"select min-width"}>
+                            <CrudCheckbox state={ctx.props().all_selected} on_toggle={ctx.link().callback(Msg::SelectAll)}/>
+                        </th>
+                    }
+
                     {
                         ctx.props().headers.iter().map(|(field, options, order)| {
                             let mut classes = classes!("crud-column-header");

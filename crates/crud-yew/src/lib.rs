@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     any::Any,
     fmt::{Debug, Display},
-    hash::Hash, collections::HashMap, sync::Arc,
+    hash::Hash,
 };
 use types::RequestError;
 use wasm_bindgen::JsCast;
@@ -17,6 +17,7 @@ pub mod crud_action;
 pub mod crud_alert;
 pub mod crud_btn;
 pub mod crud_btn_group;
+pub mod crud_checkbox;
 pub mod crud_btn_name;
 pub mod crud_btn_wrapper;
 pub mod crud_collapsible;
@@ -86,6 +87,7 @@ pub mod prelude {
     pub use super::crud_btn_group::CrudBtnGroup;
     pub use super::crud_btn_name::CrudBtnName;
     pub use super::crud_btn_wrapper::CrudBtnWrapper;
+    pub use super::crud_checkbox::CrudCheckbox;
     pub use super::crud_collapsible::CrudCollapsible;
     pub use super::crud_create_view::CrudCreateView;
     pub use super::crud_datetime::CrudDatetime;

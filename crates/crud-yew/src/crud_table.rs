@@ -1,7 +1,7 @@
 use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::Order;
 use gloo::timers::callback::Interval;
-use std::{marker::PhantomData, rc::Rc};
+use std::rc::Rc;
 use yew::{html::ChildrenRenderer, prelude::*};
 use yewbi::Bi;
 
@@ -12,6 +12,8 @@ use super::prelude::*;
 const MILLIS_UNTIL_ERROR_IS_SHOWN: u32 = 1000;
 
 pub enum Msg<T: CrudDataTrait> {
+    Select(T, bool),
+    SelectAll(bool),
     OrderBy((T::Field, OrderByUpdateOptions)),
     Read(T),
     Edit(T),
@@ -35,6 +37,8 @@ where
     pub read_allowed: bool,
     pub edit_allowed: bool,
     pub delete_allowed: bool,
+    pub selected: Vec<T>,
+    pub on_selection: Callback<Vec<T>>,
     pub on_read: Callback<T>,
     pub on_edit: Callback<T>,
     pub on_delete: Callback<T>,
@@ -54,7 +58,7 @@ impl<T: 'static + CrudDataTrait> Props<T> {
 pub struct CrudTable<T> {
     error: Option<NoData>,
     clock_handle: Option<Interval>,
-    phantom: PhantomData<T>,
+    selected: Vec<T>,
 }
 
 impl<T: 'static + CrudDataTrait> CrudTable<T> {
@@ -82,11 +86,11 @@ where
     type Message = Msg<T>;
     type Properties = Props<T>;
 
-    fn create(_ctx: &Context<Self>) -> Self {
+    fn create(ctx: &Context<Self>) -> Self {
         Self {
             error: None,
             clock_handle: None,
-            phantom: PhantomData {},
+            selected: ctx.props().selected.clone(),
         }
     }
 
@@ -117,6 +121,35 @@ where
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            Msg::Select(entity, state) => {
+                let pos = self.selected.iter().position(|it| it == &entity);
+                match (pos, state) {
+                    (None, true) => self.selected.push(entity),
+                    (None, false) => {}
+                    (Some(_pos), true) => {}
+                    (Some(pos), false) => {
+                        self.selected.remove(pos);
+                    }
+                }
+                ctx.props().on_selection.emit(self.selected.clone());
+                true // The all_selected property of the table header depends on this.
+                     // TODO: only return true if "all selected" changed!
+            }
+            Msg::SelectAll(state) => {
+                match state {
+                    true => {
+                        self.selected.clear();
+                        if let Some(data) = &ctx.props().data {
+                            for entity in data.as_ref() {
+                                self.selected.push(entity.clone());
+                            }
+                        }
+                    }
+                    false => self.selected.clear(),
+                }
+                ctx.props().on_selection.emit(self.selected.clone());
+                true
+            }
             Msg::ActionTriggered((action, entity)) => {
                 ctx.props().on_additional_item_action.emit((action, entity));
                 false
@@ -155,6 +188,9 @@ where
                         headers={ctx.props().headers.clone()}
                         on_order_by={ctx.link().callback(Msg::OrderBy)}
                         with_actions={has_actions}
+                        with_select_column={ctx.props().data.is_some()}
+                        all_selected={ctx.props().data.is_some() && self.selected.len() == ctx.props().data.as_ref().unwrap().len()}
+                        on_select_all={ctx.link().callback(Msg::SelectAll)}
                     />
                     <tbody>
                         {
@@ -169,10 +205,16 @@ where
                                     },
                                     _ => data.iter().map(|entity| {
                                         let cloned_entity = entity.clone();
+                                        let cloned_entity_2 = entity.clone();
                                         html! {
                                             <tr class={"interactable"}
                                                 onclick={link.callback(move |_| Msg::Edit(cloned_entity.clone()))}
                                             >
+                                                <td class={"select"} onclick={|it: MouseEvent| { it.stop_propagation() }}>
+                                                    <CrudCheckbox
+                                                        state={self.selected.iter().find(|it| it == &entity).is_some()}
+                                                        on_toggle={ctx.link().callback(move |state| Msg::Select(cloned_entity_2.clone(), state))}/>
+                                                </td>
                                                 {
                                                     ctx.props().headers.iter().map(|(field, options, _order)| {
                                                         html! {
@@ -193,7 +235,7 @@ where
                                                     }).collect::<Html>()
                                                 }
                                                 if has_actions {
-                                                    <td>
+                                                    <td onclick={|it: MouseEvent| { it.stop_propagation() }}>
                                                         <div class={"action-icons"}>
                                                             if ctx.props().read_allowed {
                                                                 <div

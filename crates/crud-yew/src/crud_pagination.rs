@@ -73,52 +73,55 @@ impl Component for CrudPagination {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        html! {
-            <div class={"crud-row crud-pagination"}>
-                <div class={"crud-col crud-col-flex crud-col-flex-start"}>
-                </div>
-
-                <div class={"crud-col crud-col-flex crud-col-flex-row crud-col-flex-end"}>
-                    <div class={"items-per-page-selector"}>
-                        <div class={"label"}>
-                            {"Einträge pro Seite"}
-                        </div>
-                        <CrudSelect<ItemsPerPageOption>
-                            options={self.items_per_page_options.clone()}
-                            option_renderer={Some(OptionRenderer {
-                                name: "default",
-                                renderer: |it: &ItemsPerPageOption| html! { format!("{}", it.items_per_page) },
-                            })}
-                            selected={Selection::Single(ItemsPerPageOption::some(ctx.props().items_per_page))}
-                            selection_changed={ctx.link().callback(Msg::ItemCountSelected)}>
-                        </CrudSelect<ItemsPerPageOption>>
+        match ctx.props().item_count > 0 {
+            true => html! {
+                <div class={"crud-row crud-pagination"}>
+                    <div class={"crud-col crud-col-flex crud-col-flex-start"}>
                     </div>
-                    <CrudBtnGroup>
-                        {
-                            self.page_options.iter().map(|page_number| {
-                                let name = match page_number {
-                                    Some(page_number) => format!("{}", page_number),
-                                    None => '\u{2026}'.to_string(), // `hellip` character
-                                };
-                                html! {
-                                    <CrudBtn
-                                        name={ name }
-                                        variant={ Variant::Default }
-                                        disabled={ page_number.is_none() }
-                                        active={ *page_number == Some(ctx.props().current_page) }
-                                        onclick={
-                                            match *page_number {
-                                                Some(number) => ctx.link().batch_callback(move |_| Some(Msg::PageSelected(number))),
-                                                None => ctx.link().batch_callback(|_| None),
+
+                    <div class={"crud-col crud-col-flex crud-col-flex-row crud-col-flex-end"}>
+                        <div class={"items-per-page-selector"}>
+                            <div class={"label"}>
+                                {"Einträge pro Seite"}
+                            </div>
+                            <CrudSelect<ItemsPerPageOption>
+                                options={self.items_per_page_options.clone()}
+                                option_renderer={Some(OptionRenderer {
+                                    name: "default",
+                                    renderer: |it: &ItemsPerPageOption| html! { format!("{}", it.items_per_page) },
+                                })}
+                                selected={Selection::Single(ItemsPerPageOption::some(ctx.props().items_per_page))}
+                                selection_changed={ctx.link().callback(Msg::ItemCountSelected)}>
+                            </CrudSelect<ItemsPerPageOption>>
+                        </div>
+                        <CrudBtnGroup>
+                            {
+                                self.page_options.iter().map(|page_number| {
+                                    let name = match page_number {
+                                        Some(page_number) => format!("{}", page_number),
+                                        None => '\u{2026}'.to_string(), // `hellip` character
+                                    };
+                                    html! {
+                                        <CrudBtn
+                                            name={ name }
+                                            variant={ Variant::Default }
+                                            disabled={ page_number.is_none() }
+                                            active={ *page_number == Some(ctx.props().current_page) }
+                                            onclick={
+                                                match *page_number {
+                                                    Some(number) => ctx.link().batch_callback(move |_| Some(Msg::PageSelected(number))),
+                                                    None => ctx.link().batch_callback(|_| None),
+                                                }
                                             }
-                                        }
-                                    />
-                                }
-                            }).collect::<Html>()
-                        }
-                    </CrudBtnGroup>
+                                        />
+                                    }
+                                }).collect::<Html>()
+                            }
+                        </CrudBtnGroup>
+                    </div>
                 </div>
-            </div>
+            },
+            false => html! {},
         }
     }
 }
