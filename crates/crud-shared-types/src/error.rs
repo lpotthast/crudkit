@@ -1,6 +1,6 @@
+use utoipa::ToSchema;
 
-
-#[derive(Debug)]
+#[derive(Debug, ToSchema)]
 pub enum CrudError {
     UnknownColumnSpecified(String),
     UnableToParseValueAsColType(String, String),
