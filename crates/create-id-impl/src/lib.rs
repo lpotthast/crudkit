@@ -268,6 +268,7 @@ fn to_id_value(ty: &syn::Type) -> proc_macro2::TokenStream {
             }
             "UtcDateTime" => quote! { crud_shared_types::IdValue::UtcDateTime },
             "Option<i64>" => quote! { crud_shared_types::IdValue::OptionalI64 },
+            "Option<i32>" => quote! { crud_shared_types::IdValue::OptionalI32 },
             "Option<u32>" => quote! { crud_shared_types::IdValue::OptionalU32 },
             "Option<f32>" => abort!(
                 span, "Option<f32> is an invalid type for an ID field as f32 it is not `Eq` comparable!";
