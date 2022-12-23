@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::{crud_select::Selection, prelude::*, crud_instance::CreateOrUpdateField};
+use crate::{crud_instance::CreateOrUpdateField, crud_select::Selection, prelude::*};
 use crud_shared_types::condition::{Condition, ConditionClause, ConditionElement};
 use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
@@ -100,6 +100,7 @@ fn value_as_u32_vec(value: &Value) -> Vec<u32> {
         },
         Value::I32(_) => panic!("'I32' unsupported"),
         Value::I64(_) => panic!("'I64' unsupported"),
+        Value::OptionalI32(_) => panic!("'OptionalI32' unsupported"),
         Value::OptionalI64(_) => panic!("'OptionalI64' unsupported"),
         Value::F32(_) => panic!("'F32' unsupported"),
         Value::Bool(_) => panic!("'Bool' unsupported"),
@@ -135,6 +136,7 @@ fn value_as_u32(value: &Value) -> Option<u32> {
         },
         Value::I32(_) => panic!("'I32' unsupported"),
         Value::I64(_) => panic!("'I64' unsupported"),
+        Value::OptionalI32(_) => panic!("'OptionalI32' unsupported"),
         Value::OptionalI64(_) => panic!("'OptionalI64' unsupported"),
         Value::F32(_) => panic!("'F32' unsupported"),
         Value::Bool(_) => panic!("'Bool' unsupported"),
@@ -209,15 +211,23 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> Component for CrudR
                             log::warn!("Cannot show this field in List or Create view...");
                         }
                         SerializableCrudView::Read(id) | SerializableCrudView::Edit(id) => {
-                            let mut data_provider: CrudRestDataProvider<T> = CrudRestDataProvider::new(ctx.props().api_base_url.clone());
+                            let mut data_provider: CrudRestDataProvider<T> =
+                                CrudRestDataProvider::new(ctx.props().api_base_url.clone());
 
-                            let (_field_name, value) = id.0.iter()
-                                .find(|(field_name, _value)| field_name == ctx.props().parent_reverse_field.get_name())
-                                .expect("related parent field must be part of the parents id!");
+                            let (_field_name, value) =
+                                id.0.iter()
+                                    .find(|(field_name, _value)| {
+                                        field_name == ctx.props().parent_reverse_field.get_name()
+                                    })
+                                    .expect("related parent field must be part of the parents id!");
 
                             data_provider.set_base_condition(Some(Condition::All(vec![
                                 ConditionElement::Clause(ConditionClause {
-                                    column_name: ctx.props().parent_reverse_field.get_name().to_owned(),
+                                    column_name: ctx
+                                        .props()
+                                        .parent_reverse_field
+                                        .get_name()
+                                        .to_owned(),
                                     operator: crud_shared_types::condition::Operator::Equal,
                                     value: value.clone().into(),
                                 }),

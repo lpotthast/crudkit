@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono_utc_date_time::prelude::*;
-use crud_shared_types::{prelude::*, id::SerializableId};
+use crud_shared_types::{id::SerializableId, prelude::*};
 use dyn_clone::DynClone;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
@@ -17,9 +17,9 @@ pub mod crud_action;
 pub mod crud_alert;
 pub mod crud_btn;
 pub mod crud_btn_group;
-pub mod crud_checkbox;
 pub mod crud_btn_name;
 pub mod crud_btn_wrapper;
+pub mod crud_checkbox;
 pub mod crud_collapsible;
 pub mod crud_create_view;
 pub mod crud_datetime;
@@ -71,9 +71,9 @@ pub mod types;
 mod event_functions;
 
 pub mod prelude {
+    pub use derive_crud_action_payload::CrudActionPayload;
     pub use derive_crud_resource::CrudResource;
     pub use derive_crud_selectable::CrudSelectable;
-    pub use derive_crud_action_payload::CrudActionPayload;
     pub use derive_field::Field;
     pub use derive_field_value::FieldValue;
 
@@ -134,29 +134,28 @@ pub mod prelude {
     pub use super::crud_toasts::CrudToasts;
     pub use super::crud_toggle::{CrudToggle, CrudToggleIcons};
     pub use super::crud_tree::CrudTree;
+    pub use super::types::custom_field::CustomCreateFields;
+    pub use super::types::custom_field::CustomField;
+    pub use super::types::custom_field::CustomFields;
+    pub use super::types::custom_field::CustomReadFields;
+    pub use super::types::custom_field::CustomUpdateFields;
     pub use super::types::toasts::Toast;
     pub use super::types::toasts::ToastAutomaticallyClosing;
     pub use super::types::toasts::ToastVariant;
-    pub use super::types::custom_field::CustomField;
-    pub use super::types::custom_field::CustomFields;
-    pub use super::types::custom_field::CustomCreateFields;
-    pub use super::types::custom_field::CustomUpdateFields;
-    pub use super::types::custom_field::CustomReadFields;
-    pub use super::CrudDataTrait;
     pub use super::CrudActionPayload;
-    pub use super::EmptyActionPayload;
+    pub use super::CrudDataTrait;
     pub use super::CrudFieldNameTrait;
     pub use super::CrudFieldValueTrait;
     pub use super::CrudIdTrait;
     pub use super::CrudMainTrait;
     pub use super::CrudResourceTrait;
     pub use super::CrudSelectableSource;
-    pub use super::CrudSimpleView;
     pub use super::CrudSelectableTrait;
-    pub use super::DeletableModel;
+    pub use super::CrudSimpleView;
     pub use super::CrudView;
-    pub use super::SerializableCrudView;
+    pub use super::DeletableModel;
     pub use super::Elem;
+    pub use super::EmptyActionPayload;
     pub use super::Enclosing;
     pub use super::FieldMode;
     pub use super::FieldOptions;
@@ -166,6 +165,7 @@ pub mod prelude {
     pub use super::Layout;
     pub use super::NoData;
     pub use super::OrderByUpdateOptions;
+    pub use super::SerializableCrudView;
     pub use super::Tab;
     pub use super::Value;
     pub use super::Variant;
@@ -212,33 +212,39 @@ impl From<Variant> for Classes {
 }
 
 // TODO: impl Clone if both types are clone, same for debug, ...
-pub trait CrudMainTrait: CrudResourceTrait + PartialEq + Default + Debug + Clone + Serialize + Send {
-
+pub trait CrudMainTrait:
+    CrudResourceTrait + PartialEq + Default + Debug + Clone + Serialize + Send
+{
     type CreateModel: CrudDataTrait + Send;
 
     type ReadModelIdField: IdField<Value = crud_shared_types::IdValue> + Serialize + Send;
-    type ReadModelId: Serialize + DeserializeOwned + Id<Field = Self::ReadModelIdField> + PartialEq + Clone + Send;
-    type ReadModel: Serialize + CrudDataTrait
+    type ReadModelId: Serialize
+        + DeserializeOwned
+        + Id<Field = Self::ReadModelIdField>
+        + PartialEq
+        + Clone
+        + Send;
+    type ReadModel: Serialize
+        + CrudDataTrait
         + Into<Self::UpdateModel>
         + CrudIdTrait<Id = Self::ReadModelId>
         + Send;
 
     type UpdateModelIdField: IdField<Value = crud_shared_types::IdValue> + Serialize + Send;
-    type UpdateModelId: Serialize + DeserializeOwned + Id<Field = Self::UpdateModelIdField> + PartialEq + Clone + Send;
-    type UpdateModel: Serialize + CrudDataTrait
-        + CrudIdTrait<Id = Self::UpdateModelId>
+    type UpdateModelId: Serialize
+        + DeserializeOwned
+        + Id<Field = Self::UpdateModelIdField>
+        + PartialEq
+        + Clone
         + Send;
+    type UpdateModel: Serialize + CrudDataTrait + CrudIdTrait<Id = Self::UpdateModelId> + Send;
 
     type ActionPayload: Serialize + CrudActionPayload;
 }
 
 pub trait CrudActionPayload:
-    PartialEq
-    + Clone
-    + Debug
-    + Serialize
-    + DeserializeOwned
-    + Send {
+    PartialEq + Clone + Debug + Serialize + DeserializeOwned + Send
+{
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
@@ -248,13 +254,7 @@ impl CrudActionPayload for EmptyActionPayload {}
 
 // Note: This does not have CrudIdTrait as a super trait, as not all data model (namely the CreateModel) can supply an ID!
 pub trait CrudDataTrait:
-    Default
-    + PartialEq
-    + Clone
-    + Debug
-    + Serialize
-    + DeserializeOwned
-    + Send
+    Default + PartialEq + Clone + Debug + Serialize + DeserializeOwned + Send
 {
     type Field: CrudFieldNameTrait
         + CrudFieldValueTrait<Self>
@@ -300,13 +300,12 @@ pub trait CrudSelectableSource: Debug {
 }
 
 //#[typetag::serde(tag = "type")]
-pub trait CrudSelectableTrait: Debug + Display + DynClone{
+pub trait CrudSelectableTrait: Debug + Display + DynClone {
     fn as_any(&self) -> &dyn Any;
 }
 dyn_clone::clone_trait_object!(CrudSelectableTrait);
 
 pub trait Foo {
-
     fn as_any(&self) -> &dyn Any;
 }
 
@@ -314,17 +313,18 @@ pub trait Foo {
 // TODO: DEFERRED: Implement Serialize and Deserialize with typetag when wasm is supported in typetag. Comment in "typetag" occurrences.
 #[derive(Debug, Clone)]
 pub enum Value {
-    String(String), // TODO: Add optional string!
-    Text(String),   // TODO: Add optional text!
+    String(String),  // TODO: Add optional string!
+    Text(String),    // TODO: Add optional text!
     Json(JsonValue), // TODO: Add optional json value
     OptionalJson(Option<JsonValue>),
     UuidV4(uuid::Uuid), // TODO: Add optional UuidV4 value
     UuidV7(uuid::Uuid), // TODO: Add optional UuidV7 value
-    Ulid(ulid::Ulid), // TODO: Add optional Ulid value
+    Ulid(ulid::Ulid),   // TODO: Add optional Ulid value
     U32(u32),
     OptionalU32(Option<u32>),
     I32(i32),
     I64(i64),
+    OptionalI32(Option<i32>),
     OptionalI64(Option<i64>),
     F32(f32),
     Bool(bool),
@@ -467,6 +467,17 @@ impl Value {
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
+    pub fn take_optional_i32(self) -> Option<i32> {
+        match self {
+            Self::I32(value) => Some(value),
+            Self::OptionalI32(value) => value,
+            Self::String(string) => string
+                .parse::<i32>()
+                .map_err(|err| log::warn!("take_optional_i32 could not pase string: {err}"))
+                .ok(),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
     pub fn take_optional_i64(self) -> Option<i64> {
         match self {
             Self::I64(value) => Some(value),
@@ -578,7 +589,7 @@ impl Display for Value {
             Value::Json(value) => f.write_str(value.get_string_representation()),
             Value::OptionalJson(value) => match value {
                 Some(value) => f.write_str(value.get_string_representation()),
-                None => f.write_str("-")
+                None => f.write_str("-"),
             },
             Value::UuidV4(value) => f.write_str(&value.to_string()),
             Value::UuidV7(value) => f.write_str(&value.to_string()),
@@ -590,6 +601,10 @@ impl Display for Value {
             },
             Value::I32(value) => f.write_str(&value.to_string()),
             Value::I64(value) => f.write_str(&value.to_string()),
+            Value::OptionalI32(value) => match value {
+                Some(value) => f.write_str(&value.to_string()),
+                None => f.write_str("-"),
+            },
             Value::OptionalI64(value) => match value {
                 Some(value) => f.write_str(&value.to_string()),
                 None => f.write_str("-"),
@@ -608,10 +623,14 @@ impl Display for Value {
             },
             Value::NestedTable(id) => {
                 for field in id {
-                    f.write_fmt(format_args!("'{}': {:?}", field.dyn_name(), field.into_dyn_value()))?;
+                    f.write_fmt(format_args!(
+                        "'{}': {:?}",
+                        field.dyn_name(),
+                        field.into_dyn_value()
+                    ))?;
                 }
                 Ok(())
-            },
+            }
             Value::Custom(_) => f.write_str("Custom"),
             Value::Select(selected) => f.write_str(&selected.to_string()),
             Value::OptionalSelect(selected) => match selected {
@@ -652,6 +671,7 @@ impl Into<ConditionClauseValue> for Value {
             Value::OptionalU32(value) => todo!(),
             Value::I32(value) => ConditionClauseValue::I32(value),
             Value::I64(value) => ConditionClauseValue::I64(value),
+            Value::OptionalI32(value) => todo!(),
             Value::OptionalI64(value) => todo!(),
             Value::F32(value) => ConditionClauseValue::F32(value),
             Value::Bool(value) => ConditionClauseValue::Bool(value),
@@ -703,7 +723,6 @@ where
     Edit(UpdateId),
 }
 
-
 // TODO :PartialEq
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SerializableCrudView {
@@ -753,7 +772,7 @@ where
     }
 }
 
-impl <ReadId, UpdateId> Default for CrudView<ReadId, UpdateId>
+impl<ReadId, UpdateId> Default for CrudView<ReadId, UpdateId>
 where
     ReadId: Id + Serialize + DeserializeOwned,
     UpdateId: Id + Serialize + DeserializeOwned,
@@ -771,7 +790,10 @@ pub enum FieldMode {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum DeletableModel<ReadModel: CrudDataTrait + CrudIdTrait, UpdateModel: CrudDataTrait + CrudIdTrait> {
+pub enum DeletableModel<
+    ReadModel: CrudDataTrait + CrudIdTrait,
+    UpdateModel: CrudDataTrait + CrudIdTrait,
+> {
     Read(ReadModel),
     Update(UpdateModel),
 }
