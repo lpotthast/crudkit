@@ -4,6 +4,7 @@ use std::fmt::Debug;
 
 use chrono_utc_date_time::UtcDateTime;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 pub mod condition;
 pub mod error;
@@ -37,7 +38,7 @@ pub mod prelude {
 pub type UuidV4 = uuid::Uuid;
 pub type UuidV7 = uuid::Uuid;
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
 pub enum Order {
     #[serde(rename(
         serialize = "asc",
@@ -55,7 +56,7 @@ pub enum Order {
     Desc,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
 pub enum Value {
     String(String),
     Json(serde_json::Value),
@@ -72,7 +73,7 @@ pub enum Value {
 
 /// "ID-able" values. Values which might be part of an entities ID. All variants must implement `Eq` for proper comparability!
 /// This constraint excludes options like floats as parts of primary keys.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)]
 pub enum IdValue {
     String(String),
     UuidV4(uuid::Uuid),
@@ -115,20 +116,20 @@ impl id::IdFieldValue for IdValue {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, ToSchema, Serialize, Deserialize)]
 pub struct Saved<T> {
     pub entity: T,
     pub with_validation_errors: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, ToSchema, Serialize, Deserialize)]
 pub enum SaveResult<T> {
     Saved(Saved<T>),
     Aborted { reason: String },
     CriticalValidationErrors,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, ToSchema, Serialize, Deserialize)]
 pub enum DeleteResult {
     Deleted(u64),
     Aborted { reason: String },

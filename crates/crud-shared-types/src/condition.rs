@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::{IdValue, Value};
 
@@ -8,7 +9,7 @@ pub trait IntoAllEqualCondition {
     fn to_all_equal_condition(&self) -> Condition;
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
 pub enum Operator {
     #[serde(rename = "=")]
     Equal,
@@ -24,7 +25,7 @@ pub enum Operator {
     GreaterOrEqual,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
 pub struct ConditionClause {
     pub column_name: String,
     pub operator: Operator,
@@ -32,7 +33,7 @@ pub struct ConditionClause {
 }
 
 // TODO: Drop in favor of "Value" type
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ConditionClauseValue {
     String(String),
@@ -86,14 +87,14 @@ impl Into<ConditionClauseValue> for IdValue {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ConditionElement {
     Clause(ConditionClause),
     Condition(Box<Condition>),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Condition {
     All(Vec<ConditionElement>),
