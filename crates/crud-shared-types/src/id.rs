@@ -10,6 +10,7 @@ use crate::{
 };
 use dyn_clone::DynClone;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 //#[typetag::serde(tag = "type")]
 pub trait IdFieldValue: Debug {
@@ -71,7 +72,8 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)] // TODO: Serde passthrough?
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)] // TODO: Serde passthrough?
+#[schema(value_type = Vec<Object>)] // TODO: Move away from unnamed (String, IdValue) and towards a named key/value tuple.
 pub struct SerializableId(pub Vec<(String, IdValue)>);
 
 impl IntoAllEqualCondition for SerializableId {
