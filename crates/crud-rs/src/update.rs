@@ -1,25 +1,31 @@
-use crate::{prelude::*, validation::{into_persistable, ValidationTrigger, ValidationContext, CrudAction, When}};
+use crate::{
+    prelude::*,
+    validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
+};
 use crud_shared_types::{
-    validation::{PartialSerializableValidations},
-    ws_messages::{CrudWsMessage, EntityUpdated},
     condition::Condition,
-    error::CrudError, SaveResult, Saved, prelude::Id,
+    error::CrudError,
+    prelude::Id,
+    validation::PartialSerializableValidations,
+    ws_messages::{CrudWsMessage, EntityUpdated},
+    SaveResult, Saved,
 };
 use sea_orm::ActiveModelTrait;
 use serde::Deserialize;
-use std::{sync::Arc, collections::HashMap};
+use std::{collections::HashMap, sync::Arc};
+use utoipa::ToSchema;
 
-#[derive(Deserialize)]
-pub struct UpdateOne {
+#[derive(ToSchema, Deserialize)]
+pub struct UpdateOne<R: CrudResource> {
     pub condition: Option<Condition>,
-    pub entity: Box<serde_json::value::RawValue>,
+    pub entity: R::UpdateModel,
 }
 
 pub async fn update_one<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
     res_context: Arc<R::Context>,
-    body: UpdateOne,
+    body: UpdateOne<R>,
 ) -> Result<SaveResult<R::Model>, CrudError> {
     let model =
         build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
@@ -33,17 +39,12 @@ pub async fn update_one<R: CrudResource>(
         .map_err(|err| CrudError::DbError(err.to_string()))?
         .ok_or(CrudError::ReadOneFoundNone)?;
 
-    // Use the "UpdateModel" to deserialize the given JSON. Some not required members are allowed to be missing.
-    let update = serde_json::from_str::<R::UpdateModel>(body.entity.get()).map_err(|err| {
-        CrudError::UnableToParseAsEntity(body.entity.get().to_owned(), err.to_string())
-    })?;
-
     // Convert the model into an ActiveModel, allowing mutations.
     let mut active_model: R::ActiveModel = model.into();
 
     // TODO: beforeUpdate and afterUpdate with context res_context!
     // Update the persisted active_model!
-    active_model.update_with(update);
+    active_model.update_with(body.entity);
 
     // TODO: Just like model.get_id(), provide an active_model.get_id() implementation...?
     let entity_id = R::CrudColumn::get_id_active(&active_model)
@@ -66,9 +67,10 @@ pub async fn update_one<R: CrudResource>(
             partial_validation_results.has_violation_of_type(ValidationViolationType::Critical);
 
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
-        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([
-            (String::from(R::TYPE.into()), partial_validation_results.clone().into())
-        ]);
+        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([(
+            String::from(R::TYPE.into()),
+            partial_validation_results.clone().into(),
+        )]);
 
         controller.get_websocket_controller().broadcast_json(
             &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
@@ -92,19 +94,22 @@ pub async fn update_one<R: CrudResource>(
         match R::CrudColumn::get_id_active(&active_model) {
             Ok(id) => {
                 context
-                .validation_result_repository
-                .delete_all_for(&id)
-                .await;
-            },
+                    .validation_result_repository
+                    .delete_all_for(&id)
+                    .await;
+            }
             Err(err) => {
-                log::error!("Could not extract ID from active_model {active_model:?}. Error was: {err}")
-            },
+                log::error!(
+                    "Could not extract ID from active_model {active_model:?}. Error was: {err}"
+                )
+            }
         }
 
         // Inform the websocket listeners.
-        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([
-            (String::from(R::TYPE.into()), partial_validation_results.clone().into())
-        ]);
+        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([(
+            String::from(R::TYPE.into()),
+            partial_validation_results.clone().into(),
+        )]);
 
         controller.get_websocket_controller().broadcast_json(
             &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
@@ -124,7 +129,7 @@ pub async fn update_one<R: CrudResource>(
         .broadcast_json(&CrudWsMessage::EntityUpdated(EntityUpdated {
             aggregate_name: R::TYPE.into().to_owned(),
             entity_id: serializable_id,
-            with_validation_errors: has_violations
+            with_validation_errors: has_violations,
         }));
 
     // We read the entity again, to get an up-to-date instance of the "ReadModel".

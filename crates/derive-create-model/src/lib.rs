@@ -105,7 +105,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     });
 
     quote! {
-        #[derive(Debug, Clone, PartialEq, Deserialize)]
+        #[derive(Debug, Clone, PartialEq, utoipa::ToSchema, Deserialize)]
         pub struct CreateModel {
             #(#create_model_fields),*
         }

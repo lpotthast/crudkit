@@ -1,30 +1,34 @@
 use crate::{
+    lifetime::{Abort, CrudLifetime},
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
-    lifetime::{CrudLifetime, Abort}, GetIdFromModel,
+    GetIdFromModel,
 };
 use crud_shared_types::{
     prelude::*,
-    ws_messages::{CrudWsMessage, EntityDeleted}, validation::PartialSerializableValidations,
+    validation::PartialSerializableValidations,
+    ws_messages::{CrudWsMessage, EntityDeleted},
 };
 use indexmap::IndexMap;
 use sea_orm::ModelTrait;
 use serde::Deserialize;
-use std::{sync::Arc, collections::HashMap};
+use std::{collections::HashMap, sync::Arc};
+use utoipa::ToSchema;
 
-#[derive(Deserialize)]
+#[derive(ToSchema, Deserialize)]
 pub struct DeleteById {
     pub id: SerializableId,
 }
 
-#[derive(Deserialize)]
+#[derive(ToSchema, Deserialize)]
 pub struct DeleteOne<R: CrudResource> {
     pub skip: Option<u64>,
+    #[schema(value_type = Option<Object>, example = json!({"id": Order::Asc}))] // TODO: Better type definition including Column and Order types? Example not showing in UI...
     pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
     pub condition: Option<Condition>,
 }
 
-#[derive(Deserialize)]
+#[derive(ToSchema, Deserialize)]
 pub struct DeleteMany {
     pub condition: Option<Condition>,
 }
@@ -34,7 +38,7 @@ pub async fn delete_by_id<R: CrudResource>(
     context: Arc<CrudContext<R>>,
     res_context: Arc<R::Context>,
     body: DeleteById,
-) -> Result<DeleteResult, CrudError> { 
+) -> Result<DeleteResult, CrudError> {
     let select = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
         None,
         None,
@@ -51,14 +55,16 @@ pub async fn delete_by_id<R: CrudResource>(
     // TODO: Make sure that the user really has the right to delete this entry!!! Maybe an additional lifetime check?
 
     let hook_data = R::HookData::default();
-    let (abort, hook_data) = R::Lifetime::before_delete(&model, &res_context, hook_data).await.expect("before_create to no error");
+    let (abort, hook_data) = R::Lifetime::before_delete(&model, &res_context, hook_data)
+        .await
+        .expect("before_create to no error");
 
     if let Abort::Yes { reason } = abort {
-        return Ok(DeleteResult::Aborted { reason })
+        return Ok(DeleteResult::Aborted { reason });
     }
 
     let entity_id = model.get_id();
-        //.expect("Stored entity without an ID should be impossible!");
+    //.expect("Stored entity without an ID should be impossible!");
 
     let serializable_id = entity_id.into_serializable_id();
 
@@ -75,9 +81,10 @@ pub async fn delete_by_id<R: CrudResource>(
     if partial_validation_results.has_critical_violations() {
         // TODO: Only notify the user that issued THIS REQUEST!!!
 
-        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([
-            (String::from(R::TYPE.into()), partial_validation_results.clone().into())
-        ]);
+        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([(
+            String::from(R::TYPE.into()),
+            partial_validation_results.clone().into(),
+        )]);
 
         controller.get_websocket_controller().broadcast_json(
             &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
@@ -93,7 +100,6 @@ pub async fn delete_by_id<R: CrudResource>(
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;
 
-
     let _hook_data = R::Lifetime::after_delete(&cloned_model, &res_context, hook_data).await;
 
     // Deleting the entity could have introduced new validation errors in other parts ot the system.
@@ -102,7 +108,7 @@ pub async fn delete_by_id<R: CrudResource>(
     // All previous validations regarding this entity must be deleted!
     context
         .validation_result_repository
-        .delete_all_for(&entity_id) // String::from(R::TYPE.into()), 
+        .delete_all_for(&entity_id) // String::from(R::TYPE.into()),
         .await;
 
     // Inform all participants that the entity was deleted.
@@ -137,14 +143,16 @@ pub async fn delete_one<R: CrudResource>(
         .ok_or(CrudError::ReadOneFoundNone)?;
 
     let hook_data = R::HookData::default();
-    let (abort, hook_data) = R::Lifetime::before_delete(&model, &res_context, hook_data).await.expect("before_create to no error");
+    let (abort, hook_data) = R::Lifetime::before_delete(&model, &res_context, hook_data)
+        .await
+        .expect("before_create to no error");
 
     if let Abort::Yes { reason } = abort {
-        return Ok(DeleteResult::Aborted { reason })
+        return Ok(DeleteResult::Aborted { reason });
     }
 
     let entity_id = model.get_id();
-        //.expect("Stored entity without an ID should be impossible!");
+    //.expect("Stored entity without an ID should be impossible!");
 
     let serializable_id = entity_id.into_serializable_id();
 
@@ -161,9 +169,10 @@ pub async fn delete_one<R: CrudResource>(
     if partial_validation_results.has_critical_violations() {
         // TODO: Only notify the user that issued THIS REQUEST!!!
 
-        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([
-            (String::from(R::TYPE.into()), partial_validation_results.clone().into())
-        ]);
+        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([(
+            String::from(R::TYPE.into()),
+            partial_validation_results.clone().into(),
+        )]);
 
         controller.get_websocket_controller().broadcast_json(
             &CrudWsMessage::PartialValidationResult(partial_serializable_validations),

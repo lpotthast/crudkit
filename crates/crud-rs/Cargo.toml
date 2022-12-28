@@ -37,3 +37,4 @@ sea-orm = { version = "0.10", features = [
     "sqlx-postgres",
 ] }
 sea-query = { version = "0.28" }
+utoipa = "2.4"

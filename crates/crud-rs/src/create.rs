@@ -1,28 +1,33 @@
-use crate::{prelude::*, validation::{into_persistable, ValidationTrigger, ValidationContext, CrudAction, When}, lifetime::{CrudLifetime, Abort}, GetIdFromModel};
+use crate::{
+    lifetime::{Abort, CrudLifetime},
+    prelude::*,
+    validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
+    GetIdFromModel,
+};
 use crud_shared_types::{
+    error::CrudError,
+    id::Id,
     validation::PartialSerializableValidations,
     ws_messages::{CrudWsMessage, EntityCreated},
-    error::CrudError, SaveResult, Saved, id::Id,
+    SaveResult, Saved,
 };
 use serde::Deserialize;
-use std::{sync::Arc, collections::HashMap};
+use std::{collections::HashMap, sync::Arc};
+use utoipa::ToSchema;
 
-#[derive(Deserialize)]
-pub struct CreateOne {
-    pub entity: Box<serde_json::value::RawValue>,
+#[derive(ToSchema, Deserialize)]
+pub struct CreateOne<T> {
+    pub entity: T,
 }
 
 pub async fn create_one<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
     res_context: Arc<R::Context>,
-    body: CreateOne,
+    body: CreateOne<R::CreateModel>,
 ) -> Result<SaveResult<R::Model>, CrudError> {
-    let entity_json: &str = body.entity.get();
-
     // Use the "CreateModel" to deserialize the given JSON. Some not required members are allowed to be missing.
-    let create_model: R::CreateModel = serde_json::from_str::<R::CreateModel>(entity_json)
-        .map_err(|err| CrudError::UnableToParseAsEntity(entity_json.to_owned(), err.to_string()))?;
+    let create_model: R::CreateModel = body.entity;
 
     let create_model_clone = create_model.clone();
 
@@ -34,10 +39,17 @@ pub async fn create_one<R: CrudResource>(
     let mut active_model: R::ActiveModel = create_model.into_active_model().await;
 
     let hook_data = R::HookData::default();
-    let (abort, hook_data) = R::Lifetime::before_create(&create_model_clone, &mut active_model, &res_context, hook_data).await.expect("before_create to no error");
+    let (abort, hook_data) = R::Lifetime::before_create(
+        &create_model_clone,
+        &mut active_model,
+        &res_context,
+        hook_data,
+    )
+    .await
+    .expect("before_create to no error");
 
     if let Abort::Yes { reason } = abort {
-        return Ok(SaveResult::Aborted { reason })
+        return Ok(SaveResult::Aborted { reason });
     }
 
     // Run validations before inserting the entity. If critical violations are present, prevent the creation!
@@ -51,9 +63,10 @@ pub async fn create_one<R: CrudResource>(
     if partial_validation_results.has_critical_violations() {
         // TODO: Only notify the user that issued THIS REQUEST!!!
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
-        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([
-            (String::from(R::TYPE.into()), partial_validation_results.clone().into())
-        ]);
+        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([(
+            String::from(R::TYPE.into()),
+            partial_validation_results.clone().into(),
+        )]);
         controller.get_websocket_controller().broadcast_json(
             &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
         );
@@ -71,11 +84,16 @@ pub async fn create_one<R: CrudResource>(
         .await
         .map_err(|err| CrudError::DbError(err.to_string()))?;
 
-
-    let _hook_data = R::Lifetime::after_create(&create_model_clone, &inserted_entity, &res_context, hook_data).await;
+    let _hook_data = R::Lifetime::after_create(
+        &create_model_clone,
+        &inserted_entity,
+        &res_context,
+        hook_data,
+    )
+    .await;
 
     let entity_id = inserted_entity.get_id();
-        //.expect("Already inserted entities must have an ID!");
+    //.expect("Already inserted entities must have an ID!");
 
     let serializable_id = entity_id.into_serializable_id();
 
@@ -89,13 +107,17 @@ pub async fn create_one<R: CrudResource>(
     });
 
     // TODO: Validate using the model, not the active model? active_inserted_entity would then be obsolete!
-    let partial_validation_results = context.validator.validate_single(&active_inserted_entity, trigger);
+    let partial_validation_results = context
+        .validator
+        .validate_single(&active_inserted_entity, trigger);
     let with_validation_errors = partial_validation_results.has_violations();
     if with_validation_errors {
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
-        let mut partial_serializable_validations: PartialSerializableValidations = HashMap::from([
-            (String::from(R::TYPE.into()), partial_validation_results.clone().into())
-        ]);
+        let mut partial_serializable_validations: PartialSerializableValidations =
+            HashMap::from([(
+                String::from(R::TYPE.into()),
+                partial_validation_results.clone().into(),
+            )]);
 
         // We successfully created the entry at this point. To delete any leftover "create" violations in the frontend, set create to Some empty vector!
         partial_serializable_validations
@@ -104,9 +126,9 @@ pub async fn create_one<R: CrudResource>(
                 s.create = Some(Vec::new());
             });
 
-        controller
-            .get_websocket_controller()
-            .broadcast_json(&CrudWsMessage::PartialValidationResult(partial_serializable_validations));
+        controller.get_websocket_controller().broadcast_json(
+            &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
+        );
 
         // Persist the validation results for later access/use.
         let persistable = into_persistable(partial_validation_results);
