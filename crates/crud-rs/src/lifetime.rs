@@ -3,7 +3,7 @@ use utoipa::ToSchema;
 
 use crate::resource::CrudResource;
 
-#[derive(ToSchema, Debug)]
+#[derive(Debug, ToSchema)]
 pub enum Abort {
     Yes {
         reason: String,
@@ -54,6 +54,7 @@ pub trait CrudLifetime<R: CrudResource> {
     ) -> Result<R::HookData, String>;
 }
 
+#[derive(Debug)]
 pub struct NoopLifetimeHooks {}
 
 #[async_trait]

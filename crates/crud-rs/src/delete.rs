@@ -15,12 +15,12 @@ use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
 use utoipa::ToSchema;
 
-#[derive(ToSchema, Deserialize)]
+#[derive(Debug, ToSchema, Deserialize)]
 pub struct DeleteById {
     pub id: SerializableId,
 }
 
-#[derive(ToSchema, Deserialize)]
+#[derive(Debug, ToSchema, Deserialize)]
 pub struct DeleteOne<R: CrudResource> {
     pub skip: Option<u64>,
     #[schema(value_type = Option<Object>, example = json!({"id": Order::Asc}))] // TODO: Better type definition including Column and Order types? Example not showing in UI...
@@ -33,6 +33,7 @@ pub struct DeleteMany {
     pub condition: Option<Condition>,
 }
 
+#[tracing::instrument(level = "info", skip(controller, context, res_context))]
 pub async fn delete_by_id<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
@@ -123,6 +124,7 @@ pub async fn delete_by_id<R: CrudResource>(
     Ok(DeleteResult::Deleted(delete_result.rows_affected))
 }
 
+#[tracing::instrument(level = "info", skip(controller, context, res_context))]
 pub async fn delete_one<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,

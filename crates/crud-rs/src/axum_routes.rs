@@ -68,35 +68,35 @@ macro_rules! impl_add_crud_routes {
                     let resource: &'static str = <$resource_type as CrudResource>::TYPE.into();
 
                     let path = format!("{root}/{resource}/crud/read-count");
-                    log::debug!("Adding route: {}", path);
+                    tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(read_count));
 
                     let path = format!("{root}/{resource}/crud/read-one");
-                    log::debug!("Adding route: {}", path);
+                    tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(read_one));
 
                     let path = format!("{root}/{resource}/crud/read-many");
-                    log::debug!("Adding route: {}", path);
+                    tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(read_many));
 
                     let path = format!("{root}/{resource}/crud/create-one");
-                    log::debug!("Adding route: {}", path);
+                    tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(create_one));
 
                     let path = format!("{root}/{resource}/crud/update-one");
-                    log::debug!("Adding route: {}", path);
+                    tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(update_one));
 
                     let path = format!("{root}/{resource}/crud/delete-by-id");
-                    log::debug!("Adding route: {}", path);
+                    tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(delete_by_id));
 
                     let path = format!("{root}/{resource}/crud/delete-one");
-                    log::debug!("Adding route: {}", path);
+                    tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(delete_one));
 
                     let path = format!("{root}/{resource}/crud/delete-many");
-                    log::debug!("Adding route: {}", path);
+                    tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(delete_many));
 
                     router

@@ -15,11 +15,12 @@ use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
 use utoipa::ToSchema;
 
-#[derive(ToSchema, Deserialize)]
+#[derive(Debug, ToSchema, Deserialize)]
 pub struct CreateOne<T> {
     pub entity: T,
 }
 
+#[tracing::instrument(level = "info", skip(controller, context, res_context))]
 pub async fn create_one<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,

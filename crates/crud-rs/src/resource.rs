@@ -7,7 +7,7 @@ use sea_orm::{
 use serde::{de::DeserializeOwned, Serialize};
 use std::{fmt::Debug, hash::Hash};
 
-pub trait CrudResource: Sized {
+pub trait CrudResource: Sized + Debug {
     // The 'real' entity used when reading / querying entities. Might as well be a SQL view instead of a real table ;)
     type ReadViewEntity: EntityTrait<Model = Self::ReadViewModel, Column = Self::ReadViewColumn>
         + MaybeColumnTrait
@@ -42,6 +42,7 @@ pub trait CrudResource: Sized {
     type ReadViewColumn: ColumnTrait + Clone + Send + Sync + 'static;
 
     type ReadViewCrudColumn: CrudColumns<Self::ReadViewColumn, Self::ReadViewModel, Self::ReadViewActiveModel>
+        + Debug
         + Eq
         + Hash
         + DeserializeOwned
@@ -89,9 +90,10 @@ pub trait CrudResource: Sized {
         + Sync
         + 'static;
 
-    type Column: ColumnTrait + Clone + Send + Sync + 'static;
+    type Column: ColumnTrait + Debug + Clone + Send + Sync + 'static;
 
     type CrudColumn: CrudColumns<Self::Column, Self::Model, Self::ActiveModel, Id = Self::Id>
+        + Debug
         + Eq
         + Hash
         + DeserializeOwned

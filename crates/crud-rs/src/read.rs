@@ -6,12 +6,12 @@ use serde::Deserialize;
 use std::sync::Arc;
 use utoipa::ToSchema;
 
-#[derive(ToSchema, Deserialize)]
+#[derive(Debug, ToSchema, Deserialize)]
 pub struct ReadCount {
     pub condition: Option<Condition>,
 }
 
-#[derive(ToSchema, Deserialize)]
+#[derive(Debug, ToSchema, Deserialize)]
 pub struct ReadOne<R: CrudResource> {
     pub skip: Option<u64>,
     #[serde(bound = "")]
@@ -20,7 +20,7 @@ pub struct ReadOne<R: CrudResource> {
     pub condition: Option<Condition>,
 }
 
-#[derive(ToSchema, Deserialize)]
+#[derive(Debug, ToSchema, Deserialize)]
 pub struct ReadMany<R: CrudResource> {
     pub limit: Option<u64>,
     pub skip: Option<u64>,
@@ -30,6 +30,7 @@ pub struct ReadMany<R: CrudResource> {
     pub condition: Option<Condition>,
 }
 
+#[tracing::instrument(level = "info", skip(controller, _context))]
 pub async fn read_count<R: CrudResource>(
     controller: Arc<CrudController>,
     _context: Arc<CrudContext<R>>,
@@ -48,6 +49,7 @@ pub async fn read_count<R: CrudResource>(
     Ok(count)
 }
 
+#[tracing::instrument(level = "info", skip(controller, _context))]
 pub async fn read_one<R: CrudResource>(
     controller: Arc<CrudController>,
     _context: Arc<CrudContext<R>>,
@@ -68,6 +70,7 @@ pub async fn read_one<R: CrudResource>(
     Ok(data)
 }
 
+#[tracing::instrument(level = "info", skip(controller, _context))]
 pub async fn read_many<R: CrudResource>(
     controller: Arc<CrudController>,
     _context: Arc<CrudContext<R>>,

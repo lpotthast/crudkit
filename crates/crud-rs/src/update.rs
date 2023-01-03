@@ -12,15 +12,17 @@ use crud_shared_types::{
 };
 use sea_orm::ActiveModelTrait;
 use serde::Deserialize;
+use tracing::error;
 use std::{collections::HashMap, sync::Arc};
 use utoipa::ToSchema;
 
-#[derive(ToSchema, Deserialize)]
+#[derive(Debug, ToSchema, Deserialize)]
 pub struct UpdateOne<R: CrudResource> {
     pub condition: Option<Condition>,
     pub entity: R::UpdateModel,
 }
 
+#[tracing::instrument(level = "info", skip(controller, context, res_context))]
 pub async fn update_one<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
@@ -99,7 +101,7 @@ pub async fn update_one<R: CrudResource>(
                     .await;
             }
             Err(err) => {
-                log::error!(
+                error!(
                     "Could not extract ID from active_model {active_model:?}. Error was: {err}"
                 )
             }
