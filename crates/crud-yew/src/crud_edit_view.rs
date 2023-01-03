@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crud_shared_types::{SaveResult, Saved, condition::IntoAllEqualCondition};
 use gloo::timers::callback::Interval;
+use tracing::{info, warn};
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,
@@ -300,12 +301,12 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                             ctx.props().on_entity_update_aborted.emit(reason);
                         }
                         SaveResult::CriticalValidationErrors => {
-                            log::info!("Entity was not updated due to critical validation errors.");
+                            info!("Entity was not updated due to critical validation errors.");
                             ctx.props().on_entity_not_updated_critical_errors.emit(());
                         }
                     },
                     Err(err) => {
-                        log::warn!(
+                        warn!(
                             "Could not update entity due to RequestError: {}",
                             err.to_string()
                         );
@@ -341,7 +342,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
             Msg::Delete => {
                 match &self.entity {
                     Ok(entity) => ctx.props().on_delete.emit(entity.clone()),
-                    Err(_) => log::warn!(
+                    Err(_) => warn!(
                         "Cannot issue a delete event, as not entity is currently loaded!"
                     ),
                 }

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use yewdux::{prelude::*, storage};
+use tracing::error;
 
 use crate::SerializableCrudView;
 
@@ -36,7 +37,7 @@ impl Store for InstanceViewsStore {
         storage::load(storage::Area::Local)
             .map_err(|error| {
                 // TODO: Erase from local store
-                log::error!("Unable to load state due to StorageError: {}", error);
+                error!("Unable to load state due to StorageError: {}", error);
             })
             .ok()
             .flatten()

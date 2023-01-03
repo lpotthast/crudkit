@@ -1,3 +1,4 @@
+use tracing::info;
 use yew::prelude::*;
 
 use chrono_utc_date_time::UtcDateTime;
@@ -202,7 +203,7 @@ impl Component for CrudDatetime {
                 true
             }
             Msg::UpdateValue(value) => {
-                log::info!("received new value {:?}", value);
+                info!("received new value {:?}", value);
                 self.value = Some(value);
                 if let Some(onchange) = &ctx.props().onchange {
                     onchange.emit(self.value.clone());

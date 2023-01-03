@@ -3,6 +3,7 @@ use chrono_utc_date_time::prelude::*;
 use crud_shared_types::{id::SerializableId, prelude::*};
 use dyn_clone::DynClone;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use tracing::warn;
 use std::{
     any::Any,
     fmt::{Debug, Display},
@@ -473,7 +474,7 @@ impl Value {
             Self::OptionalI32(value) => value,
             Self::String(string) => string
                 .parse::<i32>()
-                .map_err(|err| log::warn!("take_optional_i32 could not pase string: {err}"))
+                .map_err(|err| warn!("take_optional_i32 could not pase string: {err}"))
                 .ok(),
             other => panic!("unsupported type provided: {other:?} "),
         }
@@ -484,7 +485,7 @@ impl Value {
             Self::OptionalI64(value) => value,
             Self::String(string) => string
                 .parse::<i64>()
-                .map_err(|err| log::warn!("take_optional_i64 could not pase string: {err}"))
+                .map_err(|err| warn!("take_optional_i64 could not pase string: {err}"))
                 .ok(),
             other => panic!("unsupported type provided: {other:?} "),
         }

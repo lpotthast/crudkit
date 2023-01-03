@@ -1,3 +1,4 @@
+use tracing::error;
 use yew::{html::Scope, prelude::*};
 
 use crate::{
@@ -64,12 +65,12 @@ impl Component for CrudImageGallery {
                 match result {
                     Ok(files) => {
                         if let Some(err) = files.error {
-                            log::error!("Could not list files: {:?}", err);
+                            error!("Could not list files: {:?}", err);
                         } else {
                             self.resources = files.files;
                         }
                     }
-                    Err(err) => log::error!("Could not list files: {}", err),
+                    Err(err) => error!("Could not list files: {}", err),
                 }
                 true
             }

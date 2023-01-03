@@ -2,6 +2,7 @@ use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::{DeleteResult, Order, Saved, condition::Condition, condition::ConditionClause, condition::ConditionElement, id::SerializableId, prelude::Id};
 use indexmap::{IndexMap, indexmap};
 use serde::{Deserialize, Serialize};
+use tracing::{info, warn, error};
 use std::rc::Rc;
 use uuid::Uuid;
 use yew::{
@@ -462,13 +463,13 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             true
                         }
                         None => {
-                            log::info!("no parent config");
-                            log::warn!("does .instance_views_store.get(nested.parent_instance.as_str()) work correctly now that we have a generic store?");
+                            info!("no parent config");
+                            warn!("does .instance_views_store.get(nested.parent_instance.as_str()) work correctly now that we have a generic store?");
                             false
                         }
                     }
                 } else {
-                    // log::info!("not nested");
+                    // info!("not nested");
                     false
                 }
             }
@@ -477,7 +478,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 false
             }
             Msg::EntityAction((action, _entity)) => {
-                log::warn!(
+                warn!(
                     "Received action {:?} but no handler was specified for it!",
                     action
                 );
@@ -705,7 +706,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             Msg::Deleted(data_provider.delete_by_id(DeleteById { id: serializable_id }).await)
                         });
                     },
-                    None => log::warn!("Delete was approved, but instance already lost track of the 'entity_to_delete'!"),
+                    None => warn!("Delete was approved, but instance already lost track of the 'entity_to_delete'!"),
                 }
                 false
             }
@@ -737,7 +738,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                                         match &self.config.view {
                                             CrudView::Read(id) => {
                                                 // TODO: We cannot do anything here as the UpdateModel cannot be converted into the ReadModel and the ReadModelId cannot be converted into an UpdateModelId...
-                                                log::warn!("possibly needs implementation... crud_instance#Msg::Deleted handler");
+                                                warn!("possibly needs implementation... crud_instance#Msg::Deleted handler");
                                             }
                                             CrudView::Edit(id) => {
                                                 if id == &update_model.get_id() {
@@ -772,7 +773,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             false
                         }
                         DeleteResult::CriticalValidationErrors => {
-                            log::warn!("Server did not respond with an error but also did not send the deleted entity back. Something seems wrong..");
+                            warn!("Server did not respond with an error but also did not send the deleted entity back. Something seems wrong..");
                             false
                         }
                     },
@@ -780,7 +781,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                         // TODO: Make this error visible in the (still opened) modal window.
                         // Let the user decide what to do.
                         // The user can always click cancel to leave the modal without potential for errors.
-                        log::warn!(
+                        warn!(
                             "Server was unable to delete entity {:?}. Reason: {}",
                             self.entity_to_delete,
                             err
@@ -810,7 +811,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 false
             }
             Msg::SaveInput((field, value)) => {
-                // log::info!(
+                // info!(
                 //     "CrudInstance saving value '{:?}' for field '{:?}'",
                 //     value,
                 //     field
@@ -818,7 +819,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 if let Some(view_link) = &self.view_link {
                     match view_link {
                         ViewLink::List(_link) => {
-                            log::warn!("Ignoring 'SaveInput' message as we are currently in the list view, which is unable to save any user inputs.");
+                            warn!("Ignoring 'SaveInput' message as we are currently in the list view, which is unable to save any user inputs.");
                         }
                         ViewLink::Create(link) => match field {
                             CreateOrUpdateField::CreateField(field) => {
@@ -838,7 +839,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                         },
                         ViewLink::Edit(link) => match field {
                             CreateOrUpdateField::CreateField(field) => {
-                                log::error!("CrudInstance: Cannot 'SaveInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'EditModel' field for this view.")
+                                error!("CrudInstance: Cannot 'SaveInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'EditModel' field for this view.")
                             }
                             CreateOrUpdateField::UpdateField(field) => {
                                 link.send_message(
@@ -849,11 +850,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             }
                         },
                         ViewLink::Read(_link) => {
-                            log::warn!("Ignoring 'SaveInput' message as we are currently in the read view, which is unable to save any user inputs.");
+                            warn!("Ignoring 'SaveInput' message as we are currently in the read view, which is unable to save any user inputs.");
                         }
                     }
                 } else {
-                    log::warn!("Could not forward SaveInput message, as no view link was registered in instance {:?}.", self.config);
+                    warn!("Could not forward SaveInput message, as no view link was registered in instance {:?}.", self.config);
                 }
                 false
             }
@@ -861,7 +862,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 if let Some(view_link) = &self.view_link {
                     match view_link {
                         ViewLink::List(_link) => {
-                            log::warn!("Ignoring 'GetInput' message as we are currently in the list view, which is unable to retrieve any user inputs.");
+                            warn!("Ignoring 'GetInput' message as we are currently in the list view, which is unable to retrieve any user inputs.");
                         }
                         ViewLink::Create(link) => match field {
                             CreateOrUpdateField::CreateField(field) => {
@@ -881,7 +882,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                         },
                         ViewLink::Edit(link) => match field {
                             CreateOrUpdateField::CreateField(field) => {
-                                log::error!("CrudInstance: Cannot 'GetInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'EditModel' field for this view.")
+                                error!("CrudInstance: Cannot 'GetInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'EditModel' field for this view.")
                             }
                             CreateOrUpdateField::UpdateField(field) => {
                                 link.send_message(
@@ -893,11 +894,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             }
                         },
                         ViewLink::Read(_link) => {
-                            log::warn!("Ignoring 'GetInput' message as we are currently in the read view, which is unable to retrieve any user inputs.");
+                            warn!("Ignoring 'GetInput' message as we are currently in the read view, which is unable to retrieve any user inputs.");
                         }
                     }
                 } else {
-                    log::warn!("Could not forward GetInput message, as neither a create view nor an edit view registered.");
+                    warn!("Could not forward GetInput message, as neither a create view nor an edit view registered.");
                 }
                 false
             }

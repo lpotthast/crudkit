@@ -1,3 +1,4 @@
+use tracing::{error, warn};
 use uuid::Uuid;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
@@ -133,7 +134,7 @@ impl Component for CrudQuickSearch {
                         true
                     }
                     Err(err) => {
-                        log::error!("Could not get input value: {}", err);
+                        error!("Could not get input value: {}", err);
                         false
                     }
                 },
@@ -145,7 +146,7 @@ impl Component for CrudQuickSearch {
                         true
                     }
                     Err(err) => {
-                        log::error!("Could not get input value: {}", err);
+                        error!("Could not get input value: {}", err);
                         false
                     }
                 }
@@ -216,13 +217,13 @@ impl Component for CrudQuickSearch {
                 if let Some(input) = gloo::utils::document().get_element_by_id(&self.input_id) {
                     match input.unchecked_into::<HtmlElement>().focus() {
                         Ok(_) => {}
-                        Err(_) => log::warn!(
+                        Err(_) => warn!(
                             "Could not set focus to input element with id '{}'",
                             self.input_id
                         ),
                     }
                 } else {
-                    log::warn!("Did not find element with id '{}'", self.input_id);
+                    warn!("Did not find element with id '{}'", self.input_id);
                 }
                 false
             }

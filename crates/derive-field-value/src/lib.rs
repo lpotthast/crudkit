@@ -173,13 +173,13 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::OneToOneRelation => quote! { value.take_one_to_one_relation() },
             ValueType::NestedTable => {
                 quote! { {
-                    log::warn!("Setting a nested table dummy field is not allowed");
+                    tracing::warn!("Setting a nested table dummy field is not allowed");
                     // implicitly returns `()`
                 } }
             }
             ValueType::Custom => {
                 quote! { {
-                    log::warn!("Setting a custom field is not allowed");
+                    tracing::warn!("Setting a custom field is not allowed");
                     // implicitly returns `()`
                 } }
             }

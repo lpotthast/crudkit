@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use log::error;
+use tracing::error;
 use serde::{Deserialize, Serialize};
 use yewdux::{prelude::*, storage};
 

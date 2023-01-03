@@ -1,4 +1,4 @@
-use log::error;
+use tracing::error;
 use serde::Deserialize;
 use wasm_bindgen::prelude::Closure;
 
@@ -72,7 +72,7 @@ pub fn get_html(id: String) -> String {
         Some(string) => string,
         None => {
             error!(
-                "JS function initKeycloak returned {:?}, which was not of the expected type: bool",
+                "JS function getHTML returned {:?}, which was not of the expected type: String",
                 value
             );
             "error".to_owned()

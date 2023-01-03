@@ -6,6 +6,7 @@ use crate::{
 
 use super::prelude::*;
 use chrono_utc_date_time::UtcDateTime;
+use tracing::error;
 use uuid::Uuid;
 use yew::{html::ChildrenRenderer, prelude::*};
 use yewbi::Bi;
@@ -78,7 +79,7 @@ impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
                 false
             }
             Msg::LogInputRetrievalErr(err) => {
-                log::error!("Could not get input value: {}", err);
+                error!("Could not get input value: {}", err);
                 false
             }
         }

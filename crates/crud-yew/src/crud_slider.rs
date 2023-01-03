@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::event_functions::MouseEventFunctions;
-use log::{trace, warn};
+use tracing::{trace, warn};
 use uuid::Uuid;
 use yew::prelude::*;
 use yewdux::prelude::*;

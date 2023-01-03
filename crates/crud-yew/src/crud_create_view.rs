@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crud_shared_types::{SaveResult, Saved, id::SerializableId};
+use tracing::{info, error};
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,
@@ -181,9 +182,9 @@ fn default_create_model<T: CrudMainTrait + 'static>(
 
             T::CreateModel::get_field(nested.reference_field.as_str())
                 .set_value(&mut entity, value.clone().into());
-            log::info!("successfully set parent id to reference field");
+            info!("successfully set parent id to reference field");
         } else {
-            log::error!("CrudInstance is configured to be a nested instance but no parent id was passed down!");
+            error!("CrudInstance is configured to be a nested instance but no parent id was passed down!");
         }
     }
     entity
@@ -201,9 +202,9 @@ fn default_update_model<T: CrudMainTrait + 'static>(
 
             T::UpdateModel::get_field(nested.reference_field.as_str())
                 .set_value(&mut entity, value.clone().into());
-            log::info!("successfully set parent id to reference field");
+            info!("successfully set parent id to reference field");
         } else {
-            log::error!("CrudInstance is configured to be a nested instance but no parent id was passed down!");
+            error!("CrudInstance is configured to be a nested instance but no parent id was passed down!");
         }
     }
     entity
@@ -335,12 +336,12 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                             ctx.props().on_entity_creation_aborted.emit(reason);
                         }
                         SaveResult::CriticalValidationErrors => {
-                            log::info!("Entity was not created due to critical validation errors.");
+                            info!("Entity was not created due to critical validation errors.");
                             ctx.props().on_entity_not_created_critical_errors.emit(());
                         }
                     },
                     Err(reason) => {
-                        log::error!("Entity creation failed: {:?}", reason);
+                        error!("Entity creation failed: {:?}", reason);
                         ctx.props().on_entity_creation_failed.emit(reason.clone());
                     }
                 }

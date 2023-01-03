@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use crate::{crud_instance::CreateOrUpdateField, crud_select::Selection, prelude::*};
 use crud_shared_types::condition::{Condition, ConditionClause, ConditionElement};
+use tracing::warn;
 use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
 
@@ -74,11 +75,11 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> CrudRelatedField<P,
                     Err(_) => Selection::None,
                 }
             } else {
-                //log::info!("data not yet loaded");
+                //info!("data not yet loaded");
                 Selection::None
             }
         } else {
-            //log::info!("current_field_value is not set");
+            //info!("current_field_value is not set");
             Selection::None
         };
     }
@@ -208,7 +209,7 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> Component for CrudR
                 match store.get(ctx.props().parent_instance.as_str()) {
                     Some(parent_view) => match parent_view {
                         SerializableCrudView::List | SerializableCrudView::Create => {
-                            log::warn!("Cannot show this field in List or Create view...");
+                            warn!("Cannot show this field in List or Create view...");
                         }
                         SerializableCrudView::Read(id) | SerializableCrudView::Edit(id) => {
                             let mut data_provider: CrudRestDataProvider<T> =
@@ -251,7 +252,7 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> Component for CrudR
                 false
             }
             Msg::CurrentValue(value) => {
-                //log::info!("Received current value: {:?}", value);
+                //info!("Received current value: {:?}", value);
                 self.current_field_value = Some(value);
                 self.compute_selected(ctx);
                 true
@@ -271,7 +272,7 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> Component for CrudR
                                 ctx.props().connect_field.get_value(&entity)
                             }
                             Selection::Multiple(_entities) => {
-                                log::warn!("TODO: needs implementation...");
+                                warn!("TODO: needs implementation...");
                                 Value::OneToOneRelation(None)
                             }
                         };
@@ -282,7 +283,7 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> Component for CrudR
                         )));
                     }
                     None => {
-                        log::warn!(
+                        warn!(
                             "Selection changed to {:?} but parent link was not yet resolved...",
                             selected
                         );

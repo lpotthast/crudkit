@@ -1,4 +1,5 @@
 use crate::{js_tiptap::State, prelude::*, types::files::FileResource};
+use tracing::error;
 use wasm_bindgen::prelude::Closure;
 use yew::prelude::*;
 use yewbi::Bi;
@@ -73,7 +74,7 @@ impl Component for CrudTipTapEditor {
                 self.state = match js_tiptap::get_state(ctx.props().id.clone()) {
                     Ok(state) => state,
                     Err(err) => {
-                        log::error!("Could not parse JsValue as TipTap state. Deserialization error: '{err}'. Falling back to default state.");
+                        error!("Could not parse JsValue as TipTap state. Deserialization error: '{err}'. Falling back to default state.");
                         Default::default()
                     }
                 };
@@ -86,7 +87,7 @@ impl Component for CrudTipTapEditor {
                 self.state = match js_tiptap::get_state(ctx.props().id.clone()) {
                     Ok(state) => state,
                     Err(err) => {
-                        log::error!("Could not parse JsValue as TipTap state. Deserialization error: '{err}'. Falling back to default state.");
+                        error!("Could not parse JsValue as TipTap state. Deserialization error: '{err}'. Falling back to default state.");
                         Default::default()
                     }
                 };

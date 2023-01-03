@@ -3,6 +3,7 @@ use std::{marker::PhantomData, rc::Rc};
 use crate::{
     crud_instance::CreateOrUpdateField, crud_select::Selection, prelude::*, CrudSelectableSource,
 };
+use tracing::{info, warn};
 use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
 
@@ -86,7 +87,7 @@ where
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::SourcesLoaded(result) => {
-                log::info!("loaded results");
+                info!("loaded results");
                 self.source.set_selectable(result.expect("error loading selectables..."));
                 // Selectable options are now available.
                 true
@@ -169,7 +170,7 @@ where
                         )));
                     }
                     None => {
-                        log::warn!("Selection changed to {selection:?} but parent link was not yet resolved...",);
+                        warn!("Selection changed to {selection:?} but parent link was not yet resolved...",);
                     }
                 }
                 false
