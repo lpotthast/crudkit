@@ -235,13 +235,13 @@ dependencies = [
  "indexmap",
  "js-sys",
  "lazy_static",
- "log",
  "parking_lot",
  "reqwest",
  "serde",
  "serde-wasm-bindgen 0.4.5",
  "serde_json",
  "thiserror",
+ "tracing",
  "ulid",
  "urlencoding",
  "uuid 1.2.2",
@@ -2139,7 +2139,7 @@ dependencies = [
 [[package]]
 name = "yew"
 version = "0.20.0"
-source = "git+https://github.com/yewstack/yew#38e2478d9a2b7a251f6fd068675618326d18fd5a"
+source = "git+https://github.com/yewstack/yew#919695f5ef8df7a54d828295e58a85dbc5cdda52"
 dependencies = [
  "console_error_panic_hook",
  "futures",
@@ -2163,7 +2163,7 @@ dependencies = [
 [[package]]
 name = "yew-macro"
 version = "0.20.0"
-source = "git+https://github.com/yewstack/yew#38e2478d9a2b7a251f6fd068675618326d18fd5a"
+source = "git+https://github.com/yewstack/yew#919695f5ef8df7a54d828295e58a85dbc5cdda52"
 dependencies = [
  "boolinator",
  "once_cell",
