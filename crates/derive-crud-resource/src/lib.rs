@@ -14,7 +14,7 @@ fn strip_quotes(string: Option<String>) -> Option<String> {
 struct Args {
     resource_name: String,
     #[darling(map = "strip_quotes")]
-    action_payload: Option<String>,
+    action_payload: Option<String>, // TODO: Do not require quotes to begin with... require an ident
 }
 
 #[proc_macro_derive(CrudResource, attributes(crud))]
