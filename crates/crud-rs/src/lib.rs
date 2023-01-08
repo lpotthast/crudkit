@@ -136,7 +136,7 @@ pub trait UpdateActiveModelTrait<UpdateModel> {
 }
 
 pub trait AsColType {
-    fn as_col_type(&self, string: ConditionClauseValue) -> Result<Value, String>;
+    fn as_col_type(&self, condition_clause_value: ConditionClauseValue) -> Result<Value, String>;
 }
 
 pub fn parse<T>(string: &str) -> Result<T, String>
@@ -157,9 +157,10 @@ pub trait MaybeColumnTrait {
 pub fn to_i32(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
         ConditionClauseValue::I32(num) => Ok(Value::I32(num)),
+        ConditionClauseValue::I32Vec(numbers) => Ok(Value::I32Vec(numbers)),
         ConditionClauseValue::String(string) => parse::<i32>(&string).map(Value::I32),
         _ => Err(format!(
-            "{value:?} can not be converted to an i32. Expected i32 or String."
+            "{value:?} can not be converted to an i32 or Vec<i32>. Expected i32 or Vec<i32> or String."
         )),
     }
 }

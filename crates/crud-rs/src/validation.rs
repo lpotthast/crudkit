@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use crud_shared_types::{validation::{
-    EntityViolations, ValidationViolation, ValidatorInfo,
-    Violations, OwnedValidatorInfo,
-}, id::Id};
+use crud_shared_types::{
+    id::Id,
+    validation::{
+        EntityViolations, OwnedValidatorInfo, ValidationViolation, ValidatorInfo, Violations,
+    },
+};
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 
@@ -46,16 +48,34 @@ pub trait AggregateValidator {
 
 // TODO: delete?
 pub trait EntityValidatorTrait<R: CrudResource> {
-    fn validate_single(&self, entity: &R::ActiveModel, trigger: ValidationTrigger) -> EntityViolations<R::Id>;
-    fn validate_updated(&self, old: &R::ActiveModel, new: &R::ActiveModel, trigger: ValidationTrigger) -> EntityViolations<R::Id>;
+    fn validate_single(
+        &self,
+        entity: &R::ActiveModel,
+        trigger: ValidationTrigger,
+    ) -> EntityViolations<R::Id>;
+    fn validate_updated(
+        &self,
+        old: &R::ActiveModel,
+        new: &R::ActiveModel,
+        trigger: ValidationTrigger,
+    ) -> EntityViolations<R::Id>;
 
     fn get_name(&self) -> &'static str;
     fn get_version(&self) -> u32;
 }
 
 pub trait EntityValidatorsTrait<R: CrudResource> {
-    fn validate_single(&self, entity: &R::ActiveModel, trigger: ValidationTrigger) -> EntityViolations<R::Id>;
-    fn validate_updated(&self, old: &R::ActiveModel, new: &R::ActiveModel, trigger: ValidationTrigger) -> EntityViolations<R::Id>;
+    fn validate_single(
+        &self,
+        entity: &R::ActiveModel,
+        trigger: ValidationTrigger,
+    ) -> EntityViolations<R::Id>;
+    fn validate_updated(
+        &self,
+        old: &R::ActiveModel,
+        new: &R::ActiveModel,
+        trigger: ValidationTrigger,
+    ) -> EntityViolations<R::Id>;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize, EnumIter, DeriveActiveEnum)]
@@ -122,7 +142,10 @@ impl<I: Id> EntityValidationsExt for EntityViolations<I> {
 pub trait ValidationResultSaverTrait<I: Id> {
     async fn delete_all_for(&self, entity_id: &I);
 
-    async fn save_all(&self, validation_results: HashMap<I, HashMap<ValidatorInfo, Vec<PersistableViolation>>>);
+    async fn save_all(
+        &self,
+        validation_results: HashMap<I, HashMap<ValidatorInfo, Vec<PersistableViolation>>>,
+    );
 
     async fn list_all(&self) -> HashMap<I, HashMap<OwnedValidatorInfo, Vec<ValidationViolation>>>;
 }
@@ -135,7 +158,9 @@ pub struct PersistableViolation {
 /// Removes critical validations and validations without an id.
 /// TODO: Add test
 /// TODO: Convert SerializableId to String right here, not later
-pub fn into_persistable<I: Id>(data: EntityViolations<I>) -> HashMap<I, HashMap<ValidatorInfo, Vec<PersistableViolation>>> {
+pub fn into_persistable<I: Id>(
+    data: EntityViolations<I>,
+) -> HashMap<I, HashMap<ValidatorInfo, Vec<PersistableViolation>>> {
     let mut entity_violations = HashMap::with_capacity(data.entity_violations.len());
     for (entity_id, validators) in data.entity_violations {
         if let Some(entity_id) = entity_id {
@@ -179,5 +204,24 @@ impl<R: CrudResource> EntityValidatorsTrait<R> for AlwaysValidValidator {
         _trigger: ValidationTrigger,
     ) -> EntityViolations<R::Id> {
         EntityViolations::empty()
+    }
+}
+
+pub struct NoopValidationResultRepository {}
+
+#[async_trait]
+impl<I: Id + Clone + Send + Sync + 'static> ValidationResultSaverTrait<I>
+    for NoopValidationResultRepository
+{
+    async fn delete_all_for(&self, _entity_id: &I) {}
+
+    async fn save_all(
+        &self,
+        _validation_results: HashMap<I, HashMap<ValidatorInfo, Vec<PersistableViolation>>>,
+    ) {
+    }
+
+    async fn list_all(&self) -> HashMap<I, HashMap<OwnedValidatorInfo, Vec<ValidationViolation>>> {
+        HashMap::new()
     }
 }

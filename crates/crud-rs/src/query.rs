@@ -6,8 +6,8 @@ use crud_shared_types::{
 };
 use indexmap::IndexMap;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DeleteMany, EntityTrait, FromQueryResult, Insert, QueryFilter,
-    QueryOrder, QuerySelect, Select, ModelTrait,
+    ActiveModelTrait, ColumnTrait, DeleteMany, EntityTrait, FromQueryResult, Insert, ModelTrait,
+    QueryFilter, QueryOrder, QuerySelect, Select,
 };
 use serde::de::DeserializeOwned;
 use std::hash::Hash;
@@ -150,6 +150,9 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
                                 Value::I32(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }
+                                Value::I32Vec(values) => {
+                                    tree = add_condition_iterable(tree, col, clause.operator, values)
+                                }
                                 Value::I64(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }
@@ -201,5 +204,28 @@ where
         Operator::LessOrEqual => tree.add(col.lte(val)),
         Operator::Greater => tree.add(col.gt(val)),
         Operator::GreaterOrEqual => tree.add(col.gte(val)),
+        Operator::IsIn => panic!("This is a bug. Should have called add_condition_iterable!"),
+    }
+}
+
+fn add_condition_iterable<C, T>(
+    tree: sea_orm::sea_query::Condition,
+    col: C,
+    operator: Operator,
+    val: T,
+) -> sea_orm::sea_query::Condition
+where
+    C: ColumnTrait,
+    T: IntoIterator,
+    sea_orm::Value: From<<T as IntoIterator>::Item>,
+{
+    match operator {
+        Operator::Equal => panic!("This is a bug. Should have called add_condition!"),
+        Operator::NotEqual => panic!("This is a bug. Should have called add_condition!"),
+        Operator::Less => panic!("This is a bug. Should have called add_condition!"),
+        Operator::LessOrEqual => panic!("This is a bug. Should have called add_condition!"),
+        Operator::Greater => panic!("This is a bug. Should have called add_condition!"),
+        Operator::GreaterOrEqual => panic!("This is a bug. Should have called add_condition!"),
+        Operator::IsIn => tree.add(col.is_in(val)),
     }
 }
