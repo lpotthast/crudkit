@@ -64,6 +64,7 @@ pub enum Value {
     UuidV7(uuid::Uuid),
     Ulid(ulid::Ulid),
     I32(i32),
+    I32Vec(Vec<i32>),
     I64(i64),
     U32(u32),
     F32(f32),

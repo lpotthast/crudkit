@@ -23,6 +23,8 @@ pub enum Operator {
     Greater,
     #[serde(rename = ">=")]
     GreaterOrEqual,
+    #[serde(rename = "is_in")]
+    IsIn,
 }
 
 #[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
@@ -51,6 +53,7 @@ pub enum ConditionClauseValue {
     U64(u64),
     F32(f32),
     F64(f64),
+    I32Vec(Vec<i32>),
     //DateTime(chrono::NaiveDateTime), // TODO: Use UtcDateTime instead for consistency?
 }
 
@@ -63,6 +66,7 @@ impl Into<ConditionClauseValue> for Value {
             Value::UuidV7(value) => ConditionClauseValue::UuidV7(value),
             Value::Ulid(value) => ConditionClauseValue::Ulid(value),
             Value::I32(value) => ConditionClauseValue::I32(value),
+            Value::I32Vec(values) => ConditionClauseValue::I32Vec(values),
             Value::I64(value) => ConditionClauseValue::I64(value),
             Value::U32(value) => ConditionClauseValue::U32(value),
             Value::F32(value) => ConditionClauseValue::F32(value),
