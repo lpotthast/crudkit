@@ -393,6 +393,7 @@ impl Into<Value> for crud_shared_types::Value {
             crud_shared_types::Value::UuidV7(value) => Value::UuidV7(value),
             crud_shared_types::Value::Ulid(value) => Value::Ulid(value),
             crud_shared_types::Value::I32(value) => Value::I32(value),
+            crud_shared_types::Value::I32Vec(_values) => todo!("support vector types"),
             crud_shared_types::Value::I64(value) => Value::I64(value),
             crud_shared_types::Value::U32(value) => Value::U32(value),
             crud_shared_types::Value::F32(value) => Value::F32(value),

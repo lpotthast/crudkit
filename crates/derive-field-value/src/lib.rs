@@ -140,52 +140,46 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         // An expression that, given a `value`, constructs the necessary data type value to be assigned to the field.
         let take_op = match field.value_type() {
-            ValueType::String => quote! { value.take_string() },
-            ValueType::Text => quote! { value.take_string() },
-            ValueType::Json => quote! { value.take_inner_json_value() },
-            ValueType::OptionalText => quote! { std::option::Option::Some(value.take_string()) },
+            ValueType::String => quote! { entity.#field_ident = value.take_string() },
+            ValueType::Text => quote! { entity.#field_ident = value.take_string() },
+            ValueType::Json => quote! { entity.#field_ident = value.take_inner_json_value() },
+            ValueType::OptionalText => quote! { entity.#field_ident = std::option::Option::Some(value.take_string()) },
             // TODO: value should contain Option. do not force Some type...
-            ValueType::OptionalString => quote! { std::option::Option::Some(value.take_string()) },
+            ValueType::OptionalString => quote! { entity.#field_ident = std::option::Option::Some(value.take_string()) },
             ValueType::OptionalJson => {
-                quote! { std::option::Option::Some(value.take_inner_json_value()) }
+                quote! { entity.#field_ident = std::option::Option::Some(value.take_inner_json_value()) }
             }
-            ValueType::UuidV4 => quote! { value.to_uuid_v4() },
-            ValueType::UuidV7 => quote! { value.to_uuid_v7() },
-            ValueType::Ulid => quote! { value.to_ulid() },
-            ValueType::Bool => quote! { value.take_bool() },
-            ValueType::ValidationStatus => quote! { value.take_bool() },
-            ValueType::I32 => quote! { value.take_i32() },
-            ValueType::I64 => quote! { value.take_i64() },
-            ValueType::OptionalI64 => quote! { value.take_optional_i64() },
-            ValueType::U32 => quote! { value.take_u32() },
-            ValueType::OptionalI32 => quote! { value.take_optional_i32() },
-            ValueType::OptionalU32 => quote! { value.take_optional_u32() },
-            ValueType::F32 => quote! { value.take_f32() },
-            ValueType::F64 => quote! { value.take_f64() },
-            ValueType::UtcDateTime => quote! { value.take_date_time() },
-            ValueType::OptionalUtcDateTime => quote! { value.take_optional_date_time() },
-            ValueType::Select => quote! { value.take_select_downcast_to::<#field_ty>().into() },
-            ValueType::Multiselect => quote! { value.take_multiselect_downcast_to().into() },
-            ValueType::OptionalSelect => quote! { value.take_optional_select_downcast_to().into() },
+            ValueType::UuidV4 => quote! { entity.#field_ident = value.to_uuid_v4() },
+            ValueType::UuidV7 => quote! { entity.#field_ident = value.to_uuid_v7() },
+            ValueType::Ulid => quote! { entity.#field_ident = value.to_ulid() },
+            ValueType::Bool => quote! { entity.#field_ident = value.take_bool() },
+            ValueType::ValidationStatus => quote! { entity.#field_ident = value.take_bool() },
+            ValueType::I32 => quote! { entity.#field_ident = value.take_i32() },
+            ValueType::I64 => quote! { entity.#field_ident = value.take_i64() },
+            ValueType::OptionalI64 => quote! { entity.#field_ident = value.take_optional_i64() },
+            ValueType::U32 => quote! { entity.#field_ident = value.take_u32() },
+            ValueType::OptionalI32 => quote! { entity.#field_ident = value.take_optional_i32() },
+            ValueType::OptionalU32 => quote! { entity.#field_ident = value.take_optional_u32() },
+            ValueType::F32 => quote! { entity.#field_ident = value.take_f32() },
+            ValueType::F64 => quote! { entity.#field_ident = value.take_f64() },
+            ValueType::UtcDateTime => quote! { entity.#field_ident = value.take_date_time() },
+            ValueType::OptionalUtcDateTime => quote! { entity.#field_ident = value.take_optional_date_time() },
+            ValueType::Select => quote! { entity.#field_ident = value.take_select_downcast_to::<#field_ty>().into() },
+            ValueType::Multiselect => quote! { entity.#field_ident = value.take_multiselect_downcast_to().into() },
+            ValueType::OptionalSelect => quote! { entity.#field_ident = value.take_optional_select_downcast_to().into() },
             ValueType::OptionalMultiselect => {
-                quote! { value.take_optional_multiselect_downcast_to().into() }
+                quote! { entity.#field_ident = value.take_optional_multiselect_downcast_to().into() }
             }
-            ValueType::OneToOneRelation => quote! { value.take_one_to_one_relation() },
+            ValueType::OneToOneRelation => quote! { entity.#field_ident = value.take_one_to_one_relation() },
             ValueType::NestedTable => {
-                quote! { {
-                    tracing::warn!("Setting a nested table dummy field is not allowed");
-                    // implicitly returns `()`
-                } }
+                quote! { tracing::warn!("Setting a nested table dummy field is not allowed") }
             }
             ValueType::Custom => {
-                quote! { {
-                    tracing::warn!("Setting a custom field is not allowed");
-                    // implicitly returns `()`
-                } }
+                quote! { tracing::warn!("Setting a custom field is not allowed") }
             }
         };
         quote! {
-            #field_enum_ident::#field_name_as_type_ident => entity.#field_ident = #take_op
+            #field_enum_ident::#field_name_as_type_ident => #take_op
         }
     });
 
