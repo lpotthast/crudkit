@@ -1,3 +1,6 @@
+#![forbid(unsafe_code)]
+#![deny(clippy::unwrap_used)]
+
 use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error::abort;
 use quote::quote;
