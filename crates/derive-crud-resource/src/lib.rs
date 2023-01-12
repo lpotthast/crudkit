@@ -1,3 +1,6 @@
+#![forbid(unsafe_code)]
+#![deny(clippy::unwrap_used)]
+
 use darling::*;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};

@@ -1,3 +1,6 @@
+#![forbid(unsafe_code)]
+#![deny(clippy::unwrap_used)]
+
 use create_id_impl::IdImpl;
 use darling::*;
 use proc_macro::TokenStream;

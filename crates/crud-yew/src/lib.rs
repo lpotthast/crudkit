@@ -1,3 +1,7 @@
+// TODO: outsource js_tiptap with its `extern "C"` usage and enable next line.
+//#![forbid(unsafe_code)]
+#![deny(clippy::unwrap_used)]
+
 use async_trait::async_trait;
 use chrono_utc_date_time::prelude::*;
 use crud_shared_types::{id::SerializableId, prelude::*};
