@@ -1,3 +1,6 @@
+#![forbid(unsafe_code)]
+#![deny(clippy::unwrap_used)]
+
 use create_id_impl::{FieldData, IdImpl};
 use darling::*;
 use derive_helper::ToTypeName;

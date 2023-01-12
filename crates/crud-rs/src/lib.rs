@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![deny(clippy::unwrap_used)]
 
 use async_trait::async_trait;
 use chrono_utc_date_time::UtcDateTime;
