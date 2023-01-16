@@ -1,4 +1,5 @@
 use crate::{
+    error::CrudError,
     lifetime::{Abort, CrudLifetime},
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
@@ -12,6 +13,7 @@ use crud_shared_types::{
 use indexmap::IndexMap;
 use sea_orm::ModelTrait;
 use serde::Deserialize;
+use snafu::{Backtrace, GenerateImplicitData};
 use std::{collections::HashMap, sync::Arc};
 use utoipa::ToSchema;
 
@@ -23,7 +25,8 @@ pub struct DeleteById {
 #[derive(Debug, ToSchema, Deserialize)]
 pub struct DeleteOne<R: CrudResource> {
     pub skip: Option<u64>,
-    #[schema(value_type = Option<Object>, example = json!({"id": Order::Asc}))] // TODO: Better type definition including Column and Order types? Example not showing in UI...
+    #[schema(value_type = Option<Object>, example = json!({"id": Order::Asc}))]
+    // TODO: Better type definition including Column and Order types? Example not showing in UI...
     pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
     pub condition: Option<Condition>,
 }
@@ -50,8 +53,13 @@ pub async fn delete_by_id<R: CrudResource>(
     let model = select
         .one(controller.get_database_connection())
         .await
-        .map_err(|err| CrudError::DbError(err.to_string()))?
-        .ok_or(CrudError::ReadOneFoundNone)?;
+        .map_err(|err| CrudError::Db {
+            reason: err.to_string(),
+            backtrace: Backtrace::generate(),
+        })?
+        .ok_or(CrudError::ReadOneFoundNone {
+            backtrace: Backtrace::generate(),
+        })?;
 
     // TODO: Make sure that the user really has the right to delete this entry!!! Maybe an additional lifetime check?
 
@@ -99,7 +107,10 @@ pub async fn delete_by_id<R: CrudResource>(
     let cloned_model = model.clone();
     let delete_result = R::Model::delete(model, controller.get_database_connection())
         .await
-        .map_err(|err| CrudError::DbError(err.to_string()))?;
+        .map_err(|err| CrudError::Db {
+            reason: err.to_string(),
+            backtrace: Backtrace::generate(),
+        })?;
 
     let _hook_data = R::Lifetime::after_delete(&cloned_model, &res_context, hook_data).await;
 
@@ -141,8 +152,13 @@ pub async fn delete_one<R: CrudResource>(
     let model = select
         .one(controller.get_database_connection())
         .await
-        .map_err(|err| CrudError::DbError(err.to_string()))?
-        .ok_or(CrudError::ReadOneFoundNone)?;
+        .map_err(|err| CrudError::Db {
+            reason: err.to_string(),
+            backtrace: Backtrace::generate(),
+        })?
+        .ok_or(CrudError::ReadOneFoundNone {
+            backtrace: Backtrace::generate(),
+        })?;
 
     let hook_data = R::HookData::default();
     let (abort, hook_data) = R::Lifetime::before_delete(&model, &res_context, hook_data)
@@ -188,7 +204,10 @@ pub async fn delete_one<R: CrudResource>(
     let cloned_model = model.clone();
     let delete_result = R::Model::delete(model, controller.get_database_connection())
         .await
-        .map_err(|err| CrudError::DbError(err.to_string()))?;
+        .map_err(|err| CrudError::Db {
+            reason: err.to_string(),
+            backtrace: Backtrace::generate(),
+        })?;
 
     let _hook_data = R::Lifetime::after_delete(&cloned_model, &res_context, hook_data).await;
 
@@ -222,6 +241,9 @@ pub async fn delete_many<R: CrudResource>(
     let delete_result = delete_many
         .exec(controller.get_database_connection())
         .await
-        .map_err(|err| CrudError::DbError(err.to_string()))?;
+        .map_err(|err| CrudError::Db {
+            reason: err.to_string(),
+            backtrace: Backtrace::generate(),
+        })?;
     Ok(DeleteResult::Deleted(delete_result.rows_affected))
 }

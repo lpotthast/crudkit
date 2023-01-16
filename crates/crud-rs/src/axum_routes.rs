@@ -3,32 +3,33 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use crud_shared_types::error::CrudError;
 use serde_json::json;
 
-// Note: We do not derive ToSchema, but instead use CrudError directly.
-#[derive(Debug)]
-pub struct AxumCrudError(pub CrudError);
+use crate::error::CrudError;
 
-impl IntoResponse for AxumCrudError {
+// TODO: Use reporting mechanism (https://docs.rs/snafu/latest/snafu/attr.report.html)
+impl IntoResponse for CrudError {
     fn into_response(self) -> Response {
-        let (status, error_message) = match self.0 {
-            CrudError::UnknownColumnSpecified(column) => (
-                StatusCode::BAD_REQUEST,
-                format!("Column \"{}\" not found", column),
-            ),
-            CrudError::UnableToParseValueAsColType(column, error) => (
-                StatusCode::BAD_REQUEST,
-                format!(
-                    "Could not parse value for column \"{}\" to column type: {}",
-                    column, error
-                ),
-            ),
-            CrudError::DbError(error) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("A database error occurred: {}", error),
-            ),
-            CrudError::ReadOneFoundNone => (StatusCode::NOT_FOUND, "Entity not found".to_owned()),
+        let (status, error_message) = match self {
+            err @ CrudError::UnknownColumnSpecified {
+                column_name: _,
+                backtrace: _,
+            } => (StatusCode::BAD_REQUEST, err.to_string()),
+            err @ CrudError::UnableToParseValueAsColType {
+                column_name: _,
+                reason: _,
+                backtrace: _,
+            } => (StatusCode::BAD_REQUEST, err.to_string()),
+            err @ CrudError::Db {
+                reason: _,
+                backtrace: _,
+            } => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
+            err @ CrudError::ReadOneFoundNone { backtrace: _ } => {
+                (StatusCode::NOT_FOUND, err.to_string())
+            }
+            err @ CrudError::SaveValidations { backtrace: _ } => {
+                (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+            }
         };
 
         let body = Json(json!({
@@ -47,14 +48,12 @@ macro_rules! impl_add_crud_routes {
             pub mod [< axum_ $name _crud_routes >] {
                 use std::sync::Arc;
                 use crud_rs::prelude::*;
-                use crud_rs::axum_routes::AxumCrudError;
                 use axum::{
                     http::StatusCode,
                     response::{IntoResponse, Response},
                     routing::post,
                     Extension, Json, Router,
                 };
-                use crud_shared_types::error::CrudError;
                 use crud_shared_types::{DeleteResult, SaveResult};
                 use sea_orm::JsonValue;
                 use serde_json::json;
@@ -118,11 +117,10 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref controller): Extension<Arc<CrudController>>,
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadCount>,
-                ) -> Result<Json<u64>, AxumCrudError> {
+                ) -> Result<Json<u64>, CrudError> {
                     crud_rs::read::read_count::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
                         .map(|res| Json(res))
-                        .map_err(|err| AxumCrudError(err))
                 }
 
                 /// Retrieve one entity.
@@ -141,11 +139,10 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref controller): Extension<Arc<CrudController>>,
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadOne<$resource_type>>,
-                ) -> Result<Json<<$resource_type as CrudResource>::ReadViewModel>, AxumCrudError> {
+                ) -> Result<Json<<$resource_type as CrudResource>::ReadViewModel>, CrudError> {
                     crud_rs::read::read_one::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
                         .map(|res| Json(res))
-                        .map_err(|err| AxumCrudError(err))
                 }
 
                 /// Retrieve many entities.
@@ -164,11 +161,10 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref controller): Extension<Arc<CrudController>>,
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadMany<$resource_type>>,
-                ) -> Result<Json<Vec<<$resource_type as CrudResource>::ReadViewModel>>, AxumCrudError> {
+                ) -> Result<Json<Vec<<$resource_type as CrudResource>::ReadViewModel>>, CrudError> {
                     crud_rs::read::read_many::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
                         .map(|res| Json(res))
-                        .map_err(|err| AxumCrudError(err))
                 }
 
                 /// Create one entity.
@@ -188,11 +184,10 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Extension(ref res_context): Extension<std::sync::Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<CreateOne<<$resource_type as CrudResource>::CreateModel>>,
-                ) -> Result<Json<SaveResult<<$resource_type as CrudResource>::Model>>, AxumCrudError> {
+                ) -> Result<Json<SaveResult<<$resource_type as CrudResource>::Model>>, CrudError> {
                     crud_rs::create::create_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
                         .await
                         .map(|res| Json(res))
-                        .map_err(|err| AxumCrudError(err))
                 }
 
                 /// Update one entity.
@@ -212,11 +207,10 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Extension(ref res_context): Extension<std::sync::Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<UpdateOne<$resource_type>>,
-                ) -> Result<Json<SaveResult<<$resource_type as CrudResource>::Model>>, AxumCrudError> {
+                ) -> Result<Json<SaveResult<<$resource_type as CrudResource>::Model>>, CrudError> {
                     crud_rs::update::update_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
                         .await
                         .map(|res| Json(res))
-                        .map_err(|err| AxumCrudError(err))
                 }
 
                 /// Delete one entity by id.
@@ -236,11 +230,10 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Extension(ref res_context): Extension<std::sync::Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<DeleteById>,
-                ) -> Result<Json<DeleteResult>, AxumCrudError> {
+                ) -> Result<Json<DeleteResult>, CrudError> {
                     crud_rs::delete::delete_by_id::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
                         .await
                         .map(|res| Json(res))
-                        .map_err(|err| AxumCrudError(err))
                 }
 
                 /// Delete one entity using a standard filter query.
@@ -260,11 +253,10 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Extension(ref res_context): Extension<std::sync::Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<DeleteOne<$resource_type>>,
-                ) -> Result<Json<DeleteResult>, AxumCrudError> {
+                ) -> Result<Json<DeleteResult>, CrudError> {
                     crud_rs::delete::delete_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
                         .await
                         .map(|res| Json(res))
-                        .map_err(|err| AxumCrudError(err))
                 }
 
                 /// Delete many entities using a standard filter query.
@@ -283,11 +275,10 @@ macro_rules! impl_add_crud_routes {
                     Extension(ref controller): Extension<Arc<CrudController>>,
                     Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteMany>,
-                ) -> Result<Json<DeleteResult>, AxumCrudError> {
+                ) -> Result<Json<DeleteResult>, CrudError> {
                     crud_rs::delete::delete_many::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
                         .map(|res| Json(res))
-                        .map_err(|err| AxumCrudError(err))
                 }
 
                 use utoipa::OpenApi;
@@ -314,7 +305,6 @@ macro_rules! impl_add_crud_routes {
                         schemas(<$resource_type as CrudResource>::Model as CrtModel),
                         schemas(<$resource_type as CrudResource>::ReadViewModel as CrtReadModel),
                         schemas(<$resource_type as CrudResource>::CreateModel as CrtCreateModel),
-                        schemas(crud_shared_types::error::CrudError),
                         schemas(crud_shared_types::DeleteResult),
                         schemas(crud_shared_types::SaveResult<CrtModel>),
                         schemas(crud_shared_types::Saved<CrtModel>),
@@ -324,6 +314,7 @@ macro_rules! impl_add_crud_routes {
                         schemas(crud_shared_types::condition::ConditionClauseValue),
                         schemas(crud_shared_types::condition::Operator),
                         schemas(crud_shared_types::id::SerializableId),
+                        schemas(crud_rs::error::CrudError),
                         schemas(crud_rs::create::CreateOne<CrtCreateModel>),
                         schemas(crud_rs::read::ReadCount),
                         schemas(crud_rs::read::ReadOne<Crt>),

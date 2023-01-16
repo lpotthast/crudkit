@@ -2,16 +2,16 @@ use crate::{
     lifetime::{Abort, CrudLifetime},
     prelude::*,
     validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
-    GetIdFromModel,
+    GetIdFromModel, error::CrudError,
 };
 use crud_shared_types::{
-    error::CrudError,
     id::Id,
     validation::PartialSerializableValidations,
     ws_messages::{CrudWsMessage, EntityCreated},
     SaveResult, Saved,
 };
 use serde::Deserialize;
+use snafu::{Backtrace, GenerateImplicitData};
 use std::{collections::HashMap, sync::Arc};
 use utoipa::ToSchema;
 
@@ -83,7 +83,10 @@ pub async fn create_one<R: CrudResource>(
     let inserted_entity: R::Model = insert_query
         .exec_with_returning(controller.get_database_connection())
         .await
-        .map_err(|err| CrudError::DbError(err.to_string()))?;
+        .map_err(|err| CrudError::Db {
+            reason: err.to_string(),
+            backtrace: Backtrace::generate(),
+        })?;
 
     let _hook_data = R::Lifetime::after_create(
         &create_model_clone,
@@ -136,7 +139,10 @@ pub async fn create_one<R: CrudResource>(
         context
             .validation_result_repository
             .save_all(persistable)
-            .await;
+            .await
+            .map_err(|err| CrudError::SaveValidations {
+                backtrace: Backtrace::generate(),
+            })?;
     }
 
     // Inform all participants that the entity was updated.

@@ -1,10 +1,10 @@
 use crate::{
+    error::CrudError,
     prelude::*,
     validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
 };
 use crud_shared_types::{
     condition::Condition,
-    error::CrudError,
     prelude::Id,
     validation::PartialSerializableValidations,
     ws_messages::{CrudWsMessage, EntityUpdated},
@@ -12,8 +12,9 @@ use crud_shared_types::{
 };
 use sea_orm::ActiveModelTrait;
 use serde::Deserialize;
-use tracing::error;
+use snafu::{Backtrace, GenerateImplicitData};
 use std::{collections::HashMap, sync::Arc};
+use tracing::error;
 use utoipa::ToSchema;
 
 #[derive(Debug, ToSchema, Deserialize)]
@@ -22,11 +23,11 @@ pub struct UpdateOne<R: CrudResource> {
     pub entity: R::UpdateModel,
 }
 
-#[tracing::instrument(level = "info", skip(controller, context, res_context))]
+#[tracing::instrument(level = "info", skip(controller, context, _res_context))]
 pub async fn update_one<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
-    res_context: Arc<R::Context>,
+    _res_context: Arc<R::Context>,
     body: UpdateOne<R>,
 ) -> Result<SaveResult<R::Model>, CrudError> {
     let model =
@@ -38,8 +39,13 @@ pub async fn update_one<R: CrudResource>(
         )?
         .one(controller.get_database_connection())
         .await
-        .map_err(|err| CrudError::DbError(err.to_string()))?
-        .ok_or(CrudError::ReadOneFoundNone)?;
+        .map_err(|err| CrudError::Db {
+            reason: err.to_string(),
+            backtrace: Backtrace::generate(),
+        })?
+        .ok_or(CrudError::ReadOneFoundNone {
+            backtrace: Backtrace::generate(),
+        })?;
 
     // Convert the model into an ActiveModel, allowing mutations.
     let mut active_model: R::ActiveModel = model.into();
@@ -101,9 +107,7 @@ pub async fn update_one<R: CrudResource>(
                     .await;
             }
             Err(err) => {
-                error!(
-                    "Could not extract ID from active_model {active_model:?}. Error was: {err}"
-                )
+                error!("Could not extract ID from active_model {active_model:?}. Error was: {err}")
             }
         }
 
@@ -122,7 +126,10 @@ pub async fn update_one<R: CrudResource>(
     let result = active_model
         .update(controller.get_database_connection())
         .await
-        .map_err(|err| CrudError::DbError(err.to_string()))?;
+        .map_err(|err| CrudError::Db {
+            reason: err.to_string(),
+            backtrace: Backtrace::generate(),
+        })?;
 
     // Inform all participants that the entity was updated.
     // TODO: Exclude the current user!

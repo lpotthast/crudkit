@@ -9,6 +9,7 @@ use crud_shared_types::{
 };
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
+use snafu::Snafu;
 
 use crate::resource::CrudResource;
 
@@ -140,14 +141,18 @@ impl<I: Id> EntityValidationsExt for EntityViolations<I> {
 
 #[async_trait]
 pub trait ValidationResultSaverTrait<I: Id> {
-    async fn delete_all_for(&self, entity_id: &I);
+    type Error: snafu::Error;
+
+    async fn delete_all_for(&self, entity_id: &I) -> Result<(), Self::Error>;
 
     async fn save_all(
         &self,
         validation_results: HashMap<I, HashMap<ValidatorInfo, Vec<PersistableViolation>>>,
-    );
+    ) -> Result<(), Self::Error>;
 
-    async fn list_all(&self) -> HashMap<I, HashMap<OwnedValidatorInfo, Vec<ValidationViolation>>>;
+    async fn list_all(
+        &self,
+    ) -> Result<HashMap<I, HashMap<OwnedValidatorInfo, Vec<ValidationViolation>>>, Self::Error>;
 }
 
 pub struct PersistableViolation {
@@ -209,19 +214,30 @@ impl<R: CrudResource> EntityValidatorsTrait<R> for AlwaysValidValidator {
 
 pub struct NoopValidationResultRepository {}
 
+#[derive(Debug, Snafu)]
+pub enum NoopError {}
+
 #[async_trait]
 impl<I: Id + Clone + Send + Sync + 'static> ValidationResultSaverTrait<I>
     for NoopValidationResultRepository
 {
-    async fn delete_all_for(&self, _entity_id: &I) {}
+    type Error = NoopError;
+
+    async fn delete_all_for(&self, _entity_id: &I) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
     async fn save_all(
         &self,
         _validation_results: HashMap<I, HashMap<ValidatorInfo, Vec<PersistableViolation>>>,
-    ) {
+    ) -> Result<(), Self::Error> {
+        Ok(())
     }
 
-    async fn list_all(&self) -> HashMap<I, HashMap<OwnedValidatorInfo, Vec<ValidationViolation>>> {
-        HashMap::new()
+    async fn list_all(
+        &self,
+    ) -> Result<HashMap<I, HashMap<OwnedValidatorInfo, Vec<ValidationViolation>>>, Self::Error>
+    {
+        Ok(HashMap::new())
     }
 }

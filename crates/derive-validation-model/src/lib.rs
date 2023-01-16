@@ -19,7 +19,12 @@ struct MyFieldReceiver {
 
 impl MyFieldReceiver {
     pub fn is_id(&self) -> bool {
-        self.id.is_some() || self.ident.as_ref().unwrap() == "id"
+        match (self.id, &self.ident) {
+            (None, None) => false,
+            (None, Some(ident)) => ident == "id",
+            (Some(id), None) => id,
+            (Some(id), Some(ident)) => id || ident == "id",
+        }
     }
 }
 

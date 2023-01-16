@@ -38,3 +38,5 @@ sea-orm = { version = "0.10", features = [
 ] }
 sea-query = { version = "0.28" }
 utoipa = "2.4"
+snafu = { version = "0.7", features = ["backtrace"] }
+

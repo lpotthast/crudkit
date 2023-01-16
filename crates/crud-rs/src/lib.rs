@@ -3,17 +3,18 @@
 
 use async_trait::async_trait;
 use chrono_utc_date_time::UtcDateTime;
-use crud_shared_types::{condition::ConditionClauseValue, Value, prelude::Id};
+use crud_shared_types::{condition::ConditionClauseValue, prelude::Id, Value};
 use prelude::{CrudContext, CrudResource};
 use sea_orm::{ActiveModelTrait, ColumnTrait, ModelTrait};
-use validation::PersistableViolation;
 use std::str::FromStr;
+use validation::PersistableViolation;
 
 pub mod axum_routes;
 pub mod context;
 pub mod controller;
 pub mod create;
 pub mod delete;
+pub mod error;
 pub mod lifetime;
 pub mod query;
 pub mod read;
@@ -24,11 +25,13 @@ pub mod validation;
 
 pub mod prelude {
     /* Provide convenient access to all our macros. */
-    pub use derive_crud_columns::CrudColumns;
     pub use derive_create_model::CreateModel;
+    pub use derive_crud_columns::CrudColumns;
     pub use derive_crud_resource_context::CrudResourceContext;
     pub use derive_update_model::UpdateModel;
     pub use derive_validation_model::ValidationModel;
+
+    pub use super::error::CrudError;
 
     pub use super::context::CrudContext;
     pub use super::context::CrudResourceContext;
@@ -37,19 +40,19 @@ pub mod prelude {
 
     pub use super::AsColType;
     pub use super::CreateModelTrait;
-    pub use super::UpdateModelTrait;
     pub use super::CrudColumns;
     pub use super::MaybeColumnTrait;
     pub use super::UpdateActiveModelTrait;
+    pub use super::UpdateModelTrait;
 
+    pub use super::validation::AlwaysValidValidator;
     pub use super::validation::EntityValidationsExt;
     pub use super::validation::EntityValidatorTrait;
     pub use super::validation::EntityValidatorsTrait;
     pub use super::validation::ValidationResultSaverTrait;
-    pub use super::validation::ValidationViolationType;
     pub use super::validation::ValidationTrigger;
+    pub use super::validation::ValidationViolationType;
     pub use super::validation::ValidationViolationTypeExt;
-    pub use super::validation::AlwaysValidValidator;
 
     pub use super::validate::validate_max_length;
     pub use super::validate::validate_min_length;
@@ -101,7 +104,13 @@ pub trait IdColumns: Sized {
 }
 
 pub trait NewActiveValidationModel<I: Id> {
-    fn new(entity_id: I, validator_name: String, validator_version: i32, violation: PersistableViolation, now: UtcDateTime) -> Self;
+    fn new(
+        entity_id: I,
+        validator_name: String,
+        validator_version: i32,
+        violation: PersistableViolation,
+        now: UtcDateTime,
+    ) -> Self;
 }
 
 pub trait CrudColumns<C: ColumnTrait, M: ModelTrait, A: ActiveModelTrait> {
@@ -121,7 +130,7 @@ pub trait GetIdFromModel {
 
 #[async_trait]
 pub trait CreateModelTrait<A: ActiveModelTrait> {
-   async fn into_active_model(self) -> A;
+    async fn into_active_model(self) -> A;
 }
 
 pub trait UpdateModelTrait {}
@@ -253,9 +262,9 @@ pub fn to_ulid(value: ConditionClauseValue) -> Result<Value, String> {
 
 pub fn to_date_time(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
-        ConditionClauseValue::String(string) => UtcDateTime::parse_from_rfc3339(&string)
-            .map_err(|e| format!("{}", e))
-            .map(Value::DateTime),
+        ConditionClauseValue::String(string) => {
+            UtcDateTime::parse_from_rfc3339(&string).map(Value::DateTime)
+        }
         _ => Err(format!(
             "{value:?} can not be converted to a DateTime. Expected String."
         )),

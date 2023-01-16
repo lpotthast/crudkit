@@ -1,7 +1,6 @@
-use crate::prelude::*;
+use crate::{error::CrudError, prelude::*};
 use crud_shared_types::{
     condition::{Condition, ConditionElement, Operator},
-    error::CrudError,
     Order, Value,
 };
 use indexmap::IndexMap;
@@ -10,6 +9,7 @@ use sea_orm::{
     QueryFilter, QueryOrder, QuerySelect, Select,
 };
 use serde::de::DeserializeOwned;
+use snafu::{Backtrace, GenerateImplicitData};
 use std::hash::Hash;
 
 pub fn build_insert_query<R: CrudResource>(
@@ -125,10 +125,11 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
                     ConditionElement::Clause(clause) => match T::get_col(&clause.column_name) {
                         Some(col) => {
                             match col.as_col_type(clause.value.clone()).map_err(|err| {
-                                CrudError::UnableToParseValueAsColType(
-                                    clause.column_name.clone(),
-                                    err,
-                                )
+                                CrudError::UnableToParseValueAsColType {
+                                    column_name: clause.column_name.clone(),
+                                    reason: err,
+                                    backtrace: Backtrace::generate(),
+                                }
                             })? {
                                 Value::String(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
@@ -151,7 +152,8 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }
                                 Value::I32Vec(values) => {
-                                    tree = add_condition_iterable(tree, col, clause.operator, values)
+                                    tree =
+                                        add_condition_iterable(tree, col, clause.operator, values)
                                 }
                                 Value::I64(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
@@ -171,9 +173,10 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
                             }
                         }
                         None => {
-                            return Err(CrudError::UnknownColumnSpecified(
-                                clause.column_name.clone(),
-                            ))
+                            return Err(CrudError::UnknownColumnSpecified {
+                                column_name: clause.column_name.clone(),
+                                backtrace: Backtrace::generate(),
+                            })
                         }
                     },
                     ConditionElement::Condition(nested_condition) => {
