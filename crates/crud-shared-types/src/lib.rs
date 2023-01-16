@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 pub mod condition;
-pub mod error;
 pub mod id;
 pub mod validation;
 pub mod ws_messages;
@@ -21,7 +20,6 @@ pub mod prelude {
     pub use crate::condition::ConditionElement;
     pub use crate::condition::IntoAllEqualCondition;
     pub use crate::condition::Operator;
-    pub use crate::error::CrudError;
     pub use crate::id::DynIdField;
     pub use crate::id::Id;
     pub use crate::id::IdField;

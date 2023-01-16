@@ -18,3 +18,4 @@ uuid = { version = "1.2", features = ["v4", "v7", "serde"] }
 # NOTE: Do not upgrade. Versions above 0.5 do not run on web assembly. We always use 0.5 for compatibility.
 ulid = { version = "0.5", features = ["serde", "uuid"] }
 utoipa = "2.4"
+snafu = { version = "0.7", features = ["backtrace"] }
