@@ -11,7 +11,6 @@ use crud_shared_types::{
     ws_messages::{CrudWsMessage, EntityDeleted},
 };
 use indexmap::IndexMap;
-use sea_orm::ModelTrait;
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};
 use std::{collections::HashMap, sync::Arc};
@@ -43,21 +42,16 @@ pub async fn delete_by_id<R: CrudResource>(
     res_context: Arc<R::Context>,
     body: DeleteById,
 ) -> Result<DeleteResult, CrudError> {
-    let select = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
-        None,
-        None,
-        None,
-        &Some(body.id.to_all_equal_condition()),
-    )?;
-
-    let model = select
-        .one(controller.get_database_connection())
+    // TODO: This initially fetched Model, not ReadViewModel...
+    let model = context
+        .repository
+        .fetch_one(None, None, None, Some(&body.id.to_all_equal_condition()))
         .await
-        .map_err(|err| CrudError::Db {
-            reason: err.to_string(),
+        .map_err(|err| CrudError::Repository {
+            reason: Arc::new(err),
             backtrace: Backtrace::generate(),
         })?
-        .ok_or(CrudError::ReadOneFoundNone {
+        .ok_or_else(|| CrudError::ReadOneFoundNone {
             backtrace: Backtrace::generate(),
         })?;
 
@@ -104,15 +98,19 @@ pub async fn delete_by_id<R: CrudResource>(
     }
 
     // Delete the entity in the database.
-    let cloned_model = model.clone();
-    let delete_result = R::Model::delete(model, controller.get_database_connection())
-        .await
-        .map_err(|err| CrudError::Db {
-            reason: err.to_string(),
-            backtrace: Backtrace::generate(),
-        })?;
+    let deleted_model = model.clone();
 
-    let _hook_data = R::Lifetime::after_delete(&cloned_model, &res_context, hook_data).await;
+    let delete_result =
+        context
+            .repository
+            .delete(model)
+            .await
+            .map_err(|err| CrudError::Repository {
+                reason: Arc::new(err),
+                backtrace: Backtrace::generate(),
+            })?;
+
+    let _hook_data = R::Lifetime::after_delete(&deleted_model, &res_context, hook_data).await;
 
     // Deleting the entity could have introduced new validation errors in other parts ot the system.
     // TODO: let validation run again...
@@ -132,7 +130,7 @@ pub async fn delete_by_id<R: CrudResource>(
             entity_id: serializable_id,
         }));
 
-    Ok(DeleteResult::Deleted(delete_result.rows_affected))
+    Ok(DeleteResult::Deleted(delete_result.entities_affected))
 }
 
 #[tracing::instrument(level = "info", skip(controller, context, res_context))]
@@ -142,21 +140,15 @@ pub async fn delete_one<R: CrudResource>(
     res_context: Arc<R::Context>,
     body: DeleteOne<R>,
 ) -> Result<DeleteResult, CrudError> {
-    let select = build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
-        None,
-        body.skip,
-        body.order_by,
-        &body.condition,
-    )?;
-
-    let model = select
-        .one(controller.get_database_connection())
+    let model = context
+        .repository
+        .fetch_one(None, body.skip, body.order_by, body.condition.as_ref())
         .await
-        .map_err(|err| CrudError::Db {
-            reason: err.to_string(),
+        .map_err(|err| CrudError::Repository {
+            reason: Arc::new(err),
             backtrace: Backtrace::generate(),
         })?
-        .ok_or(CrudError::ReadOneFoundNone {
+        .ok_or_else(|| CrudError::ReadOneFoundNone {
             backtrace: Backtrace::generate(),
         })?;
 
@@ -201,15 +193,19 @@ pub async fn delete_one<R: CrudResource>(
     }
 
     // Delete the entity in the database.
-    let cloned_model = model.clone();
-    let delete_result = R::Model::delete(model, controller.get_database_connection())
-        .await
-        .map_err(|err| CrudError::Db {
-            reason: err.to_string(),
-            backtrace: Backtrace::generate(),
-        })?;
+    let deleted_model = model.clone();
 
-    let _hook_data = R::Lifetime::after_delete(&cloned_model, &res_context, hook_data).await;
+    let delete_result =
+        context
+            .repository
+            .delete(model)
+            .await
+            .map_err(|err| CrudError::Repository {
+                reason: Arc::new(err),
+                backtrace: Backtrace::generate(),
+            })?;
+
+    let _hook_data = R::Lifetime::after_delete(&deleted_model, &res_context, hook_data).await;
 
     // All previous validations regarding this entity must be deleted!
     context
@@ -226,24 +222,24 @@ pub async fn delete_one<R: CrudResource>(
             entity_id: serializable_id,
         }));
 
-    Ok(DeleteResult::Deleted(delete_result.rows_affected))
+    Ok(DeleteResult::Deleted(delete_result.entities_affected))
 }
 
 // TODO: IMPLEMENT. Match implementations above. Extract logic, reducing duplication if possible.
 pub async fn delete_many<R: CrudResource>(
-    controller: Arc<CrudController>,
+    _controller: Arc<CrudController>,
     _context: Arc<CrudContext<R>>,
-    body: DeleteMany,
+    _body: DeleteMany,
 ) -> Result<DeleteResult, CrudError> {
     todo!();
     // TODO: Add missing validation logic to this function.
-    let delete_many = build_delete_many_query::<R::Entity>(&body.condition)?;
-    let delete_result = delete_many
-        .exec(controller.get_database_connection())
-        .await
-        .map_err(|err| CrudError::Db {
-            reason: err.to_string(),
-            backtrace: Backtrace::generate(),
-        })?;
-    Ok(DeleteResult::Deleted(delete_result.rows_affected))
+    // let delete_many = build_delete_many_query::<R::Entity>(&body.condition)?;
+    // let delete_result = delete_many
+    //     .exec(controller.get_database_connection())
+    //     .await
+    //     .map_err(|err| CrudError::Db {
+    //         reason: err.to_string(),
+    //         backtrace: Backtrace::generate(),
+    //     })?;
+    // Ok(DeleteResult::Deleted(delete_result.rows_affected))
 }

@@ -11,7 +11,7 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 
-use crate::resource::CrudResource;
+use crate::{repository::RepositoryError, resource::CrudResource};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CrudAction {
@@ -141,7 +141,7 @@ impl<I: Id> EntityValidationsExt for EntityViolations<I> {
 
 #[async_trait]
 pub trait ValidationResultSaverTrait<I: Id> {
-    type Error: snafu::Error;
+    type Error: snafu::Error + RepositoryError + 'static;
 
     async fn delete_all_for(&self, entity_id: &I) -> Result<(), Self::Error>;
 
@@ -216,6 +216,8 @@ pub struct NoopValidationResultRepository {}
 
 #[derive(Debug, Snafu)]
 pub enum NoopError {}
+
+impl RepositoryError for NoopError {}
 
 #[async_trait]
 impl<I: Id + Clone + Send + Sync + 'static> ValidationResultSaverTrait<I>

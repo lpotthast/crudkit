@@ -4,13 +4,12 @@ use crate::{
     validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
 };
 use crud_shared_types::{
-    condition::Condition,
-    prelude::Id,
+    id::Id,
+    prelude::Condition,
     validation::PartialSerializableValidations,
     ws_messages::{CrudWsMessage, EntityUpdated},
     SaveResult, Saved,
 };
-use sea_orm::ActiveModelTrait;
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};
 use std::{collections::HashMap, sync::Arc};
@@ -18,9 +17,9 @@ use tracing::error;
 use utoipa::ToSchema;
 
 #[derive(Debug, ToSchema, Deserialize)]
-pub struct UpdateOne<R: CrudResource> {
+pub struct UpdateOne<T> {
     pub condition: Option<Condition>,
-    pub entity: R::UpdateModel,
+    pub entity: T,
 }
 
 #[tracing::instrument(level = "info", skip(controller, context, _res_context))]
@@ -28,22 +27,17 @@ pub async fn update_one<R: CrudResource>(
     controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
     _res_context: Arc<R::Context>,
-    body: UpdateOne<R>,
+    body: UpdateOne<R::UpdateModel>,
 ) -> Result<SaveResult<R::Model>, CrudError> {
-    let model =
-        build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
-            None,
-            None,
-            None,
-            &body.condition,
-        )?
-        .one(controller.get_database_connection())
+    let model = context
+        .repository
+        .fetch_one(None, None, None, body.condition.as_ref())
         .await
-        .map_err(|err| CrudError::Db {
-            reason: err.to_string(),
+        .map_err(|err| CrudError::Repository {
+            reason: Arc::new(err),
             backtrace: Backtrace::generate(),
         })?
-        .ok_or(CrudError::ReadOneFoundNone {
+        .ok_or_else(|| CrudError::ReadOneFoundNone {
             backtrace: Backtrace::generate(),
         })?;
 
@@ -89,7 +83,11 @@ pub async fn update_one<R: CrudResource>(
         context
             .validation_result_repository
             .save_all(persistable)
-            .await;
+            .await
+            .map_err(|err| CrudError::SaveValidations {
+                reason: Arc::new(err),
+                backtrace: Backtrace::generate(),
+            })?;
 
         // The existence of CRITICAL violations must block a save!
         if has_critical_violations {
@@ -104,7 +102,11 @@ pub async fn update_one<R: CrudResource>(
                 context
                     .validation_result_repository
                     .delete_all_for(&id)
-                    .await;
+                    .await
+                    .map_err(|err| CrudError::DeleteValidations {
+                        reason: Arc::new(err),
+                        backtrace: Backtrace::generate(),
+                    })?;
             }
             Err(err) => {
                 error!("Could not extract ID from active_model {active_model:?}. Error was: {err}")
@@ -122,12 +124,13 @@ pub async fn update_one<R: CrudResource>(
         );
     }
 
-    // Update the data in the database.
-    let result = active_model
-        .update(controller.get_database_connection())
+    // Update the entry.
+    let result = context
+        .repository
+        .update(active_model)
         .await
-        .map_err(|err| CrudError::Db {
-            reason: err.to_string(),
+        .map_err(|err| CrudError::Repository {
+            reason: Arc::new(err),
             backtrace: Backtrace::generate(),
         })?;
 
@@ -152,7 +155,6 @@ pub async fn update_one<R: CrudResource>(
     .await
     .map_err(|err| CrudError::DbError(err.to_string()))?
     .ok_or_else(|| CrudError::ReadOneFoundNone)?;*/
-
     Ok(SaveResult::Saved(Saved {
         entity: result,
         with_validation_errors: has_violations,

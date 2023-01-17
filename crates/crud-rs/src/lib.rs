@@ -16,8 +16,8 @@ pub mod create;
 pub mod delete;
 pub mod error;
 pub mod lifetime;
-pub mod query;
 pub mod read;
+pub mod repository;
 pub mod resource;
 pub mod update;
 pub mod validate;
@@ -31,6 +31,7 @@ pub mod prelude {
     pub use derive_update_model::UpdateModel;
     pub use derive_validation_model::ValidationModel;
 
+    pub use super::axum_routes::AxumCrudError;
     pub use super::error::CrudError;
 
     pub use super::context::CrudContext;
@@ -44,6 +45,8 @@ pub mod prelude {
     pub use super::MaybeColumnTrait;
     pub use super::UpdateActiveModelTrait;
     pub use super::UpdateModelTrait;
+
+    pub use super::repository::Repository;
 
     pub use super::validation::AlwaysValidValidator;
     pub use super::validation::EntityValidationsExt;
@@ -63,10 +66,6 @@ pub mod prelude {
     pub use super::to_date_time;
     pub use super::to_i32;
     pub use super::to_string;
-
-    pub use super::query::build_delete_many_query;
-    pub use super::query::build_insert_query;
-    pub use super::query::build_select_query;
 
     pub use super::create::create_one;
     pub use super::create::CreateOne;

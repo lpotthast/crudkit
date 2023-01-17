@@ -1,8 +1,9 @@
 use crate::{
+    error::CrudError,
     lifetime::{Abort, CrudLifetime},
     prelude::*,
     validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
-    GetIdFromModel, error::CrudError,
+    GetIdFromModel,
 };
 use crud_shared_types::{
     id::Id,
@@ -77,14 +78,18 @@ pub async fn create_one<R: CrudResource>(
     }
 
     // The entity to insert has no critical violations. The entity can be inserted!
-    let insert_query = build_insert_query::<R>(active_model)?;
+    // let inserted_entity: R::Model = build_insert_query::<R>(active_model)?
+    //     .exec_with_returning(controller.get_database_connection())
+    //     .await
+    //     .map_err(|err| CrudError::Db {
+    //         reason: err.to_string(),
+    //         backtrace: Backtrace::generate(),
+    //     })?;
 
-    // Perform the insert!
-    let inserted_entity: R::Model = insert_query
-        .exec_with_returning(controller.get_database_connection())
+    let inserted_entity: R::Model = context.repository.insert(active_model)
         .await
-        .map_err(|err| CrudError::Db {
-            reason: err.to_string(),
+        .map_err(|err| CrudError::Repository {
+            reason: Arc::new(err),
             backtrace: Backtrace::generate(),
         })?;
 
@@ -141,6 +146,7 @@ pub async fn create_one<R: CrudResource>(
             .save_all(persistable)
             .await
             .map_err(|err| CrudError::SaveValidations {
+                reason: Arc::new(err),
                 backtrace: Backtrace::generate(),
             })?;
     }

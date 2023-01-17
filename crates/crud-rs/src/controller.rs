@@ -1,19 +1,14 @@
 use axum_websockets::WebsocketController;
-use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 
+// TODO: Get rid of this? Use aggregate specific data all the way. See context.rs and the repository field as an example.
 pub struct CrudController {
-    db: Arc<DatabaseConnection>,
     ws: Arc<WebsocketController>,
 }
 
 impl CrudController {
-    pub fn new(db: Arc<DatabaseConnection>, ws: Arc<WebsocketController>) -> Self {
-        Self { db, ws }
-    }
-
-    pub fn get_database_connection(&self) -> &DatabaseConnection {
-        self.db.as_ref()
+    pub fn new(ws: Arc<WebsocketController>) -> Self {
+        Self { ws }
     }
 
     pub fn get_websocket_controller(&self) -> &WebsocketController {

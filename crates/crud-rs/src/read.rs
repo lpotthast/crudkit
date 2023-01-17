@@ -1,7 +1,6 @@
 use crate::{error::CrudError, prelude::*};
 use crud_shared_types::{condition::Condition, Order};
 use indexmap::IndexMap;
-use sea_orm::PaginatorTrait;
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};
 use std::sync::Arc;
@@ -31,68 +30,58 @@ pub struct ReadMany<R: CrudResource> {
     pub condition: Option<Condition>,
 }
 
-#[tracing::instrument(level = "info", skip(controller, _context))]
+#[tracing::instrument(level = "info", skip(controller, context))]
 pub async fn read_count<R: CrudResource>(
     controller: Arc<CrudController>,
-    _context: Arc<CrudContext<R>>,
+    context: Arc<CrudContext<R>>,
     body: ReadCount,
 ) -> Result<u64, CrudError> {
-    build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
-        None,
-        None,
-        None,
-        &body.condition,
-    )?
-    .count(controller.get_database_connection())
-    .await
-    .map_err(|err| CrudError::Db {
-        reason: err.to_string(),
-        backtrace: Backtrace::generate(),
-    })
+    context
+        .repository
+        .count(None, None, None, body.condition.as_ref())
+        .await
+        .map_err(|err| CrudError::Repository {
+            reason: Arc::new(err),
+            backtrace: Backtrace::generate(),
+        })
 }
 
-#[tracing::instrument(level = "info", skip(controller, _context))]
+#[tracing::instrument(level = "info", skip(controller, context))]
 pub async fn read_one<R: CrudResource>(
     controller: Arc<CrudController>,
-    _context: Arc<CrudContext<R>>,
+    context: Arc<CrudContext<R>>,
     body: ReadOne<R>,
 ) -> Result<R::ReadViewModel, CrudError> {
-    let db = controller.get_database_connection();
-    build_select_query::<
-        R::ReadViewEntity,
-        R::ReadViewModel,
-        R::ReadViewActiveModel,
-        R::ReadViewColumn,
-        R::ReadViewCrudColumn,
-    >(None, body.skip, body.order_by, &body.condition)?
-    .one(db)
-    .await
-    .map_err(|err| CrudError::Db {
-        reason: err.to_string(),
-        backtrace: Backtrace::generate(),
-    })?
-    .ok_or(CrudError::ReadOneFoundNone {
-        backtrace: Backtrace::generate(),
-    })
+    context
+        .repository
+        .read_one(None, body.skip, body.order_by, body.condition.as_ref())
+        .await
+        .map_err(|err| CrudError::Repository {
+            reason: Arc::new(err),
+            backtrace: Backtrace::generate(),
+        })?
+        .ok_or_else(|| CrudError::ReadOneFoundNone {
+            backtrace: Backtrace::generate(),
+        })
 }
 
-#[tracing::instrument(level = "info", skip(controller, _context))]
+#[tracing::instrument(level = "info", skip(controller, context))]
 pub async fn read_many<R: CrudResource>(
     controller: Arc<CrudController>,
-    _context: Arc<CrudContext<R>>,
+    context: Arc<CrudContext<R>>,
     body: ReadMany<R>,
 ) -> Result<Vec<R::ReadViewModel>, CrudError> {
-    build_select_query::<
-        R::ReadViewEntity,
-        R::ReadViewModel,
-        R::ReadViewActiveModel,
-        R::ReadViewColumn,
-        R::ReadViewCrudColumn,
-    >(body.limit, body.skip, body.order_by, &body.condition)?
-    .all(controller.get_database_connection())
-    .await
-    .map_err(|err| CrudError::Db {
-        reason: err.to_string(),
-        backtrace: Backtrace::generate(),
-    })
+    context
+        .repository
+        .read_many(
+            body.limit,
+            body.skip,
+            body.order_by,
+            body.condition.as_ref(),
+        )
+        .await
+        .map_err(|err| CrudError::Repository {
+            reason: Arc::new(err),
+            backtrace: Backtrace::generate(),
+        })
 }

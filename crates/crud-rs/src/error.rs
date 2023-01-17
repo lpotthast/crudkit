@@ -1,35 +1,36 @@
+use std::sync::Arc;
+
 use snafu::{Backtrace, Snafu};
 use utoipa::ToSchema;
+
+use crate::repository::RepositoryError;
 
 #[derive(Debug, Snafu, ToSchema)]
 #[snafu(visibility(pub))]
 pub enum CrudError {
-    #[snafu(display("CrudError: Column '{column_name}' not found.\n\nBacktrace:\n{backtrace}"))]
-    UnknownColumnSpecified {
-        column_name: String,
+    #[snafu(display(
+        "CrudError: Repository error.\n\nCaused by:\n{reason:?}\n\nBacktrace:\n{backtrace}"
+    ))]
+    Repository {
+        reason: Arc<dyn RepositoryError>,
         backtrace: Backtrace,
     },
-
-    #[snafu(display(
-        "CrudError: Unable to parse value for column'{column_name}' to column type: '{reason}'\n\nBacktrace:\n{backtrace}"
-    ))]
-    UnableToParseValueAsColType {
-        column_name: String,
-        reason: String,
-        backtrace: Backtrace,
-    },
-
-    #[snafu(display(
-        "CrudError: Database error.\n\nCaused by:\n{reason}\n\nBacktrace:\n{backtrace}"
-    ))]
-    Db {
-        reason: String,
-        backtrace: Backtrace,
-    }, // TODO: Change reason to:  source: DbErr,
 
     #[snafu(display("CrudError: Entity not found.\n\nBacktrace:\n{backtrace}"))]
     ReadOneFoundNone { backtrace: Backtrace },
 
-    #[snafu(display("CrudError: Could not save validations.\n\nBacktrace:\n{backtrace}"))]
-    SaveValidations { backtrace: Backtrace },
+    #[snafu(display(
+        "CrudError: Could not save validations.\n\nSource:{reason:?}\n\nBacktrace:\n{backtrace}"
+    ))]
+    SaveValidations {
+        reason: Arc<dyn RepositoryError>, // Use ValidationRepositoryError!
+        backtrace: Backtrace,
+    },
+    #[snafu(display(
+        "CrudError: Could not delete validations.\n\nSource:{reason:?}\n\nBacktrace:\n{backtrace}"
+    ))]
+    DeleteValidations {
+        reason: Arc<dyn RepositoryError>, // Use ValidationRepositoryError!
+        backtrace: Backtrace,
+    },
 }

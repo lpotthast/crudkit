@@ -104,11 +104,17 @@ pub trait CrudResource: Sized + Debug {
 
     type Id: Id + Clone;
 
+    type Repository: Repository<Self>;
+
     type Validator: EntityValidatorsTrait<Self>;
 
     // The service with which validation results can be managed: read, stored, ...
-    type ValidationResultRepository: ValidationResultSaverTrait<<Self::CrudColumn as CrudColumns<Self::Column, Self::Model, Self::ActiveModel>>::Id>;
+    type ValidationResultRepository: ValidationResultSaverTrait<
+            <Self::CrudColumn as CrudColumns<Self::Column, Self::Model, Self::ActiveModel>>::Id,
+        > + 'static;
 
+    /// An instance of this type is made available in all lifetime operations.
+    /// Use this to supply arbitrary data, like custom services.
     type Context: CrudResourceContext + Send + Sync + 'static;
 
     type HookData: Default + Send + Sync + 'static;
@@ -116,8 +122,4 @@ pub trait CrudResource: Sized + Debug {
 
     type ResourceType: Debug + Into<&'static str> + Clone + Copy;
     const TYPE: Self::ResourceType;
-}
-
-trait ResourceLifecycle {
-    fn before_create();
 }

@@ -4,32 +4,54 @@ use axum::{
     Json,
 };
 use serde_json::json;
+use utoipa::ToSchema;
 
 use crate::error::CrudError;
 
+#[derive(Debug, ToSchema)]
+pub enum AxumCrudError {
+    Repository { reason: String },
+    ReadOneFoundNone { reason: String },
+    SaveValidations { reason: String },
+    DeleteValidations { reason: String },
+}
+
+impl From<CrudError> for AxumCrudError {
+    fn from(value: CrudError) -> Self {
+        match value {
+            err @ CrudError::Repository {
+                reason: _,
+                backtrace: _,
+            } => Self::Repository {
+                reason: err.to_string(),
+            },
+            err @ CrudError::ReadOneFoundNone { backtrace: _ } => Self::ReadOneFoundNone {
+                reason: err.to_string(),
+            },
+            err @ CrudError::SaveValidations {
+                reason: _,
+                backtrace: _,
+            } => Self::SaveValidations {
+                reason: err.to_string(),
+            },
+            err @ CrudError::DeleteValidations {
+                reason: _,
+                backtrace: _,
+            } => Self::DeleteValidations {
+                reason: err.to_string(),
+            },
+        }
+    }
+}
+
 // TODO: Use reporting mechanism (https://docs.rs/snafu/latest/snafu/attr.report.html)
-impl IntoResponse for CrudError {
+impl IntoResponse for AxumCrudError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
-            err @ CrudError::UnknownColumnSpecified {
-                column_name: _,
-                backtrace: _,
-            } => (StatusCode::BAD_REQUEST, err.to_string()),
-            err @ CrudError::UnableToParseValueAsColType {
-                column_name: _,
-                reason: _,
-                backtrace: _,
-            } => (StatusCode::BAD_REQUEST, err.to_string()),
-            err @ CrudError::Db {
-                reason: _,
-                backtrace: _,
-            } => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()),
-            err @ CrudError::ReadOneFoundNone { backtrace: _ } => {
-                (StatusCode::NOT_FOUND, err.to_string())
-            }
-            err @ CrudError::SaveValidations { backtrace: _ } => {
-                (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
-            }
+            Self::Repository { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
+            Self::ReadOneFoundNone { reason } => (StatusCode::NOT_FOUND, reason),
+            Self::SaveValidations { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
+            Self::DeleteValidations { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
         };
 
         let body = Json(json!({
@@ -110,17 +132,22 @@ macro_rules! impl_add_crud_routes {
                     request_body = ReadCount,
                     responses(
                         (status = 200, description = "count was successfully calculated", body = u64),
-                        (status = 500, description = "count could not be calculated", body = CrudError),
+                        (status = 500, description = "count could not be calculated", body = AxumCrudError),
                     ),
                 )]
+                #[axum_macros::debug_handler]
                 async fn read_count(
-                    Extension(ref controller): Extension<Arc<CrudController>>,
-                    Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
+                    Extension(controller): Extension<Arc<CrudController>>,
+                    Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadCount>,
-                ) -> Result<Json<u64>, CrudError> {
-                    crud_rs::read::read_count::<$resource_type>(controller.clone(), context.clone(), body)
+                ) -> Response {
+                    let result: Result<u64, AxumCrudError> = crud_rs::read::read_count::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
-                        .map(|res| Json(res))
+                        .map_err(Into::into);
+                    match result {
+                        Ok(count) => (StatusCode::OK, Json(count)).into_response(),
+                        Err(err) => err.into_response()
+                    }
                 }
 
                 /// Retrieve one entity.
@@ -132,17 +159,22 @@ macro_rules! impl_add_crud_routes {
                     request_body = ReadOne<$resource_type>,
                     responses(
                         (status = 200, description = "one entity was read", body = <$resource_type as CrudResource>::ReadViewModel),
-                        (status = 500, description = "entity could not be read", body = CrudError),
+                        (status = 500, description = "entity could not be read", body = AxumCrudError),
                     ),
                 )]
+                #[axum_macros::debug_handler]
                 async fn read_one(
-                    Extension(ref controller): Extension<Arc<CrudController>>,
-                    Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
+                    Extension(controller): Extension<Arc<CrudController>>,
+                    Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadOne<$resource_type>>,
-                ) -> Result<Json<<$resource_type as CrudResource>::ReadViewModel>, CrudError> {
-                    crud_rs::read::read_one::<$resource_type>(controller.clone(), context.clone(), body)
+                ) -> Response {
+                    let result: Result<<$resource_type as CrudResource>::ReadViewModel, AxumCrudError> = crud_rs::read::read_one::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
-                        .map(|res| Json(res))
+                        .map_err(Into::into);
+                    match result {
+                        Ok(date) => (StatusCode::OK, Json(date)).into_response(),
+                        Err(err) => err.into_response(),
+                    }
                 }
 
                 /// Retrieve many entities.
@@ -154,17 +186,22 @@ macro_rules! impl_add_crud_routes {
                     request_body = ReadMany<$resource_type>,
                     responses(
                         (status = 200, description = "entities were read", body = Vec<<$resource_type as CrudResource>::ReadViewModel>),
-                        (status = 500, description = "entities could not be read", body = CrudError),
+                        (status = 500, description = "entities could not be read", body = AxumCrudError),
                     ),
                 )]
+                #[axum_macros::debug_handler]
                 async fn read_many(
-                    Extension(ref controller): Extension<Arc<CrudController>>,
-                    Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
+                    Extension(controller): Extension<Arc<CrudController>>,
+                    Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadMany<$resource_type>>,
-                ) -> Result<Json<Vec<<$resource_type as CrudResource>::ReadViewModel>>, CrudError> {
-                    crud_rs::read::read_many::<$resource_type>(controller.clone(), context.clone(), body)
+                ) -> Response {
+                    let result: Result<Vec<<$resource_type as CrudResource>::ReadViewModel>, AxumCrudError> = crud_rs::read::read_many::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
-                        .map(|res| Json(res))
+                        .map_err(Into::into);
+                    match result {
+                        Ok(date) => (StatusCode::OK, Json(date)).into_response(),
+                        Err(err) => err.into_response(),
+                    }
                 }
 
                 /// Create one entity.
@@ -176,18 +213,23 @@ macro_rules! impl_add_crud_routes {
                     request_body = CreateOne<<$resource_type as CrudResource>::CreateModel>,
                     responses(
                         (status = 200, description = "entity was created", body = SaveResult<<$resource_type as CrudResource>::Model>),
-                        (status = 500, description = "entity could not be created", body = CrudError),
+                        (status = 500, description = "entity could not be created", body = AxumCrudError),
                     ),
                 )]
+                #[axum_macros::debug_handler]
                 async fn create_one(
-                    Extension(ref controller): Extension<std::sync::Arc<CrudController>>,
-                    Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
-                    Extension(ref res_context): Extension<std::sync::Arc<<$resource_type as CrudResource>::Context>>,
+                    Extension(controller): Extension<Arc<CrudController>>,
+                    Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
+                    Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<CreateOne<<$resource_type as CrudResource>::CreateModel>>,
-                ) -> Result<Json<SaveResult<<$resource_type as CrudResource>::Model>>, CrudError> {
-                    crud_rs::create::create_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
+                ) -> Response {
+                    let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crud_rs::create::create_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
                         .await
-                        .map(|res| Json(res))
+                        .map_err(Into::into);
+                    match result {
+                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
+                        Err(err) => err.into_response(),
+                    }
                 }
 
                 /// Update one entity.
@@ -196,21 +238,26 @@ macro_rules! impl_add_crud_routes {
                 #[utoipa::path(
                     post,
                     path = "/" $name "/crud/update-one",
-                    request_body = UpdateOne<$resource_type>,
+                    request_body = UpdateOne<<$resource_type as CrudResource>::UpdateModel>,
                     responses(
                         (status = 200, description = "entity was updated", body = SaveResult<<$resource_type as CrudResource>::Model>),
-                        (status = 500, description = "entity could not be updated", body = CrudError),
+                        (status = 500, description = "entity could not be updated", body = AxumCrudError),
                     ),
                 )]
+                #[axum_macros::debug_handler]
                 async fn update_one(
-                    Extension(ref controller): Extension<Arc<CrudController>>,
-                    Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
-                    Extension(ref res_context): Extension<std::sync::Arc<<$resource_type as CrudResource>::Context>>,
-                    Json(body): Json<UpdateOne<$resource_type>>,
-                ) -> Result<Json<SaveResult<<$resource_type as CrudResource>::Model>>, CrudError> {
-                    crud_rs::update::update_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
+                    Extension(controller): Extension<Arc<CrudController>>,
+                    Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
+                    Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
+                    Json(body): Json<UpdateOne<<$resource_type as CrudResource>::UpdateModel>>,
+                ) -> Response {
+                    let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crud_rs::update::update_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
                         .await
-                        .map(|res| Json(res))
+                        .map_err(Into::into);
+                    match result {
+                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
+                        Err(err) => err.into_response(),
+                    }
                 }
 
                 /// Delete one entity by id.
@@ -222,18 +269,23 @@ macro_rules! impl_add_crud_routes {
                     request_body = DeleteById,
                     responses(
                         (status = 200, description = "entity was deleted", body = DeleteResult),
-                        (status = 500, description = "entity could not be deleted", body = CrudError),
+                        (status = 500, description = "entity could not be deleted", body = AxumCrudError),
                     ),
                 )]
+                #[axum_macros::debug_handler]
                 async fn delete_by_id(
-                    Extension(ref controller): Extension<Arc<CrudController>>,
-                    Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
-                    Extension(ref res_context): Extension<std::sync::Arc<<$resource_type as CrudResource>::Context>>,
+                    Extension(controller): Extension<Arc<CrudController>>,
+                    Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
+                    Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<DeleteById>,
-                ) -> Result<Json<DeleteResult>, CrudError> {
-                    crud_rs::delete::delete_by_id::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
+                ) -> Response {
+                    let result: Result<DeleteResult, AxumCrudError> = crud_rs::delete::delete_by_id::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
                         .await
-                        .map(|res| Json(res))
+                        .map_err(Into::into);
+                    match result {
+                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
+                        Err(err) => err.into_response(),
+                    }
                 }
 
                 /// Delete one entity using a standard filter query.
@@ -245,18 +297,23 @@ macro_rules! impl_add_crud_routes {
                     request_body = DeleteOne,
                     responses(
                         (status = 200, description = "entity was deleted", body = DeleteResult),
-                        (status = 500, description = "entity could not be deleted", body = CrudError),
+                        (status = 500, description = "entity could not be deleted", body = AxumCrudError),
                     ),
                 )]
+                #[axum_macros::debug_handler]
                 async fn delete_one(
-                    Extension(ref controller): Extension<Arc<CrudController>>,
-                    Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
-                    Extension(ref res_context): Extension<std::sync::Arc<<$resource_type as CrudResource>::Context>>,
+                    Extension(controller): Extension<Arc<CrudController>>,
+                    Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
+                    Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<DeleteOne<$resource_type>>,
-                ) -> Result<Json<DeleteResult>, CrudError> {
-                    crud_rs::delete::delete_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
+                ) -> Response {
+                    let result: Result<DeleteResult, AxumCrudError> = crud_rs::delete::delete_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
                         .await
-                        .map(|res| Json(res))
+                        .map_err(Into::into);
+                    match result {
+                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
+                        Err(err) => err.into_response(),
+                    }
                 }
 
                 /// Delete many entities using a standard filter query.
@@ -268,17 +325,22 @@ macro_rules! impl_add_crud_routes {
                     request_body = DeleteMany,
                     responses(
                         (status = 200, description = "entities were deleted", body = DeleteResult),
-                        (status = 500, description = "entities could not be deleted", body = CrudError),
+                        (status = 500, description = "entities could not be deleted", body = AxumCrudError),
                     ),
                 )]
+                #[axum_macros::debug_handler]
                 async fn delete_many(
-                    Extension(ref controller): Extension<Arc<CrudController>>,
-                    Extension(ref context): Extension<std::sync::Arc<CrudContext<$resource_type>>>,
+                    Extension(controller): Extension<Arc<CrudController>>,
+                    Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteMany>,
-                ) -> Result<Json<DeleteResult>, CrudError> {
-                    crud_rs::delete::delete_many::<$resource_type>(controller.clone(), context.clone(), body)
+                ) -> Response {
+                    let result: Result<DeleteResult, AxumCrudError> = crud_rs::delete::delete_many::<$resource_type>(controller.clone(), context.clone(), body)
                         .await
-                        .map(|res| Json(res))
+                        .map_err(Into::into);
+                    match result {
+                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
+                        Err(err) => err.into_response(),
+                    }
                 }
 
                 use utoipa::OpenApi;
@@ -315,6 +377,7 @@ macro_rules! impl_add_crud_routes {
                         schemas(crud_shared_types::condition::Operator),
                         schemas(crud_shared_types::id::SerializableId),
                         schemas(crud_rs::error::CrudError),
+                        schemas(crud_rs::axum_routes::AxumCrudError),
                         schemas(crud_rs::create::CreateOne<CrtCreateModel>),
                         schemas(crud_rs::read::ReadCount),
                         schemas(crud_rs::read::ReadOne<Crt>),
