@@ -486,6 +486,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "crud-sea-orm"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono-utc-date-time",
+ "crud-rs",
+ "crud-shared-types",
+ "indexmap",
+ "sea-orm",
+ "sea-query 0.28.2",
+ "serde",
+ "snafu",
+ "tracing",
+ "ulid",
+ "utoipa",
+ "uuid 1.2.2",
+]
+
+[[package]]
 name = "crud-shared-types"
 version = "0.1.0"
 dependencies = [
@@ -1494,9 +1513,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.49"
+version = "1.0.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57a8eca9f9c4ffde41714334dee777596264c7825420f521abc92b5b5deb63a5"
+checksum = "6ef7d57beacfaf2d8aee5937dab7b7f28de3cb8b1828479bb5de2a7106f2bae2"
 dependencies = [
  "unicode-ident",
 ]
