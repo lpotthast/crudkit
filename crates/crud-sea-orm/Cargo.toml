@@ -13,11 +13,11 @@ chrono-utc-date-time = { path = "../../../../chrono-utc-date-time", features = [
 
 # External
 tracing = "0.1"
-serde = { version = "1.0", features = ["derive"] }
-uuid = { version = "1.2", features = ["v4", "v7", "serde"] }
+serde = { version = "1", features = ["derive"] }
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
 # NOTE: Do not upgrade. Versions above 0.5 do not run on web assembly. We always use 0.5 for compatibility.
 ulid = { version = "0.5", features = ["serde"] }
-indexmap = { version = "1.9", features = ["serde"] }
+indexmap = { version = "1", features = ["serde"] }
 async-trait = "0.1"
 sea-orm = { version = "0.10", features = [
     "debug-print",
@@ -26,5 +26,5 @@ sea-orm = { version = "0.10", features = [
     "sqlx-postgres",
 ] }
 sea-query = { version = "0.28" }
-utoipa = "2.4"
+utoipa = "3"
 snafu = { version = "0.7", features = ["backtrace"] }

@@ -364,9 +364,9 @@ macro_rules! impl_add_crud_routes {
                         delete_many,
                     ),
                     components(
-                        schemas(<$resource_type as CrudResource>::Model as CrtModel),
-                        schemas(<$resource_type as CrudResource>::ReadViewModel as CrtReadModel),
-                        schemas(<$resource_type as CrudResource>::CreateModel as CrtCreateModel),
+                        //schemas(<$resource_type as CrudResource>::Model as CrtModel),
+                        //schemas(<$resource_type as CrudResource>::ReadViewModel as CrtReadModel),
+                        //schemas(<$resource_type as CrudResource>::CreateModel as CrtCreateModel),
                         schemas(crud_shared_types::DeleteResult),
                         schemas(crud_shared_types::SaveResult<CrtModel>),
                         schemas(crud_shared_types::Saved<CrtModel>),
@@ -387,7 +387,7 @@ macro_rules! impl_add_crud_routes {
                         schemas(crud_rs::delete::DeleteOne<Crt>),
                         schemas(crud_rs::delete::DeleteMany),
                         schemas(chrono_utc_date_time::UtcDateTime),
-                    )
+                    ),
                 )]
                 pub struct ApiDoc; // We just use `ApiDoc` instead of `[< $name _ApiDoc >]` as we are already in a named module.
             }
