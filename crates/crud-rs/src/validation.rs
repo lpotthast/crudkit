@@ -7,7 +7,7 @@ use crud_shared_types::{
         EntityViolations, OwnedValidatorInfo, ValidationViolation, ValidatorInfo, Violations,
     },
 };
-use sea_orm::{DeriveActiveEnum, EnumIter};
+use sea_orm::{DeriveActiveEnum, EnumIter, ColumnTypeTrait};
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 
