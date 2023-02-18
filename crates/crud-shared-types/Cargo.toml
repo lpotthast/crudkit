@@ -2,17 +2,15 @@
 name = "crud-shared-types"
 version = "0.1.0"
 edition = "2021"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-time = { version = "0.3", features = ["serde", "serde-well-known"] }
+dyn-clone = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
-chrono = "0.4"
-dyn-clone = "1"
-uuid = { version = "1", features = ["v4", "v7", "serde"] }
+snafu = { version = "0.7", features = ["backtrace"] }
+time = { version = "0.3", features = ["serde", "serde-well-known"] }
 # NOTE: Do not upgrade. Versions above 0.5 do not run on web assembly. We always use 0.5 for compatibility.
 ulid = { version = "0.5", features = ["serde", "uuid"] }
 utoipa = "3"
-snafu = { version = "0.7", features = ["backtrace"] }
+uuid = { version = "1", features = ["v4", "v7", "serde"] }

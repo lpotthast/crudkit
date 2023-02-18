@@ -3,8 +3,6 @@ members = ["crates/*"]
 default-members = ["crates/crud-shared-types"]
 
 [workspace.dependencies]
-
-# Dependencies used in proc-macro implementations
 derive-helper = { path = "../../derive-helper" }
 darling = "0.14"
 proc-macro-error = "1"

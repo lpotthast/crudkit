@@ -4,8 +4,8 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
-derive-helper = { workspace = true }
 darling = { workspace = true }
+derive-helper = { workspace = true }
 proc-macro-error = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
