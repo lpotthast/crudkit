@@ -4,30 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Internal
+async-trait = "0.1"
+axum = "0.6"
 axum-websockets = { path = "../../../../axum-websockets" }
 crud-shared-types = { path = "../../../crud-shared-types/crates/crud-shared-types" }
-
-# Macros
-derive-crud-columns = { path = "../derive-crud-columns" }
 derive-create-model = { path = "../derive-create-model" }
+derive-crud-columns = { path = "../derive-crud-columns" }
 derive-crud-resource-context = { path = "../derive-crud-resource-context" }
 derive-update-model = { path = "../derive-update-model" }
 derive-validation-model = { path = "../derive-validation-model" }
-
-# External
-tracing = "0.1"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-chrono = "0.4"
-time = "0.3"
-uuid = { version = "1", features = ["v4", "v7", "serde"] }
-# NOTE: Do not upgrade. Versions above 0.5 do not run on web assembly. We always use 0.5 for compatibility.
-ulid = { version = "0.5", features = ["serde"] }
-axum = "0.6"
 indexmap = { version = "1", features = ["serde"] }
 paste = "1"
-async-trait = "0.1"
 sea-orm = { version = "0.11", features = [
     "debug-print",
     "runtime-tokio-rustls",
@@ -35,6 +22,13 @@ sea-orm = { version = "0.11", features = [
     "sqlx-postgres",
 ] }
 sea-query = { version = "0.28" }
-utoipa = "3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 snafu = { version = "0.7", features = ["backtrace"] }
+time = "0.3"
+tracing = "0.1"
+# NOTE: Do not upgrade. Versions above 0.5 do not run on web assembly. We always use 0.5 for compatibility.
+ulid = { version = "0.5", features = ["serde"] }
+utoipa = "3"
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
 
