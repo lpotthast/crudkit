@@ -72,7 +72,8 @@ impl Into<ConditionClauseValue> for Value {
             Value::F32(value) => ConditionClauseValue::F32(value),
             Value::Bool(value) => ConditionClauseValue::Bool(value),
             //Value::DateTime(value) => ConditionClauseValue::DateTime(value), // TODO: implement
-            Value::DateTime(_value) => panic!("Not implemented...."),
+            Value::PrimitiveDateTime(_value) => panic!("Not implemented...."),
+            Value::OffsetDateTime(_value) => panic!("Not implemented...."),
         }
     }
 }
@@ -89,7 +90,8 @@ impl Into<ConditionClauseValue> for IdValue {
             IdValue::U32(value) => ConditionClauseValue::U32(value),
             IdValue::Bool(value) => ConditionClauseValue::Bool(value),
             //IdValue::DateTime(value) => ConditionClauseValue::DateTime(value), // TODO: implement
-            IdValue::DateTime(_value) => panic!("Not implemented...."),
+            IdValue::PrimitiveDateTime(_value) => panic!("Not implemented...."),
+            IdValue::OffsetDateTime(_value) => panic!("Not implemented...."),
         }
     }
 }

@@ -6,10 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# Internal
-chrono-utc-date-time = { path = "../../../../chrono-utc-date-time" }
-
-# External
+time = { version = "0.3", features = ["serde", "serde-well-known"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
 chrono = "0.4"

@@ -3,7 +3,6 @@
 
 use std::fmt::Debug;
 
-use chrono_utc_date_time::UtcDateTime;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -68,7 +67,8 @@ pub enum Value {
     U32(u32),
     F32(f32),
     Bool(bool),
-    DateTime(UtcDateTime),
+    PrimitiveDateTime(time::PrimitiveDateTime),
+    OffsetDateTime(time::OffsetDateTime),
 }
 
 /// "ID-able" values. Values which might be part of an entities ID. All variants must implement `Eq` for proper comparability!
@@ -83,7 +83,8 @@ pub enum IdValue {
     I64(i64),
     U32(u32),
     Bool(bool),
-    DateTime(UtcDateTime),
+    PrimitiveDateTime(time::PrimitiveDateTime),
+    OffsetDateTime(time::OffsetDateTime),
 }
 
 impl id::IntoSerializableValue for Value {

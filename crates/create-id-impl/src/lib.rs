@@ -266,10 +266,8 @@ fn to_id_value(ty: &syn::Type) -> proc_macro2::TokenStream {
             "crud_shared_types::UuidV4" => quote! { crud_shared_types::IdValue::UuidV4 },
             "crud_shared_types::UuidV7" => quote! { crud_shared_types::IdValue::UuidV7 },
             "Ulid" => quote! { crud_shared_types::IdValue::Ulid },
-            "chrono_utc_date_time::UtcDateTime" => {
-                quote! { crud_shared_types::IdValue::UtcDateTime }
-            }
-            "UtcDateTime" => quote! { crud_shared_types::IdValue::UtcDateTime },
+            "time::PrimitiveDateTime" => quote! { crud_shared_types::IdValue::PrimitiveDateTime },
+            "time::OffsetDateTime" => quote! { crud_shared_types::IdValue::OffsetDateTime },
             "Option<i64>" => quote! { crud_shared_types::IdValue::OptionalI64 },
             "Option<i32>" => quote! { crud_shared_types::IdValue::OptionalI32 },
             "Option<u32>" => quote! { crud_shared_types::IdValue::OptionalU32 },
@@ -278,10 +276,8 @@ fn to_id_value(ty: &syn::Type) -> proc_macro2::TokenStream {
                 help = "use one of the following types: [...]";
             ),
             "Option<String>" => quote! { crud_shared_types::IdValue::OptionalString },
-            "Option<chrono_utc_date_time::UtcDateTime>" => {
-                quote! { crud_shared_types::IdValue::OptionalUtcDateTime }
-            }
-            "Option<UtcDateTime>" => quote! { crud_shared_types::IdValue::OptionalUtcDateTime },
+            "Option<time::PrimitiveDateTime>" => quote! { crud_shared_types::IdValue::OptionalPrimitiveDateTime },
+            "Option<time::OffsetDateTime>" => quote! { crud_shared_types::IdValue::OptionalOffsetDateTime },
             other => {
                 let span = ty.span();
                 let message = format!("to_id_value found unknown type {other:?}. Expected a known type.");
