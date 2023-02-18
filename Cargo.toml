@@ -3,8 +3,6 @@ members = ["crates/*"]
 default-members = ["crates/crud-yew"]
 
 [workspace.dependencies]
-
-# Dependencies used in proc-macro implementations
 # TODO: Derive helper must lie somewhere else. Otherwise, crud-yew and crud-rs cannot be used elsewhere...
 derive-helper = { path = "../../derive-helper" }
 darling = "0.14"
