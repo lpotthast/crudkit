@@ -3,6 +3,7 @@ use crud_shared_types::{condition::Condition, Order};
 use indexmap::IndexMap;
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};
+use tracing::error;
 use std::sync::Arc;
 use utoipa::ToSchema;
 
@@ -71,7 +72,7 @@ pub async fn read_many<R: CrudResource>(
     context: Arc<CrudContext<R>>,
     body: ReadMany<R>,
 ) -> Result<Vec<R::ReadViewModel>, CrudError> {
-    context
+    let result = context
         .repository
         .read_many(
             body.limit,
@@ -83,5 +84,9 @@ pub async fn read_many<R: CrudResource>(
         .map_err(|err| CrudError::Repository {
             reason: Arc::new(err),
             backtrace: Backtrace::generate(),
-        })
+        });
+    if let Err(err) = &result {
+        error!(resource = ?R::TYPE, "{err}");
+    }
+    result
 }

@@ -2,11 +2,11 @@
 #![deny(clippy::unwrap_used)]
 
 use async_trait::async_trait;
-use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::{condition::ConditionClauseValue, prelude::Id, Value};
 use prelude::{CrudContext, CrudResource};
 use sea_orm::{ActiveModelTrait, ColumnTrait, ModelTrait};
 use std::str::FromStr;
+use time::format_description::well_known::Rfc3339;
 use validation::PersistableViolation;
 
 pub mod axum_routes;
@@ -63,7 +63,8 @@ pub mod prelude {
 
     pub use super::parse;
     pub use super::to_bool;
-    pub use super::to_date_time;
+    pub use super::to_primitive_date_time;
+    pub use super::to_offset_date_time;
     pub use super::to_i32;
     pub use super::to_string;
 
@@ -108,7 +109,7 @@ pub trait NewActiveValidationModel<I: Id> {
         validator_name: String,
         validator_version: i32,
         violation: PersistableViolation,
-        now: UtcDateTime,
+        now: time::OffsetDateTime,
     ) -> Self;
 }
 
@@ -259,13 +260,24 @@ pub fn to_ulid(value: ConditionClauseValue) -> Result<Value, String> {
     }
 }
 
-pub fn to_date_time(value: ConditionClauseValue) -> Result<Value, String> {
+pub fn to_primitive_date_time(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
-        ConditionClauseValue::String(string) => {
-            UtcDateTime::parse_from_rfc3339(&string).map(Value::DateTime)
-        }
+        ConditionClauseValue::String(string) => time::PrimitiveDateTime::parse(&string, &Rfc3339)
+            .map_err(|err| err.to_string())
+            .map(Value::PrimitiveDateTime),
         _ => Err(format!(
-            "{value:?} can not be converted to a DateTime. Expected String."
+            "{value:?} can not be converted to a PrimitiveDateTime. Expected String."
+        )),
+    }
+}
+
+pub fn to_offset_date_time(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::String(string) => time::OffsetDateTime::parse(&string, &Rfc3339)
+            .map_err(|err| err.to_string())
+            .map(Value::OffsetDateTime),
+        _ => Err(format!(
+            "{value:?} can not be converted to an OffsetDateTime. Expected String."
         )),
     }
 }

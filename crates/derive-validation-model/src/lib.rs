@@ -122,8 +122,8 @@ pub fn store(input: TokenStream) -> TokenStream {
                 pub violation_severity: crud_rs::validation::ValidationViolationType,
                 pub violation_message: String,
 
-                pub created_at: chrono_utc_date_time::UtcDateTime,
-                pub updated_at: chrono_utc_date_time::UtcDateTime,
+                pub created_at: time::OffsetDateTime,
+                pub updated_at: time::OffsetDateTime,
             }
 
             #[derive(Copy, Clone, Debug, sea_orm::DeriveRelation, sea_orm::EnumIter)]
@@ -141,7 +141,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
 
             impl crud_rs::NewActiveValidationModel<ParentId> for ActiveModel {
-                fn new(entity_id: ParentId, validator_name: String, validator_version: i32, violation: crud_rs::validation::PersistableViolation, now: chrono_utc_date_time::UtcDateTime) -> Self {
+                fn new(entity_id: ParentId, validator_name: String, validator_version: i32, violation: crud_rs::validation::PersistableViolation, now: time::OffsetDateTime) -> Self {
                     Self {
                         id: sea_orm::ActiveValue::NotSet,
 

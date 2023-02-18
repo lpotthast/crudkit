@@ -386,7 +386,6 @@ macro_rules! impl_add_crud_routes {
                         schemas(crud_rs::delete::DeleteById),
                         schemas(crud_rs::delete::DeleteOne<Crt>),
                         schemas(crud_rs::delete::DeleteMany),
-                        schemas(chrono_utc_date_time::UtcDateTime),
                     ),
                 )]
                 pub struct ApiDoc; // We just use `ApiDoc` instead of `[< $name _ApiDoc >]` as we are already in a named module.

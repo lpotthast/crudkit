@@ -332,7 +332,10 @@ pub mod query {
                                     Value::Bool(val) => {
                                         tree = add_condition(tree, col, clause.operator, val)
                                     }
-                                    Value::DateTime(val) => {
+                                    Value::PrimitiveDateTime(val) => {
+                                        tree = add_condition(tree, col, clause.operator, val)
+                                    }
+                                    Value::OffsetDateTime(val) => {
                                         tree = add_condition(tree, col, clause.operator, val)
                                     }
                                 }

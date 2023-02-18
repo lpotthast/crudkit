@@ -222,15 +222,15 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
             "crud_shared_types::UuidV7" => "to_uuid_v7",
             "Ulid" => "to_ulid",
             "ulid::Ulid" => "to_ulid",
-            "chrono_utc_date_time::UtcDateTime" => "to_date_time",
-            "UtcDateTime" => "to_date_time",
+            "time::PrimitiveDateTime" => "to_primitive_date_time",
+            "time::OffsetDateTime" => "to_offset_date_time",
             "Option<u32>" => "to_u32",
             "Option<i32>" => "to_i32",
             "Option<i64>" => "to_i64",
             "Option<String>" => "to_string",
             "Option<serde_json::Value>" => "to_json_value",
-            "Option<chrono_utc_date_time::UtcDateTime>" => "to_date_time",
-            "Option<UtcDateTime>" => "to_date_time",
+            "Option<time::PrimitiveDateTime>" => "to_primitive_date_time",
+            "Option<time::OffsetDateTime>" => "to_offset_date_time",
             other => {
                 let message = format!("Unknown type {other:?}. Expected a known type.");
                 abort!(
