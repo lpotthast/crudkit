@@ -133,6 +133,14 @@ pub fn store(input: TokenStream) -> TokenStream {
             #field_name::#type_ident => #name
         }
     });
+    let get_name_impl = match input.fields().len() {
+        0 => quote! { "" },
+        _ => quote! {
+            match self {
+                #(#match_field_name_to_str_arms),*
+            }
+        }
+    };
 
     let get_field_arms = input.fields().iter().map(|field| {
         let name = field.ident.as_ref().expect("Expected named field!");
@@ -143,6 +151,15 @@ pub fn store(input: TokenStream) -> TokenStream {
             #name => #field_name::#type_ident
         }
     });
+    let get_field_impl = match input.fields().len() {
+        0 => quote! { panic!("String '{}' can not be parsed as a field name! There are zero fields!", field_name) },
+        _ => quote! {
+            match field_name {
+                #(#get_field_arms),*,
+                other => panic!("String '{}' can not be parsed as a field name!", other),
+            }
+        }
+    };
 
     quote! {
         #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
@@ -152,9 +169,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         impl crud_yew::CrudFieldNameTrait for #field_name {
             fn get_name(&self) -> &'static str {
-                match self {
-                    #(#match_field_name_to_str_arms),*
-                }
+                #get_name_impl
             }
         }
 
@@ -164,10 +179,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             type Field = #field_name;
 
             fn get_field(field_name: &str) -> #field_name {
-                match field_name {
-                    #(#get_field_arms),*,
-                    other => panic!("String '{}' can not be parsed as a field name!", other),
-                }
+                #get_field_impl
             }
         }
     }

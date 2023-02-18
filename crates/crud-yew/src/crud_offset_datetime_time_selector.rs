@@ -1,21 +1,19 @@
-use chrono_utc_date_time::UtcDateTime;
+use time::format_description::well_known::Rfc3339;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {
-    pub value: UtcDateTime,
+    pub value: time::OffsetDateTime,
 }
 
-pub struct CrudDatetimeTimeSelector {
-}
+pub struct CrudOffsetDatetimeTimeSelector {}
 
-impl Component for CrudDatetimeTimeSelector {
+impl Component for CrudOffsetDatetimeTimeSelector {
     type Message = ();
     type Properties = Props;
 
     fn create(_ctx: &Context<Self>) -> Self {
-        Self {
-        }
+        Self {}
     }
 
     fn update(&mut self, _ctx: &Context<Self>, _msg: Self::Message) -> bool {
@@ -26,7 +24,7 @@ impl Component for CrudDatetimeTimeSelector {
         html! {
             <div class={"time-selector"}>
                 {"TimeSelector"}
-                {ctx.props().value.to_rfc3339()}
+                {ctx.props().value.format(&Rfc3339).unwrap()}
             </div>
         }
     }

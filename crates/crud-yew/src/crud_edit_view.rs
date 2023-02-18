@@ -83,7 +83,10 @@ pub struct Props<T: 'static + CrudMainTrait> {
 }
 
 pub struct CrudEditView<T: CrudMainTrait> {
-    input: T::UpdateModel,
+    /// The input is `None`, if the entity was not yet loaded.
+    /// We cannot and should not use a `Default` value,
+    /// as an editable entity was already created and might therefore contain field for which no default is available.
+    input: Option<T::UpdateModel>,
 
     /// The input is 'dirty' if was changed: The current state of `input` is not the state we started with.
     input_dirty: bool,
@@ -180,7 +183,7 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
             ctx
         );
         if let Ok(entity) = &self.entity {
-            self.input = entity.clone();
+            self.input = Some(entity.clone());
             self.input_dirty = false;
         }
     }
@@ -194,7 +197,7 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
         match data {
             Ok(save_result) => match save_result {
                 SaveResult::Saved(saved) => {
-                    self.input = saved.entity.clone();
+                    self.input = Some(saved.entity.clone());
                     self.input_dirty = false;
                     self._set_entity(Ok(saved.entity), ctx);
                 }
@@ -216,7 +219,7 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
     }
 
     fn save_entity(&self, ctx: &Context<Self>, and_then: Then) {
-        let entity = self.input.clone();
+        let entity = self.input.clone().expect("Entity to be already loaded");
         let condition = <T as CrudMainTrait>::UpdateModelId::to_all_equal_condition(&ctx.props().id);
         let data_provider = ctx.props().data_provider.clone();
         // TODO: Like in create_view, store ongoing_save!!
@@ -242,7 +245,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
         ctx.props().on_link.emit(Some(ctx.link().clone()));
         CrudEditView::load_entity(ctx);
         Self {
-            input: Default::default(),
+            input: None,
             input_dirty: false,
             input_errors: HashMap::new(),
             user_wants_to_activate: vec![],
@@ -355,11 +358,12 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
             Msg::ValueChanged((field, result)) => {
                 match result {
                     Ok(value) => {
-                        field.set_value(&mut self.input, value);
+                        let mut input = self.input.as_mut().expect("Entity to be already loaded");
+                        field.set_value(input, value);
                         self.input_errors.remove(&field);
                         // We might only want to set this to true if the new value was actually different to the old value!
                         match &self.entity {
-                            Ok(entity) => self.input_dirty = &self.input != entity,
+                            Ok(entity) => self.input_dirty = input != entity,
                             Err(_) => self.input_dirty = false,
                         }
                         false
@@ -372,7 +376,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                 }
             }
             Msg::GetInput((field, receiver)) => {
-                receiver(field.get_value(&self.input));
+                receiver(field.get_value(self.input.as_ref().expect("Entity to be already loaded")));
                 false
             }
             Msg::ActionInitialized { action_id } => {
@@ -392,7 +396,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                     self.user_wants_to_activate.remove(index);
                 }
                 action.emit((
-                    self.input.clone(),
+                    self.input.clone().expect("Entity to be already loaded"),
                     action_payload,
                     ctx.link()
                         .callback(move |result| Msg::ActionExecuted { action_id, result }),
@@ -462,13 +466,13 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                                                             name={name.clone()}
                                                                             variant={variant.clone()}
                                                                             icon={icon.clone()}
-                                                                            disabled={self.actions_executing.contains(&id)}
+                                                                            disabled={self.actions_executing.contains(&id) || self.input.is_none()}
                                                                             onclick={ctx.link().callback(move |_| Msg::ActionInitialized { action_id }) }
                                                                         />
                                                                         if self.user_wants_to_activate.iter().any(|it| it.as_str() == action_id) {
                                                                             <CrudModal>
                                                                                 {{ modal(ModalGeneration {
-                                                                                    state: self.input.clone(),
+                                                                                    state: self.input.clone().expect("Entity to be already loaded"),
                                                                                     cancel: ctx.link().callback(move |_| Msg::ActionCancelled { action_id }),
                                                                                     execute: ctx.link().callback(move |action_payload| Msg::ActionTriggered { action_id, action_payload, action: action.clone() }),
                                                                                 }) }}

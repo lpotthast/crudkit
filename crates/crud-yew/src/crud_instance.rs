@@ -1,9 +1,11 @@
-use chrono_utc_date_time::UtcDateTime;
-use crud_shared_types::{DeleteResult, Order, Saved, condition::Condition, condition::ConditionClause, condition::ConditionElement, id::SerializableId, prelude::Id};
-use indexmap::{IndexMap, indexmap};
+use crud_shared_types::{
+    condition::Condition, condition::ConditionClause, condition::ConditionElement,
+    id::SerializableId, prelude::Id, DeleteResult, Order, Saved,
+};
+use indexmap::{indexmap, IndexMap};
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn, error};
 use std::rc::Rc;
+use tracing::{error, info, warn};
 use uuid::Uuid;
 use yew::{
     html::{ChildrenRenderer, Scope},
@@ -13,7 +15,8 @@ use yew::{
 use yewdux::prelude::*;
 
 use crate::{
-    services::crud_rest_data_provider::{CrudRestDataProvider, DeleteById}, types::custom_field::{CustomReadFields, CustomCreateFields, CustomUpdateFields},
+    services::crud_rest_data_provider::{CrudRestDataProvider, DeleteById},
+    types::custom_field::{CustomCreateFields, CustomReadFields, CustomUpdateFields},
 };
 
 use super::{prelude::*, stores, types::RequestError};
@@ -24,7 +27,12 @@ pub enum Msg<T: 'static + CrudMainTrait> {
     ViewLinked(Option<ViewLink<T>>),
     List,
     Create,
-    EntityCreated((Saved<T::UpdateModel>, Option<CrudView<T::ReadModelId, T::UpdateModelId>>)),
+    EntityCreated(
+        (
+            Saved<T::UpdateModel>,
+            Option<CrudView<T::ReadModelId, T::UpdateModelId>>,
+        ),
+    ),
     EntityCreationAborted(String),
     EntityNotCreatedDueToCriticalErrors,
     EntityCreationFailed(RequestError),
@@ -100,7 +108,7 @@ pub struct CrudStaticInstanceConfig<T: CrudMainTrait> {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CreateElements<T: CrudMainTrait> {
-    Default,
+    None,
     Custom(Vec<Elem<T::CreateModel>>),
 }
 
@@ -119,12 +127,12 @@ impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {
             //     },
             // )],
             headers: vec![],
-            create_elements: CreateElements::Default,
+            create_elements: CreateElements::None,
             elements: vec![],
             // order_by: indexmap! { // TODO: Nothing? First id field? All id fields?
             //     T::ReadModel::get_id_field() => Order::Asc,
             // },
-            order_by: indexmap! { },
+            order_by: indexmap! {},
             items_per_page: 10,
             page: 1,
             active_tab: None,
@@ -445,17 +453,22 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                                 SerializableCrudView::Edit(id) => Some(id),
                             };
                             if let Some(parent_id) = &parent_id {
-                                let (_field_name, value) = parent_id.0.iter()
-                                    .find(|(field_name, _value)| field_name == nested.parent_field.as_str())
+                                let (_field_name, value) = parent_id
+                                    .0
+                                    .iter()
+                                    .find(|(field_name, _value)| {
+                                        field_name == nested.parent_field.as_str()
+                                    })
                                     .expect("related parent field must be part of the parents id!");
 
-                                self.data_provider.set_base_condition(Some(Condition::All(vec![
-                                    ConditionElement::Clause(ConditionClause {
-                                        column_name: nested.reference_field.clone(),
-                                        operator: crud_shared_types::condition::Operator::Equal,
-                                        value: value.clone().into(),
-                                    }),
-                                ])));
+                                self.data_provider
+                                    .set_base_condition(Some(Condition::All(vec![
+                                        ConditionElement::Clause(ConditionClause {
+                                            column_name: nested.reference_field.clone(),
+                                            operator: crud_shared_types::condition::Operator::Equal,
+                                            value: value.clone().into(),
+                                        }),
+                                    ])));
                             } else {
                                 self.data_provider.set_base_condition(None);
                             }
@@ -524,7 +537,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 self.toasts_dispatch.reduce_mut(|state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
-                        created_at: UtcDateTime::now(),
+                        created_at: time::OffsetDateTime::now_utc(),
                         variant: match save_result.with_validation_errors {
                             true => ToastVariant::Warn,
                             false => ToastVariant::Success,
@@ -547,7 +560,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 self.toasts_dispatch.reduce_mut(move |state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
-                        created_at: UtcDateTime::now(),
+                        created_at: time::OffsetDateTime::now_utc(),
                         variant: ToastVariant::Error,
                         heading: "Nicht erstellt".to_owned(),
                         message: format!("Speichern abgebrochen: {reason}"),
@@ -564,7 +577,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 self.toasts_dispatch.reduce_mut(move |state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
-                        created_at: UtcDateTime::now(),
+                        created_at: time::OffsetDateTime::now_utc(),
                         variant: ToastVariant::Error,
                         heading: "Nicht erstellt".to_owned(),
                         message: "Kritische Validierungsfehler verhindern das Speichern."
@@ -582,7 +595,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 self.toasts_dispatch.reduce_mut(move |state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
-                        created_at: UtcDateTime::now(),
+                        created_at: time::OffsetDateTime::now_utc(),
                         variant: ToastVariant::Error,
                         heading: "Nicht erstellt".to_owned(),
                         message: format!(
@@ -602,7 +615,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 self.toasts_dispatch.reduce_mut(|state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
-                        created_at: UtcDateTime::now(),
+                        created_at: time::OffsetDateTime::now_utc(),
                         variant: match save_result.with_validation_errors {
                             true => ToastVariant::Warn,
                             false => ToastVariant::Success,
@@ -625,7 +638,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 self.toasts_dispatch.reduce_mut(move |state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
-                        created_at: UtcDateTime::now(),
+                        created_at: time::OffsetDateTime::now_utc(),
                         variant: ToastVariant::Error,
                         heading: "Nicht aktualisiert".to_owned(),
                         message: format!("Speichern abgebrochen: {reason}"),
@@ -642,7 +655,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 self.toasts_dispatch.reduce_mut(move |state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
-                        created_at: UtcDateTime::now(),
+                        created_at: time::OffsetDateTime::now_utc(),
                         variant: ToastVariant::Error,
                         heading: "Nicht aktualisiert".to_owned(),
                         message: "Kritische Validierungsfehler verhindern das Speichern."
@@ -660,7 +673,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 self.toasts_dispatch.reduce_mut(move |state| {
                     state.push_toast(Toast {
                         id: Uuid::new_v4(),
-                        created_at: UtcDateTime::now(),
+                        created_at: time::OffsetDateTime::now_utc(),
                         variant: ToastVariant::Error,
                         heading: "Nicht aktualisiert".to_owned(),
                         message: format!(
@@ -725,7 +738,8 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                                                 }
                                             }
                                             CrudView::Edit(id) => {
-                                                let update_model: T::UpdateModel = (*read_model).clone().into();
+                                                let update_model: T::UpdateModel =
+                                                    (*read_model).clone().into();
                                                 if id == &update_model.get_id() {
                                                     self.set_view(CrudView::List);
                                                     self.store_config(ctx);
@@ -749,7 +763,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                                             _ => {}
                                         };
                                     }
-                                }
+                                },
                                 None => {}
                             }
                             self.entity_to_delete = None;
@@ -759,7 +773,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             self.toasts_dispatch.reduce_mut(move |state| {
                                 state.push_toast(Toast {
                                     id: Uuid::new_v4(),
-                                    created_at: UtcDateTime::now(),
+                                    created_at: time::OffsetDateTime::now_utc(),
                                     variant: ToastVariant::Error,
                                     heading: "Entfernen".to_owned(),
                                     message: format!("Entfernen abgebrochen: {reason}"),
@@ -783,8 +797,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                         // The user can always click cancel to leave the modal without potential for errors.
                         warn!(
                             "Server was unable to delete entity {:?}. Reason: {}",
-                            self.entity_to_delete,
-                            err
+                            self.entity_to_delete, err
                         );
                         false
                     }
@@ -830,16 +843,12 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                                     );
                             }
                             CreateOrUpdateField::UpdateField(field) => {
-                                link.send_message(
-                                        <CrudCreateView<T> as Component>::Message::UpdateModelFieldChanged(
-                                            (field, value),
-                                        ),
-                                    );
+                                error!("CrudInstance: Cannot 'SaveInput' from 'UpdateModel' field '{field:?}' when being in the create view. You must declare an 'CreateModel' field for this view.")
                             }
                         },
                         ViewLink::Edit(link) => match field {
                             CreateOrUpdateField::CreateField(field) => {
-                                error!("CrudInstance: Cannot 'SaveInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'EditModel' field for this view.")
+                                error!("CrudInstance: Cannot 'SaveInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'UpdateModel' field for this view.")
                             }
                             CreateOrUpdateField::UpdateField(field) => {
                                 link.send_message(
@@ -873,16 +882,12 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                                     );
                             }
                             CreateOrUpdateField::UpdateField(field) => {
-                                link.send_message(
-                                        <CrudCreateView<T> as Component>::Message::GetUpdateModelFieldValue(
-                                            (field.clone(), receiver),
-                                        ),
-                                    );
+                                error!("CrudInstance: Cannot 'GetInput' from 'UpdateModel' field '{field:?}' when being in the create view. You must declare an 'CreateModel' field for this view.")
                             }
                         },
                         ViewLink::Edit(link) => match field {
                             CreateOrUpdateField::CreateField(field) => {
-                                error!("CrudInstance: Cannot 'GetInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'EditModel' field for this view.")
+                                error!("CrudInstance: Cannot 'GetInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'UpdateModel' field for this view.")
                             }
                             CreateOrUpdateField::UpdateField(field) => {
                                 link.send_message(
@@ -921,7 +926,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                         ViewLink::Create(_link) => todo!(),
                         ViewLink::Edit(link) => {
                             link.send_message(<CrudEditView<T> as Component>::Message::Reload)
-                        },
+                        }
                         ViewLink::Read(_link) => todo!(),
                     }
                 }

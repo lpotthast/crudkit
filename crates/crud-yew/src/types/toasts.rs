@@ -1,6 +1,5 @@
 use std::rc::Rc;
 
-use chrono_utc_date_time::UtcDateTime;
 use uuid::Uuid;
 use yew::{html::Scope, prelude::*};
 
@@ -51,7 +50,7 @@ pub enum ToastAutomaticallyClosing {
 #[derive(Debug, Clone)]
 pub struct Toast {
     pub id: Uuid,
-    pub created_at: UtcDateTime,
+    pub created_at: time::OffsetDateTime,
     pub variant: ToastVariant,
     pub heading: String,
     pub message: String,
@@ -70,7 +69,7 @@ impl Default for Toast {
     fn default() -> Self {
         Self {
             id: Uuid::new_v4(),
-            created_at: UtcDateTime::now(),
+            created_at: time::OffsetDateTime::now_utc(),
             variant: ToastVariant::Info,
             heading: String::new(),
             message: String::new(),

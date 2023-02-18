@@ -3,16 +3,16 @@
 #![deny(clippy::unwrap_used)]
 
 use async_trait::async_trait;
-use chrono_utc_date_time::prelude::*;
 use crud_shared_types::{id::SerializableId, prelude::*};
 use dyn_clone::DynClone;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tracing::warn;
 use std::{
     any::Any,
     fmt::{Debug, Display},
     hash::Hash,
 };
+use time::format_description::well_known::Rfc3339;
+use tracing::warn;
 use types::RequestError;
 use wasm_bindgen::JsCast;
 use web_sys::KeyboardEvent;
@@ -27,9 +27,6 @@ pub mod crud_btn_wrapper;
 pub mod crud_checkbox;
 pub mod crud_collapsible;
 pub mod crud_create_view;
-pub mod crud_datetime;
-pub mod crud_datetime_date_selector;
-pub mod crud_datetime_time_selector;
 pub mod crud_delete_modal;
 pub mod crud_edit_view;
 pub mod crud_field;
@@ -44,6 +41,9 @@ pub mod crud_list_view;
 pub mod crud_modal;
 pub mod crud_modal_host;
 pub mod crud_nested_instance;
+pub mod crud_offset_datetime;
+pub mod crud_offset_datetime_date_selector;
+pub mod crud_offset_datetime_time_selector;
 pub mod crud_pagination;
 pub mod crud_progress_bar;
 pub mod crud_quicksearch;
@@ -95,9 +95,6 @@ pub mod prelude {
     pub use super::crud_checkbox::CrudCheckbox;
     pub use super::crud_collapsible::CrudCollapsible;
     pub use super::crud_create_view::CrudCreateView;
-    pub use super::crud_datetime::CrudDatetime;
-    pub use super::crud_datetime_date_selector::CrudDatetimeDateSelector;
-    pub use super::crud_datetime_time_selector::CrudDatetimeTimeSelector;
     pub use super::crud_delete_modal::CrudDeleteModal;
     pub use super::crud_edit_view::CrudEditView;
     pub use super::crud_field::CrudField;
@@ -220,7 +217,7 @@ impl From<Variant> for Classes {
 pub trait CrudMainTrait:
     CrudResourceTrait + PartialEq + Default + Debug + Clone + Serialize + Send
 {
-    type CreateModel: CrudDataTrait + Send;
+    type CreateModel: CrudDataTrait + Default + Send;
 
     type ReadModelIdField: IdField<Value = crud_shared_types::IdValue> + Serialize + Send;
     type ReadModelId: Serialize
@@ -259,7 +256,7 @@ impl CrudActionPayload for EmptyActionPayload {}
 
 // Note: This does not have CrudIdTrait as a super trait, as not all data model (namely the CreateModel) can supply an ID!
 pub trait CrudDataTrait:
-    Default + PartialEq + Clone + Debug + Serialize + DeserializeOwned + Send
+    PartialEq + Clone + Debug + Serialize + DeserializeOwned + Send
 {
     type Field: CrudFieldNameTrait
         + CrudFieldValueTrait<Self>
@@ -335,8 +332,10 @@ pub enum Value {
     Bool(bool),
     // Specialized bool-case, render as a green check mark if false and an orange exclamation mark if true.
     ValidationStatus(bool),
-    UtcDateTime(UtcDateTime),
-    OptionalUtcDateTime(Option<UtcDateTime>),
+    PrimitiveDateTime(time::PrimitiveDateTime),
+    OffsetDateTime(time::OffsetDateTime),
+    OptionalPrimitiveDateTime(Option<time::PrimitiveDateTime>),
+    OptionalOffsetDateTime(Option<time::OffsetDateTime>),
     OneToOneRelation(Option<u32>),
     NestedTable(Vec<Box<dyn DynIdField>>),
     Custom(()),
@@ -402,7 +401,8 @@ impl Into<Value> for crud_shared_types::Value {
             crud_shared_types::Value::U32(value) => Value::U32(value),
             crud_shared_types::Value::F32(value) => Value::F32(value),
             crud_shared_types::Value::Bool(value) => Value::Bool(value),
-            crud_shared_types::Value::DateTime(value) => Value::UtcDateTime(value),
+            crud_shared_types::Value::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
+            crud_shared_types::Value::OffsetDateTime(value) => Value::OffsetDateTime(value),
         }
     }
 }
@@ -418,7 +418,8 @@ impl Into<Value> for crud_shared_types::IdValue {
             crud_shared_types::IdValue::I64(value) => Value::I64(value),
             crud_shared_types::IdValue::U32(value) => Value::U32(value),
             crud_shared_types::IdValue::Bool(value) => Value::Bool(value),
-            crud_shared_types::IdValue::DateTime(value) => Value::UtcDateTime(value),
+            crud_shared_types::IdValue::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
+            crud_shared_types::IdValue::OffsetDateTime(value) => Value::OffsetDateTime(value),
         }
     }
 }
@@ -516,19 +517,35 @@ impl Value {
         }
     }
     */
-    pub fn take_date_time(self) -> UtcDateTime {
+    pub fn take_primitive_date_time(self) -> time::PrimitiveDateTime {
         match self {
-            Self::UtcDateTime(utc_date_time) => utc_date_time,
-            Self::String(string) => UtcDateTime::parse_from_rfc3339(&string).unwrap(),
+            Self::PrimitiveDateTime(primitive_date_time) => primitive_date_time,
+            Self::String(string) => time::PrimitiveDateTime::parse(&string, &Rfc3339).unwrap(),
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
-    pub fn take_optional_date_time(self) -> Option<UtcDateTime> {
+    pub fn take_offset_date_time(self) -> time::OffsetDateTime {
         match self {
-            Self::UtcDateTime(utc_date_time) => Some(utc_date_time),
-            Self::OptionalUtcDateTime(optional_utc_date_time) => optional_utc_date_time,
+            Self::OffsetDateTime(offset_date_time) => offset_date_time,
+            Self::String(string) => time::OffsetDateTime::parse(&string, &Rfc3339).unwrap(),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_primitive_date_time(self) -> Option<time::PrimitiveDateTime> {
+        match self {
+            Self::PrimitiveDateTime(primitive_date_time) => Some(primitive_date_time),
+            Self::OptionalPrimitiveDateTime(optional_primitive_date_time) => optional_primitive_date_time,
             // TODO: We might want to catch parsing errors and return an empty optional here.
-            Self::String(string) => Some(UtcDateTime::parse_from_rfc3339(&string).unwrap()),
+            Self::String(string) => Some(time::PrimitiveDateTime::parse(&string, &Rfc3339).unwrap()),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_offset_date_time(self) -> Option<time::OffsetDateTime> {
+        match self {
+            Self::OffsetDateTime(offset_date_time) => Some(offset_date_time),
+            Self::OptionalOffsetDateTime(optional_offset_date_time) => optional_offset_date_time,
+            // TODO: We might want to catch parsing errors and return an empty optional here.
+            Self::String(string) => Some(time::OffsetDateTime::parse(&string, &Rfc3339).unwrap()),
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -618,9 +635,14 @@ impl Display for Value {
             Value::F32(value) => f.write_str(&value.to_string()),
             Value::Bool(value) => f.write_str(&value.to_string()),
             Value::ValidationStatus(value) => f.write_str(&value.to_string()),
-            Value::UtcDateTime(value) => f.write_str(&value.to_rfc3339()),
-            Value::OptionalUtcDateTime(value) => match value {
-                Some(value) => f.write_str(&value.to_rfc3339()),
+            Value::PrimitiveDateTime(value) => f.write_str(&value.format(&Rfc3339).unwrap()),
+            Value::OffsetDateTime(value) => f.write_str(&value.format(&Rfc3339).unwrap()),
+            Value::OptionalPrimitiveDateTime(value) => match value {
+                Some(value) => f.write_str(&value.format(&Rfc3339).unwrap()),
+                None => f.write_str(""),
+            },
+            Value::OptionalOffsetDateTime(value) => match value {
+                Some(value) => f.write_str(&value.format(&Rfc3339).unwrap()),
                 None => f.write_str(""),
             },
             Value::OneToOneRelation(value) => match value {
@@ -682,8 +704,10 @@ impl Into<ConditionClauseValue> for Value {
             Value::F32(value) => ConditionClauseValue::F32(value),
             Value::Bool(value) => ConditionClauseValue::Bool(value),
             Value::ValidationStatus(value) => todo!(),
-            Value::UtcDateTime(value) => todo!(),
-            Value::OptionalUtcDateTime(value) => todo!(),
+            Value::PrimitiveDateTime(value) => todo!(),
+            Value::OffsetDateTime(value) => todo!(),
+            Value::OptionalPrimitiveDateTime(value) => todo!(),
+            Value::OptionalOffsetDateTime(value) => todo!(),
             Value::OneToOneRelation(value) => todo!(),
             Value::NestedTable(value) => todo!(),
             Value::Custom(value) => todo!(),

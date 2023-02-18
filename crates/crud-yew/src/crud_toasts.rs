@@ -1,6 +1,5 @@
 use std::{collections::BTreeMap, rc::Rc};
 
-use chrono_utc_date_time::UtcDateTime;
 use gloo::timers::callback::Timeout;
 use yew::prelude::*;
 use yewdux::prelude::*;
@@ -43,7 +42,7 @@ pub struct ToastWithTimeout {
 pub struct CrudToasts {
     _toasts_dispatch: Dispatch<stores::toasts::Toasts>,
 
-    toasts: BTreeMap<UtcDateTime, ToastWithTimeout>,
+    toasts: BTreeMap<time::OffsetDateTime, ToastWithTimeout>,
 }
 
 impl Component for CrudToasts {
@@ -59,7 +58,7 @@ impl Component for CrudToasts {
     }
 
     fn destroy(&mut self, _ctx: &Context<Self>) {
-        let keys: Vec<UtcDateTime> = self.toasts.keys().cloned().collect();
+        let keys: Vec<time::OffsetDateTime> = self.toasts.keys().cloned().collect();
         for key in keys {
             if let Some(toast_with_timeout) = self.toasts.remove(&key) {
                 if let Some(timeout) = toast_with_timeout.timeout {

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crud_shared_types::{SaveResult, Saved, id::SerializableId};
-use tracing::{info, error};
+use crud_shared_types::{id::SerializableId, SaveResult, Saved};
+use tracing::{error, info};
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,
@@ -9,7 +9,8 @@ use yew::{
 
 use crate::{
     crud_instance::Item,
-    services::crud_rest_data_provider::{CreateOne, CrudRestDataProvider}, types::custom_field::{CustomCreateFields, CustomUpdateFields},
+    services::crud_rest_data_provider::{CreateOne, CrudRestDataProvider},
+    types::custom_field::{CustomCreateFields, CustomUpdateFields},
 };
 
 use super::{prelude::*, types::RequestError};
@@ -29,14 +30,6 @@ pub enum Msg<T: CrudMainTrait> {
         ),
     ),
 
-    /// This message must only be sent if the component is actually using the UpdateModel, the program will otherwise panic!
-    UpdateModelFieldChanged(
-        (
-            <T::UpdateModel as CrudDataTrait>::Field,
-            Result<Value, String>,
-        ),
-    ),
-
     // After saving an entity, the CRUD system always return the UpdateModel!
     CreatedEntity(Result<SaveResult<T::UpdateModel>, RequestError>, Then),
 
@@ -44,14 +37,6 @@ pub enum Msg<T: CrudMainTrait> {
     GetCreateModelFieldValue(
         (
             <T::CreateModel as CrudDataTrait>::Field,
-            Box<dyn FnOnce(Value)>,
-        ),
-    ),
-
-    /// This message must only be sent if the component is actually using the UpdateModel, the program will otherwise panic!
-    GetUpdateModelFieldValue(
-        (
-            <T::UpdateModel as CrudDataTrait>::Field,
             Box<dyn FnOnce(Value)>,
         ),
     ),
@@ -79,7 +64,7 @@ pub struct Props<T: 'static + CrudMainTrait> {
     // TODO: consolidate these into one "on_entity_creation_attempt" with type Result<CreateResult<T::UpdateModel>, SomeErrorType>?
     pub on_entity_created: Callback<(
         Saved<T::UpdateModel>,
-        Option<CrudView<T::ReadModelId, T::UpdateModelId>>
+        Option<CrudView<T::ReadModelId, T::UpdateModelId>>,
     )>,
     pub on_entity_creation_aborted: Callback<String>,
     pub on_entity_not_created_critical_errors: Callback<()>,
@@ -94,79 +79,34 @@ pub struct Props<T: 'static + CrudMainTrait> {
 /// These fields are then also used for creation, requiring this component to be able to work with the create and the update model!
 /// This component decides on its own, depending on the instance configuration, which fields to display.
 pub struct CrudCreateView<T: CrudMainTrait> {
-    mode: Mode<T>,
+    initial_data: Option<T::CreateModel>,
+    input: T::CreateModel,
     ongoing_save: bool,
 
     // TODO: input_dirty like in EditView? Why not here?
     /// The input is erroneous if at least one field is contained in this list.
     create_input_errors: HashMap<<T::CreateModel as CrudDataTrait>::Field, String>,
-    update_input_errors: HashMap<<T::UpdateModel as CrudDataTrait>::Field, String>,
-}
-
-enum Mode<T: CrudMainTrait> {
-    UseCreateModel {
-        initial_data: Option<T::CreateModel>,
-        input: T::CreateModel,
-    },
-    UseUpdateModel {
-        initial_data: Option<T::UpdateModel>,
-        input: T::UpdateModel,
-    },
 }
 
 impl<T: 'static + CrudMainTrait> CrudCreateView<T> {
     fn create_entity(&mut self, ctx: &Context<Self>, then: Then) {
-        match &self.mode {
-            Mode::UseCreateModel {
-                initial_data: _,
-                input: create_model_input,
-            } => {
-                let create_model = create_model_input.clone();
-                let data_provider = ctx.props().data_provider.clone();
-                self.ongoing_save = true;
-                ctx.link().send_future(async move {
-                    Msg::CreatedEntity(
-                        data_provider
-                            .create_one_from_create_model(CreateOne {
-                                entity: create_model,
-                            })
-                            .await,
-                        then,
-                    )
-                });
-            }
-            Mode::UseUpdateModel {
-                initial_data: _,
-                input: update_model_input,
-            } => {
-                let update_model = update_model_input.clone();
-                let data_provider = ctx.props().data_provider.clone();
-                self.ongoing_save = true;
-                ctx.link().send_future(async move {
-                    Msg::CreatedEntity(
-                        data_provider
-                            .create_one_from_update_model(CreateOne {
-                                entity: update_model,
-                            })
-                            .await,
-                        then,
-                    )
-                });
-            }
-        }
+        let create_model = self.input.clone();
+        let data_provider = ctx.props().data_provider.clone();
+        self.ongoing_save = true;
+        ctx.link().send_future(async move {
+            Msg::CreatedEntity(
+                data_provider
+                    .create_one_from_create_model(CreateOne {
+                        entity: create_model,
+                    })
+                    .await,
+                then,
+            )
+        });
     }
 
     fn reset(&mut self, ctx: &Context<Self>) {
-        match &mut self.mode {
-            Mode::UseCreateModel {
-                initial_data: _,
-                input: create_model_input,
-            } => *create_model_input = default_create_model(ctx),
-            Mode::UseUpdateModel {
-                initial_data: _,
-                input: update_model_input,
-            } => *update_model_input = default_update_model(ctx),
-        };
+        self.input = default_create_model(ctx);
     }
 }
 
@@ -176,31 +116,13 @@ fn default_create_model<T: CrudMainTrait + 'static>(
     let mut entity: T::CreateModel = Default::default();
     if let Some(nested) = &ctx.props().config.nested {
         if let Some(parent_id) = &ctx.props().parent_id {
-            let (_field_name, value) = parent_id.0.iter()
+            let (_field_name, value) = parent_id
+                .0
+                .iter()
                 .find(|(field_name, _value)| field_name == nested.parent_field.as_str())
                 .expect("related parent field must be part of the parents id!");
 
             T::CreateModel::get_field(nested.reference_field.as_str())
-                .set_value(&mut entity, value.clone().into());
-            info!("successfully set parent id to reference field");
-        } else {
-            error!("CrudInstance is configured to be a nested instance but no parent id was passed down!");
-        }
-    }
-    entity
-}
-
-fn default_update_model<T: CrudMainTrait + 'static>(
-    ctx: &Context<CrudCreateView<T>>,
-) -> T::UpdateModel {
-    let mut entity: T::UpdateModel = Default::default();
-    if let Some(nested) = &ctx.props().config.nested {
-        if let Some(parent_id) = &ctx.props().parent_id {
-            let (_field_name, value) = parent_id.0.iter()
-                .find(|(field_name, _value)| field_name == nested.parent_field.as_str())
-                .expect("related parent field must be part of the parents id!");
-
-            T::UpdateModel::get_field(nested.reference_field.as_str())
                 .set_value(&mut entity, value.clone().into());
             info!("successfully set parent id to reference field");
         } else {
@@ -216,29 +138,12 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
 
     fn create(ctx: &Context<Self>) -> Self {
         ctx.props().on_link.emit(Some(ctx.link().clone()));
-
-        let mode = match &ctx.props().config.create_elements {
-            CreateElements::Default => {
-                let update_model = default_update_model(ctx);
-                Mode::UseUpdateModel {
-                    initial_data: Some(update_model.clone()),
-                    input: update_model,
-                }
-            }
-            CreateElements::Custom(_create_elements) => {
-                let create_model = default_create_model(ctx);
-                Mode::UseCreateModel {
-                    initial_data: Some(create_model.clone()),
-                    input: create_model,
-                }
-            }
-        };
-
+        let create_model = default_create_model(ctx);
         Self {
-            mode,
+            initial_data: Some(create_model.clone()),
+            input: create_model,
             ongoing_save: false,
             create_input_errors: HashMap::new(),
-            update_input_errors: HashMap::new(),
         }
     }
 
@@ -268,49 +173,16 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                 ctx.props().on_tab_selected.emit(label);
                 false
             }
-            Msg::CreateModelFieldChanged((field, result)) => match &mut self.mode {
-                Mode::UseCreateModel {
-                    initial_data: _,
-                    input,
-                } => match result {
-                    Ok(value) => {
-                        field.set_value(input, value);
-                        self.create_input_errors.remove(&field);
-                        false
-                    }
-                    Err(err) => {
-                        self.create_input_errors.insert(field, err);
-                        false
-                    }
-                },
-                Mode::UseUpdateModel {
-                    initial_data: _,
-                    input: _,
-                } => {
-                    panic!("Cannot process CrudCreateView::Msg::CreateModelFieldChanged, as we are using Mode::UseUpdateModel! Sending this message is not allowed.");
+            Msg::CreateModelFieldChanged((field, result)) => match result {
+                Ok(value) => {
+                    field.set_value(&mut self.input, value);
+                    self.create_input_errors.remove(&field);
+                    false
                 }
-            },
-            Msg::UpdateModelFieldChanged((field, result)) => match &mut self.mode {
-                Mode::UseCreateModel {
-                    initial_data: _,
-                    input: _,
-                } => {
-                    panic!("Cannot process CrudCreateView::Msg::UpdateModelFieldChanged, as we are using Mode::UseCreateModel! Sending this message is not allowed.");
+                Err(err) => {
+                    self.create_input_errors.insert(field, err);
+                    false
                 }
-                Mode::UseUpdateModel {
-                    initial_data: _,
-                    input,
-                } => match result {
-                    Ok(value) => {
-                        field.set_value(input, value);
-                        self.update_input_errors.remove(&field);
-                        false
-                    }
-                    Err(err) => {
-                        self.update_input_errors.insert(field, err);
-                        false
-                    }
-                },
             },
             Msg::CreatedEntity(result, then) => {
                 self.ongoing_save = false;
@@ -331,7 +203,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                                     .emit((created, Some(CrudView::Create)));
                                 self.reset(ctx);
                             }
-                        }
+                        },
                         SaveResult::Aborted { reason } => {
                             ctx.props().on_entity_creation_aborted.emit(reason);
                         }
@@ -347,36 +219,10 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                 }
                 false
             }
-            Msg::GetCreateModelFieldValue((field, receiver)) => match &self.mode {
-                Mode::UseCreateModel {
-                    initial_data: _,
-                    input: create_model_input,
-                } => {
-                    receiver(field.get_value(&create_model_input));
-                    false
-                }
-                Mode::UseUpdateModel {
-                    initial_data: _,
-                    input: _,
-                } => {
-                    panic!("Cannot process CrudCreateView::Msg::GetCreateModelFieldValue, as we are using Mode::UseUpdateModel! Sending this message is not allowed.");
-                }
-            },
-            Msg::GetUpdateModelFieldValue((field, receiver)) => match &self.mode {
-                Mode::UseCreateModel {
-                    initial_data: _,
-                    input: _,
-                } => {
-                    panic!("Cannot process CrudCreateView::Msg::GetUpdateModelFieldValue, as we are using Mode::UseCreateModel! Sending this message is not allowed.");
-                }
-                Mode::UseUpdateModel {
-                    initial_data: _,
-                    input: update_model_input,
-                } => {
-                    receiver(field.get_value(&update_model_input));
-                    false
-                }
-            },
+            Msg::GetCreateModelFieldValue((field, receiver)) => {
+                receiver(field.get_value(&self.input));
+                false
+            }
         }
     }
 
@@ -405,31 +251,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
             </div>
             {
                 match &ctx.props().config.create_elements {
-                    CreateElements::Default => html! {
-                        <CrudFields<T::UpdateModel>
-                            api_base_url={ctx.props().config.api_base_url.clone()}
-                            children={ChildrenRenderer::new(ctx.props().children.iter().filter(|it| match it {
-                                Item::NestedInstance(_) => true,
-                                Item::Relation(_) => true,
-                                Item::Select(select) => select.props.for_model == crate::crud_reset_field::Model::Update,
-                            }).collect::<Vec<Item>>())}
-                            custom_fields={ctx.props().custom_update_fields.clone()}
-                            elements={ctx.props().config.elements.clone()}
-                            entity={match &self.mode {
-                                Mode::UseCreateModel { initial_data: _, input: _ } => {
-                                    panic!("forbidden path")
-                                },
-                                Mode::UseUpdateModel { initial_data, input: _ } => {
-                                    initial_data.clone()
-                                },
-                            }}
-                            mode={FieldMode::Editable}
-                            current_view={CrudSimpleView::Create}
-                            value_changed={ctx.link().callback(Msg::UpdateModelFieldChanged)}
-                            active_tab={ctx.props().config.active_tab.clone()}
-                            on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
-                        />
-                    },
+                    CreateElements::None => html! {},
                     CreateElements::Custom(create_elements) => html! {
                         <CrudFields<T::CreateModel>
                             api_base_url={ctx.props().config.api_base_url.clone()}
@@ -440,14 +262,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
                             }).collect::<Vec<Item>>())}
                             custom_fields={ctx.props().custom_create_fields.clone()}
                             elements={create_elements.clone()}
-                            entity={match &self.mode {
-                                Mode::UseCreateModel { initial_data, input: _ } => {
-                                    initial_data.clone()
-                                },
-                                Mode::UseUpdateModel { initial_data: _, input: _ } => {
-                                    panic!("forbidden path")
-                                },
-                            }}
+                            entity={self.initial_data.clone()}
                             mode={FieldMode::Editable}
                             current_view={CrudSimpleView::Create}
                             value_changed={ctx.link().callback(Msg::CreateModelFieldChanged)}
@@ -463,24 +278,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudCreateView<T> {
 
     fn rendered(&mut self, _ctx: &Context<Self>, first_render: bool) {
         if first_render {
-            // The initial_*_data fields are used to declare the initial field states.
+            // The initial_data field is used to declare the initial field states.
             // But: We only want to pass down that data once!
             // After we did that, no rerender of this component must overwrite the users input data.
-            // Leaving it to Some(*) would erase the user input on every render, as this data is passed as the 'entity' to the CrudFields component.
-            match &mut self.mode {
-                Mode::UseCreateModel {
-                    initial_data: initial_create_model_data,
-                    input: _,
-                } => {
-                    *initial_create_model_data = None;
-                }
-                Mode::UseUpdateModel {
-                    initial_data: initial_update_model_data,
-                    input: _,
-                } => {
-                    *initial_update_model_data = None;
-                }
-            };
+            // Leaving it to Some(*) would erase the user input on the second render, as this data is passed as the 'entity' to the CrudFields component.
+            self.initial_data = None;
         }
     }
 }

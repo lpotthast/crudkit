@@ -112,8 +112,10 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::OptionalU32 => quote! { entity.#field_ident.clone() },
             ValueType::F32 => quote! { entity.#field_ident },
             ValueType::F64 => quote! { entity.#field_ident },
-            ValueType::UtcDateTime => quote! { entity.#field_ident.clone() },
-            ValueType::OptionalUtcDateTime => quote! { entity.#field_ident.clone() },
+            ValueType::PrimitiveDateTime => quote! { entity.#field_ident.clone() },
+            ValueType::OffsetDateTime => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalPrimitiveDateTime => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalOffsetDateTime => quote! { entity.#field_ident.clone() },
             ValueType::Select => quote! { entity.#field_ident.clone().into() },
             ValueType::Multiselect => quote! { entity.#field_ident.clone().into() },
             ValueType::OptionalSelect => quote! { entity.#field_ident.clone().map(Into::into) },
@@ -131,6 +133,14 @@ pub fn store(input: TokenStream) -> TokenStream {
             #field_enum_ident::#field_name_as_type_ident => crud_yew::Value::#value_type_ident(#value_clone)
         }
     });
+    let get_value_impl = match input.fields().len() {
+        0 => quote! { panic!("Cannot get value. Zero fields available! Should be unreachable. Source-crate: derive-field-value") },
+        _ => quote! {
+            match self {
+                #(#get_field_value_arms),*,
+            }
+        }
+    };
 
     // Self::Id => entity.id = value.take_u32(),
     let set_field_value_arms = input.fields().iter().map(|field| {
@@ -165,8 +175,10 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::OptionalU32 => quote! { entity.#field_ident = value.take_optional_u32() },
             ValueType::F32 => quote! { entity.#field_ident = value.take_f32() },
             ValueType::F64 => quote! { entity.#field_ident = value.take_f64() },
-            ValueType::UtcDateTime => quote! { entity.#field_ident = value.take_date_time() },
-            ValueType::OptionalUtcDateTime => quote! { entity.#field_ident = value.take_optional_date_time() },
+            ValueType::PrimitiveDateTime => quote! { entity.#field_ident = value.take_primitive_date_time() },
+            ValueType::OffsetDateTime => quote! { entity.#field_ident = value.take_offset_date_time() },
+            ValueType::OptionalPrimitiveDateTime => quote! { entity.#field_ident = value.take_optional_primitive_date_time() },
+            ValueType::OptionalOffsetDateTime => quote! { entity.#field_ident = value.take_optional_offset_date_time() },
             ValueType::Select => quote! { entity.#field_ident = value.take_select_downcast_to::<#field_ty>().into() },
             ValueType::Multiselect => quote! { entity.#field_ident = value.take_multiselect_downcast_to().into() },
             ValueType::OptionalSelect => quote! { entity.#field_ident = value.take_optional_select_downcast_to().into() },
@@ -185,19 +197,23 @@ pub fn store(input: TokenStream) -> TokenStream {
             #field_enum_ident::#field_name_as_type_ident => #take_op
         }
     });
+    let set_value_impl = match input.fields().len() {
+        0 => quote! { panic!("Cannot set value. Zero fields available! Should be unreachable. Source-crate: derive-field-value") },
+        _ => quote! {
+            match self {
+                #(#set_field_value_arms),*,
+            }
+        }
+    };
 
     quote! {
         impl crud_yew::CrudFieldValueTrait<#ident> for #field_enum_ident {
             fn get_value(&self, entity: &#ident) -> crud_yew::Value {
-                match self {
-                    #(#get_field_value_arms),*,
-                }
+                #get_value_impl
             }
 
             fn set_value(&self, entity: &mut #ident, value: crud_yew::Value) {
-                match self {
-                    #(#set_field_value_arms),*,
-                }
+                #set_value_impl
             }
         }
     }
@@ -225,8 +241,10 @@ enum ValueType {
     OptionalU32,
     F32,
     F64,
-    UtcDateTime,
-    OptionalUtcDateTime,
+    PrimitiveDateTime,
+    OffsetDateTime,
+    OptionalPrimitiveDateTime,
+    OptionalOffsetDateTime,
     Select,
     Multiselect,
     OptionalSelect,
@@ -260,8 +278,10 @@ impl From<ValueType> for Ident {
                 ValueType::OptionalU32 => "OptionalU32",
                 ValueType::F32 => "F32",
                 ValueType::F64 => "F64",
-                ValueType::UtcDateTime => "UtcDateTime",
-                ValueType::OptionalUtcDateTime => "OptionalUtcDateTime",
+                ValueType::PrimitiveDateTime => "PrimitiveDateTime",
+                ValueType::OffsetDateTime => "OffsetDateTime",
+                ValueType::OptionalPrimitiveDateTime => "OptionalPrimitiveDateTime",
+                ValueType::OptionalOffsetDateTime => "OptionalOffsetDateTime",
                 ValueType::Select => "Select",
                 ValueType::Multiselect => "Multiselect",
                 ValueType::OptionalSelect => "OptionalSelect",
@@ -289,15 +309,15 @@ impl From<&syn::Type> for ValueType {
                 "UuidV4" => ValueType::UuidV4,
                 "UuidV7" => ValueType::UuidV7,
                 "Ulid" => ValueType::Ulid,
-                "chrono_utc_date_time::UtcDateTime" => ValueType::UtcDateTime,
-                "UtcDateTime" => ValueType::UtcDateTime,
+                "time::PrimitiveDateTime" => ValueType::PrimitiveDateTime,
+                "time::OffsetDateTime" => ValueType::OffsetDateTime,
                 "Option<i64>" => ValueType::OptionalI64,
                 "Option<i32>" => ValueType::OptionalI32,
                 "Option<u32>" => ValueType::OptionalU32,
                 "Option<String>" => ValueType::OptionalString,
                 "Option<serde_json::Value>" => ValueType::OptionalJson,
-                "Option<chrono_utc_date_time::UtcDateTime>" => ValueType::OptionalUtcDateTime,
-                "Option<UtcDateTime>" => ValueType::OptionalUtcDateTime,
+                "Option<time::PrimitiveDateTime>" => ValueType::OptionalPrimitiveDateTime,
+                "Option<time::OffsetDateTime>" => ValueType::OptionalOffsetDateTime,
                 other => {
                     let span = ty.span();
                     let message = format!("Unknown type {other:?}. Expected a known type.");

@@ -1,4 +1,3 @@
-use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::Order;
 use std::{rc::Rc};
 use yew::{
@@ -64,10 +63,10 @@ pub struct Props<T: CrudMainTrait + 'static> {
 }
 
 pub struct CrudListView<T: 'static + CrudMainTrait> {
-    data: Result<Rc<Vec<T::ReadModel>>, (NoData, UtcDateTime)>,
+    data: Result<Rc<Vec<T::ReadModel>>, (NoData, time::OffsetDateTime)>,
     selected: Vec<T::ReadModel>,
     filter: Option<()>,
-    item_count: Result<u64, (NoData, UtcDateTime)>,
+    item_count: Result<u64, (NoData, time::OffsetDateTime)>,
     actions_executing: Vec<&'static str>,
 }
 
@@ -109,7 +108,7 @@ impl<T: CrudMainTrait> CrudListView<T> {
         }
     }
 
-    fn get_data_error(&self) -> Option<(NoData, UtcDateTime)> {
+    fn get_data_error(&self) -> Option<(NoData, time::OffsetDateTime)> {
         match &self.data {
             Ok(_) => None,
             Err(err) => Some(err.clone()),
@@ -125,10 +124,10 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
         ctx.props().on_link.emit(Some(ctx.link().clone()));
         ctx.link().send_future(async move { Msg::ComponentCreated });
         Self {
-            data: Err((NoData::NotYetLoaded, UtcDateTime::now())),
+            data: Err((NoData::NotYetLoaded, time::OffsetDateTime::now_utc())),
             selected: vec![],
             filter: None,
-            item_count: Err((NoData::NotYetLoaded, UtcDateTime::now())),
+            item_count: Err((NoData::NotYetLoaded, time::OffsetDateTime::now_utc())),
             actions_executing: vec![],
         }
     }
@@ -155,11 +154,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                 false
             }
             Msg::PageLoaded(data) => {
-                self.data = data.map(Rc::new).map_err(|err| (NoData::FetchFailed(err), UtcDateTime::now()));
+                self.data = data.map(Rc::new).map_err(|err| (NoData::FetchFailed(err), time::OffsetDateTime::now_utc()));
                 true
             }
             Msg::CountRead(data) => {
-                self.item_count = data.map_err(|err| (NoData::FetchFailed(err), UtcDateTime::now())).map(|val| val as u64);
+                self.item_count = data.map_err(|err| (NoData::FetchFailed(err), time::OffsetDateTime::now_utc())).map(|val| val as u64);
                 true
             }
             Msg::Reset => {
@@ -316,6 +315,19 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                 />
 
                 {
+                    match self.selected.len() {
+                        0 => html! {},
+                        num_selected => html! {
+                            <div class={"multiselect-actions"}>
+                                <div>
+                                    { num_selected } {"servers selected"}
+                                </div>
+                            </div>
+                        },
+                    }
+                }
+
+                {
                     match &self.item_count {
                         Ok(count) => html! {
                             <CrudPagination
@@ -326,7 +338,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                                 on_item_count_select={ctx.link().callback(|page| Msg::ItemCountSelected(page))}
                             />
                         },
-                        Err((reason, since)) => if since.secs_till_now() > 5 {
+                        Err((reason, since)) => if (time::OffsetDateTime::now_utc() - *since).whole_seconds() > 5 {
                             html! {
                                 <div>{format!("Keine Daten verfügbar: {reason:?}")}</div>
                             }

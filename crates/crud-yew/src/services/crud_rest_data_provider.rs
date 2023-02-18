@@ -109,6 +109,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         .await
     }
 
+    #[deprecated]
     pub async fn create_one_from_update_model(
         &self,
         create_one: CreateOne<T::UpdateModel>,

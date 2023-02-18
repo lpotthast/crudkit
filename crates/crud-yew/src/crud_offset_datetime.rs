@@ -1,7 +1,8 @@
+use time::format_description::well_known::Rfc3339;
 use tracing::info;
 use yew::prelude::*;
 
-use chrono_utc_date_time::UtcDateTime;
+use crate::{crud_offset_datetime_time_selector::CrudOffsetDatetimeTimeSelector, crud_offset_datetime_date_selector::CrudOffsetDatetimeDateSelector};
 
 use super::prelude::*;
 
@@ -15,7 +16,7 @@ pub struct Year {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Month {
     /// base 1
-    pub index: u32,
+    pub index: u8,
     pub name: String,
     pub is_now: bool,
     pub disabled: bool,
@@ -28,12 +29,12 @@ pub struct Week {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Day {
-    pub index: u32,
+    pub index: u8,
     pub display_name: String,
     pub in_previous_month: bool,
     pub in_current_month: bool,
     pub in_next_month: bool,
-    pub utc_date_time: UtcDateTime,
+    pub date_time: time::OffsetDateTime,
     pub disabled: bool,
     pub highlighted: bool,
     pub selected: bool,
@@ -71,18 +72,18 @@ pub enum Msg {
     CloseMenu,
     SetFocus(bool),
     KeyDown(KeyboardEvent),
-    UpdateValue(UtcDateTime),
+    UpdateValue(time::OffsetDateTime),
 }
 
 #[derive(Debug, Properties, PartialEq)]
 pub struct Props {
     pub id: String,
     #[prop_or_default]
-    pub value: Option<UtcDateTime>,
+    pub value: Option<time::OffsetDateTime>,
     #[prop_or_default]
-    pub min: Option<UtcDateTime>,
+    pub min: Option<time::OffsetDateTime>,
     #[prop_or_default]
-    pub max: Option<UtcDateTime>,
+    pub max: Option<time::OffsetDateTime>,
     #[prop_or_default]
     pub input_type: Type,
     #[prop_or_default]
@@ -92,21 +93,21 @@ pub struct Props {
     #[prop_or_default]
     pub disabled: bool,
     #[prop_or_default]
-    pub onchange: Option<Callback<Option<UtcDateTime>>>,
+    pub onchange: Option<Callback<Option<time::OffsetDateTime>>>,
     #[prop_or_default]
     pub onopen: Option<Callback<()>>,
     #[prop_or_default]
     pub onclose: Option<Callback<()>>,
 }
 
-pub struct CrudDatetime {
-    initial_value: Option<UtcDateTime>,
-    value: Option<UtcDateTime>,
+pub struct CrudOffsetDatetime {
+    initial_value: Option<time::OffsetDateTime>,
+    value: Option<time::OffsetDateTime>,
     open: bool,
     in_focus: bool,
 }
 
-impl Component for CrudDatetime {
+impl Component for CrudOffsetDatetime {
     type Message = Msg;
     type Properties = Props;
 
@@ -232,10 +233,10 @@ impl Component for CrudDatetime {
         //                //[currentlySelected]="selected"
         //            }
         //        },
-        fn date_selector(this: &CrudDatetime, ctx: &Context<CrudDatetime>) -> Html {
+        fn date_selector(this: &CrudOffsetDatetime, ctx: &Context<CrudOffsetDatetime>) -> Html {
             html! {
-                <CrudDatetimeDateSelector
-                    value={this.value.clone().unwrap_or_else(|| UtcDateTime::now())}
+                <CrudOffsetDatetimeDateSelector
+                    value={this.value.clone().unwrap_or_else(|| time::OffsetDateTime::now_utc())}
                     min={ctx.props().min.clone()}
                     max={ctx.props().max.clone()}
                     onchange={ctx.link().callback(Msg::UpdateValue)}
@@ -244,10 +245,10 @@ impl Component for CrudDatetime {
             }
         }
 
-        fn time_selector(this: &CrudDatetime, _ctx: &Context<CrudDatetime>) -> Html {
+        fn time_selector(this: &CrudOffsetDatetime, _ctx: &Context<CrudOffsetDatetime>) -> Html {
             html! {
-                <CrudDatetimeTimeSelector
-                    value={this.value.clone().unwrap_or_else(|| UtcDateTime::now())}
+                <CrudOffsetDatetimeTimeSelector
+                    value={this.value.clone().unwrap_or_else(|| time::OffsetDateTime::now_utc())}
                 />
             }
         }
@@ -263,7 +264,7 @@ impl Component for CrudDatetime {
                     onfocusout={ctx.link().callback(|_| Msg::SetFocus(false))}
                     onkeydown={ctx.link().callback(|event| Msg::KeyDown(event))}
                     placeholder={ctx.props().placeholder.clone()}
-                    value={self.value.clone().map(|it| it.to_rfc3339()).unwrap_or_default()}
+                    value={self.value.as_ref().map(|it| it.format(&Rfc3339).unwrap()).unwrap_or_default()}
                     tabindex={"0"}
                 />
                 <div class={"datetime-dropdown-menu-ref"}>

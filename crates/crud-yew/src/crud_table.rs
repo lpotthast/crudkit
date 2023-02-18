@@ -1,4 +1,3 @@
-use chrono_utc_date_time::UtcDateTime;
 use crud_shared_types::Order;
 use gloo::timers::callback::Interval;
 use std::rc::Rc;
@@ -31,7 +30,7 @@ where
     pub custom_fields: CustomFields<T>,
     pub api_base_url: String,
     pub data: Option<Rc<Vec<T>>>,
-    pub no_data: Option<(NoData, UtcDateTime)>,
+    pub no_data: Option<(NoData, time::OffsetDateTime)>,
     pub headers: Vec<(T::Field, HeaderOptions, Option<Order>)>,
     pub on_order_by: Callback<(T::Field, OrderByUpdateOptions)>,
     pub read_allowed: bool,
