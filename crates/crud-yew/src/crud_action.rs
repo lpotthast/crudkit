@@ -12,6 +12,11 @@ pub enum States {
 }
 
 pub struct ModalGeneration<T: CrudMainTrait> {
+    pub cancel: Callback<()>,
+    pub execute: Callback<Option<T::ActionPayload>>,
+}
+
+pub struct EntityModalGeneration<T: CrudMainTrait> {
     pub state: T::UpdateModel,
     pub cancel: Callback<()>,
     pub execute: Callback<Option<T::ActionPayload>>,
@@ -30,7 +35,7 @@ pub enum CrudEntityAction<T: CrudMainTrait> {
             Option<T::ActionPayload>,
             Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
-        modal: Option<Box<Arc<dyn Fn(ModalGeneration<T>) -> Html>>>,
+        modal: Option<Box<Arc<dyn Fn(EntityModalGeneration<T>) -> Html>>>,
     },
 }
 
@@ -91,18 +96,18 @@ impl<T: CrudMainTrait> PartialEq for CrudEntityAction<T> {
 }
 
 #[derive(Clone)]
-pub enum CrudAction {
+pub enum CrudAction<T: CrudMainTrait> {
     Custom {
         id: &'static str,
         name: String,
         icon: Option<Bi>,
         variant: Variant,
-        action: Callback<Callback<Result<CrudActionAftermath, CrudActionAftermath>>>,
-        modal: Option<Html>,
+        action: Callback<(Option<T::ActionPayload>, Callback<Result<CrudActionAftermath, CrudActionAftermath>>)>,
+        modal: Option<Box<Arc<dyn Fn(ModalGeneration<T>) -> Html>>>,
     },
 }
 
-impl Debug for CrudAction {
+impl<T: CrudMainTrait> Debug for CrudAction<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Custom {
@@ -123,7 +128,7 @@ impl Debug for CrudAction {
     }
 }
 
-impl PartialEq for CrudAction {
+impl<T: CrudMainTrait> PartialEq for CrudAction<T> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (

@@ -99,7 +99,7 @@ pub struct CrudInstanceConfig<T: CrudMainTrait> {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct CrudStaticInstanceConfig<T: CrudMainTrait> {
-    pub actions: Vec<CrudAction>,
+    pub actions: Vec<CrudAction<T>>,
     pub entity_actions: Vec<CrudEntityAction<T>>,
     pub custom_read_fields: CustomReadFields<T>,
     pub custom_create_fields: CustomCreateFields<T>,

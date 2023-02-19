@@ -1,5 +1,5 @@
 use crud_shared_types::Order;
-use std::{rc::Rc};
+use std::rc::Rc;
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,
@@ -7,8 +7,10 @@ use yew::{
 use yewbi::Bi;
 
 use crate::{
+    crud_action::ModalGeneration,
     crud_instance::Item,
-    services::crud_rest_data_provider::{CrudRestDataProvider, ReadCount, ReadMany}, types::custom_field::CustomReadFields,
+    services::crud_rest_data_provider::{CrudRestDataProvider, ReadCount, ReadMany},
+    types::custom_field::CustomReadFields,
 };
 
 use super::{prelude::*, types::RequestError};
@@ -29,9 +31,19 @@ pub enum Msg<T: CrudMainTrait> {
     Read(T::ReadModel),
     Edit(T::ReadModel),
     Delete(T::ReadModel),
+    ActionInitialized {
+        action_id: &'static str,
+    },
+    ActionCancelled {
+        action_id: &'static str,
+    },
     ActionTriggered {
         action_id: &'static str,
-        action: Callback<Callback<Result<CrudActionAftermath, CrudActionAftermath>>>,
+        action_payload: Option<T::ActionPayload>,
+        action: Callback<(
+            Option<T::ActionPayload>,
+            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
+        )>,
     },
     ActionExecuted {
         action_id: &'static str,
@@ -67,6 +79,7 @@ pub struct CrudListView<T: 'static + CrudMainTrait> {
     selected: Vec<T::ReadModel>,
     filter: Option<()>,
     item_count: Result<u64, (NoData, time::OffsetDateTime)>,
+    user_wants_to_activate: Vec<String>,
     actions_executing: Vec<&'static str>,
 }
 
@@ -128,6 +141,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
             selected: vec![],
             filter: None,
             item_count: Err((NoData::NotYetLoaded, time::OffsetDateTime::now_utc())),
+            user_wants_to_activate: vec![],
             actions_executing: vec![],
         }
     }
@@ -154,11 +168,15 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                 false
             }
             Msg::PageLoaded(data) => {
-                self.data = data.map(Rc::new).map_err(|err| (NoData::FetchFailed(err), time::OffsetDateTime::now_utc()));
+                self.data = data
+                    .map(Rc::new)
+                    .map_err(|err| (NoData::FetchFailed(err), time::OffsetDateTime::now_utc()));
                 true
             }
             Msg::CountRead(data) => {
-                self.item_count = data.map_err(|err| (NoData::FetchFailed(err), time::OffsetDateTime::now_utc())).map(|val| val as u64);
+                self.item_count = data
+                    .map_err(|err| (NoData::FetchFailed(err), time::OffsetDateTime::now_utc()))
+                    .map(|val| val as u64);
                 true
             }
             Msg::Reset => {
@@ -191,11 +209,39 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                 ctx.props().on_delete.emit(entity);
                 false
             }
-            Msg::ActionTriggered { action_id, action } => {
-                action.emit(
+            Msg::ActionInitialized { action_id } => {
+                self.user_wants_to_activate.push(action_id.to_string());
+                true
+            }
+            Msg::ActionCancelled { action_id } => {
+                if let Some(index) = self
+                    .user_wants_to_activate
+                    .iter()
+                    .position(|it| it.as_str() == action_id)
+                {
+                    self.user_wants_to_activate.remove(index);
+                    true
+                } else {
+                    false
+                }
+            }
+            Msg::ActionTriggered {
+                action_id,
+                action_payload,
+                action,
+            } => {
+                if let Some(index) = self
+                    .user_wants_to_activate
+                    .iter()
+                    .position(|it| it.as_str() == action_id)
+                {
+                    self.user_wants_to_activate.remove(index);
+                }
+                action.emit((
+                    action_payload,
                     ctx.link()
                         .callback(move |result| Msg::ActionExecuted { action_id, result }),
-                );
+                ));
                 if !self.actions_executing.contains(&action_id) {
                     self.actions_executing.push(action_id);
                     true
@@ -256,13 +302,37 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                                         CrudAction::Custom {id, name, icon, variant, action, modal} => {
                                             let action_id: &str = (&id).clone();
                                             let action = action.clone();
-                                            html! {
-                                                <CrudBtn
-                                                    name={name.clone()}
-                                                    variant={variant.clone()}
-                                                    icon={icon.clone()}
-                                                    disabled={self.actions_executing.contains(&id)}
-                                                    onclick={ctx.link().callback(move |_| Msg::ActionTriggered { action_id, action: action.clone()}) }/>
+
+                                            if let Some(modal) = modal {
+                                                html! {
+                                                    <>
+                                                    <CrudBtn
+                                                        name={name.clone()}
+                                                        variant={variant.clone()}
+                                                        icon={icon.clone()}
+                                                        disabled={self.actions_executing.contains(&id)}
+                                                        onclick={ctx.link().callback(move |_| Msg::ActionInitialized { action_id }) }
+                                                    />
+                                                    if self.user_wants_to_activate.iter().any(|it| it.as_str() == action_id) {
+                                                        <CrudModal>
+                                                            {{ modal(ModalGeneration {
+                                                                cancel: ctx.link().callback(move |_| Msg::ActionCancelled { action_id }),
+                                                                execute: ctx.link().callback(move |action_payload| Msg::ActionTriggered { action_id, action_payload, action: action.clone() }),
+                                                            }) }}
+                                                        </CrudModal>
+                                                    }
+                                                    </>
+                                                }
+                                            } else {
+                                                html! {
+                                                    <CrudBtn
+                                                        name={name.clone()}
+                                                        variant={variant.clone()}
+                                                        icon={icon.clone()}
+                                                        disabled={self.actions_executing.contains(&id)}
+                                                        onclick={ctx.link().callback(move |_| Msg::ActionTriggered { action_id, action_payload: None, action: action.clone() }) }
+                                                    />
+                                                }
                                             }
                                         }
                                     })

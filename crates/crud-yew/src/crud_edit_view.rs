@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crud_shared_types::{SaveResult, Saved, condition::IntoAllEqualCondition};
+use crud_shared_types::{condition::IntoAllEqualCondition, SaveResult, Saved};
 use gloo::timers::callback::Interval;
 use tracing::{info, warn};
 use yew::{
@@ -9,8 +9,10 @@ use yew::{
 };
 
 use crate::{
+    crud_action::EntityModalGeneration,
     crud_instance::Item,
-    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne, UpdateOne}, crud_action::ModalGeneration, types::custom_field::CustomUpdateFields,
+    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne, UpdateOne},
+    types::custom_field::CustomUpdateFields,
 };
 
 use super::{prelude::*, types::RequestError};
@@ -31,7 +33,12 @@ pub enum Msg<T: CrudMainTrait> {
     SaveAndNew,
     Delete,
     TabSelected(Label),
-    ValueChanged((<T::UpdateModel as CrudDataTrait>::Field, Result<Value, String>)),
+    ValueChanged(
+        (
+            <T::UpdateModel as CrudDataTrait>::Field,
+            Result<Value, String>,
+        ),
+    ),
     GetInput(
         (
             <T::UpdateModel as CrudDataTrait>::Field,
@@ -137,35 +144,45 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
     fn load_entity(ctx: &Context<Self>) {
         let id = ctx.props().id.clone();
         let data_provider = ctx.props().data_provider.clone();
-        ctx.link()
-            .send_future(async move { Msg::LoadedEntity(load_entity::<T>(data_provider, &id).await) });
+        ctx.link().send_future(async move {
+            Msg::LoadedEntity(load_entity::<T>(data_provider, &id).await)
+        });
     }
 
     fn create_error_clock(ctx: &Context<Self>) -> Interval {
         let clock_handle = {
             let link = ctx.link().clone();
-            Interval::new(MILLIS_UNTIL_ERROR_IS_SHOWN, move || link.send_message(Msg::ShowError))
+            Interval::new(MILLIS_UNTIL_ERROR_IS_SHOWN, move || {
+                link.send_message(Msg::ShowError)
+            })
         };
         clock_handle
     }
 
-    fn _set_entity(&mut self, entity: Result<T::UpdateModel, (NoData, bool, Option<Interval>)>, ctx: &Context<Self>) {
+    fn _set_entity(
+        &mut self,
+        entity: Result<T::UpdateModel, (NoData, bool, Option<Interval>)>,
+        ctx: &Context<Self>,
+    ) {
         self.entity = entity;
         match &mut self.entity {
-            Ok(_entity) => {},
-            Err((_reason, shown, clock)) => {
-                match (shown, clock.is_some()) {
-                    (true, true) => *clock = None,
-                    (true, false) => {},
-                    (false, true) => {},
-                    (false, false) => *clock = Some(Self::create_error_clock(ctx)),
-                }
+            Ok(_entity) => {}
+            Err((_reason, shown, clock)) => match (shown, clock.is_some()) {
+                (true, true) => *clock = None,
+                (true, false) => {}
+                (false, true) => {}
+                (false, false) => *clock = Some(Self::create_error_clock(ctx)),
             },
         }
     }
 
     /// Updates the entity field.
-    fn set_entity_from_fetch_result(&mut self, data: Result<Option<T::ReadModel>, RequestError>, from: SetFrom, ctx: &Context<Self>) {
+    fn set_entity_from_fetch_result(
+        &mut self,
+        data: Result<Option<T::ReadModel>, RequestError>,
+        from: SetFrom,
+        ctx: &Context<Self>,
+    ) {
         self._set_entity(
             match data {
                 Ok(data) => match data {
@@ -180,7 +197,7 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
                     SetFrom::Update => (NoData::UpdateFailed(err), true, None),
                 }),
             },
-            ctx
+            ctx,
         );
         if let Ok(entity) = &self.entity {
             self.input = Some(entity.clone());
@@ -210,17 +227,21 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
                 }
             },
             Err(err) => {
-                self._set_entity(Err(match from {
-                    SetFrom::Fetch => (NoData::FetchFailed(err), true, None),
-                    SetFrom::Update => (NoData::UpdateFailed(err), true, None),
-                }), ctx);
+                self._set_entity(
+                    Err(match from {
+                        SetFrom::Fetch => (NoData::FetchFailed(err), true, None),
+                        SetFrom::Update => (NoData::UpdateFailed(err), true, None),
+                    }),
+                    ctx,
+                );
             }
         };
     }
 
     fn save_entity(&self, ctx: &Context<Self>, and_then: Then) {
         let entity = self.input.clone().expect("Entity to be already loaded");
-        let condition = <T as CrudMainTrait>::UpdateModelId::to_all_equal_condition(&ctx.props().id);
+        let condition =
+            <T as CrudMainTrait>::UpdateModelId::to_all_equal_condition(&ctx.props().id);
         let data_provider = ctx.props().data_provider.clone();
         // TODO: Like in create_view, store ongoing_save!!
         ctx.link().send_future(async move {
@@ -250,7 +271,11 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
             input_errors: HashMap::new(),
             user_wants_to_activate: vec![],
             user_wants_to_leave: false,
-            entity: Err((NoData::NotYetLoaded, false, Some(CrudEditView::create_error_clock(ctx)))),
+            entity: Err((
+                NoData::NotYetLoaded,
+                false,
+                Some(CrudEditView::create_error_clock(ctx)),
+            )),
             ongoing_save: false,
             actions_executing: vec![],
         }
@@ -318,18 +343,14 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                 }
                 true
             }
-            Msg::ShowError => {
-                match &mut self.entity {
-                    Ok(_data) => {
-                        false
-                    },
-                    Err((_reason, show, clock)) => {
-                        *show = true;
-                        *clock = None;
-                        true
-                    }
+            Msg::ShowError => match &mut self.entity {
+                Ok(_data) => false,
+                Err((_reason, show, clock)) => {
+                    *show = true;
+                    *clock = None;
+                    true
                 }
-            }
+            },
             Msg::Save => {
                 self.save_entity(ctx, Then::DoNothing);
                 true
@@ -345,9 +366,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
             Msg::Delete => {
                 match &self.entity {
                     Ok(entity) => ctx.props().on_delete.emit(entity.clone()),
-                    Err(_) => warn!(
-                        "Cannot issue a delete event, as not entity is currently loaded!"
-                    ),
+                    Err(_) => {
+                        warn!("Cannot issue a delete event, as not entity is currently loaded!")
+                    }
                 }
                 false
             }
@@ -358,7 +379,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
             Msg::ValueChanged((field, result)) => {
                 match result {
                     Ok(value) => {
-                        let mut input = self.input.as_mut().expect("Entity to be already loaded");
+                        let input = self.input.as_mut().expect("Entity to be already loaded");
                         field.set_value(input, value);
                         self.input_errors.remove(&field);
                         // We might only want to set this to true if the new value was actually different to the old value!
@@ -367,16 +388,18 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                             Err(_) => self.input_dirty = false,
                         }
                         false
-                    },
+                    }
                     Err(err) => {
                         self.input_errors.insert(field, err);
                         // When we want to render the errors, set this to true.
                         false
-                    },
+                    }
                 }
             }
             Msg::GetInput((field, receiver)) => {
-                receiver(field.get_value(self.input.as_ref().expect("Entity to be already loaded")));
+                receiver(
+                    field.get_value(self.input.as_ref().expect("Entity to be already loaded")),
+                );
                 false
             }
             Msg::ActionInitialized { action_id } => {
@@ -384,15 +407,27 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                 true
             }
             Msg::ActionCancelled { action_id } => {
-                if let Some(index) = self.user_wants_to_activate.iter().position(|it| it.as_str() == action_id) {
+                if let Some(index) = self
+                    .user_wants_to_activate
+                    .iter()
+                    .position(|it| it.as_str() == action_id)
+                {
                     self.user_wants_to_activate.remove(index);
                     true
                 } else {
                     false
                 }
             }
-            Msg::ActionTriggered { action_id, action_payload, action } => {
-                if let Some(index) = self.user_wants_to_activate.iter().position(|it| it.as_str() == action_id) {
+            Msg::ActionTriggered {
+                action_id,
+                action_payload,
+                action,
+            } => {
+                if let Some(index) = self
+                    .user_wants_to_activate
+                    .iter()
+                    .position(|it| it.as_str() == action_id)
+                {
                     self.user_wants_to_activate.remove(index);
                 }
                 action.emit((
@@ -471,7 +506,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudEditView<T> {
                                                                         />
                                                                         if self.user_wants_to_activate.iter().any(|it| it.as_str() == action_id) {
                                                                             <CrudModal>
-                                                                                {{ modal(ModalGeneration {
+                                                                                {{ modal(EntityModalGeneration {
                                                                                     state: self.input.clone().expect("Entity to be already loaded"),
                                                                                     cancel: ctx.link().callback(move |_| Msg::ActionCancelled { action_id }),
                                                                                     execute: ctx.link().callback(move |action_payload| Msg::ActionTriggered { action_id, action_payload, action: action.clone() }),
