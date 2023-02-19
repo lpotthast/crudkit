@@ -31,9 +31,9 @@ pub struct ReadMany<R: CrudResource> {
     pub condition: Option<Condition>,
 }
 
-#[tracing::instrument(level = "info", skip(controller, context))]
+#[tracing::instrument(level = "info", skip(_controller, context))]
 pub async fn read_count<R: CrudResource>(
-    controller: Arc<CrudController>,
+    _controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
     body: ReadCount,
 ) -> Result<u64, CrudError> {
@@ -47,9 +47,9 @@ pub async fn read_count<R: CrudResource>(
         })
 }
 
-#[tracing::instrument(level = "info", skip(controller, context))]
+#[tracing::instrument(level = "info", skip(_controller, context))]
 pub async fn read_one<R: CrudResource>(
-    controller: Arc<CrudController>,
+    _controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
     body: ReadOne<R>,
 ) -> Result<R::ReadViewModel, CrudError> {
@@ -66,9 +66,9 @@ pub async fn read_one<R: CrudResource>(
         })
 }
 
-#[tracing::instrument(level = "info", skip(controller, context))]
+#[tracing::instrument(level = "info", skip(_controller, context))]
 pub async fn read_many<R: CrudResource>(
-    controller: Arc<CrudController>,
+    _controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
     body: ReadMany<R>,
 ) -> Result<Vec<R::ReadViewModel>, CrudError> {
