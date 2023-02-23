@@ -1,5 +1,5 @@
 use gloo::storage::{LocalStorage, Storage};
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -7,16 +7,14 @@ use crate::types::{ErrorInfo, RequestError};
 
 const TOKEN_KEY: &str = "yew.token";
 
-lazy_static! {
-    /// Jwt token read from local storage.
-    pub static ref TOKEN: RwLock<Option<String>> = {
-        if let Ok(token) = LocalStorage::get(TOKEN_KEY) {
-            RwLock::new(Some(token))
-        } else {
-            RwLock::new(None)
-        }
-    };
-}
+/// Jwt token read from local storage.
+pub static TOKEN: Lazy<RwLock<Option<String>>> = Lazy::new(|| {
+    if let Ok(token) = LocalStorage::get(TOKEN_KEY) {
+        RwLock::new(Some(token))
+    } else {
+        RwLock::new(None)
+    }
+});
 
 /// Set jwt token to local storage.
 pub fn set_token(token: Option<String>) {

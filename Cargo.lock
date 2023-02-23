@@ -229,7 +229,7 @@ dependencies = [
  "gloo",
  "indexmap",
  "js-sys",
- "lazy_static",
+ "once_cell",
  "parking_lot",
  "reqwest",
  "serde",
