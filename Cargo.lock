@@ -192,8 +192,8 @@ name = "create-id-impl"
 version = "0.0.1"
 dependencies = [
  "darling 0.14.3",
- "derive-helper",
  "proc-macro-error",
+ "proc-macro-type-name",
  "proc-macro2",
  "quote",
  "syn",
@@ -414,21 +414,11 @@ name = "derive-field-value"
 version = "0.0.1"
 dependencies = [
  "darling 0.14.3",
- "derive-helper",
  "proc-macro-error",
  "proc-macro2",
  "quote",
  "serde",
  "serde_json",
- "syn",
-]
-
-[[package]]
-name = "derive-helper"
-version = "0.1.0"
-dependencies = [
- "darling 0.14.3",
- "proc-macro2",
  "syn",
 ]
 
@@ -1285,6 +1275,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "proc-macro-type-name"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.51"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1592,9 +1589,9 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "syn"
-version = "1.0.108"
+version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d56e159d99e6c2b93995d171050271edb50ecc5288fbc7cc17de8fdce4e58c14"
+checksum = "72b64191b275b66ffe2469e8af2c1cfe3bafa67b529ead792a6d0160888b4237"
 dependencies = [
  "proc-macro2",
  "quote",
