@@ -1,8 +1,10 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
+use darling::ToTokens;
 use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error::abort;
+use proc_macro_type_name::ToTypeName;
 use quote::quote;
 use syn::spanned::Spanned;
 
@@ -25,18 +27,6 @@ where
     if id_fields.len() == 0 {
         let message = format!("Error in usage of create_id_impl: id_fields vec must not be empty!");
         abort!(Span::call_site(), message; help = "Only call create_id_impl if id fields exist!";);
-    }
-
-    fn capitalize_first_letter(s: &str) -> String {
-        s[0..1].to_uppercase() + &s[1..]
-    }
-
-    fn field_name_as_type_name(name: &String) -> String {
-        let mut type_name = String::new();
-        for part in name.split("_") {
-            type_name.push_str(capitalize_first_letter(part).as_str());
-        }
-        type_name
     }
 
     // "FooId" - struct
@@ -71,10 +61,7 @@ where
         let name = ident.to_string();
 
         // "Id" - enum variant
-        let type_name = Ident::new(
-            field_name_as_type_name(&ident.to_string()).as_str(),
-            Span::call_site(),
-        );
+        let type_name = (&ident).to_type_ident(Span::call_site());
 
         // i32 - type of original field
         let ty = &field.get_type().clone();
@@ -253,7 +240,7 @@ where
 fn to_id_value(ty: &syn::Type) -> proc_macro2::TokenStream {
     let span = ty.span();
     match &ty {
-        syn::Type::Path(path) => match derive_helper::join_path(&path.path).as_str() {
+        syn::Type::Path(path) => match join_path(&path.path).as_str() {
             "bool" => quote! { crud_shared_types::IdValue::Bool },
             "u32" => quote! { crud_shared_types::IdValue::U32 },
             "i32" => quote! { crud_shared_types::IdValue::I32 },
@@ -276,11 +263,16 @@ fn to_id_value(ty: &syn::Type) -> proc_macro2::TokenStream {
                 help = "use one of the following types: [...]";
             ),
             "Option<String>" => quote! { crud_shared_types::IdValue::OptionalString },
-            "Option<time::PrimitiveDateTime>" => quote! { crud_shared_types::IdValue::OptionalPrimitiveDateTime },
-            "Option<time::OffsetDateTime>" => quote! { crud_shared_types::IdValue::OptionalOffsetDateTime },
+            "Option<time::PrimitiveDateTime>" => {
+                quote! { crud_shared_types::IdValue::OptionalPrimitiveDateTime }
+            }
+            "Option<time::OffsetDateTime>" => {
+                quote! { crud_shared_types::IdValue::OptionalOffsetDateTime }
+            }
             other => {
                 let span = ty.span();
-                let message = format!("to_id_value found unknown type {other:?}. Expected a known type.");
+                let message =
+                    format!("to_id_value found unknown type {other:?}. Expected a known type.");
                 abort!(
                     span, message;
                     help = "use one of the following types: [...]";
@@ -293,4 +285,8 @@ fn to_id_value(ty: &syn::Type) -> proc_macro2::TokenStream {
             abort!(span, message);
         }
     }
+}
+
+fn join_path(path: &syn::Path) -> String {
+    path.to_token_stream().to_string().replace(' ', "")
 }
