@@ -66,6 +66,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         let resource = T::get_resource_name();
         request_post(
             format!("{}/{resource}/crud/read-count", self.api_base_url),
+            Self::get_auth()?,
             read_count,
         )
         .await
@@ -79,6 +80,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         let resource = T::get_resource_name();
         request_post(
             format!("{}/{resource}/crud/read-many", self.api_base_url),
+            Self::get_auth()?,
             read_many,
         )
         .await
@@ -92,6 +94,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         let resource = T::get_resource_name();
         request_post(
             format!("{}/{resource}/crud/read-one", self.api_base_url),
+            Self::get_auth()?,
             read_one,
         )
         .await
@@ -104,6 +107,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         let resource = T::get_resource_name();
         request_post(
             format!("{}/{resource}/crud/create-one", self.api_base_url),
+            Self::get_auth()?,
             create_one,
         )
         .await
@@ -117,6 +121,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         let resource = T::get_resource_name();
         request_post(
             format!("{}/{resource}/crud/create-one", self.api_base_url),
+            Self::get_auth()?,
             create_one,
         )
         .await
@@ -130,6 +135,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         let resource = T::get_resource_name();
         request_post(
             format!("{}/{resource}/crud/update-one", self.api_base_url),
+            Self::get_auth()?,
             update_one,
         )
         .await
@@ -142,8 +148,13 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         let resource = T::get_resource_name();
         request_post(
             format!("{}/{resource}/crud/delete-by-id", self.api_base_url),
+            Self::get_auth()?,
             delete_by_id,
         )
         .await
+    }
+
+    fn get_auth() -> Result<Option<AuthMethod>, RequestError> {
+        T::AuthProvider::provide().map_err(|err| RequestError::AuthProvider(err.to_string()))
     }
 }

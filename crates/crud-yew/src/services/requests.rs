@@ -1,40 +1,37 @@
-use gloo::storage::{LocalStorage, Storage};
-use once_cell::sync::Lazy;
-use parking_lot::RwLock;
-use serde::{de::DeserializeOwned, Serialize};
+use std::{fmt::{Debug, Display}, convert::Infallible};
+
+use serde::{de::DeserializeOwned, Serialize, Deserialize};
 
 use crate::types::{ErrorInfo, RequestError};
 
-const TOKEN_KEY: &str = "yew.token";
-
-/// Jwt token read from local storage.
-pub static TOKEN: Lazy<RwLock<Option<String>>> = Lazy::new(|| {
-    if let Ok(token) = LocalStorage::get(TOKEN_KEY) {
-        RwLock::new(Some(token))
-    } else {
-        RwLock::new(None)
-    }
-});
-
-/// Set jwt token to local storage.
-pub fn set_token(token: Option<String>) {
-    if let Some(t) = token.clone() {
-        LocalStorage::set(TOKEN_KEY, t).expect("failed to set");
-    } else {
-        LocalStorage::delete(TOKEN_KEY);
-    }
-    let mut token_lock = TOKEN.write();
-    *token_lock = token;
+#[derive(Debug, Clone, PartialEq)]
+pub enum AuthMethod {
+    Bearer { token: String },
 }
 
-/// Get jwt token from lazy static.
-pub fn get_token() -> Option<String> {
-    let token_lock = TOKEN.read();
-    token_lock.clone()
+pub trait AuthProvider {
+    type Error: Debug + Display;
+    fn provide() -> Result<Option<AuthMethod>, Self::Error>;
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NoAuthProvider {}
+
+impl AuthProvider for NoAuthProvider {
+    type Error = Infallible;
+
+    fn provide() -> Result<Option<AuthMethod>, Self::Error> {
+        Ok(None)
+    }
 }
 
 /// build all kinds of http requests: post/get/delete etc.
-pub async fn request<B, T>(method: reqwest::Method, url: String, body: B) -> Result<T, RequestError>
+pub async fn request<B, T>(
+    method: reqwest::Method,
+    url: String,
+    auth: Option<AuthMethod>,
+    body: B,
+) -> Result<T, RequestError>
 where
     T: DeserializeOwned + std::fmt::Debug,
     B: Serialize + std::fmt::Debug,
@@ -42,7 +39,7 @@ where
     // ASSUMPTION: The given url is complete, meaning nothing hast to be added to it to work!
     let allow_body = method == reqwest::Method::POST || method == reqwest::Method::PUT;
 
-    let mut builder = request_builder(method, url);
+    let mut builder = request_builder(method, url, auth);
     builder = builder.header("Content-Type", "application/json");
 
     if allow_body {
@@ -54,13 +51,21 @@ where
     process_json_response(result).await
 }
 
-fn request_builder<U>(method: reqwest::Method, url: U) -> reqwest::RequestBuilder
+fn request_builder<U>(
+    method: reqwest::Method,
+    url: U,
+    auth: Option<AuthMethod>,
+) -> reqwest::RequestBuilder
 where
     U: reqwest::IntoUrl,
 {
     let mut builder = reqwest::Client::new().request(method, url);
-    if let Some(token) = get_token() {
-        builder = builder.bearer_auth(token);
+    if let Some(auth) = auth {
+        match auth {
+            AuthMethod::Bearer { token } => {
+                builder = builder.bearer_auth(token);
+            }
+        }
     }
     builder
 }
@@ -140,42 +145,47 @@ async fn error_response_to_request_error(response: reqwest::Response) -> Request
 
 #[allow(dead_code)]
 /// Delete request
-pub async fn request_delete<T>(url: String) -> Result<T, RequestError>
+pub async fn request_delete<T>(url: String, auth: Option<AuthMethod>) -> Result<T, RequestError>
 where
     T: DeserializeOwned + std::fmt::Debug,
 {
-    request(reqwest::Method::DELETE, url, ()).await
+    request(reqwest::Method::DELETE, url, auth, ()).await
 }
 
 /// Get request
 #[allow(dead_code)]
-pub async fn request_get<T>(url: String) -> Result<T, RequestError>
+pub async fn request_get<T>(url: String, auth: Option<AuthMethod>) -> Result<T, RequestError>
 where
     T: DeserializeOwned + std::fmt::Debug,
 {
-    request(reqwest::Method::GET, url, ()).await
+    request(reqwest::Method::GET, url, auth, ()).await
 }
 
 /// Post request with a body
 #[allow(dead_code)]
-pub async fn request_post<B, T>(url: String, body: B) -> Result<T, RequestError>
+pub async fn request_post<B, T>(
+    url: String,
+    auth: Option<AuthMethod>,
+    body: B,
+) -> Result<T, RequestError>
 where
     T: DeserializeOwned + std::fmt::Debug,
     B: Serialize + std::fmt::Debug,
 {
-    request(reqwest::Method::POST, url, body).await
+    request(reqwest::Method::POST, url, auth, body).await
 }
 
 /// Post request with a body
 #[allow(dead_code)]
 pub async fn request_post_multipart<T>(
     url: String,
+    auth: Option<AuthMethod>,
     form: reqwest::multipart::Form,
 ) -> Result<T, RequestError>
 where
     T: DeserializeOwned + std::fmt::Debug,
 {
-    let builder = request_builder(reqwest::Method::POST, url)
+    let builder = request_builder(reqwest::Method::POST, url, auth)
         //.header("Content-Type", "application/json");
         .multipart(form);
 
@@ -186,10 +196,14 @@ where
 
 /// Put request with a body
 #[allow(dead_code)]
-pub async fn request_put<B, T>(url: String, body: B) -> Result<T, RequestError>
+pub async fn request_put<B, T>(
+    url: String,
+    auth: Option<AuthMethod>,
+    body: B,
+) -> Result<T, RequestError>
 where
     T: DeserializeOwned + std::fmt::Debug,
     B: Serialize + std::fmt::Debug,
 {
-    request(reqwest::Method::PUT, url, body).await
+    request(reqwest::Method::PUT, url, auth, body).await
 }

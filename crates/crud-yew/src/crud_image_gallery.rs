@@ -56,7 +56,8 @@ impl Component for CrudImageGallery {
                 let base = ctx.props().api_base_url.clone();
                 ctx.link().send_future(async move {
                     Msg::ListFilesResponse(
-                        request_get::<ListFilesResponse>(format!("{}/public", base)).await,
+                        // No authentication required when accessing '/public'!
+                        request_get::<ListFilesResponse>(format!("{}/public", base), None).await,
                     )
                 });
                 false

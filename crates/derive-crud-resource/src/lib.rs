@@ -4,7 +4,7 @@
 use darling::*;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use proc_macro_error::proc_macro_error;
+use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
@@ -15,9 +15,16 @@ fn strip_quotes(string: Option<String>) -> Option<String> {
 #[derive(FromDeriveInput)]
 #[darling(attributes(crud), forward_attrs(allow, doc, cfg))]
 struct Args {
+    /// Name of the CRUD resource. Must match the name defined in the backend.
     resource_name: String,
+
+    /// Type of the action payload.
     #[darling(map = "strip_quotes")]
     action_payload: Option<String>, // TODO: Do not require quotes to begin with... require an ident
+
+    /// Type of the authentication data provider.
+    #[darling(map = "strip_quotes")]
+    auth_provider: Option<String>, // TODO: Do not require quotes to begin with... require an ident
 }
 
 #[proc_macro_derive(CrudResource, attributes(crud))]
@@ -26,16 +33,37 @@ pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
     let update_model_ident = &ast.ident;
-    let update_model_id_ident = Ident::new(format!("{update_model_ident}Id").as_str(), Span::call_site());
-    let update_model_id_field_ident = Ident::new(format!("{update_model_ident}IdField").as_str(), Span::call_site());
+    let update_model_id_ident = Ident::new(
+        format!("{update_model_ident}Id").as_str(),
+        Span::call_site(),
+    );
+    let update_model_id_field_ident = Ident::new(
+        format!("{update_model_ident}IdField").as_str(),
+        Span::call_site(),
+    );
 
-    let read_model_ident = Ident::new(format!("Read{update_model_ident}").as_str(), Span::call_site());
-    let read_model_id_ident = Ident::new(format!("Read{update_model_ident}Id").as_str(), Span::call_site());
-    let read_model_id_field_ident = Ident::new(format!("Read{update_model_ident}IdField").as_str(), Span::call_site());
+    let read_model_ident = Ident::new(
+        format!("Read{update_model_ident}").as_str(),
+        Span::call_site(),
+    );
+    let read_model_id_ident = Ident::new(
+        format!("Read{update_model_ident}Id").as_str(),
+        Span::call_site(),
+    );
+    let read_model_id_field_ident = Ident::new(
+        format!("Read{update_model_ident}IdField").as_str(),
+        Span::call_site(),
+    );
 
-    let create_model_ident = Ident::new(format!("Create{update_model_ident}").as_str(), Span::call_site());
+    let create_model_ident = Ident::new(
+        format!("Create{update_model_ident}").as_str(),
+        Span::call_site(),
+    );
 
-    let resource_ident = Ident::new(format!("Crud{update_model_ident}Resource").as_str(), Span::call_site());
+    let resource_ident = Ident::new(
+        format!("Crud{update_model_ident}Resource").as_str(),
+        Span::call_site(),
+    );
 
     let args: Args = match FromDeriveInput::from_derive_input(&ast) {
         Ok(args) => args,
@@ -52,6 +80,14 @@ pub fn store(input: TokenStream) -> TokenStream {
             quote! { #ident }
         })
         .unwrap_or_else(|| quote! { crud_yew::EmptyActionPayload });
+
+    let auth_provider_type = args
+        .auth_provider
+        .map(|it| match syn::parse_str::<syn::Type>(it.as_ref()) {
+            Ok(ty) => quote! { #ty },
+            Err(err) => abort!("Given 'auth_provider' is not a valid type: {}", err),
+        })
+        .unwrap_or_else(|| quote! { crud_yew::services::requests::NoAuthProvider });
 
     quote! {
         #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -75,6 +111,8 @@ pub fn store(input: TokenStream) -> TokenStream {
             type UpdateModel = #update_model_ident;
 
             type ActionPayload = #action_payload_type;
+
+            type AuthProvider = #auth_provider_type;
         }
     }
     .into()

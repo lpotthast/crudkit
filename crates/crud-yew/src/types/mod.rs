@@ -10,6 +10,10 @@ use thiserror::Error as ThisError;
 #[derive(ThisError, Clone, Debug, PartialEq)]
 #[allow(clippy::enum_variant_names)]
 pub enum RequestError {
+    /// Auth provider
+    #[error("Auth data could not be provided: {0}")]
+    AuthProvider(String),
+
     /// 400
     #[error("BadRequest: {0}")]
     BadRequest(String),

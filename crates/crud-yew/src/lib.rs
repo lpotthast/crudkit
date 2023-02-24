@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use crud_shared_types::{id::SerializableId, prelude::*};
 use dyn_clone::DynClone;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use services::requests::AuthProvider;
 use std::{
     any::Any,
     fmt::{Debug, Display},
@@ -242,6 +243,8 @@ pub trait CrudMainTrait:
     type UpdateModel: Serialize + CrudDataTrait + CrudIdTrait<Id = Self::UpdateModelId> + Send;
 
     type ActionPayload: Serialize + CrudActionPayload;
+
+    type AuthProvider: AuthProvider + Serialize; // TODO: This should not be serialize...
 }
 
 pub trait CrudActionPayload:
