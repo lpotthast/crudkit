@@ -3,10 +3,10 @@
 
 use create_id_impl::{FieldData, IdImpl};
 use darling::*;
-use derive_helper::ToTypeName;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use proc_macro_error::{abort, proc_macro_error};
+use proc_macro_type_name::ToTypeName;
 use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
@@ -210,7 +210,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
     let span = ty.span();
     let fun_name = match ty {
-        syn::Type::Path(path) => match derive_helper::join_path(&path.path).as_str() {
+        syn::Type::Path(path) => match join_path(&path.path).as_str() {
             "bool" => "to_bool",
             "u32" => "to_u32",
             "i32" => "to_i32",
@@ -249,4 +249,8 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
         }
     };
     Ident::new(fun_name, span)
+}
+
+fn join_path(path: &syn::Path) -> String {
+    path.to_token_stream().to_string().replace(' ', "")
 }
