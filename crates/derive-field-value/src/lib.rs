@@ -298,7 +298,7 @@ impl From<ValueType> for Ident {
 impl From<&syn::Type> for ValueType {
     fn from(ty: &syn::Type) -> Self {
         match &ty {
-            syn::Type::Path(path) => match derive_helper::join_path(&path.path).as_str() {
+            syn::Type::Path(path) => match join_path(&path.path).as_str() {
                 "bool" => ValueType::Bool,
                 "u32" => ValueType::U32,
                 "i32" => ValueType::I32,
@@ -334,4 +334,8 @@ impl From<&syn::Type> for ValueType {
             }
         }
     }
+}
+
+fn join_path(path: &syn::Path) -> String {
+    path.to_token_stream().to_string().replace(' ', "")
 }
