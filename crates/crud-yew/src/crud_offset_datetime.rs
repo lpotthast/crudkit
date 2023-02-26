@@ -4,8 +4,6 @@ use yew::prelude::*;
 
 use crate::{crud_offset_datetime_time_selector::CrudOffsetDatetimeTimeSelector, crud_offset_datetime_date_selector::CrudOffsetDatetimeDateSelector};
 
-use super::prelude::*;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Year {
     pub number: i32,
