@@ -61,7 +61,7 @@ where
         let name = ident.to_string();
 
         // "Id" - enum variant
-        let type_name = (&ident).to_type_ident(Span::call_site());
+        let type_name = (&ident).to_type_ident(ident.span());
 
         // i32 - type of original field
         let ty = &field.get_type().clone();
