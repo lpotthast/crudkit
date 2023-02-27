@@ -5,7 +5,7 @@ default-members = ["crates/crud-rs"]
 [workspace.dependencies]
 
 # Dependencies used in proc-macro implementations
-proc-macro-type-name = { path = "../../proc-macro-type-name" }
+proc-macro-type-name = "0.1"
 darling = "0.14"
 proc-macro-error = "1"
 proc-macro2 = "1"
