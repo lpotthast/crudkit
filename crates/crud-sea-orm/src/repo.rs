@@ -26,12 +26,12 @@ impl SeaOrmRepo {
 #[derive(Debug, Snafu, ToSchema)]
 pub enum SeaOrmRepoError {
     #[snafu(display(
-        "SeaOrmRepoError: Database error.\n\nCaused by:\n{source}\n\nBacktrace:\n{backtrace}"
+        "SeaOrmRepoError: Database error."
     ))]
     Db { source: DbErr, backtrace: Backtrace },
 
     #[snafu(display(
-        "SeaOrmRepoError: Unable to parse value for column'{column_name}' to column type: '{reason}'\n\nBacktrace:\n{backtrace}"
+        "SeaOrmRepoError: Unable to parse value for column'{column_name}' to column type: '{reason}'"
     ))]
     UnableToParseValueAsColType {
         column_name: String,
@@ -40,7 +40,7 @@ pub enum SeaOrmRepoError {
     },
 
     #[snafu(display(
-        "SeaOrmRepoError: Column '{column_name}' not found.\n\nBacktrace:\n{backtrace}"
+        "SeaOrmRepoError: Column '{column_name}' not found."
     ))]
     UnknownColumnSpecified {
         column_name: String,
