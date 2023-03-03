@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 
-use crud_shared_types::{condition::IntoAllEqualCondition, SaveResult, Saved};
+use crud_condition::IntoAllEqualCondition;
+use crud_id::Id;
+use crud_id::IdField;
+use crud_shared::{SaveResult, Saved};
+
 use gloo::timers::callback::Interval;
 use tracing::{info, warn};
 use yew::{
@@ -240,8 +244,9 @@ impl<T: 'static + CrudMainTrait> CrudEditView<T> {
 
     fn save_entity(&self, ctx: &Context<Self>, and_then: Then) {
         let entity = self.input.clone().expect("Entity to be already loaded");
-        let condition =
-            <T as CrudMainTrait>::UpdateModelId::to_all_equal_condition(&ctx.props().id);
+        let condition = <T as CrudMainTrait>::UpdateModelId::fields_iter(&ctx.props().id)
+            .map(|field| (field.name().to_owned(), field.to_value()))
+            .into_all_equal_condition();
         let data_provider = ctx.props().data_provider.clone();
         // TODO: Like in create_view, store ongoing_save!!
         ctx.link().send_future(async move {
@@ -605,7 +610,9 @@ pub async fn load_entity<T: CrudMainTrait>(
     data_provider: CrudRestDataProvider<T>,
     id: &T::UpdateModelId,
 ) -> Result<Option<T::ReadModel>, RequestError> {
-    let condition = <T as CrudMainTrait>::UpdateModelId::to_all_equal_condition(id);
+    let condition = <T as CrudMainTrait>::UpdateModelId::fields_iter(id)
+        .map(|field| (field.name().to_owned(), field.to_value()))
+        .into_all_equal_condition();
     data_provider
         .read_one(ReadOne {
             skip: None,

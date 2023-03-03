@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-use create_id_impl::IdImpl;
 use darling::*;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
@@ -10,23 +9,18 @@ use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
 #[derive(Debug, FromField)]
-#[darling(attributes(field))]
+#[darling(attributes(field, crud_id))]
 struct MyFieldReceiver {
     ident: Option<syn::Ident>,
 
     ty: syn::Type,
 
     /// Determines whether this field is part of the aggregate id.
+    // Originates from: crud_id
     id: Option<bool>,
 }
 
 impl MyFieldReceiver {
-    pub fn is_id(&self) -> bool {
-        self.id.is_some() || self.ident.as_ref().unwrap() == "id"
-    }
-}
-
-impl create_id_impl::FieldData for &MyFieldReceiver {
     fn get_ident(&self) -> Option<&syn::Ident> {
         self.ident.as_ref()
     }
@@ -34,10 +28,19 @@ impl create_id_impl::FieldData for &MyFieldReceiver {
     fn get_type(&self) -> &syn::Type {
         &self.ty
     }
+
+    pub fn is_id(&self) -> bool {
+        match (self.id, &self.ident) {
+            (None, None) => false,
+            (None, Some(ident)) => ident == "id",
+            (Some(id), None) => id,
+            (Some(id), Some(ident)) => id || ident == "id",
+        }
+    }
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(field), supports(struct_any))]
+#[darling(attributes(field, crud_id), supports(struct_any))]
 struct MyInputReceiver {
     ident: syn::Ident,
 
@@ -53,7 +56,7 @@ impl MyInputReceiver {
     }
 }
 
-#[proc_macro_derive(Field, attributes(field))]
+#[proc_macro_derive(Field, attributes(field, crud_id))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -99,7 +102,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         0 => quote! {},
         // Implement the `crud_yew::CrudIdTrait` trait if there are id fields in the struct.
         _ => {
-            let IdImpl { code, struct_ident, enum_ident: _ } = create_id_impl::create_id_impl(name, &id_fields);
+            let id_struct_ident = Ident::new(format!("{}Id", name).as_str(), name.span());
 
             let init_id_struct_fields = id_fields.iter().map(|field| {
                 let ident = field.ident.as_ref().expect("Ident to be present").clone();
@@ -109,10 +112,8 @@ pub fn store(input: TokenStream) -> TokenStream {
 
             // Implements the main 'CrudIdTrait' for our base type. Allowing the user to access the ID of the entity.
             quote! {
-                #code
-
                 impl crud_yew::CrudIdTrait for #name {
-                    type Id = #struct_ident;
+                    type Id = #id_struct_ident;
 
                     fn get_id(&self) -> Self::Id {
                         Self::Id {
@@ -139,7 +140,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             match self {
                 #(#match_field_name_to_str_arms),*
             }
-        }
+        },
     };
 
     let get_field_arms = input.fields().iter().map(|field| {
@@ -152,13 +153,15 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
     });
     let get_field_impl = match input.fields().len() {
-        0 => quote! { panic!("String '{}' can not be parsed as a field name! There are zero fields!", field_name) },
+        0 => {
+            quote! { panic!("String '{}' can not be parsed as a field name! There are zero fields!", field_name) }
+        }
         _ => quote! {
             match field_name {
                 #(#get_field_arms),*,
                 other => panic!("String '{}' can not be parsed as a field name!", other),
             }
-        }
+        },
     };
 
     quote! {

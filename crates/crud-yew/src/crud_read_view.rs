@@ -1,10 +1,12 @@
 use yew::{html::ChildrenRenderer, prelude::*};
 
-use crud_shared_types::condition::IntoAllEqualCondition;
+use crud_condition::IntoAllEqualCondition;
+use crud_id::{Id, IdField};
 
 use crate::{
     crud_instance::Item,
-    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne}, types::custom_field::CustomUpdateFields,
+    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne},
+    types::custom_field::CustomUpdateFields,
 };
 
 use super::{prelude::*, types::RequestError};
@@ -135,7 +137,9 @@ pub async fn load_entity<T: CrudMainTrait>(
     data_provider: CrudRestDataProvider<T>,
     id: &T::ReadModelId,
 ) -> Result<Option<T::ReadModel>, RequestError> {
-    let condition = <T as CrudMainTrait>::ReadModelId::to_all_equal_condition(id);
+    let condition = <T as CrudMainTrait>::ReadModelId::fields_iter(id)
+        .map(|field| (field.name().to_owned(), field.to_value()))
+        .into_all_equal_condition();
     data_provider
         .read_one(ReadOne {
             skip: None,

@@ -1,5 +1,6 @@
-use crud_shared_types::Order;
 use std::rc::Rc;
+
+use crud_shared::Order;
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,

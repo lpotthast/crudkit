@@ -1,12 +1,14 @@
 use std::rc::Rc;
 
-use crate::{crud_instance::CreateOrUpdateField, crud_select::Selection, prelude::*};
-use crud_shared_types::condition::{Condition, ConditionClause, ConditionElement};
+use crud_condition::{Condition, ConditionClause, ConditionElement};
 use tracing::warn;
 use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
 
 use crate::{
+    crud_instance::CreateOrUpdateField,
+    crud_select::Selection,
+    prelude::*,
     services::crud_rest_data_provider::{CrudRestDataProvider, ReadMany},
     stores,
     types::RequestError,
@@ -233,7 +235,7 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> Component for CrudR
                                         .parent_reverse_field
                                         .get_name()
                                         .to_owned(),
-                                    operator: crud_shared_types::condition::Operator::Equal,
+                                    operator: crud_condition::Operator::Equal,
                                     value: value.clone().into(),
                                 }),
                             ])));

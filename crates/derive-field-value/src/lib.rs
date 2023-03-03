@@ -124,7 +124,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
             ValueType::OneToOneRelation => quote! { entity.#field_ident },
             ValueType::NestedTable => quote! {
-                crud_shared_types::id::Id::fields(&entity.get_id())
+                crud_id::Id::fields(&entity.get_id()).into_iter().map(|it| Box::new(it) as Box<dyn crud_id::IdField>).collect::<Vec<_>>()
             }, // not important, panics anyway...
             ValueType::Custom => quote! { () }, // not important, panics anyway...
         };
@@ -134,12 +134,14 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
     });
     let get_value_impl = match input.fields().len() {
-        0 => quote! { panic!("Cannot get value. Zero fields available! Should be unreachable. Source-crate: derive-field-value") },
+        0 => {
+            quote! { panic!("Cannot get value. Zero fields available! Should be unreachable. Source-crate: derive-field-value") }
+        }
         _ => quote! {
             match self {
                 #(#get_field_value_arms),*,
             }
-        }
+        },
     };
 
     // Self::Id => entity.id = value.take_u32(),
@@ -198,12 +200,14 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
     });
     let set_value_impl = match input.fields().len() {
-        0 => quote! { panic!("Cannot set value. Zero fields available! Should be unreachable. Source-crate: derive-field-value") },
+        0 => {
+            quote! { panic!("Cannot set value. Zero fields available! Should be unreachable. Source-crate: derive-field-value") }
+        }
         _ => quote! {
             match self {
                 #(#set_field_value_arms),*,
             }
-        }
+        },
     };
 
     quote! {

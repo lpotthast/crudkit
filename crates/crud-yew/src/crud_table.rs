@@ -1,4 +1,4 @@
-use crud_shared_types::Order;
+use crud_shared::Order;
 use gloo::timers::callback::Interval;
 use std::rc::Rc;
 use yew::{html::ChildrenRenderer, prelude::*};

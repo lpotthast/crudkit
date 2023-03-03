@@ -1,5 +1,5 @@
 use super::prelude::*;
-use crud_shared_types::Order;
+use crud_shared::Order;
 use std::marker::PhantomData;
 use yew::prelude::*;
 

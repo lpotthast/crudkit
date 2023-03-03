@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
-use crud_shared_types::{id::SerializableId, SaveResult, Saved};
 use tracing::{error, info};
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,
 };
+
+use crud_id::SerializableId;
+use crud_shared::{SaveResult, Saved};
 
 use crate::{
     crud_instance::Item,
