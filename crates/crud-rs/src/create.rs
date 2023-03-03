@@ -5,12 +5,12 @@ use crate::{
     validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
     GetIdFromModel,
 };
-use crud_shared_types::{
-    id::Id,
-    validation::PartialSerializableValidations,
-    ws_messages::{CrudWsMessage, EntityCreated},
-    SaveResult, Saved,
-};
+
+use crud_id::Id;
+use crud_validation::PartialSerializableValidations;
+use crud_websocket::{CrudWsMessage, EntityCreated};
+use crud_shared::{SaveResult, Saved};
+
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};
 use std::{collections::HashMap, sync::Arc};

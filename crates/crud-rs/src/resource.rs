@@ -1,5 +1,7 @@
 use crate::{lifetime::CrudLifetime, prelude::*, GetIdFromModel};
-use crud_shared_types::prelude::Id;
+
+use crud_id::Id;
+
 use sea_orm::{
     ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, FromQueryResult,
     IntoActiveModel, ModelTrait,

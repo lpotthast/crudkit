@@ -7,7 +7,6 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-create-id-impl = { path = "../../../crud-shared-types/crates/create-id-impl" }
 darling = { workspace = true }
 proc-macro-error = { workspace = true }
 proc-macro-type-name = { workspace = true }

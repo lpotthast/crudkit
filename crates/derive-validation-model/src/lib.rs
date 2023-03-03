@@ -100,13 +100,22 @@ pub fn store(input: TokenStream) -> TokenStream {
     quote! {
         pub mod validation_model {
             use crud_rs::prelude::*;
-            use crud_shared_types::prelude::*;
             use sea_orm::entity::prelude::*;
             use serde::{Deserialize, Serialize};
 
             type ParentId = <super::Col as CrudColumns<super::Column, super::Model, super::ActiveModel>>::Id;
 
-            #[derive(Clone, Debug, PartialEq, Eq, CrudColumns, sea_orm::DeriveEntityModel, Serialize, Deserialize)]
+            #[derive(
+                Clone,
+                Debug,
+                PartialEq,
+                Eq,
+                CrudId,
+                CrudColumns,
+                sea_orm::DeriveEntityModel,
+                serde::Serialize,
+                serde::Deserialize
+            )]
             #[sea_orm(table_name = #table_name)]
             pub struct Model {
                 #[sea_orm(primary_key)]
@@ -131,11 +140,11 @@ pub fn store(input: TokenStream) -> TokenStream {
 
             impl sea_orm::entity::ActiveModelBehavior for ActiveModel {}
 
-            impl core::convert::Into<crud_shared_types::validation::ValidationViolation> for Model {
-                fn into(self) -> crud_shared_types::validation::ValidationViolation {
+            impl core::convert::Into<crud_validation::ValidationViolation> for Model {
+                fn into(self) -> crud_validation::ValidationViolation {
                     match self.violation_severity {
-                        crud_rs::validation::ValidationViolationType::Major => crud_shared_types::validation::ValidationViolation::Major(self.violation_message),
-                        crud_rs::validation::ValidationViolationType::Critical => crud_shared_types::validation::ValidationViolation::Critical(self.violation_message),
+                        crud_rs::validation::ValidationViolationType::Major => crud_validation::ValidationViolation::Major(self.violation_message),
+                        crud_rs::validation::ValidationViolationType::Critical => crud_validation::ValidationViolation::Critical(self.violation_message),
                     }
                 }
             }

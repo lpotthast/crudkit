@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use indexmap::IndexMap;
 
+use crud_condition::Condition;
+use crud_shared::Order;
+
 use crate::resource::CrudResource;
 
 #[async_trait]
@@ -13,40 +16,40 @@ pub trait Repository<R: CrudResource> {
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
-        order_by: Option<IndexMap<R::CrudColumn, crud_shared_types::Order>>,
-        condition: Option<&crud_shared_types::condition::Condition>,
+        order_by: Option<IndexMap<R::CrudColumn, Order>>,
+        condition: Option<&Condition>,
     ) -> Result<u64, Self::Error>;
 
     async fn fetch_one(
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
-        order_by: Option<IndexMap<R::CrudColumn, crud_shared_types::Order>>,
-        condition: Option<&crud_shared_types::condition::Condition>,
+        order_by: Option<IndexMap<R::CrudColumn, Order>>,
+        condition: Option<&Condition>,
     ) -> Result<Option<R::Model>, Self::Error>;
 
     async fn fetch_many(
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
-        order_by: Option<IndexMap<R::CrudColumn, crud_shared_types::Order>>,
-        condition: Option<&crud_shared_types::condition::Condition>,
+        order_by: Option<IndexMap<R::CrudColumn, Order>>,
+        condition: Option<&Condition>,
     ) -> Result<Vec<R::Model>, Self::Error>;
 
     async fn read_one(
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
-        order_by: Option<IndexMap<R::ReadViewCrudColumn, crud_shared_types::Order>>,
-        condition: Option<&crud_shared_types::condition::Condition>,
+        order_by: Option<IndexMap<R::ReadViewCrudColumn, Order>>,
+        condition: Option<&Condition>,
     ) -> Result<Option<R::ReadViewModel>, Self::Error>;
 
     async fn read_many(
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
-        order_by: Option<IndexMap<R::ReadViewCrudColumn, crud_shared_types::Order>>,
-        condition: Option<&crud_shared_types::condition::Condition>,
+        order_by: Option<IndexMap<R::ReadViewCrudColumn, Order>>,
+        condition: Option<&Condition>,
     ) -> Result<Vec<R::ReadViewModel>, Self::Error>;
 
     async fn update(&self, model: R::ActiveModel) -> Result<R::Model, Self::Error>;

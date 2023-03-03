@@ -7,9 +7,14 @@ edition = "2021"
 async-trait = "0.1"
 axum = "0.6"
 axum-websockets = { path = "../../../../axum-websockets" }
-crud-shared-types = { path = "../../../crud-shared-types/crates/crud-shared-types" }
+crud-condition = { path = "../../../crud-condition" }
+crud-id = { path = "../../../crud-id/crates/crud-id" }
+crud-shared = { path = "../../../crud-shared" }
+crud-validation = { path = "../../../crud-validation" }
+crud-websocket = { path = "../../../crud-websocket" }
 derive-create-model = { path = "../derive-create-model" }
 derive-crud-columns = { path = "../derive-crud-columns" }
+derive-crud-id = { path = "../../../crud-id/crates/derive-crud-id" }
 derive-crud-resource-context = { path = "../derive-crud-resource-context" }
 derive-update-model = { path = "../derive-update-model" }
 derive-validation-model = { path = "../derive-validation-model" }
@@ -25,10 +30,9 @@ sea-query = { version = "0.28" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 snafu = { version = "0.7", features = ["backtrace"] }
-time = "0.3"
+time = { version = "0.3", features = ["serde", "serde-well-known"] }
 tracing = "0.1"
 # NOTE: Do not upgrade. Versions above 0.5 do not run on web assembly. We always use 0.5 for compatibility.
 ulid = { version = "0.5", features = ["serde"] }
 utoipa = "3"
 uuid = { version = "1", features = ["v4", "v7", "serde"] }
-

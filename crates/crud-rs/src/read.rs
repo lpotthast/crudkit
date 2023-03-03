@@ -1,5 +1,8 @@
 use crate::{error::CrudError, prelude::*};
-use crud_shared_types::{condition::Condition, Order};
+
+use crud_condition::Condition;
+use crud_shared::Order;
+
 use indexmap::IndexMap;
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};

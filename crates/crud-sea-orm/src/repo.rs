@@ -11,6 +11,9 @@ use crud_rs::{
     resource::CrudResource,
 };
 
+use crud_condition::Condition;
+use crud_shared::Order;
+
 use crate::query;
 
 pub struct SeaOrmRepo {
@@ -25,9 +28,7 @@ impl SeaOrmRepo {
 
 #[derive(Debug, Snafu, ToSchema)]
 pub enum SeaOrmRepoError {
-    #[snafu(display(
-        "SeaOrmRepoError: Database error."
-    ))]
+    #[snafu(display("SeaOrmRepoError: Database error."))]
     Db { source: DbErr, backtrace: Backtrace },
 
     #[snafu(display(
@@ -39,9 +40,7 @@ pub enum SeaOrmRepoError {
         backtrace: Backtrace,
     },
 
-    #[snafu(display(
-        "SeaOrmRepoError: Column '{column_name}' not found."
-    ))]
+    #[snafu(display("SeaOrmRepoError: Column '{column_name}' not found."))]
     UnknownColumnSpecified {
         column_name: String,
         backtrace: Backtrace,
@@ -65,8 +64,8 @@ impl<R: CrudResource> Repository<R> for SeaOrmRepo {
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
-        order_by: Option<IndexMap<R::CrudColumn, crud_shared_types::Order>>,
-        condition: Option<&crud_shared_types::condition::Condition>,
+        order_by: Option<IndexMap<R::CrudColumn, Order>>,
+        condition: Option<&crud_condition::Condition>,
     ) -> Result<u64, Self::Error> {
         query::build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
             limit, skip, order_by, condition,
@@ -80,8 +79,8 @@ impl<R: CrudResource> Repository<R> for SeaOrmRepo {
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
-        order_by: Option<IndexMap<R::CrudColumn, crud_shared_types::Order>>,
-        condition: Option<&crud_shared_types::condition::Condition>,
+        order_by: Option<IndexMap<R::CrudColumn, Order>>,
+        condition: Option<&Condition>,
     ) -> Result<Option<R::Model>, Self::Error> {
         query::build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
             limit, skip, order_by, condition,
@@ -95,8 +94,8 @@ impl<R: CrudResource> Repository<R> for SeaOrmRepo {
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
-        order_by: Option<IndexMap<R::CrudColumn, crud_shared_types::Order>>,
-        condition: Option<&crud_shared_types::condition::Condition>,
+        order_by: Option<IndexMap<R::CrudColumn, Order>>,
+        condition: Option<&Condition>,
     ) -> Result<Vec<R::Model>, Self::Error> {
         query::build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
             limit, skip, order_by, condition,
@@ -110,8 +109,8 @@ impl<R: CrudResource> Repository<R> for SeaOrmRepo {
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
-        order_by: Option<IndexMap<R::ReadViewCrudColumn, crud_shared_types::Order>>,
-        condition: Option<&crud_shared_types::condition::Condition>,
+        order_by: Option<IndexMap<R::ReadViewCrudColumn, Order>>,
+        condition: Option<&Condition>,
     ) -> Result<Option<R::ReadViewModel>, Self::Error> {
         query::build_select_query::<
             R::ReadViewEntity,
@@ -129,8 +128,8 @@ impl<R: CrudResource> Repository<R> for SeaOrmRepo {
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
-        order_by: Option<IndexMap<R::ReadViewCrudColumn, crud_shared_types::Order>>,
-        condition: Option<&crud_shared_types::condition::Condition>,
+        order_by: Option<IndexMap<R::ReadViewCrudColumn, Order>>,
+        condition: Option<&Condition>,
     ) -> Result<Vec<R::ReadViewModel>, Self::Error> {
         query::build_select_query::<
             R::ReadViewEntity,

@@ -1,8 +1,11 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
+use crud_condition::ConditionClauseValue;
+use crud_id::Id;
+use crud_shared::Value;
+
 use async_trait::async_trait;
-use crud_shared_types::{condition::ConditionClauseValue, prelude::Id, Value};
 use prelude::{CrudContext, CrudResource};
 use sea_orm::{ActiveModelTrait, ColumnTrait, ModelTrait};
 use std::str::FromStr;
@@ -23,10 +26,34 @@ pub mod update;
 pub mod validate;
 pub mod validation;
 
+/*
+* Reexport common modules.
+* This allows the user to only
+*
+* - `use crud_rs::prelude::*` and
+* - derive all common proc macros
+*
+* without the need to add more use declaration or
+* to manually depend on other crud crates such as "crud_id",
+* which are required for many derive macro implementations.
+*/
+pub use crud_condition;
+pub use crud_id;
+pub use crud_shared;
+pub use crud_validation;
+pub use crud_websocket;
+
 pub mod prelude {
+    pub use crud_condition;
+    pub use crud_id;
+    pub use crud_shared;
+    pub use crud_validation;
+    pub use crud_websocket;
+
     /* Provide convenient access to all our macros. */
     pub use derive_create_model::CreateModel;
     pub use derive_crud_columns::CrudColumns;
+    pub use derive_crud_id::CrudId;
     pub use derive_crud_resource_context::CrudResourceContext;
     pub use derive_update_model::UpdateModel;
     pub use derive_validation_model::ValidationModel;
@@ -63,9 +90,9 @@ pub mod prelude {
 
     pub use super::parse;
     pub use super::to_bool;
-    pub use super::to_primitive_date_time;
-    pub use super::to_offset_date_time;
     pub use super::to_i32;
+    pub use super::to_offset_date_time;
+    pub use super::to_primitive_date_time;
     pub use super::to_string;
 
     pub use super::create::create_one;

@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-use create_id_impl::{FieldData, IdImpl};
 use darling::*;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
@@ -11,7 +10,7 @@ use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
 #[derive(Debug, FromField)]
-#[darling(attributes(crud_columns))]
+#[darling(attributes(crud_columns, crud_id))]
 struct MyFieldReceiver {
     ident: Option<syn::Ident>,
 
@@ -21,16 +20,6 @@ struct MyFieldReceiver {
     id: Option<bool>,
 
     convert_ccv: Option<String>,
-}
-
-impl create_id_impl::FieldData for &MyFieldReceiver {
-    fn get_ident(&self) -> Option<&syn::Ident> {
-        self.ident.as_ref()
-    }
-
-    fn get_type(&self) -> &syn::Type {
-        &self.ty
-    }
 }
 
 impl MyFieldReceiver {
@@ -45,7 +34,7 @@ impl MyFieldReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(crud_columns), supports(struct_any))]
+#[darling(attributes(crud_columns, crud_id), supports(struct_any))]
 struct MyInputReceiver {
     ident: syn::Ident,
 
@@ -61,7 +50,7 @@ impl MyInputReceiver {
     }
 }
 
-#[proc_macro_derive(CrudColumns, attributes(crud_columns))]
+#[proc_macro_derive(CrudColumns, attributes(crud_columns, crud_id))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -82,18 +71,11 @@ pub fn store(input: TokenStream) -> TokenStream {
     let column_variants = fields
         .iter()
         .map(|field| {
-            field
-                .get_ident()
-                .expect("Expected named field!")
-                .to_type_ident(Span::call_site())
+            let ident = field.ident.as_ref().expect("Expected named field!");
+            let span = ident.span();
+            ident.to_type_ident(span)
         })
         .collect::<Vec<Ident>>();
-
-    let IdImpl {
-        code,
-        struct_ident,
-        enum_ident: _,
-    } = create_id_impl::create_id_impl(&input.ident, &id_fields);
 
     let col_to_column_match_arms = column_variants.iter().map(|variant| {
         quote! { Col::#variant => Column::#variant }
@@ -125,7 +107,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         .zip(column_variants.iter())
         .map(|(field, variant)| {
             let fun_name = match &field.convert_ccv {
-                Some(fun_name) => Ident::new(fun_name.as_str(), field.get_ident().span()),
+                Some(fun_name) => Ident::new(fun_name.as_str(), field.ident.span()),
                 None => convert_field_type_to_function_name(&field.ty),
             };
             quote! {
@@ -137,9 +119,12 @@ pub fn store(input: TokenStream) -> TokenStream {
         .iter()
         .zip(column_variants.iter())
         .map(|(field, variant)| {
-            let name = field.get_ident().expect("Expected named field!");
-            quote! { stringify!(#name) => Some(Column::#variant) }
+            let ident = field.ident.as_ref().expect("Expected named field!");
+            quote! { stringify!(#ident) => Some(Column::#variant) }
         });
+
+    // TODO: Use given id ident or fall back to expectable default...
+    let id_struct_ident = Ident::new(format!("{}Id", input.ident).as_str(), Span::call_site());
 
     quote! {
         #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
@@ -147,10 +132,8 @@ pub fn store(input: TokenStream) -> TokenStream {
             #(#column_variants),*
         }
 
-        #code
-
         impl crud_rs::CrudColumns<Column, Model, ActiveModel> for Col {
-            type Id = #struct_ident;
+            type Id = #id_struct_ident;
 
             fn to_sea_orm_column(&self) -> Column {
                 match self {
@@ -159,35 +142,35 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
 
             // We use #struct_ident instead of Self::Id, as `for Col`, Col being an enum, can lead to indistinguishable types.
-            fn get_id(model: &Model) -> #struct_ident {
-                #struct_ident {
+            fn get_id(model: &Model) -> #id_struct_ident {
+                #id_struct_ident {
                     #(#init_id_struct_fields),*
                 }
             }
 
             // We use #struct_ident instead of Self::Id, as `for Col`, Col being an enum, can lead to indistinguishable types.
-            fn get_id_active(active_model: &ActiveModel) -> std::result::Result<#struct_ident, String> {
+            fn get_id_active(active_model: &ActiveModel) -> std::result::Result<#id_struct_ident, String> {
                 // TODO: The init_active_id_struct_fields code unwraps() and therefore panics. Catch missing data and return an error.
-                Ok(#struct_ident {
+                Ok(#id_struct_ident {
                     #(#init_active_id_struct_fields),*
                 })
             }
         }
 
         impl crud_rs::GetIdFromModel for Model {
-            type Id = #struct_ident;
+            type Id = #id_struct_ident;
 
             // We use #struct_ident instead of Self::Id, as `for Col`, Col being an enum, can lead to indistinguishable types.
-            fn get_id(&self) -> #struct_ident {
-                #struct_ident {
+            fn get_id(&self) -> #id_struct_ident {
+                #id_struct_ident {
                     #(#init_id_struct_fields_self),*
                 }
             }
         }
 
-        // TODO: Can we not just convert From<ConditionClauseValue> for std::result::Result<crud_shared_types::Value, String> by using the From trait?
+        // TODO: Can we not just convert From<ConditionClauseValue> for std::result::Result<crud_shared::Value, String> by using the From trait?
         impl crud_rs::AsColType for Column {
-            fn as_col_type(&self, value: crud_shared_types::condition::ConditionClauseValue) -> std::result::Result<crud_shared_types::Value, String> {
+            fn as_col_type(&self, value: crud_condition::ConditionClauseValue) -> std::result::Result<crud_shared::Value, String> {
                 match self {
                     #(#extract_ccv_value_by_column_variant_match_arms),*
                 }
@@ -218,8 +201,8 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
             "f32" => "to_f32",
             "String" => "to_string",
             "serde_json::Value" => "to_json_value",
-            "crud_shared_types::UuidV4" => "to_uuid_v4",
-            "crud_shared_types::UuidV7" => "to_uuid_v7",
+            "crud_shared::UuidV4" => "to_uuid_v4",
+            "crud_shared::UuidV7" => "to_uuid_v7",
             "Ulid" => "to_ulid",
             "ulid::Ulid" => "to_ulid",
             "time::PrimitiveDateTime" => "to_primitive_date_time",

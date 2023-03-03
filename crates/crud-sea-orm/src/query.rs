@@ -1,8 +1,6 @@
+use crud_condition::{Condition, ConditionElement, Operator};
 use crud_rs::prelude::*;
-use crud_shared_types::{
-    condition::{Condition, ConditionElement, Operator},
-    Order, Value,
-};
+use crud_shared::{Order, Value};
 use indexmap::IndexMap;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DeleteMany, EntityTrait, FromQueryResult, Insert, ModelTrait,

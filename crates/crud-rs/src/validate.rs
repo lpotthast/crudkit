@@ -1,4 +1,5 @@
-use crud_shared_types::validation::{ValidationViolation, Violations};
+use crud_validation::{ValidationViolation, Violations};
+
 use sea_orm::ActiveValue;
 
 use crate::validation::ValidationViolationType;

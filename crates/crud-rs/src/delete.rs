@@ -5,11 +5,11 @@ use crate::{
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
     GetIdFromModel,
 };
-use crud_shared_types::{
-    prelude::*,
-    validation::PartialSerializableValidations,
-    ws_messages::{CrudWsMessage, EntityDeleted},
-};
+use crud_condition::{Condition, IntoAllEqualCondition};
+use crud_id::{Id, SerializableId};
+use crud_shared::{DeleteResult, Order};
+use crud_validation::PartialSerializableValidations;
+use crud_websocket::{CrudWsMessage, EntityDeleted};
 use indexmap::IndexMap;
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};
@@ -45,7 +45,12 @@ pub async fn delete_by_id<R: CrudResource>(
     // TODO: This initially fetched Model, not ReadViewModel...
     let model = context
         .repository
-        .fetch_one(None, None, None, Some(&body.id.to_all_equal_condition()))
+        .fetch_one(
+            None,
+            None,
+            None,
+            Some(&body.id.0.iter().map(|(name, value)| (name.clone(), value.clone())).into_all_equal_condition()),
+        )
         .await
         .map_err(|err| CrudError::Repository {
             reason: Arc::new(err),

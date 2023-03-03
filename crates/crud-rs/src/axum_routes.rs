@@ -70,13 +70,13 @@ macro_rules! impl_add_crud_routes {
             pub mod [< axum_ $name _crud_routes >] {
                 use std::sync::Arc;
                 use crud_rs::prelude::*;
+                use crud_shared::{DeleteResult, SaveResult}; // TODO: Rely on crud_rs::prelude use?
                 use axum::{
                     http::StatusCode,
                     response::{IntoResponse, Response},
                     routing::post,
                     Extension, Json, Router,
                 };
-                use crud_shared_types::{DeleteResult, SaveResult};
                 use sea_orm::JsonValue;
                 use serde_json::json;
 
@@ -367,15 +367,15 @@ macro_rules! impl_add_crud_routes {
                         //schemas(<$resource_type as CrudResource>::Model as CrtModel),
                         //schemas(<$resource_type as CrudResource>::ReadViewModel as CrtReadModel),
                         //schemas(<$resource_type as CrudResource>::CreateModel as CrtCreateModel),
-                        schemas(crud_shared_types::DeleteResult),
-                        schemas(crud_shared_types::SaveResult<CrtModel>),
-                        schemas(crud_shared_types::Saved<CrtModel>),
-                        schemas(crud_shared_types::condition::Condition),
-                        schemas(crud_shared_types::condition::ConditionElement),
-                        schemas(crud_shared_types::condition::ConditionClause),
-                        schemas(crud_shared_types::condition::ConditionClauseValue),
-                        schemas(crud_shared_types::condition::Operator),
-                        schemas(crud_shared_types::id::SerializableId),
+                        schemas(crud_shared::DeleteResult),
+                        schemas(crud_shared::SaveResult<CrtModel>),
+                        schemas(crud_shared::Saved<CrtModel>),
+                        schemas(crud_condition::Condition),
+                        schemas(crud_condition::ConditionElement),
+                        schemas(crud_condition::ConditionClause),
+                        schemas(crud_condition::ConditionClauseValue),
+                        schemas(crud_condition::Operator),
+                        schemas(crud_id::SerializableId),
                         schemas(crud_rs::error::CrudError),
                         schemas(crud_rs::axum_routes::AxumCrudError),
                         schemas(crud_rs::create::CreateOne<CrtCreateModel>),

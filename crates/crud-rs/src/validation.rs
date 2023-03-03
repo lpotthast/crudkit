@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use crud_shared_types::{
-    id::Id,
-    validation::{
-        EntityViolations, OwnedValidatorInfo, ValidationViolation, ValidatorInfo, Violations,
-    },
+
+use crud_id::Id;
+use crud_validation::{
+    EntityViolations, OwnedValidatorInfo, ValidationViolation, ValidatorInfo, Violations,
 };
-use sea_orm::{DeriveActiveEnum, EnumIter, ColumnTypeTrait};
+
+use sea_orm::{ColumnTypeTrait, DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 

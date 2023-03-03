@@ -3,13 +3,13 @@ use crate::{
     prelude::*,
     validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
 };
-use crud_shared_types::{
-    id::Id,
-    prelude::Condition,
-    validation::PartialSerializableValidations,
-    ws_messages::{CrudWsMessage, EntityUpdated},
-    SaveResult, Saved,
-};
+
+use crud_condition::Condition;
+use crud_id::Id;
+use crud_shared::{SaveResult, Saved};
+use crud_validation::PartialSerializableValidations;
+use crud_websocket::{CrudWsMessage, EntityUpdated};
+
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};
 use std::{collections::HashMap, sync::Arc};
