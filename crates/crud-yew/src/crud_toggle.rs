@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use yew_bootstrap_icons::Bi;
+use yew_bootstrap_icons::v1_10_3::Bi;
 
 use super::prelude::*;
 

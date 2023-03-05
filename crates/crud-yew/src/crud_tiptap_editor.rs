@@ -4,7 +4,7 @@ use yew_tiptap::{
     tiptap_instance::{Content, Selection, SelectionState, TiptapInstance},
     ImageResource,
 };
-use yew_bootstrap_icons::Bi;
+use yew_bootstrap_icons::v1_10_3::Bi;
 
 type TiptapInstanceMsg = <TiptapInstance as Component>::Message;
 

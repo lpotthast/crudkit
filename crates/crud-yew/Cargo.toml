@@ -51,7 +51,7 @@ web-sys = { version = "0.3", features = [
     "DomRect",
 ] }
 yew = { git = "https://github.com/yewstack/yew", features = ["csr"] }
-yew-bootstrap-icons = { path = "../../../../yew-bootstrap-icons" }
+yew-bootstrap-icons = { git = "https://github.com/lpotthast/yew-bootstrap-icons" }
 yew-tiptap = { path = "../../../../yew-tiptap" }
 yewdux = { git = "https://github.com/intendednull/yewdux" }
 yewdux-global-stores = { path = "../../../../yewdux-global-stores" }

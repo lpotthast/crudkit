@@ -10,7 +10,7 @@ use time::{format_description::well_known::Rfc3339, macros::format_description, 
 use tracing::error;
 use uuid::Uuid;
 use yew::{html::ChildrenRenderer, prelude::*};
-use yew_bootstrap_icons::Bi;
+use yew_bootstrap_icons::v1_10_3::Bi;
 
 // TODO: Extract fields to separate components
 

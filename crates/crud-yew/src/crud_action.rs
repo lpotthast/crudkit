@@ -1,6 +1,6 @@
 use std::{fmt::Debug, sync::Arc};
 use yew::{Callback, Html};
-use yew_bootstrap_icons::Bi;
+use yew_bootstrap_icons::v1_10_3::Bi;
 
 use crate::{types::toasts::Toast, CrudMainTrait, Variant};
 

@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use yew_bootstrap_icons::Bi;
+use yew_bootstrap_icons::v1_10_3::Bi;
 
 pub struct CrudIcon {}
 
@@ -26,10 +26,16 @@ impl Component for CrudIcon {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let classes = classes!("crud-icon", ctx.props().variant, ctx.props().class.clone());
+        let classes = classes!(
+            "crud-icon",
+            format!("bi-{}", ctx.props().variant.to_json_key()),
+            ctx.props().class.clone()
+        );
         match &ctx.props().color {
-            Some(color) =>  html! { <i class={ classes } style={ format!("color: {}", color.clone()) }></i> },
-            None =>  html! { <i class={ classes }></i> },
+            Some(color) => {
+                html! { <i class={ classes } style={ format!("color: {}", color.clone()) }></i> }
+            }
+            None => html! { <i class={ classes }></i> },
         }
     }
 }
