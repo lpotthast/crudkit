@@ -50,8 +50,8 @@ web-sys = { version = "0.3", features = [
     "EventTarget",
     "DomRect",
 ] }
-yew = { git = "https://github.com/yewstack/yew", features = ["csr"] }
+yew = "0.20"
 yew-bootstrap-icons = { git = "https://github.com/lpotthast/yew-bootstrap-icons" }
-yew-tiptap = { path = "../../../../yew-tiptap" }
-yewdux = { git = "https://github.com/intendednull/yewdux" }
+yew-tiptap = { git = "https://github.com/lpotthast/yew-tiptap" }
+yewdux = "0.9"
 yewdux-global-stores = { path = "../../../../yewdux-global-stores" }
