@@ -1,0 +1,8 @@
+[package]
+name = "crud-yew-build-deps"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+yew-tiptap-build-deps = { path = "../../../../yew-tiptap/yew-tiptap-build-deps" }
+yew-bootstrap-icons-build-deps = { path = "../../../../yew-bootstrap-icons/yew-bootstrap-icons-build-deps" }

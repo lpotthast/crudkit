@@ -1,5 +1,5 @@
 use yew::prelude::*;
-use yewbi::Bi;
+use yew_bootstrap_icons::Bi;
 
 pub struct CrudIcon {}
 

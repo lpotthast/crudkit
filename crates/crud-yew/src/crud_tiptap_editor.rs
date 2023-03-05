@@ -1,14 +1,17 @@
-use crate::{js_tiptap::State, prelude::*, types::files::FileResource};
-use tracing::error;
-use wasm_bindgen::prelude::Closure;
-use yew::prelude::*;
-use yewbi::Bi;
+use crate::{prelude::*, types::files::FileResource};
+use yew::{html::Scope, prelude::*};
+use yew_tiptap::{
+    tiptap_instance::{Content, Selection, SelectionState, TiptapInstance},
+    ImageResource,
+};
+use yew_bootstrap_icons::Bi;
 
-use super::js_tiptap;
+type TiptapInstanceMsg = <TiptapInstance as Component>::Message;
 
 pub enum Msg {
-    SelectionChanged,
-    Changed(String),
+    InstanceLinked(Option<Scope<TiptapInstance>>),
+    SelectionChanged(Selection),
+    ContentChanged(Content),
     H1,
     H2,
     H3,
@@ -22,9 +25,9 @@ pub enum Msg {
     AlignCenter,
     AlignRight,
     AlignJustify,
-    SetImage,
+    ChooseImage,
     ChooseImageCanceled,
-    ImageChosen(FileResource),
+    ImageChosen(ImageResource),
 }
 
 #[derive(Properties, PartialEq)]
@@ -37,115 +40,104 @@ pub struct Props {
     pub onchange: Option<Callback<String>>,
 }
 
-//Msg::Extract => {
-//    self.extracted = js_tiptap::get_html("test".to_owned());
-//    true
-//},
-
 pub struct CrudTipTapEditor {
-    on_change: Closure<dyn Fn(String)>,
-    on_selection: Closure<dyn Fn()>,
+    link: Option<Scope<TiptapInstance>>,
     choose_image: bool,
-    state: State,
+    selection_state: SelectionState,
+}
+
+impl CrudTipTapEditor {
+    fn send_tiptap_msg(&self, msg: TiptapInstanceMsg) -> bool {
+        if let Some(link) = &self.link {
+            link.send_message(msg);
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl Component for CrudTipTapEditor {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(ctx: &Context<Self>) -> Self {
-        let yew_callback = ctx.link().callback(|text| Msg::Changed(text));
-        let changed =
-            Closure::wrap(Box::new(move |text| yew_callback.emit(text)) as Box<dyn Fn(String)>);
-
-        let yew_callback = ctx.link().callback(|_| Msg::SelectionChanged);
-        let selected = Closure::wrap(Box::new(move || yew_callback.emit(())) as Box<dyn Fn()>);
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            on_change: changed,
-            on_selection: selected,
+            link: None,
             choose_image: false,
-            state: Default::default(),
+            selection_state: Default::default(),
         }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::SelectionChanged => {
-                self.state = match js_tiptap::get_state(ctx.props().id.clone()) {
-                    Ok(state) => state,
-                    Err(err) => {
-                        error!("Could not parse JsValue as TipTap state. Deserialization error: '{err}'. Falling back to default state.");
-                        Default::default()
-                    }
-                };
-                true
+            Msg::InstanceLinked(link) => {
+                self.link = link;
+                false
             }
-            Msg::Changed(text) => {
+            Msg::SelectionChanged(selection) => {
+                self.selection_state = selection.state;
+                false
+            }
+            Msg::ContentChanged(content) => {
                 if let Some(onchange) = &ctx.props().onchange {
-                    onchange.emit(text);
+                    onchange.emit(content.content);
                 }
-                self.state = match js_tiptap::get_state(ctx.props().id.clone()) {
-                    Ok(state) => state,
-                    Err(err) => {
-                        error!("Could not parse JsValue as TipTap state. Deserialization error: '{err}'. Falling back to default state.");
-                        Default::default()
-                    }
-                };
-                true
+                false
             }
             Msg::H1 => {
-                js_tiptap::toggle_heading(ctx.props().id.clone(), js_tiptap::HeadingLevel::H1);
-                true
+                self.send_tiptap_msg(TiptapInstanceMsg::H1);
+                false
             }
             Msg::H2 => {
-                js_tiptap::toggle_heading(ctx.props().id.clone(), js_tiptap::HeadingLevel::H2);
-                true
+                self.send_tiptap_msg(TiptapInstanceMsg::H2);
+                false
             }
             Msg::H3 => {
-                js_tiptap::toggle_heading(ctx.props().id.clone(), js_tiptap::HeadingLevel::H3);
-                true
+                self.send_tiptap_msg(TiptapInstanceMsg::H3);
+                false
             }
             Msg::Paragraph => {
-                js_tiptap::set_paragraph(ctx.props().id.clone());
-                true
+                self.send_tiptap_msg(TiptapInstanceMsg::Paragraph);
+                false
             }
             Msg::Bold => {
-                js_tiptap::toggle_bold(ctx.props().id.clone());
-                true
+                self.send_tiptap_msg(TiptapInstanceMsg::Bold);
+                false
             }
             Msg::Italic => {
-                js_tiptap::toggle_italic(ctx.props().id.clone());
-                true
+                self.send_tiptap_msg(TiptapInstanceMsg::Italic);
+                false
             }
             Msg::Strike => {
-                js_tiptap::toggle_strike(ctx.props().id.clone());
-                true
+                self.send_tiptap_msg(TiptapInstanceMsg::Strike);
+                false
             }
             Msg::Blockquote => {
-                js_tiptap::toggle_blockquote(ctx.props().id.clone());
-                true
+                self.send_tiptap_msg(TiptapInstanceMsg::Blockquote);
+                false
             }
             Msg::Highlight => {
-                js_tiptap::toggle_highlight(ctx.props().id.clone());
-                true
+                self.send_tiptap_msg(TiptapInstanceMsg::Highlight);
+                false
             }
             Msg::AlignLeft => {
-                js_tiptap::set_text_align_left(ctx.props().id.clone());
-                true
+                self.send_tiptap_msg(TiptapInstanceMsg::AlignLeft);
+                false
             }
             Msg::AlignCenter => {
-                js_tiptap::set_text_align_center(ctx.props().id.clone());
-                true
+                self.send_tiptap_msg(TiptapInstanceMsg::AlignCenter);
+                false
             }
             Msg::AlignRight => {
-                js_tiptap::set_text_align_right(ctx.props().id.clone());
-                true
+                self.send_tiptap_msg(TiptapInstanceMsg::AlignRight);
+                false
             }
             Msg::AlignJustify => {
-                js_tiptap::set_text_align_justify(ctx.props().id.clone());
-                true
+                self.send_tiptap_msg(TiptapInstanceMsg::AlignJustify);
+                false
             }
-            Msg::SetImage => {
+            Msg::ChooseImage => {
                 // Enables the chooser modal!
                 self.choose_image = true;
                 true
@@ -156,18 +148,7 @@ impl Component for CrudTipTapEditor {
             }
             Msg::ImageChosen(resource) => {
                 self.choose_image = false;
-                js_tiptap::set_image(
-                    ctx.props().id.clone(),
-                    // TODO: Consolidate /public resource url creations in one place...
-                    format!(
-                        "{}/public/{}",
-                        ctx.props().api_base_url,
-                        urlencoding::encode(resource.name.as_str())
-                    ),
-                    // TODO: Define proper
-                    resource.name.clone(),
-                    resource.name.clone(),
-                );
+                self.send_tiptap_msg(TiptapInstanceMsg::SetImage(resource));
                 true
             }
         }
@@ -179,72 +160,72 @@ impl Component for CrudTipTapEditor {
 
                 <div class={"tiptap-menu"}>
 
-                    <div class={classes!("tiptap-btn", self.state.h1.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::H1)}>
+                    <div class={classes!("tiptap-btn", self.selection_state.h1.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::H1)}>
                         <CrudIcon variant={Bi::TypeH1}/>
                         {"h1"}
                     </div>
 
-                    <div class={classes!("tiptap-btn", self.state.h2.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::H2)}>
+                    <div class={classes!("tiptap-btn", self.selection_state.h2.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::H2)}>
                         <CrudIcon variant={Bi::TypeH2}/>
                         {"h2"}
                     </div>
 
-                    <div class={classes!("tiptap-btn", self.state.h3.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::H3)}>
+                    <div class={classes!("tiptap-btn", self.selection_state.h3.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::H3)}>
                         <CrudIcon variant={Bi::TypeH3}/>
                         {"h3"}
                     </div>
 
-                    <div class={classes!("tiptap-btn", self.state.paragraph.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::Paragraph)}>
+                    <div class={classes!("tiptap-btn", self.selection_state.paragraph.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::Paragraph)}>
                         <CrudIcon variant={Bi::Paragraph}/>
                         {"paragraph"}
                     </div>
 
-                    <div class={classes!("tiptap-btn", self.state.bold.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::Bold)}>
+                    <div class={classes!("tiptap-btn", self.selection_state.bold.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::Bold)}>
                         <CrudIcon variant={Bi::TypeBold}/>
                         {"bold"}
                     </div>
 
-                    <div class={classes!("tiptap-btn", self.state.italic.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::Italic)}>
+                    <div class={classes!("tiptap-btn", self.selection_state.italic.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::Italic)}>
                         <CrudIcon variant={Bi::TypeItalic}/>
                         {"italic"}
                     </div>
 
-                    <div class={classes!("tiptap-btn", self.state.strike.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::Strike)}>
+                    <div class={classes!("tiptap-btn", self.selection_state.strike.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::Strike)}>
                         <CrudIcon variant={Bi::TypeStrikethrough}/>
                         {"strike"}
                     </div>
 
-                    <div class={classes!("tiptap-btn", self.state.blockquote.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::Blockquote)}>
+                    <div class={classes!("tiptap-btn", self.selection_state.blockquote.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::Blockquote)}>
                         <CrudIcon variant={Bi::BlockquoteLeft}/>
                         {"blockquote"}
                     </div>
 
-                    <div class={classes!("tiptap-btn", self.state.highlight.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::Highlight)}>
+                    <div class={classes!("tiptap-btn", self.selection_state.highlight.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::Highlight)}>
                         <CrudIcon variant={Bi::BrightnessAltHigh}/>
                         {"highlight"}
                     </div>
 
-                    <div class={classes!("tiptap-btn", self.state.align_left.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::AlignLeft)}>
+                    <div class={classes!("tiptap-btn", self.selection_state.align_left.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::AlignLeft)}>
                         <CrudIcon variant={Bi::TextLeft}/>
                         {"left"}
                     </div>
 
-                    <div class={classes!("tiptap-btn", self.state.align_center.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::AlignCenter)}>
+                    <div class={classes!("tiptap-btn", self.selection_state.align_center.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::AlignCenter)}>
                         <CrudIcon variant={Bi::TextCenter}/>
                         {"center"}
                     </div>
 
-                    <div class={classes!("tiptap-btn", self.state.align_right.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::AlignRight)}>
+                    <div class={classes!("tiptap-btn", self.selection_state.align_right.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::AlignRight)}>
                         <CrudIcon variant={Bi::TextRight}/>
                         {"right"}
                     </div>
 
-                    <div class={classes!("tiptap-btn", self.state.align_justify.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::AlignJustify)}>
+                    <div class={classes!("tiptap-btn", self.selection_state.align_justify.then(|| "active"))} onclick={ctx.link().callback(|_| Msg::AlignJustify)}>
                         <CrudIcon variant={Bi::Justify}/>
                         {"justify"}
                     </div>
 
-                    <div class={"tiptap-btn"} onclick={ctx.link().callback(|_| Msg::SetImage)}>
+                    <div class={"tiptap-btn"} onclick={ctx.link().callback(|_| Msg::ChooseImage)}>
                         <CrudIcon variant={Bi::Image}/>
                         {"image"}
                     </div>
@@ -252,7 +233,15 @@ impl Component for CrudTipTapEditor {
                 </div>
 
                 // This is our TipTap instance!
-                <div id={ctx.props().id.clone()} class={"tiptap-instance"}></div>
+                <TiptapInstance
+                    id={ctx.props().id.clone()}
+                    class={"tiptap-instance".to_owned()}
+                    content={ctx.props().value.clone()}
+                    disabled={ctx.props().disabled}
+                    on_link={ctx.link().callback(|link: Option<Scope<TiptapInstance>>| Msg::InstanceLinked(link))}
+                    on_selection_change={ctx.link().callback(Msg::SelectionChanged)}
+                    on_content_change={ctx.link().callback(Msg::ContentChanged)}
+                />
 
                 {
                     match &self.choose_image {
@@ -261,7 +250,11 @@ impl Component for CrudTipTapEditor {
                                 <CrudImageChooserModal
                                     api_base_url={ctx.props().api_base_url.clone()}
                                     on_cancel={ctx.link().callback(|_| Msg::ChooseImageCanceled)}
-                                    on_choose={ctx.link().callback(Msg::ImageChosen)}
+                                    on_choose={ctx.link().callback(|res: FileResource| Msg::ImageChosen(ImageResource {
+                                        title: res.name.clone(),
+                                        alt: res.name,
+                                        url: res.path,
+                                    }))}
                                 />
                             </CrudModal>
                         },
@@ -269,18 +262,6 @@ impl Component for CrudTipTapEditor {
                     }
                 }
             </div>
-        }
-    }
-
-    fn rendered(&mut self, ctx: &Context<Self>, first_render: bool) {
-        if first_render {
-            js_tiptap::create(
-                ctx.props().id.clone(),
-                ctx.props().value.clone(),
-                !ctx.props().disabled,
-                &self.on_change,
-                &self.on_selection,
-            );
         }
     }
 }

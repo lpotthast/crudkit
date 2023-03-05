@@ -1,5 +1,4 @@
-// TODO: outsource js_tiptap with its `extern "C"` usage and enable next line.
-//#![forbid(unsafe_code)]
+#![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
 use async_trait::async_trait;
@@ -69,7 +68,6 @@ pub mod crud_toast;
 pub mod crud_toasts;
 pub mod crud_toggle;
 pub mod crud_tree;
-pub mod js_tiptap;
 
 pub mod services;
 pub mod stores;
@@ -93,6 +91,9 @@ pub use crud_id;
 pub use crud_shared;
 pub use crud_validation;
 pub use crud_websocket;
+
+// Reexporting yew_bootstrap_icons
+pub use yew_bootstrap_icons;
 
 pub mod prelude {
     pub use crud_condition;

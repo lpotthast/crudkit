@@ -3,7 +3,7 @@ use uuid::Uuid;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 use yew::prelude::*;
-use yewbi::Bi;
+use yew_bootstrap_icons::Bi;
 
 use crate::{event_target_as, keyboard_event_target_as};
 

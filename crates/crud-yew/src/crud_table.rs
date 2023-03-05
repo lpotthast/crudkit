@@ -2,7 +2,7 @@ use crud_shared::Order;
 use gloo::timers::callback::Interval;
 use std::rc::Rc;
 use yew::{html::ChildrenRenderer, prelude::*};
-use yewbi::Bi;
+use yew_bootstrap_icons::Bi;
 
 use crate::{crud_instance::Item, types::custom_field::CustomFields};
 

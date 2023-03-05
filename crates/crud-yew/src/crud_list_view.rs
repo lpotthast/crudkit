@@ -5,7 +5,7 @@ use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,
 };
-use yewbi::Bi;
+use yew_bootstrap_icons::Bi;
 
 use crate::{
     crud_action::ModalGeneration,

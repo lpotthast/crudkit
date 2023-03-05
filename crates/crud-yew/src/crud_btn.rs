@@ -1,7 +1,7 @@
 use yew::{html::ChildrenRenderer, prelude::*, virtual_dom::VChild};
 
 use super::prelude::*;
-use yewbi::Bi;
+use yew_bootstrap_icons::Bi;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Size {
