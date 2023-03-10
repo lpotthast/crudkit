@@ -350,7 +350,6 @@ pub enum Value {
     OptionalJson(Option<JsonValue>),
     UuidV4(uuid::Uuid), // TODO: Add optional UuidV4 value
     UuidV7(uuid::Uuid), // TODO: Add optional UuidV7 value
-    Ulid(ulid::Ulid),   // TODO: Add optional Ulid value
     U32(u32),
     OptionalU32(Option<u32>),
     I32(i32),
@@ -423,7 +422,6 @@ impl Into<Value> for crud_shared::Value {
             crud_shared::Value::Json(value) => Value::Json(JsonValue::new(value)),
             crud_shared::Value::UuidV4(value) => Value::UuidV4(value),
             crud_shared::Value::UuidV7(value) => Value::UuidV7(value),
-            crud_shared::Value::Ulid(value) => Value::Ulid(value),
             crud_shared::Value::I32(value) => Value::I32(value),
             crud_shared::Value::I32Vec(_values) => todo!("support vector types"),
             crud_shared::Value::I64(value) => Value::I64(value),
@@ -442,7 +440,6 @@ impl Into<Value> for crud_id::IdValue {
             crud_id::IdValue::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
             crud_id::IdValue::UuidV4(value) => Value::UuidV4(value),
             crud_id::IdValue::UuidV7(value) => Value::UuidV7(value),
-            crud_id::IdValue::Ulid(value) => Value::Ulid(value),
             crud_id::IdValue::I32(value) => Value::I32(value),
             crud_id::IdValue::I64(value) => Value::I64(value),
             crud_id::IdValue::U32(value) => Value::U32(value),
@@ -649,7 +646,6 @@ impl Display for Value {
             },
             Value::UuidV4(value) => f.write_str(&value.to_string()),
             Value::UuidV7(value) => f.write_str(&value.to_string()),
-            Value::Ulid(value) => f.write_str(&value.to_string()),
             Value::U32(value) => f.write_str(&value.to_string()),
             Value::OptionalU32(value) => match value {
                 Some(value) => f.write_str(&value.to_string()),
@@ -727,7 +723,6 @@ impl Into<ConditionClauseValue> for Value {
             Value::OptionalJson(value) => todo!(),
             Value::UuidV4(value) => ConditionClauseValue::UuidV4(value),
             Value::UuidV7(value) => ConditionClauseValue::UuidV7(value),
-            Value::Ulid(value) => ConditionClauseValue::Ulid(value),
             Value::U32(value) => ConditionClauseValue::U32(value),
             Value::OptionalU32(value) => todo!(),
             Value::I32(value) => ConditionClauseValue::I32(value),

@@ -34,8 +34,6 @@ time = { version = "0.3", features = [
     "wasm-bindgen",
 ] }
 tracing = "0.1"
-# NOTE: Do not upgrade. Versions above 0.5 do not run on web assembly. We always use 0.5 for compatibility.
-ulid = { version = "0.5", features = ["serde", "uuid"] }
 urlencoding = "2"
 uuid = { version = "1", features = ["js", "v4", "v7", "serde"] }
 wasm-bindgen = "0.2"

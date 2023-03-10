@@ -51,7 +51,7 @@ pub struct CrudRelatedField<P: 'static + CrudMainTrait, T: 'static + CrudMainTra
 impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> CrudRelatedField<P, T> {
     fn compute_selected(&mut self, ctx: &Context<Self>) {
         self.selected = if let Some(value) = &self.current_field_value {
-            // TODO: Extract different types of ids: u32, i32, uuid, ulid, etc...
+            // TODO: Extract different types of ids: u32, i32, uuid, etc...
             let selected_ids = value_as_u32_vec(value);
             if let Some(data) = &self.data {
                 match data {
@@ -95,7 +95,6 @@ fn value_as_u32_vec(value: &Value) -> Vec<u32> {
         Value::OptionalJson(_) => panic!("'OptionalJson' unsupported"),
         Value::UuidV4(_) => panic!("'UuidV4' unsupported"),
         Value::UuidV7(_) => panic!("'UuidV7' unsupported"),
-        Value::Ulid(_) => panic!("'Ulid' unsupported"),
         Value::U32(u32) => vec![*u32],
         Value::OptionalU32(optional_u32) => match optional_u32 {
             Some(u32) => vec![*u32],
@@ -133,7 +132,6 @@ fn value_as_u32(value: &Value) -> Option<u32> {
         Value::OptionalJson(_) => panic!("'OptionalJson' unsupported"),
         Value::UuidV4(_) => panic!("'UuidV4' unsupported"),
         Value::UuidV7(_) => panic!("'UuidV7' unsupported"),
-        Value::Ulid(_) => panic!("'Ulid' unsupported"),
         Value::U32(u32) => Some(*u32),
         Value::OptionalU32(optional_u32) => match optional_u32 {
             Some(u32) => Some(*u32),

@@ -1,4 +1,3 @@
-use ulid::Ulid;
 use yew::prelude::*;
 
 pub enum Msg {
@@ -38,7 +37,7 @@ pub struct CrudCheckboxProps {
 }
 
 pub struct CrudCheckbox {
-    id: Ulid,
+    id: uuid::Uuid,
     state: bool,
 }
 
@@ -48,7 +47,7 @@ impl Component for CrudCheckbox {
 
     fn create(ctx: &Context<Self>) -> Self {
         Self {
-            id: Ulid::new(),
+            id: uuid::Uuid::now_v7(),
             state: ctx.props().state,
         }
     }
