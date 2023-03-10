@@ -278,15 +278,6 @@ pub fn to_uuid_v7(value: ConditionClauseValue) -> Result<Value, String> {
     }
 }
 
-pub fn to_ulid(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::Ulid(ulid) => Ok(Value::Ulid(ulid)),
-        _ => Err(format!(
-            "{value:?} can not be converted to a Ulid. Expected Ulid."
-        )),
-    }
-}
-
 pub fn to_primitive_date_time(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
         ConditionClauseValue::String(string) => time::PrimitiveDateTime::parse(&string, &Rfc3339)

@@ -203,8 +203,6 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
             "serde_json::Value" => "to_json_value",
             "crud_shared::UuidV4" => "to_uuid_v4",
             "crud_shared::UuidV7" => "to_uuid_v7",
-            "Ulid" => "to_ulid",
-            "ulid::Ulid" => "to_ulid",
             "time::PrimitiveDateTime" => "to_primitive_date_time",
             "time::OffsetDateTime" => "to_offset_date_time",
             "Option<u32>" => "to_u32",

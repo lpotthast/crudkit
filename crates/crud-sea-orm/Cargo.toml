@@ -19,7 +19,5 @@ sea-query = { version = "0.28" }
 serde = { version = "1", features = ["derive"] }
 snafu = { version = "0.7", features = ["backtrace"] }
 tracing = "0.1"
-# NOTE: Do not upgrade. Versions above 0.5 do not run on web assembly. We always use 0.5 for compatibility.
-ulid = { version = "0.5", features = ["serde"] }
 utoipa = "3"
 uuid = { version = "1", features = ["v4", "v7", "serde"] }
