@@ -2,8 +2,8 @@
 #![deny(clippy::unwrap_used)]
 
 use async_trait::async_trait;
-use crud_condition::ConditionClauseValue;
-use crud_id::SerializableId;
+use crudkit_condition::ConditionClauseValue;
+use crudkit_id::SerializableId;
 use dyn_clone::DynClone;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use services::requests::AuthProvider;
@@ -79,33 +79,33 @@ mod event_functions;
 * Reexport common modules.
 * This allows the user to only
 *
-* - `use crud_yew::prelude::*` and
+* - `use crudkit_yew::prelude::*` and
 * - derive all common proc macros
 *
 * without the need to add more use declaration or
-* to manually depend on other crud crates such as "crud_id",
+* to manually depend on other crud crates such as "crudkit_id",
 * which are required for many derive macro implementations.
 */
-pub use crud_condition;
-pub use crud_id;
-pub use crud_shared;
-pub use crud_validation;
-pub use crud_websocket;
+pub use crudkit_condition;
+pub use crudkit_id;
+pub use crudkit_shared;
+pub use crudkit_validation;
+pub use crudkit_websocket;
 
 // Reexporting yew_bootstrap_icons
 pub use yew_bootstrap_icons;
 
 pub mod prelude {
-    pub use crud_condition;
-    pub use crud_id;
-    pub use crud_shared;
-    pub use crud_validation;
-    pub use crud_websocket;
+    pub use crudkit_condition;
+    pub use crudkit_id;
+    pub use crudkit_shared;
+    pub use crudkit_validation;
+    pub use crudkit_websocket;
 
     pub use derive_crud_action_payload::CrudActionPayload;
-    pub use derive_crud_id::CrudId;
     pub use derive_crud_resource::CrudResource;
     pub use derive_crud_selectable::CrudSelectable;
+    pub use derive_crudkit_id::CrudId;
     pub use derive_field::Field;
     pub use derive_field_value::FieldValue;
 
@@ -246,10 +246,10 @@ pub trait CrudMainTrait:
 {
     type CreateModel: CrudDataTrait + Default + Send;
 
-    type ReadModelIdField: crud_id::IdField + Serialize + Send;
+    type ReadModelIdField: crudkit_id::IdField + Serialize + Send;
     type ReadModelId: Serialize
         + DeserializeOwned
-        + crud_id::Id<Field = Self::ReadModelIdField>
+        + crudkit_id::Id<Field = Self::ReadModelIdField>
         + PartialEq
         + Clone
         + Send;
@@ -259,10 +259,10 @@ pub trait CrudMainTrait:
         + CrudIdTrait<Id = Self::ReadModelId>
         + Send;
 
-    type UpdateModelIdField: crud_id::IdField + Serialize + Send;
+    type UpdateModelIdField: crudkit_id::IdField + Serialize + Send;
     type UpdateModelId: Serialize
         + DeserializeOwned
-        + crud_id::Id<Field = Self::UpdateModelIdField>
+        + crudkit_id::Id<Field = Self::UpdateModelIdField>
         + PartialEq
         + Clone
         + Send;
@@ -304,7 +304,7 @@ pub trait CrudDataTrait: PartialEq + Clone + Debug + Serialize + DeserializeOwne
 /// Allows us to access the ID of an entity.
 /// The ID type must provide more fine grained access (for example to individual fields).
 pub trait CrudIdTrait {
-    type Id: crud_id::Id;
+    type Id: crudkit_id::Id;
 
     fn get_id(&self) -> Self::Id;
 }
@@ -365,7 +365,7 @@ pub enum Value {
     OptionalPrimitiveDateTime(Option<time::PrimitiveDateTime>),
     OptionalOffsetDateTime(Option<time::OffsetDateTime>),
     OneToOneRelation(Option<u32>),
-    NestedTable(Vec<Box<dyn crud_id::IdField>>),
+    NestedTable(Vec<Box<dyn crudkit_id::IdField>>),
     Custom(()),
     Select(Box<dyn CrudSelectableTrait>),
     Multiselect(Vec<Box<dyn CrudSelectableTrait>>),
@@ -415,37 +415,37 @@ impl Into<String> for JsonValue {
     }
 }
 
-impl Into<Value> for crud_shared::Value {
+impl Into<Value> for crudkit_shared::Value {
     fn into(self) -> Value {
         match self {
-            crud_shared::Value::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
-            crud_shared::Value::Json(value) => Value::Json(JsonValue::new(value)),
-            crud_shared::Value::UuidV4(value) => Value::UuidV4(value),
-            crud_shared::Value::UuidV7(value) => Value::UuidV7(value),
-            crud_shared::Value::I32(value) => Value::I32(value),
-            crud_shared::Value::I32Vec(_values) => todo!("support vector types"),
-            crud_shared::Value::I64(value) => Value::I64(value),
-            crud_shared::Value::U32(value) => Value::U32(value),
-            crud_shared::Value::F32(value) => Value::F32(value),
-            crud_shared::Value::Bool(value) => Value::Bool(value),
-            crud_shared::Value::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
-            crud_shared::Value::OffsetDateTime(value) => Value::OffsetDateTime(value),
+            crudkit_shared::Value::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
+            crudkit_shared::Value::Json(value) => Value::Json(JsonValue::new(value)),
+            crudkit_shared::Value::UuidV4(value) => Value::UuidV4(value),
+            crudkit_shared::Value::UuidV7(value) => Value::UuidV7(value),
+            crudkit_shared::Value::I32(value) => Value::I32(value),
+            crudkit_shared::Value::I32Vec(_values) => todo!("support vector types"),
+            crudkit_shared::Value::I64(value) => Value::I64(value),
+            crudkit_shared::Value::U32(value) => Value::U32(value),
+            crudkit_shared::Value::F32(value) => Value::F32(value),
+            crudkit_shared::Value::Bool(value) => Value::Bool(value),
+            crudkit_shared::Value::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
+            crudkit_shared::Value::OffsetDateTime(value) => Value::OffsetDateTime(value),
         }
     }
 }
 
-impl Into<Value> for crud_id::IdValue {
+impl Into<Value> for crudkit_id::IdValue {
     fn into(self) -> Value {
         match self {
-            crud_id::IdValue::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
-            crud_id::IdValue::UuidV4(value) => Value::UuidV4(value),
-            crud_id::IdValue::UuidV7(value) => Value::UuidV7(value),
-            crud_id::IdValue::I32(value) => Value::I32(value),
-            crud_id::IdValue::I64(value) => Value::I64(value),
-            crud_id::IdValue::U32(value) => Value::U32(value),
-            crud_id::IdValue::Bool(value) => Value::Bool(value),
-            crud_id::IdValue::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
-            crud_id::IdValue::OffsetDateTime(value) => Value::OffsetDateTime(value),
+            crudkit_id::IdValue::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
+            crudkit_id::IdValue::UuidV4(value) => Value::UuidV4(value),
+            crudkit_id::IdValue::UuidV7(value) => Value::UuidV7(value),
+            crudkit_id::IdValue::I32(value) => Value::I32(value),
+            crudkit_id::IdValue::I64(value) => Value::I64(value),
+            crudkit_id::IdValue::U32(value) => Value::U32(value),
+            crudkit_id::IdValue::Bool(value) => Value::Bool(value),
+            crudkit_id::IdValue::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
+            crudkit_id::IdValue::OffsetDateTime(value) => Value::OffsetDateTime(value),
         }
     }
 }
@@ -750,7 +750,7 @@ impl Into<ConditionClauseValue> for Value {
 // TODO: Remove
 //#[typetag::serde]
 /*
-impl crud_id::IdFieldValue for Value {
+impl crudkit_id::IdFieldValue for Value {
     fn into_condition_clause_value(&self) -> ConditionClauseValue {
         // Note: This requires clone, because we take &self. We take &self, so that the trait remains dynamically usable.
         self.clone().into()
@@ -770,8 +770,8 @@ pub trait CrudFieldValueTrait<T> {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CrudView<ReadId, UpdateId>
 where
-    ReadId: crud_id::Id + Serialize + DeserializeOwned,
-    UpdateId: crud_id::Id + Serialize + DeserializeOwned,
+    ReadId: crudkit_id::Id + Serialize + DeserializeOwned,
+    UpdateId: crudkit_id::Id + Serialize + DeserializeOwned,
 {
     List,
     Create,
@@ -802,8 +802,8 @@ pub enum CrudSimpleView {
 
 impl<ReadId, UpdateId> Into<SerializableCrudView> for CrudView<ReadId, UpdateId>
 where
-    ReadId: crud_id::Id + Serialize + DeserializeOwned,
-    UpdateId: crud_id::Id + Serialize + DeserializeOwned,
+    ReadId: crudkit_id::Id + Serialize + DeserializeOwned,
+    UpdateId: crudkit_id::Id + Serialize + DeserializeOwned,
 {
     fn into(self) -> SerializableCrudView {
         match self {
@@ -817,8 +817,8 @@ where
 
 impl<ReadId, UpdateId> Into<CrudSimpleView> for CrudView<ReadId, UpdateId>
 where
-    ReadId: crud_id::Id + Serialize + DeserializeOwned,
-    UpdateId: crud_id::Id + Serialize + DeserializeOwned,
+    ReadId: crudkit_id::Id + Serialize + DeserializeOwned,
+    UpdateId: crudkit_id::Id + Serialize + DeserializeOwned,
 {
     fn into(self) -> CrudSimpleView {
         match self {
@@ -832,8 +832,8 @@ where
 
 impl<ReadId, UpdateId> Default for CrudView<ReadId, UpdateId>
 where
-    ReadId: crud_id::Id + Serialize + DeserializeOwned,
-    UpdateId: crud_id::Id + Serialize + DeserializeOwned,
+    ReadId: crudkit_id::Id + Serialize + DeserializeOwned,
+    UpdateId: crudkit_id::Id + Serialize + DeserializeOwned,
 {
     fn default() -> Self {
         Self::List

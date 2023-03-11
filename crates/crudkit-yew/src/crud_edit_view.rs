@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use crud_condition::IntoAllEqualCondition;
-use crud_id::Id;
-use crud_id::IdField;
-use crud_shared::{SaveResult, Saved};
+use crudkit_condition::IntoAllEqualCondition;
+use crudkit_id::Id;
+use crudkit_id::IdField;
+use crudkit_shared::{SaveResult, Saved};
 
 use gloo::timers::callback::Interval;
 use tracing::{info, warn};

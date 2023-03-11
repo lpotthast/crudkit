@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-crudkit-condition = { path = "../crudkit-condition" }
-crudkit-id = { path = "../crudkit-id/crates/crudkit-id" }
-crudkit-shared = { path = "../crudkit-shared" }
-crudkit-validation = { path = "../crudkit-validation" }
-crudkit-websocket = { path = "../crudkit-websocket" }
+crudkit-condition = { path = "../../../crudkit-condition" }
+crudkit-id = { path = "../../../crudkit-id/crates/crudkit-id" }
+crudkit-shared = { path = "../../../crudkit-shared" }
+crudkit-validation = { path = "../../../crudkit-validation" }
+crudkit-websocket = { path = "../../../crudkit-websocket" }
 derive-crud-action-payload = { path = "../derive-crud-action-payload" }
-derive-crudkit-id = { path = "../crudkit-id/crates/derive-crudkit-id" }
+derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
 derive-crud-resource = { path = "../derive-crud-resource" }
 derive-crud-selectable = { path = "../derive-crud-selectable" }
 derive-field = { path = "../derive-field" }
@@ -53,4 +53,3 @@ yew = "0.20"
 yew-bootstrap-icons = { git = "https://github.com/lpotthast/yew-bootstrap-icons" }
 yew-tiptap = { git = "https://github.com/lpotthast/yew-tiptap" }
 yewdux = "0.9"
-yewdux-global-stores = { path = "../../../../yewdux-global-stores" }

@@ -1,8 +1,9 @@
-use super::prelude::*;
 use std::{marker::PhantomData, rc::Rc};
 use yew::prelude::*;
 use yewdux::prelude::Dispatch;
-use yewdux_global_stores::GlobalKeyUp;
+
+use super::prelude::*;
+use crate::stores::global_key_up::GlobalKeyUp;
 
 pub enum Msg {
     OnCancel,

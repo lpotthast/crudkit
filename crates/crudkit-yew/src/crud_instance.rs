@@ -1,6 +1,6 @@
-use crud_condition::{Condition, ConditionClause, ConditionElement};
-use crud_id::{Id, SerializableId};
-use crud_shared::{DeleteResult, Order, Saved};
+use crudkit_condition::{Condition, ConditionClause, ConditionElement};
+use crudkit_id::{Id, SerializableId};
+use crudkit_shared::{DeleteResult, Order, Saved};
 
 use indexmap::{indexmap, IndexMap};
 use serde::{Deserialize, Serialize};
@@ -465,7 +465,7 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                                     .set_base_condition(Some(Condition::All(vec![
                                         ConditionElement::Clause(ConditionClause {
                                             column_name: nested.reference_field.clone(),
-                                            operator: crud_condition::Operator::Equal,
+                                            operator: crudkit_condition::Operator::Equal,
                                             value: value.clone().into(),
                                         }),
                                     ])));

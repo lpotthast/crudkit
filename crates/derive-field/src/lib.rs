@@ -9,14 +9,14 @@ use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
 #[derive(Debug, FromField)]
-#[darling(attributes(field, crud_id))]
+#[darling(attributes(field, crudkit_id))]
 struct MyFieldReceiver {
     ident: Option<syn::Ident>,
 
     ty: syn::Type,
 
     /// Determines whether this field is part of the aggregate id.
-    // Originates from: crud_id
+    // Originates from: crudkit_id
     id: Option<bool>,
 }
 
@@ -40,7 +40,7 @@ impl MyFieldReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(field, crud_id), supports(struct_any))]
+#[darling(attributes(field, crudkit_id), supports(struct_any))]
 struct MyInputReceiver {
     ident: syn::Ident,
 
@@ -56,7 +56,7 @@ impl MyInputReceiver {
     }
 }
 
-#[proc_macro_derive(Field, attributes(field, crud_id))]
+#[proc_macro_derive(Field, attributes(field, crudkit_id))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -100,7 +100,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     let id_impl = match id_fields.len() {
         // TODO: Create an error, as every aggregate needs an id?
         0 => quote! {},
-        // Implement the `crud_yew::CrudIdTrait` trait if there are id fields in the struct.
+        // Implement the `crudkit_yew::CrudIdTrait` trait if there are id fields in the struct.
         _ => {
             let id_struct_ident = Ident::new(format!("{}Id", name).as_str(), name.span());
 
@@ -112,7 +112,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
             // Implements the main 'CrudIdTrait' for our base type. Allowing the user to access the ID of the entity.
             quote! {
-                impl crud_yew::CrudIdTrait for #name {
+                impl crudkit_yew::CrudIdTrait for #name {
                     type Id = #id_struct_ident;
 
                     fn get_id(&self) -> Self::Id {
@@ -170,7 +170,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             #(#typified_fields),*
         }
 
-        impl crud_yew::CrudFieldNameTrait for #field_name {
+        impl crudkit_yew::CrudFieldNameTrait for #field_name {
             fn get_name(&self) -> &'static str {
                 #get_name_impl
             }
@@ -178,7 +178,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         #id_impl
 
-        impl crud_yew::CrudDataTrait for #name {
+        impl crudkit_yew::CrudDataTrait for #name {
             type Field = #field_name;
 
             fn get_field(field_name: &str) -> #field_name {

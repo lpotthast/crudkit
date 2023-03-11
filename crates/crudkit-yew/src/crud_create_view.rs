@@ -6,8 +6,8 @@ use yew::{
     prelude::*,
 };
 
-use crud_id::SerializableId;
-use crud_shared::{SaveResult, Saved};
+use crudkit_id::SerializableId;
+use crudkit_shared::{SaveResult, Saved};
 
 use crate::{
     crud_instance::Item,

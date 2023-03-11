@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crud_condition::{Condition, ConditionClause, ConditionElement};
+use crudkit_condition::{Condition, ConditionClause, ConditionElement};
 use tracing::warn;
 use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
@@ -233,7 +233,7 @@ impl<P: 'static + CrudMainTrait, T: 'static + CrudMainTrait> Component for CrudR
                                         .parent_reverse_field
                                         .get_name()
                                         .to_owned(),
-                                    operator: crud_condition::Operator::Equal,
+                                    operator: crudkit_condition::Operator::Equal,
                                     value: value.clone().into(),
                                 }),
                             ])));

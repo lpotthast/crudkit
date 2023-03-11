@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crud_shared::Order;
+use crudkit_shared::Order;
 use yew::{
     html::{ChildrenRenderer, Scope},
     prelude::*,
@@ -10,11 +10,11 @@ use yew_bootstrap_icons::v1_10_3::Bi;
 use crate::{
     crud_action::ModalGeneration,
     crud_instance::Item,
+    prelude::*,
     services::crud_rest_data_provider::{CrudRestDataProvider, ReadCount, ReadMany},
     types::custom_field::CustomReadFields,
+    types::RequestError,
 };
-
-use super::{prelude::*, types::RequestError};
 
 // TODO: Disable the reset button as long as there is an ongoing request!
 // TODO: Disable the reset button when a reset is going on...

@@ -1,7 +1,7 @@
 use yew::{html::ChildrenRenderer, prelude::*};
 
-use crud_condition::IntoAllEqualCondition;
-use crud_id::{Id, IdField};
+use crudkit_condition::IntoAllEqualCondition;
+use crudkit_id::{Id, IdField};
 
 use crate::{
     crud_instance::Item,

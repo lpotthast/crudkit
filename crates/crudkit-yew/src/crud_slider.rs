@@ -1,11 +1,17 @@
 use std::rc::Rc;
 
-use crate::event_functions::MouseEventFunctions;
 use tracing::{trace, warn};
 use uuid::Uuid;
 use yew::prelude::*;
 use yewdux::prelude::*;
-use yewdux_global_stores::{GlobalMouseMove, GlobalMouseUp, GlobalMouseMoveRequired};
+
+use crate::{
+    event_functions::MouseEventFunctions,
+    stores::{
+        global_mouse_move::{GlobalMouseMove, GlobalMouseMoveRequired},
+        global_mouse_up::GlobalMouseUp,
+    },
+};
 
 pub enum Msg {
     MouseDown(MouseEvent),

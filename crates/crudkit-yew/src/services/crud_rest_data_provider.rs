@@ -1,6 +1,6 @@
-use crud_condition::{merge_conditions, Condition};
-use crud_id::SerializableId;
-use crud_shared::{DeleteResult, Order, SaveResult};
+use crudkit_condition::{merge_conditions, Condition};
+use crudkit_id::SerializableId;
+use crudkit_shared::{DeleteResult, Order, SaveResult};
 use indexmap::IndexMap;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};

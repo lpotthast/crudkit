@@ -13,7 +13,7 @@ fn strip_quotes(string: Option<String>) -> Option<String> {
 }
 
 #[derive(FromDeriveInput)]
-#[darling(attributes(crud), forward_attrs(allow, doc, cfg))]
+#[darling(attributes(crudkit), forward_attrs(allow, doc, cfg))]
 struct Args {
     /// Name of the CRUD resource. Must match the name defined in the backend.
     resource_name: String,
@@ -27,7 +27,7 @@ struct Args {
     auth_provider: Option<String>, // TODO: Do not require quotes to begin with... require an ident
 
     // TODO: Document
-    
+
     create_model: Option<Ident>,
 
     read_model_id_field: Option<Ident>,
@@ -39,7 +39,7 @@ struct Args {
     update_model: Option<Ident>,
 }
 
-#[proc_macro_derive(CrudResource, attributes(crud))]
+#[proc_macro_derive(CrudResource, attributes(crudkit))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -104,7 +104,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             let ident = Ident::new(it.as_str(), Span::call_site());
             quote! { #ident }
         })
-        .unwrap_or_else(|| quote! { crud_yew::EmptyActionPayload });
+        .unwrap_or_else(|| quote! { crudkit_yew::EmptyActionPayload });
 
     let auth_provider_type = args
         .auth_provider
@@ -112,19 +112,19 @@ pub fn store(input: TokenStream) -> TokenStream {
             Ok(ty) => quote! { #ty },
             Err(err) => abort!("Given 'auth_provider' is not a valid type: {}", err),
         })
-        .unwrap_or_else(|| quote! { crud_yew::services::requests::NoAuthProvider });
+        .unwrap_or_else(|| quote! { crudkit_yew::services::requests::NoAuthProvider });
 
     quote! {
         #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
         pub struct #resource_ident {}
 
-        impl crud_yew::CrudResourceTrait for #resource_ident {
+        impl crudkit_yew::CrudResourceTrait for #resource_ident {
             fn get_resource_name() -> &'static str {
                 #resource_name
             }
         }
 
-        impl crud_yew::CrudMainTrait for #resource_ident {
+        impl crudkit_yew::CrudMainTrait for #resource_ident {
             type CreateModel = #create_model_ident;
 
             type ReadModelIdField = #read_model_id_field_ident;
