@@ -5,10 +5,10 @@ use derive_crudkit_id::CrudId;
 
 #[derive(CrudId)]
 pub struct Foo {
-    #[crudkit_id(id)]
+    #[ck_id(id)]
     id_a: i32,
 
-    #[crudkit_id(id)]
+    #[ck_id(id)]
     id_b: i32,
 }
 

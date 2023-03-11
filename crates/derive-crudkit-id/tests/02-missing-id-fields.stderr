@@ -1,6 +1,6 @@
-error: To derive CrudId, at least one id field must exist.
+error: To derive CkId, at least one id field must exist.
 
-         = help: A field is an id field if it is (a) named "id" or (b) annotated with `#[crudkit_id(id)]`, both marking the field as part of the entities id. Specify id fields or remove the derive, if no id fields can be defined for this entity.
+         = help: A field is an id field if it is (a) named "id" or (b) annotated with `#[ck_id(id)]`, both marking the field as part of the entities id. Specify id fields or remove the derive, if no id fields can be defined for this entity.
 
  --> tests/02-missing-id-fields.rs:5:10
   |

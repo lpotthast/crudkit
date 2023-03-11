@@ -10,7 +10,7 @@ use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident, Type};
 
 #[derive(Debug, FromField)]
-#[darling(attributes(crudkit_id))]
+#[darling(attributes(ck_id))]
 struct MyFieldReceiver {
     ident: Option<Ident>,
 
@@ -40,7 +40,7 @@ impl MyFieldReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(crudkit_id), supports(struct_any))]
+#[darling(attributes(ck_id), supports(struct_any))]
 struct MyInputReceiver {
     ident: Ident,
 
@@ -59,12 +59,12 @@ impl MyInputReceiver {
 /// Derives a type containing only the id fields of the annotated struct.
 /// A field is an id field if
 ///   - it is named "id" or
-///   - it is annotated with `#[crudkit_id(id)]`
+///   - it is annotated with `#[ck_id(id)]`
 /// both marking it as part of the entities id.
 /// A compile error is created if the annotated struct does not contain any "id" fields.
 ///
 /// TODO: Describe created types.
-#[proc_macro_derive(CrudId, attributes(crudkit_id))]
+#[proc_macro_derive(CkId, attributes(ck_id))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -81,8 +81,8 @@ pub fn store(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     if id_fields.len() == 0 {
-        let message = format!("To derive CrudId, at least one id field must exist.");
-        abort!(Span::call_site(), message; help = "A field is an id field if it is (a) named \"id\" or (b) annotated with `#[crudkit_id(id)]`, both marking the field as part of the entities id. Specify id fields or remove the derive, if no id fields can be defined for this entity.";);
+        let message = format!("To derive CkId, at least one id field must exist.");
+        abort!(Span::call_site(), message; help = "A field is an id field if it is (a) named \"id\" or (b) annotated with `#[ck_id(id)]`, both marking the field as part of the entities id. Specify id fields or remove the derive, if no id fields can be defined for this entity.";);
         // TODO: remove this constraint? rename error message?
     }
 
