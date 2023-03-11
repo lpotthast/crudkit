@@ -10,10 +10,7 @@ crudkit-shared = { git = "https://github.com/lpotthast/crudkit-shared" }
 crudkit-validation = { git = "https://github.com/lpotthast/crudkit-validation" }
 crudkit-websocket = { git = "https://github.com/lpotthast/crudkit-websocket" }
 
-# TODO: Remove this or properly provide dependency!
-axum-websockets = { path = "../../../../axum-websockets" }
-
-derive-crud-id = { git = "https://github.com/lpotthast/crudkit-id" }
+derive-crudkit-id = { git = "https://github.com/lpotthast/crudkit-id" }
 
 derive-create-model = { path = "../derive-create-model" }
 derive-crud-columns = { path = "../derive-crud-columns" }
