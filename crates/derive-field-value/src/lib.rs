@@ -20,7 +20,7 @@ fn parse_type(string: Option<String>) -> Option<ValueType> {
 }
 
 #[derive(Debug, FromField)]
-#[darling(attributes(field_value))]
+#[darling(attributes(ck_field_value))]
 struct MyFieldReceiver {
     ident: Option<syn::Ident>,
 
@@ -38,7 +38,7 @@ impl MyFieldReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(field_value), supports(struct_any))]
+#[darling(attributes(ck_field_value), supports(struct_any))]
 struct MyInputReceiver {
     ident: syn::Ident,
 
@@ -54,7 +54,7 @@ impl MyInputReceiver {
     }
 }
 
-#[proc_macro_derive(FieldValue, attributes(field_value))]
+#[proc_macro_derive(CkFieldValue, attributes(ck_field_value))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);

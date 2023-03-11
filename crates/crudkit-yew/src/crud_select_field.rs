@@ -1,8 +1,6 @@
 use std::{marker::PhantomData, rc::Rc};
 
-use crate::{
-    crud_instance::CreateOrUpdateField, crud_select::Selection, prelude::*, CrudSelectableSource,
-};
+use crate::{crud_instance::CreateOrUpdateField, crud_select::Selection, prelude::*};
 use tracing::{info, warn};
 use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
@@ -13,7 +11,7 @@ pub enum Msg<P, S, T>
 where
     P: 'static + CrudMainTrait,
     S: 'static + CrudSelectableSource<Selectable = T>,
-    T: 'static + CrudSelectableTrait + Clone + PartialEq
+    T: 'static + CrudSelectableTrait + Clone + PartialEq,
 {
     SourcesLoaded(Result<Vec<S::Selectable>, Box<dyn std::error::Error + Send + Sync + 'static>>),
     ParentInstanceLinksStoreUpdated(Rc<stores::instance_links::InstanceLinksStore<P>>),
@@ -69,9 +67,8 @@ where
     type Properties = Props<P>;
 
     fn create(ctx: &Context<Self>) -> Self {
-        ctx.link().send_future(async move {
-            Msg::SourcesLoaded(S::load().await)
-        });
+        ctx.link()
+            .send_future(async move { Msg::SourcesLoaded(S::load().await) });
         Self {
             _parent_instance_links_dispatch: Dispatch::subscribe(
                 ctx.link().callback(Msg::ParentInstanceLinksStoreUpdated),
@@ -88,7 +85,8 @@ where
         match msg {
             Msg::SourcesLoaded(result) => {
                 info!("loaded results");
-                self.source.set_selectable(result.expect("error loading selectables..."));
+                self.source
+                    .set_selectable(result.expect("error loading selectables..."));
                 // Selectable options are now available.
                 true
             }
@@ -112,15 +110,21 @@ where
                 // TODO: Improve perf. This performs a match, every take_ function also matches...
                 self.selected = match value {
                     value @ Value::Select(_) => Selection::Single(value.take_select_downcast_to()),
-                    value @ Value::Multiselect(_) => Selection::Multiple(value.take_multiselect_downcast_to()),
-                    value @ Value::OptionalSelect(_) => match value.take_optional_select_downcast_to() {
-                        Some(value) => Selection::Single(value),
-                        None => Selection::None,
-                    },
-                    value @ Value::OptionalMultiselect(_) => match value.take_optional_multiselect_downcast_to() {
-                        Some(values) => Selection::Multiple(values),
-                        None => Selection::None,
-                    },
+                    value @ Value::Multiselect(_) => {
+                        Selection::Multiple(value.take_multiselect_downcast_to())
+                    }
+                    value @ Value::OptionalSelect(_) => {
+                        match value.take_optional_select_downcast_to() {
+                            Some(value) => Selection::Single(value),
+                            None => Selection::None,
+                        }
+                    }
+                    value @ Value::OptionalMultiselect(_) => {
+                        match value.take_optional_multiselect_downcast_to() {
+                            Some(values) => Selection::Multiple(values),
+                            None => Selection::None,
+                        }
+                    }
                     other => panic!("Expected a select variant but got `{other:?}`."),
                 };
                 true

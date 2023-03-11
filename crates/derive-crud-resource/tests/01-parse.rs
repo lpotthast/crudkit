@@ -3,7 +3,7 @@ use derive_crud_resource::CrudResource;
 // TODO: Work in progress...
 
 #[derive(CrudResource)]
-#[crudkit(resource_name = "foo")]
+#[ck_resource(resource_name = "foo")]
 pub struct Foo {
     id: i32,
     name: String,

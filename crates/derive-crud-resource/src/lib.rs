@@ -13,7 +13,7 @@ fn strip_quotes(string: Option<String>) -> Option<String> {
 }
 
 #[derive(FromDeriveInput)]
-#[darling(attributes(crudkit), forward_attrs(allow, doc, cfg))]
+#[darling(attributes(ck_resource), forward_attrs(allow, doc, cfg))]
 struct Args {
     /// Name of the CRUD resource. Must match the name defined in the backend.
     resource_name: String,
@@ -27,7 +27,6 @@ struct Args {
     auth_provider: Option<String>, // TODO: Do not require quotes to begin with... require an ident
 
     // TODO: Document
-
     create_model: Option<Ident>,
 
     read_model_id_field: Option<Ident>,
@@ -39,7 +38,7 @@ struct Args {
     update_model: Option<Ident>,
 }
 
-#[proc_macro_derive(CrudResource, attributes(crudkit))]
+#[proc_macro_derive(CkResource, attributes(ck_resource))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);

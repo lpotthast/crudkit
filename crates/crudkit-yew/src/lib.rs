@@ -102,12 +102,12 @@ pub mod prelude {
     pub use crudkit_validation;
     pub use crudkit_websocket;
 
-    pub use derive_crud_action_payload::CrudActionPayload;
-    pub use derive_crud_resource::CrudResource;
-    pub use derive_crud_selectable::CrudSelectable;
-    pub use derive_crudkit_id::CrudId;
-    pub use derive_field::Field;
-    pub use derive_field_value::FieldValue;
+    pub use derive_crud_action_payload::CkActionPayload;
+    pub use derive_crud_resource::CkResource;
+    pub use derive_crud_selectable::CkSelectable;
+    pub use derive_crudkit_id::CkId;
+    pub use derive_field::CkField;
+    pub use derive_field_value::CkFieldValue;
 
     pub use super::crud_action::CrudAction;
     pub use super::crud_action::CrudActionAftermath;

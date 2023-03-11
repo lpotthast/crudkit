@@ -9,7 +9,7 @@ use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
 #[derive(Debug, FromField)]
-#[darling(attributes(field, crudkit_id))]
+#[darling(attributes(field, ck_id))]
 struct MyFieldReceiver {
     ident: Option<syn::Ident>,
 
@@ -40,7 +40,7 @@ impl MyFieldReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(field, crudkit_id), supports(struct_any))]
+#[darling(attributes(field, ck_id), supports(struct_any))]
 struct MyInputReceiver {
     ident: syn::Ident,
 
@@ -56,7 +56,7 @@ impl MyInputReceiver {
     }
 }
 
-#[proc_macro_derive(Field, attributes(field, crudkit_id))]
+#[proc_macro_derive(CkField, attributes(field, ck_id))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -165,7 +165,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     };
 
     quote! {
-        #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
+        #[derive(PartialEq, Eq, Hash, Clone, Debug, serde::Serialize, serde::Deserialize)]
         pub enum #field_name {
             #(#typified_fields),*
         }
