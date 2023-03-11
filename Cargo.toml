@@ -1,11 +1,13 @@
-[workspace]
-members = ["crates/*"]
-default-members = ["crates/crud-shared-types"]
+[package]
+name = "crudkit-shared"
+version = "0.1.0"
+edition = "2021"
 
-[workspace.dependencies]
-darling = "0.14"
-proc-macro-error = "1"
-proc-macro-type-name = "0.1"
-proc-macro2 = "1"
-quote = "1"
-syn = { version = "1", features = ["extra-traits"] }
+[dependencies]
+dyn-clone = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+snafu = { version = "0.7", features = ["backtrace"] }
+time = { version = "0.3", features = ["serde", "serde-well-known"] }
+utoipa = "3"
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
