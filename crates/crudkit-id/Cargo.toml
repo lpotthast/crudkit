@@ -1,0 +1,11 @@
+[package]
+name = "crudkit-id"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dyn-clone = "1"
+serde = { version = "1", features = ["derive"] }
+time = { version = "0.3", features = ["serde", "serde-well-known"] }
+utoipa = "3"
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
