@@ -1,21 +1,23 @@
 [package]
-name = "crud-yew"
+name = "crudkit-yew"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-async-trait = "0.1"
-crud-condition = { path = "../../../crud-condition" }
-crud-id = { path = "../../../crud-id/crates/crud-id" }
-crud-shared = { path = "../../../crud-shared" }
-crud-validation = { path = "../../../crud-validation" }
-crud-websocket = { path = "../../../crud-websocket" }
+crudkit-condition = { git = "https://github.com/inf0rm4tik3r/crudkit-condition" }
+crudkit-id = { git = "https://github.com/inf0rm4tik3r/crudkit-id" }
+crudkit-shared = { git = "https://github.com/inf0rm4tik3r/crudkit-shared" }
+crudkit-validation = { git = "https://github.com/inf0rm4tik3r/crudkit-validation" }
+crudkit-websocket = { git = "https://github.com/inf0rm4tik3r/crudkit-websocket" }
+
 derive-crud-action-payload = { path = "../derive-crud-action-payload" }
-derive-crud-id = { path = "../../../crud-id/crates/derive-crud-id" }
+derive-crudkit-id = { git = "https://github.com/inf0rm4tik3r/crudkit-id" }
 derive-crud-resource = { path = "../derive-crud-resource" }
 derive-crud-selectable = { path = "../derive-crud-selectable" }
 derive-field = { path = "../derive-field" }
 derive-field-value = { path = "../derive-field-value" }
+
+async-trait = "0.1"
 derive_more = "0.99"
 dyn-clone = "1"
 gloo = "0.8"

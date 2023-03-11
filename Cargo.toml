@@ -1,6 +1,6 @@
 [workspace]
 members = ["crates/*"]
-default-members = ["crates/crud-yew"]
+default-members = ["crates/crudkit-yew"]
 
 [workspace.dependencies]
 darling = "0.14"
