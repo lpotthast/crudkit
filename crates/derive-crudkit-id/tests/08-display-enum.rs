@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use derive_crud_id::CrudId;
+use derive_crudkit_id::CrudId;
 
 #[derive(CrudId)]
 pub struct Foo {
-    #[crud_id(id)]
+    #[crudkit_id(id)]
     id_a: i32,
 
-    #[crud_id(id)]
+    #[crudkit_id(id)]
     id_b: i32,
 }
 

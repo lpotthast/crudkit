@@ -10,7 +10,7 @@ use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident, Type};
 
 #[derive(Debug, FromField)]
-#[darling(attributes(crud_id))]
+#[darling(attributes(crudkit_id))]
 struct MyFieldReceiver {
     ident: Option<Ident>,
 
@@ -40,7 +40,7 @@ impl MyFieldReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(crud_id), supports(struct_any))]
+#[darling(attributes(crudkit_id), supports(struct_any))]
 struct MyInputReceiver {
     ident: Ident,
 
@@ -59,12 +59,12 @@ impl MyInputReceiver {
 /// Derives a type containing only the id fields of the annotated struct.
 /// A field is an id field if
 ///   - it is named "id" or
-///   - it is annotated with `#[crud_id(id)]`
+///   - it is annotated with `#[crudkit_id(id)]`
 /// both marking it as part of the entities id.
 /// A compile error is created if the annotated struct does not contain any "id" fields.
 ///
 /// TODO: Describe created types.
-#[proc_macro_derive(CrudId, attributes(crud_id))]
+#[proc_macro_derive(CrudId, attributes(crudkit_id))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -82,7 +82,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
     if id_fields.len() == 0 {
         let message = format!("To derive CrudId, at least one id field must exist.");
-        abort!(Span::call_site(), message; help = "A field is an id field if it is (a) named \"id\" or (b) annotated with `#[crud_id(id)]`, both marking the field as part of the entities id. Specify id fields or remove the derive, if no id fields can be defined for this entity.";);
+        abort!(Span::call_site(), message; help = "A field is an id field if it is (a) named \"id\" or (b) annotated with `#[crudkit_id(id)]`, both marking the field as part of the entities id. Specify id fields or remove the derive, if no id fields can be defined for this entity.";);
         // TODO: remove this constraint? rename error message?
     }
 
@@ -129,10 +129,10 @@ pub fn store(input: TokenStream) -> TokenStream {
         // Example: Self::Id(_) => "id"
         let variant_to_name_arm = quote! { Self::#type_name(_) => #name };
 
-        let crud_value = to_id_value(ty);
+        let crudkit_value = to_id_value(ty);
 
-        // Example: Self::Id(value) => crud_id::IdValue::I32(*value)
-        let variant_to_value_arm = quote! { Self::#type_name(value) => #crud_value(value.clone()) }; // TODO: always call clone?
+        // Example: Self::Id(value) => crudkit_id::IdValue::I32(*value)
+        let variant_to_value_arm = quote! { Self::#type_name(value) => #crudkit_value(value.clone()) }; // TODO: always call clone?
 
         // Example: FooIdField::Id(value) => f.write_fmt(format_args!("{}", value))
         let display_arm = quote! { #id_field_enum_ident::#type_name(value) => f.write_fmt(format_args!("{}", value)) };
@@ -197,7 +197,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl crud_id::Id for #id_struct_ident {
+        impl crudkit_id::Id for #id_struct_ident {
             type Field = #id_field_enum_ident;
             type FieldIter = std::vec::IntoIter<Self::Field>;
 
@@ -214,12 +214,12 @@ pub fn store(input: TokenStream) -> TokenStream {
                 ]
             }
 
-            fn into_serializable_id(&self) -> crud_id::SerializableId {
-                crud_id::SerializableId(
+            fn into_serializable_id(&self) -> crudkit_id::SerializableId {
+                crudkit_id::SerializableId(
                     self.fields_iter()
                         .map(|field| (
-                            crud_id::IdField::name(&field).to_owned(),
-                            crud_id::IdField::to_value(&field),
+                            crudkit_id::IdField::name(&field).to_owned(),
+                            crudkit_id::IdField::to_value(&field),
                         ))
                         .collect()
                 )
@@ -242,14 +242,14 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl crud_id::IdField for #id_field_enum_ident {
+        impl crudkit_id::IdField for #id_field_enum_ident {
             fn name(&self) -> &'static str {
                 match self {
                     #(#variants_to_name_arms),*
                 }
             }
 
-            fn to_value(&self) -> crud_id::IdValue {
+            fn to_value(&self) -> crudkit_id::IdValue {
                 match self {
                     #(#variants_to_value_arms),*
                 }
@@ -263,32 +263,32 @@ fn to_id_value(ty: &syn::Type) -> proc_macro2::TokenStream {
     let span = ty.span();
     match &ty {
         syn::Type::Path(path) => match join_path(&path.path).as_str() {
-            "bool" => quote! { crud_id::IdValue::Bool },
-            "u32" => quote! { crud_id::IdValue::U32 },
-            "i32" => quote! { crud_id::IdValue::I32 },
-            "i64" => quote! { crud_id::IdValue::I64 },
+            "bool" => quote! { crudkit_id::IdValue::Bool },
+            "u32" => quote! { crudkit_id::IdValue::U32 },
+            "i32" => quote! { crudkit_id::IdValue::I32 },
+            "i64" => quote! { crudkit_id::IdValue::I64 },
             "f32" => abort!(
                 span, "f32 is an invalid type for an ID field as it is not `Eq` comparable!";
                 help = "use one of the following types: [...]";
             ),
-            "String" => quote! { crud_id::IdValue::String },
-            "crud_shared::UuidV4" => quote! { crud_id::IdValue::UuidV4 },
-            "crud_shared::UuidV7" => quote! { crud_id::IdValue::UuidV7 },
-            "time::PrimitiveDateTime" => quote! { crud_id::IdValue::PrimitiveDateTime },
-            "time::OffsetDateTime" => quote! { crud_id::IdValue::OffsetDateTime },
-            "Option<i64>" => quote! { crud_id::IdValue::OptionalI64 },
-            "Option<i32>" => quote! { crud_id::IdValue::OptionalI32 },
-            "Option<u32>" => quote! { crud_id::IdValue::OptionalU32 },
+            "String" => quote! { crudkit_id::IdValue::String },
+            "crudkit_shared::UuidV4" => quote! { crudkit_id::IdValue::UuidV4 },
+            "crudkit_shared::UuidV7" => quote! { crudkit_id::IdValue::UuidV7 },
+            "time::PrimitiveDateTime" => quote! { crudkit_id::IdValue::PrimitiveDateTime },
+            "time::OffsetDateTime" => quote! { crudkit_id::IdValue::OffsetDateTime },
+            "Option<i64>" => quote! { crudkit_id::IdValue::OptionalI64 },
+            "Option<i32>" => quote! { crudkit_id::IdValue::OptionalI32 },
+            "Option<u32>" => quote! { crudkit_id::IdValue::OptionalU32 },
             "Option<f32>" => abort!(
                 span, "Option<f32> is an invalid type for an ID field as f32 it is not `Eq` comparable!";
                 help = "use one of the following types: [...]";
             ),
-            "Option<String>" => quote! { crud_id::IdValue::OptionalString },
+            "Option<String>" => quote! { crudkit_id::IdValue::OptionalString },
             "Option<time::PrimitiveDateTime>" => {
-                quote! { crud_id::IdValue::OptionalPrimitiveDateTime }
+                quote! { crudkit_id::IdValue::OptionalPrimitiveDateTime }
             }
             "Option<time::OffsetDateTime>" => {
-                quote! { crud_id::IdValue::OptionalOffsetDateTime }
+                quote! { crudkit_id::IdValue::OptionalOffsetDateTime }
             }
             other => {
                 let span = ty.span();
