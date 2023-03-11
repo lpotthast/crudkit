@@ -1,0 +1,8 @@
+[package]
+name = "crud-validation"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crud-id = { path = "../crud-id/crates/crud-id" }
+serde = { version = "1", features = ["derive"] }
