@@ -1,10 +1,8 @@
 [workspace]
 members = ["crates/*"]
-default-members = ["crates/crud-rs"]
+default-members = ["crates/crudkit-rs"]
 
 [workspace.dependencies]
-
-# Dependencies used in proc-macro implementations
 proc-macro-type-name = "0.1"
 darling = "0.14"
 proc-macro-error = "1"

@@ -1,13 +1,14 @@
 [package]
-name = "crud-sea-orm"
+name = "crudkit-sea-orm"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+crudkit-rs = { path = "../crud-rs" }
+crudkit-condition = { git = "https://github.com/inf0rm4tik3r/crudkit-condition" }
+crudkit-shared = { git = "https://github.com/inf0rm4tik3r/crudkit-shared" }
+
 async-trait = "0.1"
-crud-condition = { path = "../../../crud-condition" }
-crud-rs = { path = "../crud-rs" }
-crud-shared = { path = "../../../crud-shared" }
 indexmap = { version = "1", features = ["serde"] }
 sea-orm = { version = "0.11", features = [
     "debug-print",
