@@ -3,8 +3,8 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crud_id::IdValue;
-use crud_shared::Value;
+use crudkit_id::IdValue;
+use crudkit_shared::Value;
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
 pub enum Operator {
