@@ -4,15 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-crudkit-condition = { git = "https://github.com/lpotthast/crudkit-condition" }
-crudkit-id = { git = "https://github.com/lpotthast/crudkit-id" }
-crudkit-shared = { git = "https://github.com/lpotthast/crudkit-shared" }
-crudkit-validation = { git = "https://github.com/lpotthast/crudkit-validation" }
-crudkit-websocket = { git = "https://github.com/lpotthast/crudkit-websocket" }
-
-derive-crudkit-id = { git = "https://github.com/lpotthast/crudkit-id" }
-
+crudkit-condition = { path = "../../../crudkit-condition" }
+crudkit-id = { path = "../../../crudkit-id/crates/crudkit-id" }
+crudkit-shared = { path = "../../../crudkit-shared" }
+crudkit-validation = { path = "../../../crudkit-validation" }
+crudkit-websocket = { path = "../../../crudkit-websocket" }
 derive-create-model = { path = "../derive-create-model" }
+derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
 derive-crud-columns = { path = "../derive-crud-columns" }
 derive-crud-resource-context = { path = "../derive-crud-resource-context" }
 derive-update-model = { path = "../derive-update-model" }
