@@ -9,7 +9,7 @@ use syn::{parse_macro_input, DeriveInput};
 // TODO: Automatically derive Eq on new type if source type is already able to derive it!
 
 #[derive(Debug, FromField)]
-#[darling(attributes(create_model))]
+#[darling(attributes(ck_create_model))]
 struct MyFieldReceiver {
     ident: Option<syn::Ident>,
 
@@ -43,7 +43,7 @@ impl MyFieldReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(create_model), supports(struct_any))]
+#[darling(attributes(ck_create_model), supports(struct_any))]
 struct MyInputReceiver {
     data: ast::Data<(), MyFieldReceiver>,
 }
@@ -57,7 +57,7 @@ impl MyInputReceiver {
     }
 }
 
-#[proc_macro_derive(CreateModel, attributes(create_model))]
+#[proc_macro_derive(CkCreateModel, attributes(ck_create_model))]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
@@ -108,7 +108,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     });
 
     quote! {
-        #[derive(Debug, Clone, PartialEq, utoipa::ToSchema, Deserialize)]
+        #[derive(Debug, Clone, PartialEq, utoipa::ToSchema, serde::Deserialize)]
         pub struct CreateModel {
             #(#create_model_fields),*
         }

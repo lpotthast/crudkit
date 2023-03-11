@@ -10,7 +10,7 @@ use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
 #[derive(Debug, FromField)]
-#[darling(attributes(crudkit_columns, crudkit_id))]
+#[darling(attributes(ck_columns, ck_id))]
 struct MyFieldReceiver {
     ident: Option<syn::Ident>,
 
@@ -34,7 +34,7 @@ impl MyFieldReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(crudkit_columns, crudkit_id), supports(struct_any))]
+#[darling(attributes(ck_columns, ck_id), supports(struct_any))]
 struct MyInputReceiver {
     ident: syn::Ident,
 
@@ -50,7 +50,7 @@ impl MyInputReceiver {
     }
 }
 
-#[proc_macro_derive(CrudColumns, attributes(crudkit_columns, crudkit_id))]
+#[proc_macro_derive(CkColumns, attributes(ck_columns, ck_id))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);

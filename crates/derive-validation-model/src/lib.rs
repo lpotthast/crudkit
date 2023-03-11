@@ -7,7 +7,7 @@ use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident, Type};
 
 #[derive(Debug, FromField)]
-#[darling(attributes(validation_model))]
+#[darling(attributes(ck_validation_model))]
 struct MyFieldReceiver {
     ident: Option<Ident>,
 
@@ -29,7 +29,7 @@ impl MyFieldReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(validation_model), supports(struct_any))]
+#[darling(attributes(ck_validation_model), supports(struct_any))]
 struct MyInputReceiver {
     table_name: String,
 
@@ -45,7 +45,7 @@ impl MyInputReceiver {
     }
 }
 
-#[proc_macro_derive(ValidationModel, attributes(validation_model))]
+#[proc_macro_derive(CkValidationModel, attributes(ck_validation_model))]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
@@ -110,8 +110,8 @@ pub fn store(input: TokenStream) -> TokenStream {
                 Debug,
                 PartialEq,
                 Eq,
-                CrudId,
-                CrudColumns,
+                crudkit_rs::prelude::CkId,
+                crudkit_rs::prelude::CkColumns,
                 sea_orm::DeriveEntityModel,
                 serde::Serialize,
                 serde::Deserialize
@@ -127,7 +127,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
                 pub validator_name: String,
                 pub validator_version: i32,
-                #[crudkit_columns(convert_ccv = "to_string")]
+                #[ck_columns(convert_ccv = "to_string")]
                 pub violation_severity: crudkit_rs::validation::ValidationViolationType,
                 pub violation_message: String,
 

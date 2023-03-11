@@ -18,7 +18,7 @@ delete
 
     #[derive(Debug, Deserialize, DeriveCrudResources)]
     pub enum Resource {
-        #[crudkit(
+        #[ck_resource(
             create_model = asv_api::news::CreateModel,
             model = asv_api::news::Model,
             active_model = asv_api::news::ActiveModel,
@@ -26,7 +26,7 @@ delete
         #[serde(rename = "news")]
         News,
 
-        #[crudkit(
+        #[ck_resource(
             create_model = asv_api::news::CreateModel,
             model = asv_api::news::Model,
             active_model = asv_api::news::ActiveModel,
