@@ -1,9 +1,10 @@
 [package]
-name = "crud-websocket"
+name = "crudkit-websocket"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-crud-id = { path = "../crud-id/crates/crud-id" }
-crud-validation = { path = "../crud-validation" }
+crudkit-id = { git = "https://github.com/inf0rm4tik3r/crudkit-id" }
+crudkit-validation = { git = "https://github.com/inf0rm4tik3r/crudkit-validation" }
+
 serde = { version = "1", features = ["derive"] }

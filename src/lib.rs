@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use crud_id::SerializableId;
-use crud_validation::{FullSerializableValidations, PartialSerializableValidations};
+use crudkit_id::SerializableId;
+use crudkit_validation::{FullSerializableValidations, PartialSerializableValidations};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum CrudWsMessage {
+pub enum CkWsMessage {
     EntityCreated(EntityCreated),
     EntityUpdated(EntityUpdated),
     EntityDeleted(EntityDeleted),

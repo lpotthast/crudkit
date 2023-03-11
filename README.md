@@ -1,3 +1,3 @@
-# crudkit-validation
+# crudkit-websocket
 
-Provides structures for communicating validation information.
+Provides structures for websocket communication.
