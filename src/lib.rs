@@ -2,7 +2,7 @@ use std::{collections::HashMap, hash::Hash};
 
 use serde::{Deserialize, Serialize};
 
-use crud_id::{SerializableId, Id};
+use crudkit_id::{Id, SerializableId};
 
 // TODO: Combine this and OwnedValidatorInfo and use Cow?
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Serialize, Deserialize)]
