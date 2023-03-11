@@ -4,16 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-crudkit-condition = { git = "https://github.com/inf0rm4tik3r/crudkit-condition" }
-crudkit-id = { git = "https://github.com/inf0rm4tik3r/crudkit-id" }
-crudkit-shared = { git = "https://github.com/inf0rm4tik3r/crudkit-shared" }
-crudkit-validation = { git = "https://github.com/inf0rm4tik3r/crudkit-validation" }
-crudkit-websocket = { git = "https://github.com/inf0rm4tik3r/crudkit-websocket" }
+crudkit-condition = { git = "https://github.com/lpotthast/crudkit-condition" }
+crudkit-id = { git = "https://github.com/lpotthast/crudkit-id" }
+crudkit-shared = { git = "https://github.com/lpotthast/crudkit-shared" }
+crudkit-validation = { git = "https://github.com/lpotthast/crudkit-validation" }
+crudkit-websocket = { git = "https://github.com/lpotthast/crudkit-websocket" }
 
 # TODO: Remove this or properly provide dependency!
 axum-websockets = { path = "../../../../axum-websockets" }
 
-derive-crud-id = { git = "https://github.com/inf0rm4tik3r/crudkit-id" }
+derive-crud-id = { git = "https://github.com/lpotthast/crudkit-id" }
 
 derive-create-model = { path = "../derive-create-model" }
 derive-crud-columns = { path = "../derive-crud-columns" }

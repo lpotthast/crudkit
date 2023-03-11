@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 crudkit-rs = { path = "../crud-rs" }
-crudkit-condition = { git = "https://github.com/inf0rm4tik3r/crudkit-condition" }
-crudkit-shared = { git = "https://github.com/inf0rm4tik3r/crudkit-shared" }
+crudkit-condition = { git = "https://github.com/lpotthast/crudkit-condition" }
+crudkit-shared = { git = "https://github.com/lpotthast/crudkit-shared" }
 
 async-trait = "0.1"
 indexmap = { version = "1", features = ["serde"] }
