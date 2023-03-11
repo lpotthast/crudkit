@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use indexmap::IndexMap;
 
-use crud_condition::Condition;
-use crud_shared::Order;
+use crudkit_condition::Condition;
+use crudkit_shared::Order;
 
 use crate::resource::CrudResource;
 

@@ -114,7 +114,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
 
         #[async_trait::async_trait]
-        impl crud_rs::CreateModelTrait<ActiveModel> for CreateModel {
+        impl crudkit_rs::CreateModelTrait<ActiveModel> for CreateModel {
             async fn into_active_model(self) -> ActiveModel {
                 ActiveModel {
                     #(#into_active_model_arms),*

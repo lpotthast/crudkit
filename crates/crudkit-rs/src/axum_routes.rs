@@ -69,8 +69,8 @@ macro_rules! impl_add_crud_routes {
         paste::item! {
             pub mod [< axum_ $name _crud_routes >] {
                 use std::sync::Arc;
-                use crud_rs::prelude::*;
-                use crud_shared::{DeleteResult, SaveResult}; // TODO: Rely on crud_rs::prelude use?
+                use crudkit_rs::prelude::*;
+                use crudkit_shared::{DeleteResult, SaveResult}; // TODO: Rely on crudkit_rs::prelude use?
                 use axum::{
                     http::StatusCode,
                     response::{IntoResponse, Response},
@@ -137,11 +137,10 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_count(
-                    Extension(controller): Extension<Arc<CrudController>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadCount>,
                 ) -> Response {
-                    let result: Result<u64, AxumCrudError> = crud_rs::read::read_count::<$resource_type>(controller.clone(), context.clone(), body)
+                    let result: Result<u64, AxumCrudError> = crudkit_rs::read::read_count::<$resource_type>(context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -164,11 +163,10 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_one(
-                    Extension(controller): Extension<Arc<CrudController>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadOne<$resource_type>>,
                 ) -> Response {
-                    let result: Result<<$resource_type as CrudResource>::ReadViewModel, AxumCrudError> = crud_rs::read::read_one::<$resource_type>(controller.clone(), context.clone(), body)
+                    let result: Result<<$resource_type as CrudResource>::ReadViewModel, AxumCrudError> = crudkit_rs::read::read_one::<$resource_type>(context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -191,11 +189,10 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_many(
-                    Extension(controller): Extension<Arc<CrudController>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadMany<$resource_type>>,
                 ) -> Response {
-                    let result: Result<Vec<<$resource_type as CrudResource>::ReadViewModel>, AxumCrudError> = crud_rs::read::read_many::<$resource_type>(controller.clone(), context.clone(), body)
+                    let result: Result<Vec<<$resource_type as CrudResource>::ReadViewModel>, AxumCrudError> = crudkit_rs::read::read_many::<$resource_type>(context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -218,12 +215,11 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn create_one(
-                    Extension(controller): Extension<Arc<CrudController>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<CreateOne<<$resource_type as CrudResource>::CreateModel>>,
                 ) -> Response {
-                    let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crud_rs::create::create_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
+                    let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type>(context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -246,12 +242,11 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn update_one(
-                    Extension(controller): Extension<Arc<CrudController>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<UpdateOne<<$resource_type as CrudResource>::UpdateModel>>,
                 ) -> Response {
-                    let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crud_rs::update::update_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
+                    let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type>(context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -274,12 +269,11 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_by_id(
-                    Extension(controller): Extension<Arc<CrudController>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<DeleteById>,
                 ) -> Response {
-                    let result: Result<DeleteResult, AxumCrudError> = crud_rs::delete::delete_by_id::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
+                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type>(context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -302,12 +296,11 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_one(
-                    Extension(controller): Extension<Arc<CrudController>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<DeleteOne<$resource_type>>,
                 ) -> Response {
-                    let result: Result<DeleteResult, AxumCrudError> = crud_rs::delete::delete_one::<$resource_type>(controller.clone(), context.clone(), res_context.clone(), body)
+                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type>(context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -330,11 +323,10 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_many(
-                    Extension(controller): Extension<Arc<CrudController>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteMany>,
                 ) -> Response {
-                    let result: Result<DeleteResult, AxumCrudError> = crud_rs::delete::delete_many::<$resource_type>(controller.clone(), context.clone(), body)
+                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type>(context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -367,25 +359,25 @@ macro_rules! impl_add_crud_routes {
                         //schemas(<$resource_type as CrudResource>::Model as CrtModel),
                         //schemas(<$resource_type as CrudResource>::ReadViewModel as CrtReadModel),
                         //schemas(<$resource_type as CrudResource>::CreateModel as CrtCreateModel),
-                        schemas(crud_shared::DeleteResult),
-                        schemas(crud_shared::SaveResult<CrtModel>),
-                        schemas(crud_shared::Saved<CrtModel>),
-                        schemas(crud_condition::Condition),
-                        schemas(crud_condition::ConditionElement),
-                        schemas(crud_condition::ConditionClause),
-                        schemas(crud_condition::ConditionClauseValue),
-                        schemas(crud_condition::Operator),
-                        schemas(crud_id::SerializableId),
-                        schemas(crud_rs::error::CrudError),
-                        schemas(crud_rs::axum_routes::AxumCrudError),
-                        schemas(crud_rs::create::CreateOne<CrtCreateModel>),
-                        schemas(crud_rs::read::ReadCount),
-                        schemas(crud_rs::read::ReadOne<Crt>),
-                        schemas(crud_rs::read::ReadMany<Crt>),
-                        schemas(crud_rs::update::UpdateOne<Crt>),
-                        schemas(crud_rs::delete::DeleteById),
-                        schemas(crud_rs::delete::DeleteOne<Crt>),
-                        schemas(crud_rs::delete::DeleteMany),
+                        schemas(crudkit_shared::DeleteResult),
+                        schemas(crudkit_shared::SaveResult<CrtModel>),
+                        schemas(crudkit_shared::Saved<CrtModel>),
+                        schemas(crudkit_condition::Condition),
+                        schemas(crudkit_condition::ConditionElement),
+                        schemas(crudkit_condition::ConditionClause),
+                        schemas(crudkit_condition::ConditionClauseValue),
+                        schemas(crudkit_condition::Operator),
+                        schemas(crudkit_id::SerializableId),
+                        schemas(crudkit_rs::error::CrudError),
+                        schemas(crudkit_rs::axum_routes::AxumCrudError),
+                        schemas(crudkit_rs::create::CreateOne<CrtCreateModel>),
+                        schemas(crudkit_rs::read::ReadCount),
+                        schemas(crudkit_rs::read::ReadOne<Crt>),
+                        schemas(crudkit_rs::read::ReadMany<Crt>),
+                        schemas(crudkit_rs::update::UpdateOne<Crt>),
+                        schemas(crudkit_rs::delete::DeleteById),
+                        schemas(crudkit_rs::delete::DeleteOne<Crt>),
+                        schemas(crudkit_rs::delete::DeleteMany),
                     ),
                 )]
                 pub struct ApiDoc; // We just use `ApiDoc` instead of `[< $name _ApiDoc >]` as we are already in a named module.

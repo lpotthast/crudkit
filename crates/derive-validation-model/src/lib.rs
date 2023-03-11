@@ -99,7 +99,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
     quote! {
         pub mod validation_model {
-            use crud_rs::prelude::*;
+            use crudkit_rs::prelude::*;
             use sea_orm::entity::prelude::*;
             use serde::{Deserialize, Serialize};
 
@@ -127,8 +127,8 @@ pub fn store(input: TokenStream) -> TokenStream {
 
                 pub validator_name: String,
                 pub validator_version: i32,
-                #[crud_columns(convert_ccv = "to_string")]
-                pub violation_severity: crud_rs::validation::ValidationViolationType,
+                #[crudkit_columns(convert_ccv = "to_string")]
+                pub violation_severity: crudkit_rs::validation::ValidationViolationType,
                 pub violation_message: String,
 
                 pub created_at: time::OffsetDateTime,
@@ -140,17 +140,17 @@ pub fn store(input: TokenStream) -> TokenStream {
 
             impl sea_orm::entity::ActiveModelBehavior for ActiveModel {}
 
-            impl core::convert::Into<crud_validation::ValidationViolation> for Model {
-                fn into(self) -> crud_validation::ValidationViolation {
+            impl core::convert::Into<crudkit_validation::ValidationViolation> for Model {
+                fn into(self) -> crudkit_validation::ValidationViolation {
                     match self.violation_severity {
-                        crud_rs::validation::ValidationViolationType::Major => crud_validation::ValidationViolation::Major(self.violation_message),
-                        crud_rs::validation::ValidationViolationType::Critical => crud_validation::ValidationViolation::Critical(self.violation_message),
+                        crudkit_rs::validation::ValidationViolationType::Major => crudkit_validation::ValidationViolation::Major(self.violation_message),
+                        crudkit_rs::validation::ValidationViolationType::Critical => crudkit_validation::ValidationViolation::Critical(self.violation_message),
                     }
                 }
             }
 
-            impl crud_rs::NewActiveValidationModel<ParentId> for ActiveModel {
-                fn new(entity_id: ParentId, validator_name: String, validator_version: i32, violation: crud_rs::validation::PersistableViolation, now: time::OffsetDateTime) -> Self {
+            impl crudkit_rs::NewActiveValidationModel<ParentId> for ActiveModel {
+                fn new(entity_id: ParentId, validator_name: String, validator_version: i32, violation: crudkit_rs::validation::PersistableViolation, now: time::OffsetDateTime) -> Self {
                     Self {
                         id: sea_orm::ActiveValue::NotSet,
 
@@ -168,7 +168,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl crud_rs::ValidatorModel<ParentId> for Model {
+            impl crudkit_rs::ValidatorModel<ParentId> for Model {
                 fn get_id(&self) -> ParentId {
                     ParentId {
                         #(#super_id_field_init)*
@@ -184,7 +184,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl crud_rs::ValidationColumns for Column {
+            impl crudkit_rs::ValidationColumns for Column {
                 fn get_validator_name_column() -> Self {
                     Self::ValidatorName
                 }
@@ -199,8 +199,8 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
 
             // Note: This impl returns the ID columns of this validation model (statically known from above), not the parent model!
-            // For that ID, see the `impl crud_rs::ValidatorModel<ParentId> for Model` implementation.
-            impl crud_rs::IdColumns for Column {
+            // For that ID, see the `impl crudkit_rs::ValidatorModel<ParentId> for Model` implementation.
+            impl crudkit_rs::IdColumns for Column {
                 fn get_id_columns() -> Vec<Column> {
                     let mut vec = Vec::with_capacity(1);
                     vec.push(Column::Id);

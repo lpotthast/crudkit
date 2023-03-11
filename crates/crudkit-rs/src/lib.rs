@@ -1,15 +1,17 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-use crud_condition::ConditionClauseValue;
-use crud_id::Id;
-use crud_shared::Value;
+use std::str::FromStr;
 
 use async_trait::async_trait;
-use prelude::{CrudContext, CrudResource};
 use sea_orm::{ActiveModelTrait, ColumnTrait, ModelTrait};
-use std::str::FromStr;
 use time::format_description::well_known::Rfc3339;
+
+use crudkit_condition::ConditionClauseValue;
+use crudkit_id::Id;
+use crudkit_shared::Value;
+
+use prelude::{CrudContext, CrudResource};
 use validation::PersistableViolation;
 
 pub mod axum_routes;
@@ -25,36 +27,37 @@ pub mod resource;
 pub mod update;
 pub mod validate;
 pub mod validation;
+pub mod websocket;
 
 /*
 * Reexport common modules.
 * This allows the user to only
 *
-* - `use crud_rs::prelude::*` and
+* - `use crudkit_rs::prelude::*` and
 * - derive all common proc macros
 *
 * without the need to add more use declaration or
-* to manually depend on other crud crates such as "crud_id",
+* to manually depend on other crud crates such as "crudkit_id",
 * which are required for many derive macro implementations.
 */
-pub use crud_condition;
-pub use crud_id;
-pub use crud_shared;
-pub use crud_validation;
-pub use crud_websocket;
+pub use crudkit_condition;
+pub use crudkit_id;
+pub use crudkit_shared;
+pub use crudkit_validation;
+pub use crudkit_websocket;
 
 pub mod prelude {
-    pub use crud_condition;
-    pub use crud_id;
-    pub use crud_shared;
-    pub use crud_validation;
-    pub use crud_websocket;
+    pub use crudkit_condition;
+    pub use crudkit_id;
+    pub use crudkit_shared;
+    pub use crudkit_validation;
+    pub use crudkit_websocket;
 
     /* Provide convenient access to all our macros. */
     pub use derive_create_model::CreateModel;
     pub use derive_crud_columns::CrudColumns;
-    pub use derive_crud_id::CrudId;
     pub use derive_crud_resource_context::CrudResourceContext;
+    pub use derive_crudkit_id::CrudId;
     pub use derive_update_model::UpdateModel;
     pub use derive_validation_model::ValidationModel;
 
@@ -63,8 +66,8 @@ pub mod prelude {
 
     pub use super::context::CrudContext;
     pub use super::context::CrudResourceContext;
-    pub use super::controller::CrudController;
     pub use super::resource::CrudResource;
+    pub use super::websocket::CrudWebsocketController;
 
     pub use super::AsColType;
     pub use super::CreateModelTrait;

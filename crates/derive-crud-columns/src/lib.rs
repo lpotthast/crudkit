@@ -10,7 +10,7 @@ use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
 #[derive(Debug, FromField)]
-#[darling(attributes(crud_columns, crud_id))]
+#[darling(attributes(crudkit_columns, crudkit_id))]
 struct MyFieldReceiver {
     ident: Option<syn::Ident>,
 
@@ -34,7 +34,7 @@ impl MyFieldReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(crud_columns, crud_id), supports(struct_any))]
+#[darling(attributes(crudkit_columns, crudkit_id), supports(struct_any))]
 struct MyInputReceiver {
     ident: syn::Ident,
 
@@ -50,7 +50,7 @@ impl MyInputReceiver {
     }
 }
 
-#[proc_macro_derive(CrudColumns, attributes(crud_columns, crud_id))]
+#[proc_macro_derive(CrudColumns, attributes(crudkit_columns, crudkit_id))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -111,7 +111,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                 None => convert_field_type_to_function_name(&field.ty),
             };
             quote! {
-                Column::#variant => crud_rs::#fun_name(value)
+                Column::#variant => crudkit_rs::#fun_name(value)
             }
         });
 
@@ -132,7 +132,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             #(#column_variants),*
         }
 
-        impl crud_rs::CrudColumns<Column, Model, ActiveModel> for Col {
+        impl crudkit_rs::CrudColumns<Column, Model, ActiveModel> for Col {
             type Id = #id_struct_ident;
 
             fn to_sea_orm_column(&self) -> Column {
@@ -157,7 +157,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl crud_rs::GetIdFromModel for Model {
+        impl crudkit_rs::GetIdFromModel for Model {
             type Id = #id_struct_ident;
 
             // We use #struct_ident instead of Self::Id, as `for Col`, Col being an enum, can lead to indistinguishable types.
@@ -168,16 +168,16 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
         }
 
-        // TODO: Can we not just convert From<ConditionClauseValue> for std::result::Result<crud_shared::Value, String> by using the From trait?
-        impl crud_rs::AsColType for Column {
-            fn as_col_type(&self, value: crud_condition::ConditionClauseValue) -> std::result::Result<crud_shared::Value, String> {
+        // TODO: Can we not just convert From<ConditionClauseValue> for std::result::Result<crudkit_shared::Value, String> by using the From trait?
+        impl crudkit_rs::AsColType for Column {
+            fn as_col_type(&self, value: crudkit_condition::ConditionClauseValue) -> std::result::Result<crudkit_shared::Value, String> {
                 match self {
                     #(#extract_ccv_value_by_column_variant_match_arms),*
                 }
             }
         }
 
-        impl crud_rs::MaybeColumnTrait for Entity {
+        impl crudkit_rs::MaybeColumnTrait for Entity {
             type Column = Column;
 
             fn get_col(name: &str) -> std::option::Option<Self::Column> {
@@ -201,8 +201,8 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
             "f32" => "to_f32",
             "String" => "to_string",
             "serde_json::Value" => "to_json_value",
-            "crud_shared::UuidV4" => "to_uuid_v4",
-            "crud_shared::UuidV7" => "to_uuid_v7",
+            "crudkit_shared::UuidV4" => "to_uuid_v4",
+            "crudkit_shared::UuidV7" => "to_uuid_v7",
             "time::PrimitiveDateTime" => "to_primitive_date_time",
             "time::OffsetDateTime" => "to_offset_date_time",
             "Option<u32>" => "to_u32",

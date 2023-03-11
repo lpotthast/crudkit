@@ -1,6 +1,6 @@
 use crate::{lifetime::CrudLifetime, prelude::*, GetIdFromModel};
 
-use crud_id::Id;
+use crudkit_id::Id;
 
 use sea_orm::{
     ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, FromQueryResult,
@@ -114,6 +114,8 @@ pub trait CrudResource: Sized + Debug {
     type ValidationResultRepository: ValidationResultSaverTrait<
             <Self::CrudColumn as CrudColumns<Self::Column, Self::Model, Self::ActiveModel>>::Id,
         > + 'static;
+
+    type WebsocketController: CrudWebsocketController + 'static;
 
     /// An instance of this type is made available in all lifetime operations.
     /// Use this to supply arbitrary data, like custom services.

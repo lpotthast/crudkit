@@ -1,6 +1,6 @@
-use crud_condition::{Condition, ConditionElement, Operator};
-use crud_rs::prelude::*;
-use crud_shared::{Order, Value};
+use crudkit_condition::{Condition, ConditionElement, Operator};
+use crudkit_rs::prelude::*;
+use crudkit_shared::{Order, Value};
 use indexmap::IndexMap;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DeleteMany, EntityTrait, FromQueryResult, Insert, ModelTrait,

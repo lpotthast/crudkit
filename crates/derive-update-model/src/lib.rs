@@ -113,9 +113,9 @@ pub fn store(input: TokenStream) -> TokenStream {
             #(#update_model_fields),*
         }
 
-        impl crud_rs::UpdateModelTrait for UpdateModel {}
+        impl crudkit_rs::UpdateModelTrait for UpdateModel {}
 
-        impl crud_rs::UpdateActiveModelTrait<UpdateModel> for ActiveModel {
+        impl crudkit_rs::UpdateActiveModelTrait<UpdateModel> for ActiveModel {
             fn update_with(&mut self, update: UpdateModel) {
                 #(#update_active_model_stmts)*
             }

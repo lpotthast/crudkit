@@ -1,3 +1,15 @@
+use indexmap::IndexMap;
+use serde::Deserialize;
+use snafu::{Backtrace, GenerateImplicitData};
+use std::{collections::HashMap, sync::Arc};
+use utoipa::ToSchema;
+
+use crudkit_condition::{Condition, IntoAllEqualCondition};
+use crudkit_id::{Id, SerializableId};
+use crudkit_shared::{DeleteResult, Order};
+use crudkit_validation::PartialSerializableValidations;
+use crudkit_websocket::{CkWsMessage, EntityDeleted};
+
 use crate::{
     error::CrudError,
     lifetime::{Abort, CrudLifetime},
@@ -5,16 +17,6 @@ use crate::{
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
     GetIdFromModel,
 };
-use crud_condition::{Condition, IntoAllEqualCondition};
-use crud_id::{Id, SerializableId};
-use crud_shared::{DeleteResult, Order};
-use crud_validation::PartialSerializableValidations;
-use crud_websocket::{CrudWsMessage, EntityDeleted};
-use indexmap::IndexMap;
-use serde::Deserialize;
-use snafu::{Backtrace, GenerateImplicitData};
-use std::{collections::HashMap, sync::Arc};
-use utoipa::ToSchema;
 
 #[derive(Debug, ToSchema, Deserialize)]
 pub struct DeleteById {
@@ -35,9 +37,8 @@ pub struct DeleteMany {
     pub condition: Option<Condition>,
 }
 
-#[tracing::instrument(level = "info", skip(controller, context, res_context))]
+#[tracing::instrument(level = "info", skip(context, res_context))]
 pub async fn delete_by_id<R: CrudResource>(
-    controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
     res_context: Arc<R::Context>,
     body: DeleteById,
@@ -49,7 +50,14 @@ pub async fn delete_by_id<R: CrudResource>(
             None,
             None,
             None,
-            Some(&body.id.0.iter().map(|(name, value)| (name.clone(), value.clone())).into_all_equal_condition()),
+            Some(
+                &body
+                    .id
+                    .0
+                    .iter()
+                    .map(|(name, value)| (name.clone(), value.clone()))
+                    .into_all_equal_condition(),
+            ),
         )
         .await
         .map_err(|err| CrudError::Repository {
@@ -94,9 +102,11 @@ pub async fn delete_by_id<R: CrudResource>(
             partial_validation_results.clone().into(),
         )]);
 
-        controller.get_websocket_controller().broadcast_json(
-            &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
-        );
+        context
+            .ws_controller
+            .broadcast_json(&CkWsMessage::PartialValidationResult(
+                partial_serializable_validations,
+            ));
 
         // NOTE: Validations done before a deletion are only there to prevent it if necessary. Nothing must be persisted.
         return Ok(DeleteResult::CriticalValidationErrors);
@@ -128,9 +138,9 @@ pub async fn delete_by_id<R: CrudResource>(
 
     // Inform all participants that the entity was deleted.
     // TODO: Exclude the current user!
-    controller
-        .get_websocket_controller()
-        .broadcast_json(&CrudWsMessage::EntityDeleted(EntityDeleted {
+    context
+        .ws_controller
+        .broadcast_json(&CkWsMessage::EntityDeleted(EntityDeleted {
             aggregate_name: R::TYPE.into().to_owned(),
             entity_id: serializable_id,
         }));
@@ -138,9 +148,8 @@ pub async fn delete_by_id<R: CrudResource>(
     Ok(DeleteResult::Deleted(delete_result.entities_affected))
 }
 
-#[tracing::instrument(level = "info", skip(controller, context, res_context))]
+#[tracing::instrument(level = "info", skip(context, res_context))]
 pub async fn delete_one<R: CrudResource>(
-    controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
     res_context: Arc<R::Context>,
     body: DeleteOne<R>,
@@ -189,9 +198,11 @@ pub async fn delete_one<R: CrudResource>(
             partial_validation_results.clone().into(),
         )]);
 
-        controller.get_websocket_controller().broadcast_json(
-            &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
-        );
+        context
+            .ws_controller
+            .broadcast_json(&CkWsMessage::PartialValidationResult(
+                partial_serializable_validations,
+            ));
 
         // NOTE: Validations done before a deletion are only there to prevent it if necessary. Nothing must be persisted.
         return Ok(DeleteResult::CriticalValidationErrors);
@@ -220,9 +231,9 @@ pub async fn delete_one<R: CrudResource>(
 
     // Inform all participants that the entity was deleted.
     // TODO: Exclude the current user!
-    controller
-        .get_websocket_controller()
-        .broadcast_json(&CrudWsMessage::EntityDeleted(EntityDeleted {
+    context
+        .ws_controller
+        .broadcast_json(&CkWsMessage::EntityDeleted(EntityDeleted {
             aggregate_name: R::TYPE.into().to_owned(),
             entity_id: serializable_id,
         }));
@@ -232,7 +243,6 @@ pub async fn delete_one<R: CrudResource>(
 
 // TODO: IMPLEMENT. Match implementations above. Extract logic, reducing duplication if possible.
 pub async fn delete_many<R: CrudResource>(
-    _controller: Arc<CrudController>,
     _context: Arc<CrudContext<R>>,
     _body: DeleteMany,
 ) -> Result<DeleteResult, CrudError> {

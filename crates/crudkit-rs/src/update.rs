@@ -1,20 +1,20 @@
-use crate::{
-    error::CrudError,
-    prelude::*,
-    validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
-};
-
-use crud_condition::Condition;
-use crud_id::Id;
-use crud_shared::{SaveResult, Saved};
-use crud_validation::PartialSerializableValidations;
-use crud_websocket::{CrudWsMessage, EntityUpdated};
-
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};
 use std::{collections::HashMap, sync::Arc};
 use tracing::error;
 use utoipa::ToSchema;
+
+use crudkit_condition::Condition;
+use crudkit_id::Id;
+use crudkit_shared::{SaveResult, Saved};
+use crudkit_validation::PartialSerializableValidations;
+use crudkit_websocket::{CkWsMessage, EntityUpdated};
+
+use crate::{
+    error::CrudError,
+    prelude::*,
+    validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
+};
 
 #[derive(Debug, ToSchema, Deserialize)]
 pub struct UpdateOne<T> {
@@ -22,9 +22,8 @@ pub struct UpdateOne<T> {
     pub entity: T,
 }
 
-#[tracing::instrument(level = "info", skip(controller, context, _res_context))]
+#[tracing::instrument(level = "info", skip(context, _res_context))]
 pub async fn update_one<R: CrudResource>(
-    controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
     _res_context: Arc<R::Context>,
     body: UpdateOne<R::UpdateModel>,
@@ -74,9 +73,11 @@ pub async fn update_one<R: CrudResource>(
             partial_validation_results.clone().into(),
         )]);
 
-        controller.get_websocket_controller().broadcast_json(
-            &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
-        );
+        context
+            .ws_controller
+            .broadcast_json(&CkWsMessage::PartialValidationResult(
+                partial_serializable_validations,
+            ));
 
         // Persist the validation results for later access/use.
         let persistable = into_persistable(partial_validation_results);
@@ -119,9 +120,11 @@ pub async fn update_one<R: CrudResource>(
             partial_validation_results.clone().into(),
         )]);
 
-        controller.get_websocket_controller().broadcast_json(
-            &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
-        );
+        context
+            .ws_controller
+            .broadcast_json(&CkWsMessage::PartialValidationResult(
+                partial_serializable_validations,
+            ));
     }
 
     // Update the entry.
@@ -136,9 +139,9 @@ pub async fn update_one<R: CrudResource>(
 
     // Inform all participants that the entity was updated.
     // TODO: Exclude the current user!
-    controller
-        .get_websocket_controller()
-        .broadcast_json(&CrudWsMessage::EntityUpdated(EntityUpdated {
+    context
+        .ws_controller
+        .broadcast_json(&CkWsMessage::EntityUpdated(EntityUpdated {
             aggregate_name: R::TYPE.into().to_owned(),
             entity_id: serializable_id,
             with_validation_errors: has_violations,

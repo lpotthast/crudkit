@@ -6,10 +6,10 @@ use crate::{
     GetIdFromModel,
 };
 
-use crud_id::Id;
-use crud_validation::PartialSerializableValidations;
-use crud_websocket::{CrudWsMessage, EntityCreated};
-use crud_shared::{SaveResult, Saved};
+use crudkit_id::Id;
+use crudkit_shared::{SaveResult, Saved};
+use crudkit_validation::PartialSerializableValidations;
+use crudkit_websocket::{CkWsMessage, EntityCreated};
 
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};
@@ -21,9 +21,8 @@ pub struct CreateOne<T> {
     pub entity: T,
 }
 
-#[tracing::instrument(level = "info", skip(controller, context, res_context))]
+#[tracing::instrument(level = "info", skip(context, res_context))]
 pub async fn create_one<R: CrudResource>(
-    controller: Arc<CrudController>,
     context: Arc<CrudContext<R>>,
     res_context: Arc<R::Context>,
     body: CreateOne<R::CreateModel>,
@@ -69,8 +68,8 @@ pub async fn create_one<R: CrudResource>(
             String::from(R::TYPE.into()),
             partial_validation_results.clone().into(),
         )]);
-        controller.get_websocket_controller().broadcast_json(
-            &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
+        context.ws_controller.broadcast_json(
+            &CkWsMessage::PartialValidationResult(partial_serializable_validations),
         );
 
         // NOTE: Nothing must be persisted, as the entity is not yet created!
@@ -86,12 +85,15 @@ pub async fn create_one<R: CrudResource>(
     //         backtrace: Backtrace::generate(),
     //     })?;
 
-    let inserted_entity: R::Model = context.repository.insert(active_model)
-        .await
-        .map_err(|err| CrudError::Repository {
-            reason: Arc::new(err),
-            backtrace: Backtrace::generate(),
-        })?;
+    let inserted_entity: R::Model =
+        context
+            .repository
+            .insert(active_model)
+            .await
+            .map_err(|err| CrudError::Repository {
+                reason: Arc::new(err),
+                backtrace: Backtrace::generate(),
+            })?;
 
     let _hook_data = R::Lifetime::after_create(
         &create_model_clone,
@@ -135,8 +137,8 @@ pub async fn create_one<R: CrudResource>(
                 s.create = Some(Vec::new());
             });
 
-        controller.get_websocket_controller().broadcast_json(
-            &CrudWsMessage::PartialValidationResult(partial_serializable_validations),
+            context.ws_controller.broadcast_json(
+            &CkWsMessage::PartialValidationResult(partial_serializable_validations),
         );
 
         // Persist the validation results for later access/use.
@@ -153,9 +155,8 @@ pub async fn create_one<R: CrudResource>(
 
     // Inform all participants that the entity was updated.
     // TODO: Exclude the current user!
-    controller
-        .get_websocket_controller()
-        .broadcast_json(&CrudWsMessage::EntityCreated(EntityCreated {
+    context.ws_controller
+        .broadcast_json(&CkWsMessage::EntityCreated(EntityCreated {
             aggregate_name: R::TYPE.into().to_owned(),
             entity_id: serializable_id,
             with_validation_errors,

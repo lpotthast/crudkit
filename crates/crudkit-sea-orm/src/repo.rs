@@ -6,13 +6,13 @@ use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, ModelTrait, Paginator
 use snafu::{Backtrace, ResultExt, Snafu};
 use utoipa::ToSchema;
 
-use crud_rs::{
+use crudkit_rs::{
     repository::{DeleteResult, Repository, RepositoryError},
     resource::CrudResource,
 };
 
-use crud_condition::Condition;
-use crud_shared::Order;
+use crudkit_condition::Condition;
+use crudkit_shared::Order;
 
 use crate::query;
 
@@ -65,7 +65,7 @@ impl<R: CrudResource> Repository<R> for SeaOrmRepo {
         limit: Option<u64>,
         skip: Option<u64>,
         order_by: Option<IndexMap<R::CrudColumn, Order>>,
-        condition: Option<&crud_condition::Condition>,
+        condition: Option<&crudkit_condition::Condition>,
     ) -> Result<u64, Self::Error> {
         query::build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
             limit, skip, order_by, condition,

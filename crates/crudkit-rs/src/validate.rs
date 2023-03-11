@@ -1,4 +1,4 @@
-use crud_validation::{ValidationViolation, Violations};
+use crudkit_validation::{ValidationViolation, Violations};
 
 use sea_orm::ActiveValue;
 
