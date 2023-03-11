@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-crudkit-id = { git = "https://github.com/lpotthast/crudkit-id" }
-crudkit-validation = { git = "https://github.com/lpotthast/crudkit-validation" }
+crudkit-id = { path = "../crudkit-id/crates/crudkit-id" }
+crudkit-validation = { path = "../crudkit-validation" }
 
 serde = { version = "1", features = ["derive"] }
