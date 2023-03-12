@@ -62,6 +62,8 @@ impl IntoResponse for AxumCrudError {
     }
 }
 
+// TODO: On error, e REPORT must be generated, containing all error sources!
+
 #[macro_export]
 macro_rules! impl_add_crud_routes {
 
@@ -145,7 +147,10 @@ macro_rules! impl_add_crud_routes {
                         .map_err(Into::into);
                     match result {
                         Ok(count) => (StatusCode::OK, Json(count)).into_response(),
-                        Err(err) => err.into_response()
+                        Err(err) => {
+                            tracing::error!(?err, "Could not perform CRUD operation: read count.");
+                            err.into_response()
+                        },
                     }
                 }
 
@@ -171,7 +176,10 @@ macro_rules! impl_add_crud_routes {
                         .map_err(Into::into);
                     match result {
                         Ok(date) => (StatusCode::OK, Json(date)).into_response(),
-                        Err(err) => err.into_response(),
+                        Err(err) => {
+                            tracing::error!(?err, "Could not perform CRUD operation: read one.");
+                            err.into_response()
+                        },
                     }
                 }
 
@@ -197,7 +205,10 @@ macro_rules! impl_add_crud_routes {
                         .map_err(Into::into);
                     match result {
                         Ok(date) => (StatusCode::OK, Json(date)).into_response(),
-                        Err(err) => err.into_response(),
+                        Err(err) => {
+                            tracing::error!(?err, "Could not perform CRUD operation: read many.");
+                            err.into_response()
+                        },
                     }
                 }
 
@@ -224,7 +235,10 @@ macro_rules! impl_add_crud_routes {
                         .map_err(Into::into);
                     match result {
                         Ok(data) => (StatusCode::OK, Json(data)).into_response(),
-                        Err(err) => err.into_response(),
+                        Err(err) => {
+                            tracing::error!(?err, "Could not perform CRUD operation: create one.");
+                            err.into_response()
+                        },
                     }
                 }
 
@@ -251,7 +265,10 @@ macro_rules! impl_add_crud_routes {
                         .map_err(Into::into);
                     match result {
                         Ok(data) => (StatusCode::OK, Json(data)).into_response(),
-                        Err(err) => err.into_response(),
+                        Err(err) => {
+                            tracing::error!(?err, "Could not perform CRUD operation: update.");
+                            err.into_response()
+                        },
                     }
                 }
 
@@ -278,7 +295,10 @@ macro_rules! impl_add_crud_routes {
                         .map_err(Into::into);
                     match result {
                         Ok(data) => (StatusCode::OK, Json(data)).into_response(),
-                        Err(err) => err.into_response(),
+                        Err(err) => {
+                            tracing::error!(?err, "Could not perform CRUD operation: delete by id.");
+                            err.into_response()
+                        },
                     }
                 }
 
@@ -305,7 +325,10 @@ macro_rules! impl_add_crud_routes {
                         .map_err(Into::into);
                     match result {
                         Ok(data) => (StatusCode::OK, Json(data)).into_response(),
-                        Err(err) => err.into_response(),
+                        Err(err) => {
+                            tracing::error!(?err, "Could not perform CRUD operation: delete one.");
+                            err.into_response()
+                        },
                     }
                 }
 
@@ -331,7 +354,10 @@ macro_rules! impl_add_crud_routes {
                         .map_err(Into::into);
                     match result {
                         Ok(data) => (StatusCode::OK, Json(data)).into_response(),
-                        Err(err) => err.into_response(),
+                        Err(err) => {
+                            tracing::error!(?err, "Could not perform CRUD operation: delete many.");
+                            err.into_response()
+                        },
                     }
                 }
 
