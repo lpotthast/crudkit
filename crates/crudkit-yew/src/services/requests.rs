@@ -1,6 +1,6 @@
 use std::{fmt::{Debug, Display}, convert::Infallible};
 
-use serde::{de::DeserializeOwned, Serialize, Deserialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::types::{ErrorInfo, RequestError};
 
