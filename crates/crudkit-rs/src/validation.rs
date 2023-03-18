@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use sea_orm::{ColumnTypeTrait, DeriveActiveEnum, EnumIter};
+use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 
