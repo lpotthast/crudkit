@@ -1,0 +1,8 @@
+[package]
+name = "crudkit-yew-build-deps"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+yew-bootstrap-icons-build-deps = { git = "https://github.com/lpotthast/yew-bootstrap-icons" }
+yew-tiptap-build-deps = { git = "https://github.com/lpotthast/yew-tiptap" }

@@ -1,0 +1,58 @@
+[package]
+name = "crudkit-yew"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crudkit-condition = { path = "../../../crudkit-condition" }
+crudkit-id = { path = "../../../crudkit-id/crates/crudkit-id" }
+crudkit-shared = { path = "../../../crudkit-shared" }
+crudkit-validation = { path = "../../../crudkit-validation" }
+crudkit-websocket = { path = "../../../crudkit-websocket" }
+derive-crud-action-payload = { path = "../derive-crud-action-payload" }
+derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
+derive-crud-resource = { path = "../derive-crud-resource" }
+derive-crud-selectable = { path = "../derive-crud-selectable" }
+derive-field = { path = "../derive-field" }
+derive-field-value = { path = "../derive-field-value" }
+
+async-trait = "0.1"
+derive_more = "0.99"
+dyn-clone = "1"
+gloo = "0.8"
+indexmap = { version = "1", features = ["serde"] }
+js-sys = "0.3"
+once_cell = "1"
+parking_lot = "0.12"
+reqwest = { version = "0.11", default-features = false, features = [
+    "json",
+    "multipart",
+] }
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "0.5"
+serde_json = { version = "1", features = ["raw_value"] }
+thiserror = "1"
+time = { version = "0.3", features = [
+    "macros",
+    "local-offset",
+    "wasm-bindgen",
+] }
+tracing = "0.1"
+urlencoding = "2"
+uuid = { version = "1", features = ["js", "v4", "v7", "serde"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+    "Document",
+    "Element",
+    "HtmlElement",
+    "HtmlInputElement",
+    "DomTokenList",
+    "Event",
+    "EventTarget",
+    "DomRect",
+] }
+yew = "0.20"
+yew-bootstrap-icons = { git = "https://github.com/lpotthast/yew-bootstrap-icons" }
+yew-tiptap = { git = "https://github.com/lpotthast/yew-tiptap" }
+yewdux = "0.9"
