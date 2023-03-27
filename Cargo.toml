@@ -1,0 +1,11 @@
+[workspace]
+members = ["crates/*"]
+default-members = ["crates/crudkit-id"]
+
+[workspace.dependencies]
+proc-macro-type-name = "0.1"
+darling = "0.14"
+proc-macro-error = "1"
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "1", features = ["extra-traits"] }
