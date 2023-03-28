@@ -14,8 +14,8 @@ pub fn store(input: TokenStream) -> TokenStream {
     let ident = &ast.ident;
 
     quote! {
-        impl crudkit_yew::CrudSelectableTrait for #ident {
-            fn as_any(&self) -> &dyn std::any::Any {
+        impl ::crudkit_web::CrudSelectableTrait for #ident {
+            fn as_any(&self) -> &dyn ::std::any::Any {
                 self
             }
         }

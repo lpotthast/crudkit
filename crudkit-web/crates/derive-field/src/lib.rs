@@ -100,7 +100,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     let id_impl = match id_fields.len() {
         // TODO: Create an error, as every aggregate needs an id?
         0 => quote! {},
-        // Implement the `crudkit_yew::CrudIdTrait` trait if there are id fields in the struct.
+        // Implement the `crudkit_web::CrudIdTrait` trait if there are id fields in the struct.
         _ => {
             let id_struct_ident = Ident::new(format!("{}Id", name).as_str(), name.span());
 
@@ -112,7 +112,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
             // Implements the main 'CrudIdTrait' for our base type. Allowing the user to access the ID of the entity.
             quote! {
-                impl crudkit_yew::CrudIdTrait for #name {
+                impl ::crudkit_web::CrudIdTrait for #name {
                     type Id = #id_struct_ident;
 
                     fn get_id(&self) -> Self::Id {
@@ -170,7 +170,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             #(#typified_fields),*
         }
 
-        impl crudkit_yew::CrudFieldNameTrait for #field_name {
+        impl ::crudkit_web::CrudFieldNameTrait for #field_name {
             fn get_name(&self) -> &'static str {
                 #get_name_impl
             }
@@ -178,7 +178,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         #id_impl
 
-        impl crudkit_yew::CrudDataTrait for #name {
+        impl ::crudkit_web::CrudDataTrait for #name {
             type Field = #field_name;
 
             fn get_field(field_name: &str) -> #field_name {

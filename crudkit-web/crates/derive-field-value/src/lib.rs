@@ -79,7 +79,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     let ident = &input.ident;
     let field_enum_ident = Ident::new(format!("{ident}Field").as_str(), ident.span());
 
-    // Self::Id => crudkit_yew::Value::U32(entity.id),
+    // Self::Id => crudkit_web::Value::U32(entity.id),
     let get_field_value_arms = input.fields().iter().map(|field| {
         let field_ident = field.ident.as_ref().expect("Expected named field!");
         let field_name = field_ident.to_string();
@@ -94,11 +94,11 @@ pub fn store(input: TokenStream) -> TokenStream {
         let value_clone = match value_type {
             ValueType::String => quote! { entity.#field_ident.clone() },
             ValueType::Text => quote! { entity.#field_ident.clone() },
-            ValueType::Json => quote! { crudkit_yew::JsonValue::new(entity.#field_ident.clone()) },
+            ValueType::Json => quote! { ::crudkit_web::JsonValue::new(entity.#field_ident.clone()) },
             ValueType::OptionalText => quote! { entity.#field_ident.clone().unwrap_or_default() },
             // We use .unwrap_or_default(), as we feed that string into Value::String (see From<ValueType>). We should get rid of this.
             ValueType::OptionalString => quote! { entity.#field_ident.clone().unwrap_or_default() },
-            ValueType::OptionalJson => quote! { entity.#field_ident.clone().map(|it| crudkit_yew::JsonValue::new(it)) },
+            ValueType::OptionalJson => quote! { entity.#field_ident.clone().map(|it| ::crudkit_web::JsonValue::new(it)) },
             ValueType::UuidV4 => quote! { entity.#field_ident },
             ValueType::UuidV7 => quote! { entity.#field_ident },
             ValueType::Bool => quote! { entity.#field_ident },
@@ -129,7 +129,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         };
 
         quote! {
-            #field_enum_ident::#field_name_as_type_ident => crudkit_yew::Value::#value_type_ident(#value_clone)
+            #field_enum_ident::#field_name_as_type_ident => ::crudkit_web::Value::#value_type_ident(#value_clone)
         }
     });
     let get_value_impl = match input.fields().len() {
@@ -209,12 +209,12 @@ pub fn store(input: TokenStream) -> TokenStream {
     };
 
     quote! {
-        impl crudkit_yew::CrudFieldValueTrait<#ident> for #field_enum_ident {
-            fn get_value(&self, entity: &#ident) -> crudkit_yew::Value {
+        impl ::crudkit_web::CrudFieldValueTrait<#ident> for #field_enum_ident {
+            fn get_value(&self, entity: &#ident) -> ::crudkit_web::Value {
                 #get_value_impl
             }
 
-            fn set_value(&self, entity: &mut #ident, value: crudkit_yew::Value) {
+            fn set_value(&self, entity: &mut #ident, value: ::crudkit_web::Value) {
                 #set_value_impl
             }
         }
@@ -255,7 +255,7 @@ enum ValueType {
     Custom,
 }
 
-/// Converts to the name of the `crudkit_yew::Value` variant which should be used.
+/// Converts to the name of the `crudkit_web::Value` variant which should be used.
 impl From<ValueType> for Ident {
     fn from(value_type: ValueType) -> Self {
         Ident::new(

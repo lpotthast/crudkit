@@ -19,6 +19,6 @@ quote = { workspace = true }
 syn = { workspace = true }
 
 [dev-dependencies]
-crudkit-yew = { path = "../crudkit-yew" }
+crudkit-web = { path = "../crudkit-web" }
 serde = "1"
 trybuild = { version = "1", features = ["diff"] }

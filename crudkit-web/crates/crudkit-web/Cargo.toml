@@ -1,5 +1,5 @@
 [package]
-name = "crudkit-yew"
+name = "crudkit-web"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,13 +9,15 @@ crudkit-id = { path = "../../../crudkit-id/crates/crudkit-id" }
 crudkit-shared = { path = "../../../crudkit-shared" }
 crudkit-validation = { path = "../../../crudkit-validation" }
 crudkit-websocket = { path = "../../../crudkit-websocket" }
-derive-crud-action-payload = { path = "../../../crudkit-web/crates/derive-crud-action-payload" }
-derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
-derive-crud-resource = { path = "../../../crudkit-web/crates/derive-crud-resource" }
-derive-crud-selectable = { path = "../../../crudkit-web/crates/derive-crud-selectable" }
-derive-field = { path = "../../../crudkit-web/crates/derive-field" }
-derive-field-value = { path = "../../../crudkit-web/crates/derive-field-value" }
 
+derive-crud-action-payload = { path = "../derive-crud-action-payload" }
+derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
+derive-crud-resource = { path = "../derive-crud-resource" }
+derive-crud-selectable = { path = "../derive-crud-selectable" }
+derive-field = { path = "../derive-field" }
+derive-field-value = { path = "../derive-field-value" }
+
+# TODO: check which dependencies can be removed safely.
 async-trait = "0.1"
 derive_more = "0.99"
 dyn-clone = "1"
@@ -52,7 +54,3 @@ web-sys = { version = "0.3", features = [
     "EventTarget",
     "DomRect",
 ] }
-yew = "0.20"
-yew-bootstrap-icons = { git = "https://github.com/lpotthast/yew-bootstrap-icons" }
-yew-tiptap = { git = "https://github.com/lpotthast/yew-tiptap" }
-yewdux = "0.9"
