@@ -1,11 +1,7 @@
 use std::marker::PhantomData;
 
-use crate::{
-    crud_instance::Item, crud_offset_datetime::CrudOffsetDatetime, event_target_as,
-    keyboard_event_target_as, types::custom_field::CustomFields, DateTimeDisplay,
-};
-
-use super::prelude::*;
+use crate::{prelude::*, crud_instance::Item};
+use crudkit_web::{keyboard_event_target_as, event_target_as, DateTimeDisplay};
 use time::{format_description::well_known::Rfc3339, macros::format_description, UtcOffset};
 use tracing::error;
 use uuid::Uuid;
@@ -23,7 +19,7 @@ pub enum Msg {
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
     pub children: ChildrenRenderer<Item>,
-    pub custom_fields: CustomFields<T>,
+    pub custom_fields: CustomFields<T, yew::Html>,
     pub api_base_url: String,
     pub current_view: CrudSimpleView,
     pub field_type: T::Field,

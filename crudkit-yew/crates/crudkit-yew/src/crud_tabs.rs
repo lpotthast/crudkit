@@ -1,6 +1,6 @@
 use yew::prelude::*;
 
-use crate::Label;
+use crudkit_web::Label;
 
 use super::prelude::CrudTab;
 

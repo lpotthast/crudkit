@@ -1,4 +1,5 @@
-use super::prelude::*;
+use crate::prelude::*;
+use crudkit_web::prelude::*;
 use crudkit_shared::Order;
 use std::marker::PhantomData;
 use yew::prelude::*;

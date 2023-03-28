@@ -12,14 +12,9 @@ use yew::{
     prelude::*,
 };
 
-use crate::{
-    crud_action::EntityModalGeneration,
-    crud_instance::Item,
-    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne, UpdateOne},
-    types::custom_field::CustomUpdateFields,
-};
-
-use super::{prelude::*, types::RequestError};
+use crate::crud_action::EntityModalGeneration;
+use crate::crud_instance::Item;
+use crate::prelude::*;
 
 const MILLIS_UNTIL_ERROR_IS_SHOWN: u32 = 1000;
 
@@ -75,7 +70,7 @@ pub enum Msg<T: CrudMainTrait> {
 pub struct Props<T: 'static + CrudMainTrait> {
     pub on_link: Callback<Option<Scope<CrudEditView<T>>>>,
     pub children: ChildrenRenderer<Item>,
-    pub custom_fields: CustomUpdateFields<T>,
+    pub custom_fields: CustomUpdateFields<T, yew::Html>,
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
     pub static_config: CrudStaticInstanceConfig<T>,

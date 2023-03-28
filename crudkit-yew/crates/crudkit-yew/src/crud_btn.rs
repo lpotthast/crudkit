@@ -139,7 +139,7 @@ impl Component for CrudBtn {
             <div
                 class={classes!(
                     "crud-btn",
-                    ctx.props().variant,
+                    ctx.props().variant.class_name(),
                     ctx.props().size,
                     ctx.props().active.then(|| "active"),
                     ctx.props().disabled.then(|| "disabled"),

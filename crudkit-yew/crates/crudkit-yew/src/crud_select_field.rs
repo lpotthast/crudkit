@@ -1,11 +1,12 @@
 use std::{marker::PhantomData, rc::Rc};
 
 use crate::{crud_instance::CreateOrUpdateField, crud_select::Selection, prelude::*};
+use crudkit_web::CrudMainTrait;
 use tracing::{info, warn};
 use yew::{html::Scope, prelude::*};
 use yewdux::prelude::Dispatch;
 
-use crate::{stores, CrudMainTrait};
+use crate::stores;
 
 pub enum Msg<P, S, T>
 where

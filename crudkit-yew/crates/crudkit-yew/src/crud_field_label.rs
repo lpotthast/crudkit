@@ -1,6 +1,6 @@
 use yew::prelude::*;
 
-use crate::Label;
+use crate::prelude::*;
 
 pub enum Msg {}
 

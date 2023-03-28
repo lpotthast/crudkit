@@ -5,9 +5,7 @@ use web_sys::HtmlElement;
 use yew::prelude::*;
 use yew_bootstrap_icons::v1_10_3::Bi;
 
-use crate::{event_target_as, keyboard_event_target_as};
-
-use super::prelude::*;
+use crate::prelude::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CrudQuickSearchOption {

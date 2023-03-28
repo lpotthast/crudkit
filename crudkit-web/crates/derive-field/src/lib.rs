@@ -112,7 +112,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
             // Implements the main 'CrudIdTrait' for our base type. Allowing the user to access the ID of the entity.
             quote! {
-                impl ::crudkit_web::CrudIdTrait for #name {
+                impl crudkit_web::CrudIdTrait for #name {
                     type Id = #id_struct_ident;
 
                     fn get_id(&self) -> Self::Id {
@@ -170,7 +170,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             #(#typified_fields),*
         }
 
-        impl ::crudkit_web::CrudFieldNameTrait for #field_name {
+        impl crudkit_web::CrudFieldNameTrait for #field_name {
             fn get_name(&self) -> &'static str {
                 #get_name_impl
             }
@@ -178,7 +178,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         #id_impl
 
-        impl ::crudkit_web::CrudDataTrait for #name {
+        impl crudkit_web::CrudDataTrait for #name {
             type Field = #field_name;
 
             fn get_field(field_name: &str) -> #field_name {

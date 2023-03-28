@@ -5,8 +5,8 @@ use async_trait::async_trait;
 use crudkit_condition::ConditionClauseValue;
 use crudkit_id::SerializableId;
 use dyn_clone::DynClone;
+use requests::{AuthProvider, RequestError};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use services::requests::AuthProvider;
 use std::{
     any::Any,
     fmt::{Debug, Display},
@@ -14,15 +14,13 @@ use std::{
 };
 use time::format_description::well_known::Rfc3339;
 use tracing::warn;
-use types::RequestError;
 use wasm_bindgen::JsCast;
-use web_sys::KeyboardEvent;
 
-pub mod services;
-pub mod stores;
-pub mod types;
-
-mod event_functions;
+pub mod crud_rest_data_provider;
+pub mod custom_field;
+pub mod error;
+pub mod files;
+pub mod requests;
 
 /*
 * Reexport common modules.
@@ -55,11 +53,34 @@ pub mod prelude {
     pub use derive_field::CkField;
     pub use derive_field_value::CkFieldValue;
 
-    pub use super::types::custom_field::CustomCreateFields;
-    pub use super::types::custom_field::CustomField;
-    pub use super::types::custom_field::CustomFields;
-    pub use super::types::custom_field::CustomReadFields;
-    pub use super::types::custom_field::CustomUpdateFields;
+    pub use super::crud_rest_data_provider::CreateOne;
+    pub use super::crud_rest_data_provider::CrudRestDataProvider;
+    pub use super::crud_rest_data_provider::DeleteById;
+    pub use super::crud_rest_data_provider::ReadCount;
+    pub use super::crud_rest_data_provider::ReadMany;
+    pub use super::crud_rest_data_provider::ReadOne;
+    pub use super::crud_rest_data_provider::UpdateOne;
+    pub use super::custom_field::CustomCreateFields;
+    pub use super::custom_field::CustomField;
+    pub use super::custom_field::CustomFields;
+    pub use super::custom_field::CustomReadFields;
+    pub use super::custom_field::CustomUpdateFields;
+    pub use super::error::ErrorInfo;
+    pub use super::event_target_as;
+    pub use super::files::FileResource;
+    pub use super::files::ListFileError;
+    pub use super::files::ListFilesResponse;
+    pub use super::keyboard_event_target_as;
+    pub use super::requests::request;
+    pub use super::requests::request_delete;
+    pub use super::requests::request_get;
+    pub use super::requests::request_post;
+    pub use super::requests::request_post_multipart;
+    pub use super::requests::request_put;
+    pub use super::requests::AuthMethod;
+    pub use super::requests::AuthProvider;
+    pub use super::requests::NoAuthProvider;
+    pub use super::requests::RequestError;
     pub use super::CrudActionPayload;
     pub use super::CrudDataTrait;
     pub use super::CrudFieldNameTrait;
@@ -114,20 +135,34 @@ pub enum Variant {
     Danger,
 }
 
-// TODO: This con be computed statically!
-impl From<Variant> for Classes {
-    fn from(variant: Variant) -> Self {
-        match variant {
-            Variant::Default => classes!("type-default"),
-            Variant::Primary => classes!("type-primary"),
-            Variant::Secondary => classes!("type-secondary"),
-            Variant::Success => classes!("type-success"),
-            Variant::Info => classes!("type-default"),
-            Variant::Warn => classes!("type-warn"),
-            Variant::Danger => classes!("type-danger"),
+impl Variant {
+    pub fn class_name(&self) -> &'static str {
+        match self {
+            Variant::Default => "type-default",
+            Variant::Primary => "type-primary",
+            Variant::Secondary => "type-secondary",
+            Variant::Success => "type-success",
+            Variant::Info => "type-default",
+            Variant::Warn => "type-warn",
+            Variant::Danger => "type-danger",
         }
     }
 }
+
+// TODO: This con be computed statically!
+//impl From<Variant> for Classes {
+//    fn from(variant: Variant) -> Self {
+//        match variant {
+//            Variant::Default => classes!("type-default"),
+//            Variant::Primary => classes!("type-primary"),
+//            Variant::Secondary => classes!("type-secondary"),
+//            Variant::Success => classes!("type-success"),
+//            Variant::Info => classes!("type-default"),
+//            Variant::Warn => classes!("type-warn"),
+//            Variant::Danger => classes!("type-danger"),
+//        }
+//    }
+//}
 
 // TODO: impl Clone if both types are clone, same for debug, ...
 pub trait CrudMainTrait:
@@ -773,7 +808,7 @@ pub enum DateTimeDisplay {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Label {
-    name: String,
+    pub name: String,
 }
 
 impl Label {
@@ -853,7 +888,7 @@ pub struct Group<T: CrudDataTrait> {
     pub children: Vec<Elem<T>>,
 }
 
-pub fn event_target_as<T: JsCast>(event: Event) -> Result<T, String> {
+pub fn event_target_as<T: JsCast>(event: web_sys::Event) -> Result<T, String> {
     event
         .target()
         .ok_or_else(|| format!("Unable to obtain target from event: {:?}", event))
@@ -864,7 +899,7 @@ pub fn event_target_as<T: JsCast>(event: Event) -> Result<T, String> {
         })
 }
 
-pub fn keyboard_event_target_as<T: JsCast>(event: KeyboardEvent) -> Result<T, String> {
+pub fn keyboard_event_target_as<T: JsCast>(event: web_sys::KeyboardEvent) -> Result<T, String> {
     event
         .target()
         .ok_or_else(|| format!("Unable to obtain target from event: {:?}", event))

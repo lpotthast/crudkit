@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
 
 use super::requests::*;
-use crate::{types::RequestError, CrudDataTrait, CrudMainTrait};
+use crate::{CrudDataTrait, CrudMainTrait};
 
 #[derive(Debug, Serialize)]
 pub struct ReadCount {

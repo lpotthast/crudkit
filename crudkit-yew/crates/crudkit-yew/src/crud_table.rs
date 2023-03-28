@@ -4,9 +4,8 @@ use std::rc::Rc;
 use yew::{html::ChildrenRenderer, prelude::*};
 use yew_bootstrap_icons::v1_10_3::Bi;
 
-use crate::{crud_instance::Item, types::custom_field::CustomFields};
-
-use super::prelude::*;
+use crate::crud_instance::Item;
+use crate::prelude::*;
 
 const MILLIS_UNTIL_ERROR_IS_SHOWN: u32 = 1000;
 
@@ -27,7 +26,7 @@ where
     T: CrudDataTrait,
 {
     pub children: ChildrenRenderer<Item>,
-    pub custom_fields: CustomFields<T>,
+    pub custom_fields: CustomFields<T, yew::Html>,
     pub api_base_url: String,
     pub data: Option<Rc<Vec<T>>>,
     pub no_data: Option<(NoData, time::OffsetDateTime)>,

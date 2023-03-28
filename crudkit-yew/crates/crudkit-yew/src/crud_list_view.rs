@@ -11,9 +11,6 @@ use crate::{
     crud_action::ModalGeneration,
     crud_instance::Item,
     prelude::*,
-    services::crud_rest_data_provider::{CrudRestDataProvider, ReadCount, ReadMany},
-    types::custom_field::CustomReadFields,
-    types::RequestError,
 };
 
 // TODO: Disable the reset button as long as there is an ongoing request!
@@ -58,7 +55,7 @@ pub enum Msg<T: CrudMainTrait> {
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudMainTrait + 'static> {
     pub children: ChildrenRenderer<Item>,
-    pub custom_fields: CustomReadFields<T>,
+    pub custom_fields: CustomReadFields<T, yew::Html>,
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
     pub static_config: CrudStaticInstanceConfig<T>,

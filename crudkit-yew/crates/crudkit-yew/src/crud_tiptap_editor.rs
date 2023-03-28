@@ -1,12 +1,13 @@
-use crate::{prelude::*, types::files::FileResource};
 use yew::{html::Scope, prelude::*};
+use yew_bootstrap_icons::v1_10_3::Bi;
 use yew_tiptap::{
     tiptap_instance::{Content, Selection, SelectionState, TiptapInstance},
     ImageResource,
 };
-use yew_bootstrap_icons::v1_10_3::Bi;
 
 type TiptapInstanceMsg = <TiptapInstance as Component>::Message;
+
+use crate::prelude::*;
 
 pub enum Msg {
     InstanceLinked(Option<Scope<TiptapInstance>>),

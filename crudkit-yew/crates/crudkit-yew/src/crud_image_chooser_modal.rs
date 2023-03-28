@@ -4,7 +4,7 @@ use yew::prelude::*;
 use yewdux::prelude::Dispatch;
 
 use super::prelude::*;
-use crate::{stores::global_key_up::GlobalKeyUp, types::files::FileResource};
+use crate::stores::global_key_up::GlobalKeyUp;
 
 pub enum Msg {
     Selected(FileResource),

@@ -1,8 +1,8 @@
-use crate::{crud_instance::Item, types::custom_field::CustomFields};
-
-use super::prelude::*;
 use std::marker::PhantomData;
 use yew::{html::ChildrenRenderer, prelude::*};
+
+use crate::crud_instance::Item;
+use crate::prelude::*;
 
 pub enum Msg<T: CrudDataTrait> {
     ValueChanged((T::Field, Result<Value, String>)),
@@ -12,7 +12,7 @@ pub enum Msg<T: CrudDataTrait> {
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudDataTrait> {
     pub children: ChildrenRenderer<Item>,
-    pub custom_fields: CustomFields<T>,
+    pub custom_fields: CustomFields<T, yew::Html>,
     pub api_base_url: String,
     pub elements: Vec<Elem<T>>,
     pub entity: Option<T>,

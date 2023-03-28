@@ -14,12 +14,7 @@ use yew::{
 };
 use yewdux::prelude::*;
 
-use crate::{
-    services::crud_rest_data_provider::{CrudRestDataProvider, DeleteById},
-    types::custom_field::{CustomCreateFields, CustomReadFields, CustomUpdateFields},
-};
-
-use super::{prelude::*, stores, types::RequestError};
+use crate::{prelude::*, stores};
 
 pub enum Msg<T: 'static + CrudMainTrait> {
     InstanceConfigStoreUpdated(Rc<stores::instance::InstanceStore<T>>),
@@ -101,9 +96,9 @@ pub struct CrudInstanceConfig<T: CrudMainTrait> {
 pub struct CrudStaticInstanceConfig<T: CrudMainTrait> {
     pub actions: Vec<CrudAction<T>>,
     pub entity_actions: Vec<CrudEntityAction<T>>,
-    pub custom_read_fields: CustomReadFields<T>,
-    pub custom_create_fields: CustomCreateFields<T>,
-    pub custom_update_fields: CustomUpdateFields<T>,
+    pub custom_read_fields: CustomReadFields<T, yew::Html>,
+    pub custom_create_fields: CustomCreateFields<T, yew::Html>,
+    pub custom_update_fields: CustomUpdateFields<T, yew::Html>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

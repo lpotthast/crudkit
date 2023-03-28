@@ -7,7 +7,7 @@ use crate::prelude::CrudSelect;
 
 use super::crud_btn::CrudBtn;
 use super::crud_btn_group::CrudBtnGroup;
-use super::Variant;
+use super::prelude::*;
 
 pub enum Msg {
     PageSelected(u64),

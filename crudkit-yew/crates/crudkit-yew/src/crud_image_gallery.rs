@@ -1,13 +1,7 @@
 use tracing::error;
 use yew::{html::Scope, prelude::*};
 
-use crate::{
-    services::requests::request_get,
-    types::{
-        files::{FileResource, ListFilesResponse},
-        RequestError,
-    },
-};
+use crate::prelude::*;
 
 pub enum Msg {
     ListFiles,

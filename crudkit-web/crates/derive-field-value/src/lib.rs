@@ -94,11 +94,11 @@ pub fn store(input: TokenStream) -> TokenStream {
         let value_clone = match value_type {
             ValueType::String => quote! { entity.#field_ident.clone() },
             ValueType::Text => quote! { entity.#field_ident.clone() },
-            ValueType::Json => quote! { ::crudkit_web::JsonValue::new(entity.#field_ident.clone()) },
+            ValueType::Json => quote! { crudkit_web::JsonValue::new(entity.#field_ident.clone()) },
             ValueType::OptionalText => quote! { entity.#field_ident.clone().unwrap_or_default() },
             // We use .unwrap_or_default(), as we feed that string into Value::String (see From<ValueType>). We should get rid of this.
             ValueType::OptionalString => quote! { entity.#field_ident.clone().unwrap_or_default() },
-            ValueType::OptionalJson => quote! { entity.#field_ident.clone().map(|it| ::crudkit_web::JsonValue::new(it)) },
+            ValueType::OptionalJson => quote! { entity.#field_ident.clone().map(|it| crudkit_web::JsonValue::new(it)) },
             ValueType::UuidV4 => quote! { entity.#field_ident },
             ValueType::UuidV7 => quote! { entity.#field_ident },
             ValueType::Bool => quote! { entity.#field_ident },
@@ -129,7 +129,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         };
 
         quote! {
-            #field_enum_ident::#field_name_as_type_ident => ::crudkit_web::Value::#value_type_ident(#value_clone)
+            #field_enum_ident::#field_name_as_type_ident => crudkit_web::Value::#value_type_ident(#value_clone)
         }
     });
     let get_value_impl = match input.fields().len() {
@@ -209,12 +209,12 @@ pub fn store(input: TokenStream) -> TokenStream {
     };
 
     quote! {
-        impl ::crudkit_web::CrudFieldValueTrait<#ident> for #field_enum_ident {
-            fn get_value(&self, entity: &#ident) -> ::crudkit_web::Value {
+        impl crudkit_web::CrudFieldValueTrait<#ident> for #field_enum_ident {
+            fn get_value(&self, entity: &#ident) -> crudkit_web::Value {
                 #get_value_impl
             }
 
-            fn set_value(&self, entity: &mut #ident, value: ::crudkit_web::Value) {
+            fn set_value(&self, entity: &mut #ident, value: crudkit_web::Value) {
                 #set_value_impl
             }
         }

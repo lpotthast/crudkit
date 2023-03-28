@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use yewdux::prelude::*;
 
-use crate::SerializableCrudView;
+use crate::prelude::*;
 
 // NOTE: This type is not generic, as every crud instance should have access to the current view state of instances of arbitrary generic T.
 // Therefor there must only be one single store, which only is the case if not generic itself.

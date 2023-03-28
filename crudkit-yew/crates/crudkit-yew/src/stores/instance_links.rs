@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use yew::html::Scope;
 use yewdux::prelude::*;
 
-use crate::{prelude::CrudInstance, CrudMainTrait};
+use crate::prelude::*;
 
 #[derive(Clone)]
 struct Link<T: 'static + CrudMainTrait>(Scope<CrudInstance<T>>);

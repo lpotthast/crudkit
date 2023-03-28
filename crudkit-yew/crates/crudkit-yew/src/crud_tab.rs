@@ -1,6 +1,6 @@
 use yew::prelude::*;
 
-use crate::Label;
+use crudkit_web::Label;
 
 #[derive(Properties, PartialEq)]
 pub struct Props {

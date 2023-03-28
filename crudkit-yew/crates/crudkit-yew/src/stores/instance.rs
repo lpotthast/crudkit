@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use yewdux::prelude::*;
 
-use crate::{crud_instance::CrudInstanceConfig, CrudMainTrait};
+use crate::prelude::*;
 
 #[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize, Store)]
 #[store(storage = "local", storage_tab_sync)]

@@ -3,13 +3,8 @@ use yew::{html::ChildrenRenderer, prelude::*};
 use crudkit_condition::IntoAllEqualCondition;
 use crudkit_id::{Id, IdField};
 
-use crate::{
-    crud_instance::Item,
-    services::crud_rest_data_provider::{CrudRestDataProvider, ReadOne},
-    types::custom_field::CustomUpdateFields,
-};
-
-use super::{prelude::*, types::RequestError};
+use crate::crud_instance::Item;
+use crate::prelude::*;
 
 pub enum Msg<T: CrudMainTrait> {
     Back,
@@ -20,7 +15,7 @@ pub enum Msg<T: CrudMainTrait> {
 #[derive(Properties, PartialEq)]
 pub struct Props<T: CrudMainTrait> {
     pub children: ChildrenRenderer<Item>,
-    pub custom_fields: CustomUpdateFields<T>,
+    pub custom_fields: CustomUpdateFields<T, yew::Html>,
     pub data_provider: CrudRestDataProvider<T>,
     pub config: CrudInstanceConfig<T>,
     pub id: T::ReadModelId,

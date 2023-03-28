@@ -9,13 +9,9 @@ use yew::{
 use crudkit_id::SerializableId;
 use crudkit_shared::{SaveResult, Saved};
 
-use crate::{
-    crud_instance::Item,
-    services::crud_rest_data_provider::{CreateOne, CrudRestDataProvider},
-    types::custom_field::{CustomCreateFields, CustomUpdateFields},
-};
+use crate::crud_instance::Item;
 
-use super::{prelude::*, types::RequestError};
+use super::prelude::*;
 
 pub enum Msg<T: CrudMainTrait> {
     Back,
@@ -54,8 +50,8 @@ pub enum Then {
 pub struct Props<T: 'static + CrudMainTrait> {
     pub on_link: Callback<Option<Scope<CrudCreateView<T>>>>,
     pub children: ChildrenRenderer<Item>,
-    pub custom_create_fields: CustomCreateFields<T>,
-    pub custom_update_fields: CustomUpdateFields<T>,
+    pub custom_create_fields: CustomCreateFields<T, yew::Html>,
+    pub custom_update_fields: CustomUpdateFields<T, yew::Html>,
     pub data_provider: CrudRestDataProvider<T>,
     /// Required because when creating the initial CreateModel, we have to set the "parent id" field of that model to the given id.
     /// TODO: Only a subset of the parent id might be required to for matching. Consider a CreateModel#initialize_with_parent_id(ParentId)...
