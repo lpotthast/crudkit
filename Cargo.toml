@@ -1,0 +1,13 @@
+[package]
+name = "crudkit-shared"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dyn-clone = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+snafu = { version = "0.7", features = ["backtrace"] }
+time = { version = "0.3", features = ["serde", "serde-well-known"] }
+utoipa = "3"
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
