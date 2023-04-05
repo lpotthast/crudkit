@@ -10,9 +10,9 @@ crudkit-shared = { path = "../../../crudkit-shared" }
 crudkit-validation = { path = "../../../crudkit-validation" }
 crudkit-websocket = { path = "../../../crudkit-websocket" }
 derive-create-model = { path = "../derive-create-model" }
-derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
 derive-crud-columns = { path = "../derive-crud-columns" }
 derive-crud-resource-context = { path = "../derive-crud-resource-context" }
+derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
 derive-update-model = { path = "../derive-update-model" }
 derive-validation-model = { path = "../derive-validation-model" }
 

@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-crudkit-rs = { path = "../crudkit-rs" }
 crudkit-condition = { path = "../../../crudkit-condition" }
+crudkit-rs = { path = "../crudkit-rs" }
 crudkit-shared = { path = "../../../crudkit-shared" }
 
 async-trait = "0.1"

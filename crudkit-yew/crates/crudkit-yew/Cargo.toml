@@ -4,16 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-crudkit-web = { path = "../../../crudkit-web/crates/crudkit-web" }
 crudkit-condition = { path = "../../../crudkit-condition" }
 crudkit-id = { path = "../../../crudkit-id/crates/crudkit-id" }
 crudkit-shared = { path = "../../../crudkit-shared" }
 crudkit-validation = { path = "../../../crudkit-validation" }
+crudkit-web = { path = "../../../crudkit-web/crates/crudkit-web" }
 crudkit-websocket = { path = "../../../crudkit-websocket" }
 derive-crud-action-payload = { path = "../../../crudkit-web/crates/derive-crud-action-payload" }
-derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
 derive-crud-resource = { path = "../../../crudkit-web/crates/derive-crud-resource" }
 derive-crud-selectable = { path = "../../../crudkit-web/crates/derive-crud-selectable" }
+derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
 derive-field = { path = "../../../crudkit-web/crates/derive-field" }
 derive-field-value = { path = "../../../crudkit-web/crates/derive-field-value" }
 
