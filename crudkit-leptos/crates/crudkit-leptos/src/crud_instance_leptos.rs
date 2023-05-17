@@ -56,6 +56,8 @@ where
                     data_provider=data_provider
                     headers=headers
                     order_by=order_by
+                    items_per_page=items_per_page
+                    page=page
                     //children={ctx.props().children.clone()}
                     //custom_fields={self.static_config.custom_read_fields.clone()}
                     //static_config={self.static_config.clone()}

@@ -4,7 +4,6 @@ use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use leptonic::prelude::*;
 use leptos::*;
-use leptos_icons::BsIcon;
 
 // TODO: Add prelude entry for CrudActionTrait
 use crate::{crud_action::CrudActionTrait, prelude::CrudTableHeaderL};
