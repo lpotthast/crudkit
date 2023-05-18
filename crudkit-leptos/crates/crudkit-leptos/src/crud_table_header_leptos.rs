@@ -27,9 +27,7 @@ where
     //O: Fn((T::Field, OrderByUpdateOptions)) -> () + 'static, // order by
     //S: Fn(bool) -> () + 'static, // select all
 {
-    let order_by = move |field: <T as CrudDataTrait>::Field, options: HeaderOptions| {
-
-    };
+    let order_by = move |field: <T as CrudDataTrait>::Field, options: HeaderOptions| {};
 
     // TODO: Implement
     let toggle_select_all = move || {};
@@ -79,7 +77,6 @@ where
                                                 }
                                             } />
                                         </span>
-
                                     </div>
                                 </div>
                             </th>
