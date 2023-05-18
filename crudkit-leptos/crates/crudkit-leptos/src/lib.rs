@@ -38,6 +38,7 @@ pub mod crud_related_field;
 pub mod crud_relation;
 pub mod crud_reset_field;
 pub mod crud_safe_html;
+pub mod crud_safe_html_leptos;
 pub mod crud_select;
 pub mod crud_select_field;
 pub mod crud_separator;
@@ -142,6 +143,7 @@ pub mod prelude {
     pub use super::crud_relation::CrudRelation;
     pub use super::crud_reset_field::CrudResetField;
     pub use super::crud_safe_html::CrudSafeHtml;
+    pub use super::crud_safe_html_leptos::CrudSafeHtmlL;
     pub use super::crud_select::CrudSelect;
     pub use super::crud_select_field::CrudSelectField;
     pub use super::crud_separator::CrudSeparator;

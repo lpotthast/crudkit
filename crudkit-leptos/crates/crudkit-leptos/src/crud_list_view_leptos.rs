@@ -80,8 +80,7 @@ where
 
     // The data of the page when successfully loaded.
     let data = Signal::derive(cx, move || {
-        let p = page.read(cx);
-        match p {
+        match page.read(cx) {
             Some(result) => match result {
                 Ok(data) => Some(Rc::new(data)),
                 Err(_err) => None,
