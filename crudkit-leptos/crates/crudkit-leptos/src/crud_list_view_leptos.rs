@@ -7,7 +7,7 @@ use leptonic::prelude::*;
 use leptos::*;
 use leptos_icons::BsIcon;
 
-use crate::prelude::CrudTableL;
+use crate::{crud_instance_leptos::CrudInstanceContext, prelude::CrudTableL};
 
 #[derive(Debug, Clone, PartialEq)]
 struct PageReq<T: CrudMainTrait + 'static> {
@@ -30,12 +30,73 @@ async fn load_page<T: CrudMainTrait + 'static>(
         .await
 }
 
+#[derive(Debug, Clone)]
+pub struct CrudListViewContext<T: CrudMainTrait + 'static> {
+    pub data: Signal<Option<Rc<Vec<Rc<T::ReadModel>>>>>,
+    pub has_data: Signal<bool>,
+    pub selected: ReadSignal<Rc<Vec<Rc<T::ReadModel>>>>,
+    set_selected: WriteSignal<Rc<Vec<Rc<T::ReadModel>>>>,
+    pub all_selected: Signal<bool>,
+}
+
+impl<T: CrudMainTrait + 'static> CrudListViewContext<T> {
+    pub fn toggle_select_all(&self) {
+        if let Some(data) = self.data.get() {
+            let selected = self.selected.get();
+            if selected.len() < data.len() {
+                // Select all
+                self.set_selected.update(|selected| *selected = data.clone());
+            } else {
+                // Deselect all
+                self.set_selected.update(|selected| *selected = Rc::new(Vec::new()));
+            }
+        } else {
+            tracing::warn!("Tried to toggle_select_all when no data was present.");
+        }
+    }
+
+    pub fn select(&self, entity: Rc<T::ReadModel>, state: bool) {
+        self.set_selected.update(|list| {
+            let mut selected = list.as_ref().clone();
+
+            let pos = selected.iter().position(|it| it == &entity);
+            match (pos, state) {
+                (None, true) => selected.push(entity),
+                (None, false) => {}
+                (Some(_pos), true) => {}
+                (Some(pos), false) => {
+                    selected.remove(pos);
+                }
+            }
+
+            *list = Rc::new(selected);
+        });
+    }
+
+    pub fn toggle_entity_selection(&self, entity: Rc<T::ReadModel>) {
+        self.set_selected.update(|list| {
+            let mut selected = list.as_ref().clone();
+
+            let pos = selected.iter().position(|it| it == &entity);
+            match pos {
+                None => selected.push(entity),
+                Some(pos) => {
+                    selected.remove(pos);
+                }
+            }
+
+            *list = Rc::new(selected);
+        });
+    }
+}
+
 #[component]
 pub fn CrudListViewL<T>(
     cx: Scope,
     data_provider: Signal<CrudRestDataProvider<T>>,
+    #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
-    #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
+    #[prop(into)] custom_fields: Signal<CustomReadFields<T, leptos::View>>,
     #[prop(into)] items_per_page: Signal<u64>,
     #[prop(into)] page: Signal<u64>,
     //config: Signal<CrudInstanceConfig<T>>,
@@ -43,14 +104,17 @@ pub fn CrudListViewL<T>(
 where
     T: CrudMainTrait + 'static,
 {
+    let instance_ctx = expect_context::<CrudInstanceContext<T>>(cx);
+
     let (filter, set_filter) = create_signal(cx, Option::<String>::None);
 
     let read_allowed = Signal::derive(cx, move || true);
     let edit_allowed = Signal::derive(cx, move || true);
     let delete_allowed = Signal::derive(cx, move || true);
 
-    let headers = Signal::derive(cx, move || {
-        let order_by = order_by.get();
+    let headers = create_memo(cx, move |_prev| {
+        let order_by = instance_ctx.order_by.get();
+        tracing::info!(?order_by, "headers");
         headers
             .get()
             .iter()
@@ -64,7 +128,7 @@ where
 
     // Whenever this signal changes, the currently viewed page should be re-fetched.
     let page_req = Signal::derive(cx, move || {
-        let order_by = order_by.get();
+        let order_by = instance_ctx.order_by.get();
         let page = page.get();
         let items_per_page = items_per_page.get();
         let data_provider = data_provider.get();
@@ -79,27 +143,42 @@ where
     let page = create_local_resource(cx, page_req, load_page);
 
     // The data of the page when successfully loaded.
-    let data = Signal::derive(cx, move || {
-        match page.read(cx) {
-            Some(result) => match result {
-                Ok(data) => Some(Rc::new(data)),
-                Err(_err) => None,
-            },
-            None => None,
-        }
+    let data = Signal::derive(cx, move || match page.read(cx) {
+        Some(result) => match result {
+            Ok(data) => Some(Rc::new(data.into_iter().map(Rc::new).collect())),
+            Err(_err) => None,
+        },
+        None => None,
     });
 
-    let (selected, set_selected) = create_signal(cx, Vec::<T::ReadModel>::new());
+    let (selected, set_selected) = create_signal(cx, Rc::new(Vec::<Rc<T::ReadModel>>::new()));
+
+    provide_context(
+        cx,
+        CrudListViewContext::<T> {
+            data,
+            has_data: Signal::derive(cx, move || {
+                let data = data.get();
+                data.is_some() && data.as_ref().unwrap().len() > 0
+            }),
+            selected,
+            set_selected,
+            all_selected: Signal::derive(cx, move || {
+                let data = data.get();
+                let selected = selected.get();
+                data.is_some() // TODO: Performance
+                    && selected.len() == data.as_ref().unwrap().len()
+                    && data.as_ref().unwrap().len() > 0
+            }),
+        },
+    );
 
     let reset = move |e| {};
     let toggle_filter = move |e| {};
     let create = move |e| {};
 
-    let phantom = PhantomData::<T::ReadModel>::default();
-
     view! {cx,
-        "ListView"
-        <Grid spacing=6>
+        <Grid spacing=6 class="crud-nav">
             <Row>
                 <Col xs=6>
                     <ButtonWrapper>
@@ -136,10 +215,11 @@ where
 
         // TODO: CrudTable
         <CrudTableL
-            phantom=phantom
+            _phantom={PhantomData::<T>::default()}
+            api_base_url=api_base_url
             headers=headers
-            data=data
-            selected=selected
+            custom_fields=custom_fields
+            //data=data
             read_allowed=read_allowed
             edit_allowed=edit_allowed
             delete_allowed=delete_allowed

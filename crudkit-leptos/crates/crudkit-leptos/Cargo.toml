@@ -60,6 +60,9 @@ leptos-icons = { git = "https://github.com/lpotthast/leptos-icons", branch = "en
     "BsPlusCircle",
     "BsArrowRepeat",
     "BsSearch",
+    "BsEye",
+    "BsPencil",
+    "BsTrash",
 ] }
 
 yew = "0.20"

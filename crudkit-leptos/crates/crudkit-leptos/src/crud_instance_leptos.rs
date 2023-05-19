@@ -1,11 +1,68 @@
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
-use leptonic::prelude::*;
 use leptos::*;
-use serde::{Deserialize, Serialize};
 
-use crate::{crud_instance_config::{CrudStaticInstanceConfig, CrudInstanceConfig, CreateElements, NestedConfig}, prelude::CrudListViewL};
+use crate::{
+    crud_instance_config::{
+        CreateElements, CrudInstanceConfig, CrudStaticInstanceConfig, CrudStaticInstanceConfigL,
+        NestedConfig,
+    },
+    prelude::CrudListViewL,
+};
+
+// We use this struct to pass signals and their setters around.
+#[derive(Debug, Clone)]
+pub struct CrudInstanceContext<T: CrudMainTrait + 'static> {
+    pub view: ReadSignal<CrudView<T::ReadModelId, T::UpdateModelId>>,
+    pub set_view: WriteSignal<CrudView<T::ReadModelId, T::UpdateModelId>>,
+
+    pub order_by: ReadSignal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
+    set_order_by: WriteSignal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
+}
+
+impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
+    pub fn read(&self, entity: T::ReadModel) {
+        self.set_view
+            .update(|view| *view = CrudView::Read(entity.get_id()));
+    }
+
+    pub fn edit(&self, entity: T::UpdateModel) {
+        self.set_view
+            .update(|view| *view = CrudView::Edit(entity.get_id()));
+    }
+
+    pub fn oder_by(
+        &self,
+        field: <T::ReadModel as CrudDataTrait>::Field,
+        options: OrderByUpdateOptions,
+    ) {
+        self.set_order_by.update(
+            |order_by: &mut IndexMap<
+                <<T as CrudMainTrait>::ReadModel as CrudDataTrait>::Field,
+                Order,
+            >| {
+                let prev = order_by.get(&field).cloned();
+                tracing::info!(?field, ?options, "order by");
+                if !options.append {
+                    order_by.clear();
+                }
+                order_by.insert(
+                    field,
+                    match prev {
+                        Some(order) => match order {
+                            Order::Asc => Order::Desc,
+                            Order::Desc => Order::Asc,
+                        },
+                        None => Order::Asc,
+                    },
+                );
+            },
+        )
+    }
+}
+
+// TODO: create_effect over all signals in config, bundle, serialize and store...
 
 #[component]
 pub fn CrudInstanceL<T>(
@@ -37,29 +94,44 @@ pub fn CrudInstanceL<T>(
     #[prop(into)] active_tab: Signal<Option<Label>>,
     #[prop(into)] nested: Signal<Option<NestedConfig>>,
 
-    static_config: CrudStaticInstanceConfig<T>,
+    static_config: CrudStaticInstanceConfigL<T>,
     //pub portal_target: Option<String>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
 {
+    let (view, set_view) = create_signal(cx, view.get());
+    let (order_by, set_order_by) = create_signal(cx, order_by.get());
+
+    provide_context(
+        cx,
+        CrudInstanceContext::<T> {
+            view,
+            set_view,
+            order_by,
+            set_order_by,
+        },
+    );
+
     let data_provider = Signal::derive(cx, move || {
         CrudRestDataProvider::<T>::new(api_base_url.get())
     });
 
+    let custom_read_fields = Signal::derive(cx, move || static_config.custom_read_fields.clone());
+
     let on_reset = move || {};
 
-    let body =  move || match view.get() {
+    let body = move || match view.get() {
         CrudView::List => {
             view! {cx,
                 <CrudListViewL
+                    api_base_url=api_base_url
                     data_provider=data_provider
                     headers=headers
-                    order_by=order_by
                     items_per_page=items_per_page
                     page=page
                     //children={ctx.props().children.clone()}
-                    //custom_fields={self.static_config.custom_read_fields.clone()}
+                    custom_fields=custom_read_fields
                     //static_config={self.static_config.clone()}
                     //on_reset={ctx.link().callback(|_| Msg::Reset)}
                     //on_create={ctx.link().callback(|_| Msg::Create)}
@@ -74,8 +146,9 @@ where
                     //on_link={ctx.link().callback(|link: Option<Scope<CrudListView<T>>>|
                     //    Msg::ViewLinked(link.map(|link| ViewLink::List(link))))}
                 />
-            }.into_view(cx)
-        },
+            }
+            .into_view(cx)
+        }
         CrudView::Create => {
             view! {cx,
                 "create"
@@ -96,8 +169,9 @@ where
                 //        Msg::ViewLinked(link.map(|link| ViewLink::Create(link))))}
                 //    on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
                 // />
-            }.into_view(cx)
-        },
+            }
+            .into_view(cx)
+        }
         CrudView::Read(id) => {
             view! {cx,
                 "read"
@@ -111,8 +185,9 @@ where
                 //    on_list_view={ctx.link().callback(|_| Msg::List)}
                 //    on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
                 // />
-            }.into_view(cx)
-        },
+            }
+            .into_view(cx)
+        }
         CrudView::Edit(id) => {
             view! {cx,
                 "edit"
@@ -136,13 +211,12 @@ where
                 //    on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
                 //    on_entity_action={ctx.link().callback(Msg::CustomEntityAction)}
                 // />
-            }.into_view(cx)
-        },
+            }
+            .into_view(cx)
+        }
     };
 
     view! {cx,
-        "CrudInstance: " {name}
-
         <div class="crud-instance">
             <div class="body">
                 { body }
