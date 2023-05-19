@@ -4,6 +4,7 @@ use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use leptonic::prelude::*;
 use leptos::*;
+use uuid::Uuid;
 
 // TODO: Add prelude entry for CrudActionTrait
 use crate::{crud_action::CrudActionTrait, prelude::CrudTableHeaderL};
@@ -44,6 +45,53 @@ where
             && data.as_ref().unwrap().len() > 0
     });
 
+    let on_edit = move |entity: T| {};
+
+    let select_entity = move |entity: T| {};
+
+    let entity = move |cx, entity: T| {
+        view! {cx,
+            <tr class="interactable" on:click=move |_e| on_edit(entity.clone())>
+                <td class="select" on:click=move |e| { e.stop_propagation() }>
+                    <Checkbox
+                        checked=Signal::derive(cx, move || selected.get().iter().find(|it| *it == &entity).is_some())
+                        on_toggle=move || select_entity(entity) // TODO: also pass current state
+                    />
+                </td>
+            </tr>
+        }
+    };
+
+    let body = view! {cx,
+        <tbody>
+            {move || match data.get() {
+                Some(data) => match data.len() {
+                    0 => view! {cx,
+                        <tr>
+                            <td colspan={"100%"} class={"no-data"}>
+                                {"Keine Daten"}
+                            </td>
+                        </tr>
+                    }.into_view(cx),
+                    _ => view! {cx,
+                        <For
+                            each=move || data.as_ref().clone() // TODO: Performance? Remove Rc in type?
+                            key=|_entity| Uuid::new_v4() // TODO: Use entitiy!
+                            view=entity
+                        />
+                    }.into_view(cx),
+                },
+                None => view! {cx,
+                    <tr>
+                        <td colspan="100%">
+                            {"\u{00a0}"} // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+                        </td>
+                    </tr>
+                }.into_view(cx),
+            }}
+        </tbody>
+    };
+
     // TODO: Extract to leptonic
     view! {cx,
         "Table"
@@ -57,7 +105,10 @@ where
                     with_select_column=has_data
                     all_selected=all_selected
                 />
+
                 // Body
+                {body}
+
                 // Footer
             </table>
         </div>
