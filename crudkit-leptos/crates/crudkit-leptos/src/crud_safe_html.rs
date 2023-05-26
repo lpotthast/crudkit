@@ -1,13 +1,9 @@
-use yew::{function_component, Html, Properties};
+use std::borrow::Cow;
 
-#[derive(Properties, PartialEq)]
-pub struct Props {
-    pub html: String,
-}
+use leptos::{html::span, *};
 
-#[function_component(CrudSafeHtml)]
-pub fn safe_html(props: &Props) -> Html {
-    let div = gloo::utils::document().create_element("span").unwrap();
-    div.set_inner_html(&props.html.clone());
-    Html::VRef(div.into())
+#[component]
+pub fn CrudSafeHtml(cx: Scope, #[prop(into)] html: Cow<'static, str>) -> impl IntoView {
+    // TODO: Sanitize input?
+    span(cx).inner_html(html)
 }

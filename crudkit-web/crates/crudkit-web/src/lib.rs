@@ -10,7 +10,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     any::Any,
     fmt::{Debug, Display},
-    hash::Hash,
+    hash::Hash, borrow::Cow,
 };
 use time::format_description::well_known::Rfc3339;
 use tracing::warn;
@@ -780,9 +780,9 @@ pub enum DeletableModel<
     Update(UpdateModel),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct HeaderOptions {
-    pub display_name: String,
+    pub display_name: Cow<'static, str>,
     pub min_width: bool,
     pub ordering_allowed: bool,
     pub date_time_display: DateTimeDisplay,
@@ -792,7 +792,7 @@ pub struct HeaderOptions {
 impl Default for HeaderOptions {
     fn default() -> Self {
         Self {
-            display_name: Default::default(),
+            display_name: Cow::Borrowed(""),
             min_width: false,
             ordering_allowed: true,
             date_time_display: DateTimeDisplay::LocalizedLocal,
@@ -800,7 +800,7 @@ impl Default for HeaderOptions {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DateTimeDisplay {
     IsoUtc,
     LocalizedLocal,

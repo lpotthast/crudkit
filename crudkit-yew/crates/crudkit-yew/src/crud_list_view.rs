@@ -7,11 +7,7 @@ use yew::{
 };
 use yew_bootstrap_icons::v1_10_3::Bi;
 
-use crate::{
-    crud_action::ModalGeneration,
-    crud_instance::Item,
-    prelude::*,
-};
+use crate::{crud_action::ModalGeneration, crud_instance::Item, prelude::*};
 
 // TODO: Disable the reset button as long as there is an ongoing request!
 // TODO: Disable the reset button when a reset is going on...
@@ -21,7 +17,7 @@ pub enum Msg<T: CrudMainTrait> {
     PageSelected(u64),
     ItemCountSelected(u64),
     PageLoaded(Result<Vec<T::ReadModel>, RequestError>),
-    CountRead(Result<usize, RequestError>),
+    CountRead(Result<u64, RequestError>),
     ToggleFilter,
     OrderBy((<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)),
     Create,
@@ -172,9 +168,8 @@ impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
                 true
             }
             Msg::CountRead(data) => {
-                self.item_count = data
-                    .map_err(|err| (NoData::FetchFailed(err), time::OffsetDateTime::now_utc()))
-                    .map(|val| val as u64);
+                self.item_count =
+                    data.map_err(|err| (NoData::FetchFailed(err), time::OffsetDateTime::now_utc()));
                 true
             }
             Msg::Reset => {

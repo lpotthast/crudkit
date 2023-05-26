@@ -1,219 +1,168 @@
-use std::fmt::Display;
+use std::{fmt::Display, borrow::Cow};
 
-use yew::prelude::*;
+use leptos::*;
+use leptonic::prelude::*;
 
-use crate::crud_select::{OptionRenderer, Selection};
-use crate::prelude::CrudSelect;
+#[component]
+pub fn CrudPagination<PS, ICS>(
+    cx: Scope,
+    #[prop(into)] current_page: Signal<u64>,
+    #[prop(into)] item_count: MaybeSignal<u64>,
+    #[prop(into, default = 5.into())] items_per_page: MaybeSignal<u64>,
+    on_page_select: PS,
+    on_item_count_select: ICS,
+) -> impl IntoView
+where
+    PS: Fn(u64) + Clone + 'static,
+    ICS: Fn(u64) + 'static,
+{
+    let page_count = Signal::derive(cx, move || {
+        (item_count.get() as f64 / items_per_page.get() as f64).ceil() as u64
+    });
 
-use super::crud_btn::CrudBtn;
-use super::crud_btn_group::CrudBtnGroup;
-use super::prelude::*;
+    let page_options = Signal::derive(cx, move || {
+        let page_count = page_count.get();
+        let current_page = current_page.get();
 
-pub enum Msg {
-    PageSelected(u64),
-    ItemCountSelected(Selection<ItemsPerPageOption>),
-}
-
-#[derive(PartialEq, Properties)]
-pub struct Props {
-    pub current_page: u64,
-    pub item_count: u64,
-    #[prop_or(5)]
-    pub items_per_page: u64,
-    pub on_page_select: Callback<u64>,
-    pub on_item_count_select: Callback<u64>,
-}
-
-pub struct CrudPagination {
-    page_count: u64,
-    page_options: Vec<Option<u64>>,
-    items_per_page_options: Vec<ItemsPerPageOption>,
-}
-
-impl Component for CrudPagination {
-    type Message = Msg;
-    type Properties = Props;
-
-    fn create(ctx: &Context<Self>) -> Self {
-        let page_count = compute_page_count(ctx.props().item_count, ctx.props().items_per_page);
-        let page_options = compute_page_options(page_count, ctx.props().current_page);
-        let items_per_page_options = compute_items_per_page_options(ctx.props().items_per_page);
-        Self {
-            page_count,
-            page_options,
-            items_per_page_options,
-        }
-    }
-
-    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
-        match msg {
-            Msg::PageSelected(page_number) => {
-                ctx.props().on_page_select.emit(page_number);
-                false
-            }
-            Msg::ItemCountSelected(selection) => {
-                match selection {
-                    Selection::None => panic!("selecting `Selection::None` should not be possible"),
-                    Selection::Single(option) => {
-                        ctx.props().on_item_count_select.emit(option.items_per_page)
-                    }
-                    Selection::Multiple(_) => {
-                        panic!("selecting `Selection::Multiple(_)` should not be possible")
-                    }
-                }
-                false
+        let mut options: Vec<Option<u64>>;
+        // Just return all available pages if there are not too many of them.
+        if page_count <= 10 {
+            options = Vec::with_capacity(page_count as usize);
+            for i in 1..=page_count {
+                options.push(Some(i));
             }
         }
-    }
+        // Single ... at the right. Start of page spectrum.
+        else if current_page <= 5 {
+            options = vec![
+                Some(1),
+                Some(2),
+                Some(3),
+                Some(4),
+                Some(5),
+                Some(6),
+                Some(7),
+                None,
+                Some(page_count - 1),
+                Some(page_count),
+            ];
+        }
+        // With ... at the left and right. In the middle of the available pages.
+        else if current_page > 5 && current_page < page_count - 4 {
+            options = vec![
+                Some(1),
+                Some(2),
+                None,
+                Some(current_page - 2),
+                Some(current_page - 1),
+                Some(current_page),
+                Some(current_page + 1),
+                Some(current_page + 2),
+                None,
+                Some(page_count - 1),
+                Some(page_count),
+            ];
+        }
+        // Single ... at the left. End of page spectrum.
+        else if current_page >= page_count - 4 {
+            options = vec![
+                Some(1),
+                Some(2),
+                None,
+                Some(page_count - 6),
+                Some(page_count - 5),
+                Some(page_count - 4),
+                Some(page_count - 3),
+                Some(page_count - 2),
+                Some(page_count - 1),
+                Some(page_count),
+            ];
+        }
+        // Error...
+        else {
+            panic!("Unreachable!");
+        }
+        options
+    });
 
-    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
-        self.page_count = compute_page_count(ctx.props().item_count, ctx.props().items_per_page);
-        self.page_options = compute_page_options(self.page_count, ctx.props().current_page);
-        true
-    }
+    let items_per_page_options = Signal::derive(cx, move || {
+        let items_per_page = items_per_page.get();
 
-    fn view(&self, ctx: &Context<Self>) -> Html {
-        match ctx.props().item_count > 0 {
-            true => html! {
-                <div class={"crud-row crud-pagination"}>
-                    <div class={"crud-col crud-col-flex crud-col-flex-start"}>
-                    </div>
+        let mut default_options = vec![
+            ItemsPerPageOption::some(10),
+            ItemsPerPageOption::some(25),
+            ItemsPerPageOption::some(50),
+            ItemsPerPageOption::some(100),
+        ];
 
-                    <div class={"crud-col crud-col-flex crud-col-flex-row crud-col-flex-end"}>
-                        <div class={"items-per-page-selector"}>
-                            <div class={"label"}>
-                                {"Einträge pro Seite"}
-                            </div>
-                            <CrudSelect<ItemsPerPageOption>
-                                options={self.items_per_page_options.clone()}
-                                option_renderer={Some(OptionRenderer {
-                                    name: "default",
-                                    renderer: |it: &ItemsPerPageOption| html! { format!("{}", it.items_per_page) },
-                                })}
-                                selected={Selection::Single(ItemsPerPageOption::some(ctx.props().items_per_page))}
-                                selection_changed={ctx.link().callback(Msg::ItemCountSelected)}>
-                            </CrudSelect<ItemsPerPageOption>>
+        // Note: The set_items_per_page must always be in the returned vec, as this is always default-selected in our dropdown!
+        if default_options
+            .iter()
+            .find(|it| it.items_per_page == items_per_page)
+            .is_none()
+        {
+            default_options.push(ItemsPerPageOption::some(items_per_page));
+        }
+
+        default_options.sort_by(|a, b| a.items_per_page.cmp(&b.items_per_page));
+        default_options
+    });
+
+    let on_page_select = store_value(cx, on_page_select);
+
+    move || (item_count.get() > 0).then(|| view! {cx,
+        <Grid spacing=6 class="crud-pagination">
+            <Row>
+                <Col h_align=ColAlign::Start> // crud-col-flex
+                    <div class="items-per-page-selector">
+                        <div class="label">
+                            "Einträge pro Seite"
                         </div>
-                        <CrudBtnGroup>
-                            {
-                                self.page_options.iter().map(|page_number| {
-                                    let name = match page_number {
-                                        Some(page_number) => format!("{}", page_number),
-                                        None => '\u{2026}'.to_string(), // `hellip` character
-                                    };
-                                    html! {
-                                        <CrudBtn
-                                            name={ name }
-                                            variant={ Variant::Default }
-                                            disabled={ page_number.is_none() }
-                                            active={ *page_number == Some(ctx.props().current_page) }
-                                            onclick={
-                                                match *page_number {
-                                                    Some(number) => ctx.link().batch_callback(move |_| Some(Msg::PageSelected(number))),
-                                                    None => ctx.link().batch_callback(|_| None),
-                                                }
-                                            }
-                                        />
-                                    }
-                                }).collect::<Html>()
+                        <Select
+                            mode=SelectMode::Single
+                            options=items_per_page_options
+                            render_option=move |cx, option| view! {cx,
+                                { format!("{}", option) }
                             }
-                        </CrudBtnGroup>
+                            // TODO: Pass selected!
+                            //selected={Selection::Single(ItemsPerPageOption::some(ctx.props().items_per_page))}
+                            //selection_changed={ctx.link().callback(Msg::ItemCountSelected)}
+                            >
+                        </Select>
                     </div>
-                </div>
-            },
-            false => html! {},
-        }
-    }
+                </Col>
+
+                <Col h_align=ColAlign::End> // crud-col-flex crud-col-flex-row
+                    <ButtonGroup>
+                        {
+                            page_options.get().into_iter().map(|page_number| {
+                                view! {cx,
+                                    <Button
+                                        variant=ButtonVariant::Filled
+                                        color=ButtonColor::Secondary
+                                        disabled=page_number.is_none()
+                                        // TODO: Still required?
+                                        //active=*page_number == Some(current_page.get())
+                                        on_click=move |_| if let Some(number) = page_number {
+                                            on_page_select.get_value()(number)
+                                        }
+                                    >
+                                        { match page_number {
+                                            Some(page_number) => Cow::Owned(format!("{}", page_number)),
+                                            None => Cow::Borrowed("\u{2026}"), // The `hellip` character (three dots)
+                                        } }
+                                    </Button>
+                                }
+                            }).collect_view(cx)
+                        }
+                    </ButtonGroup>
+                </Col>
+            </Row>
+        </Grid>
+    })
 }
 
-fn compute_page_count(item_count: u64, items_per_page: u64) -> u64 {
-    (item_count as f64 / items_per_page as f64).ceil() as u64
-}
-
-fn compute_page_options(page_count: u64, current_page: u64) -> Vec<Option<u64>> {
-    let mut options: Vec<Option<u64>>;
-    // Just return all available pages if there are not too many of them.
-    if page_count <= 10 {
-        options = Vec::with_capacity(page_count as usize);
-        for i in 1..=page_count {
-            options.push(Some(i));
-        }
-    }
-    // Single ... at the right. Start of page spectrum.
-    else if current_page <= 5 {
-        options = vec![
-            Some(1),
-            Some(2),
-            Some(3),
-            Some(4),
-            Some(5),
-            Some(6),
-            Some(7),
-            None,
-            Some(page_count - 1),
-            Some(page_count),
-        ];
-    }
-    // With ... at the left and right. In the middle of the available pages.
-    else if current_page > 5 && current_page < page_count - 4 {
-        options = vec![
-            Some(1),
-            Some(2),
-            None,
-            Some(current_page - 2),
-            Some(current_page - 1),
-            Some(current_page),
-            Some(current_page + 1),
-            Some(current_page + 2),
-            None,
-            Some(page_count - 1),
-            Some(page_count),
-        ];
-    }
-    // Single ... at the left. End of page spectrum.
-    else if current_page >= page_count - 4 {
-        options = vec![
-            Some(1),
-            Some(2),
-            None,
-            Some(page_count - 6),
-            Some(page_count - 5),
-            Some(page_count - 4),
-            Some(page_count - 3),
-            Some(page_count - 2),
-            Some(page_count - 1),
-            Some(page_count),
-        ];
-    }
-    // Error...
-    else {
-        panic!("Unreachable!");
-    }
-    options
-}
-
-fn compute_items_per_page_options(set_items_per_page: u64) -> Vec<ItemsPerPageOption> {
-    let mut default_options = vec![
-        ItemsPerPageOption::some(10),
-        ItemsPerPageOption::some(25),
-        ItemsPerPageOption::some(50),
-        ItemsPerPageOption::some(100),
-    ];
-
-    // Note: The set_items_per_page must always be in the returned vec, as this is always default-selected in our dropdown!
-    if default_options
-        .iter()
-        .find(|it| it.items_per_page == set_items_per_page)
-        .is_none()
-    {
-        default_options.push(ItemsPerPageOption::some(set_items_per_page));
-    }
-
-    default_options.sort_by(|a, b| a.items_per_page.cmp(&b.items_per_page));
-    default_options
-}
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub struct ItemsPerPageOption {
     items_per_page: u64,
     all: bool,

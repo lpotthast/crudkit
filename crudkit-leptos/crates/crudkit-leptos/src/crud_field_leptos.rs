@@ -1,4 +1,4 @@
-use std::{borrow::Cow, rc::Rc};
+use std::borrow::Cow;
 
 use crudkit_web::{prelude::*, DateTimeDisplay, JsonValue};
 use leptonic::prelude::*;
@@ -8,7 +8,7 @@ use time::{
 };
 use uuid::Uuid;
 
-use crate::prelude::CrudFieldLabelL;
+use crate::prelude::CrudFieldLabel;
 
 #[component]
 pub fn CrudFieldL<T, C>(
@@ -20,7 +20,7 @@ pub fn CrudFieldL<T, C>(
     field: T::Field,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    entity: Rc<T>,
+    entity: T,
     value_changed: C, // how can we handle all possible types? serialization? TODO: Only take Value, not Result
 ) -> impl IntoView
 where
@@ -801,7 +801,7 @@ where
 
 fn render_label(cx: Scope, label: Option<Label>) -> impl IntoView {
     match label {
-        Some(label) => view! {cx, <CrudFieldLabelL label=label.clone() />}.into_view(cx),
+        Some(label) => view! {cx, <CrudFieldLabel label=label.clone() />}.into_view(cx),
         None => ().into_view(cx),
     }
 }

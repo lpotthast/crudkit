@@ -9,8 +9,9 @@ use utoipa::ToSchema;
 pub type UuidV4 = uuid::Uuid;
 pub type UuidV7 = uuid::Uuid;
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
+#[derive(Default, PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
 pub enum Order {
+    #[default]
     #[serde(rename(
         serialize = "asc",
         deserialize = "asc",

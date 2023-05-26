@@ -63,9 +63,6 @@ leptos-icons = { git = "https://github.com/lpotthast/leptos-icons", branch = "en
     "BsEye",
     "BsPencil",
     "BsTrash",
+    "BsList",
+    "BsQuestion",
 ] }
-
-yew = "0.20"
-yew-bootstrap-icons = { git = "https://github.com/lpotthast/yew-bootstrap-icons" }
-yew-tiptap = { git = "https://github.com/lpotthast/yew-tiptap" }
-yewdux = "0.9"

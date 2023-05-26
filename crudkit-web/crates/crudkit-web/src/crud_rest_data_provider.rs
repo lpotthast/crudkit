@@ -64,7 +64,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         self.base_condition = condition;
     }
 
-    pub async fn read_count(&self, mut read_count: ReadCount) -> Result<usize, RequestError> {
+    pub async fn read_count(&self, mut read_count: ReadCount) -> Result<u64, RequestError> {
         read_count.condition = merge_conditions(self.base_condition.clone(), read_count.condition);
         let resource = T::get_resource_name();
         request_post(

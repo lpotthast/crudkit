@@ -1,6 +1,6 @@
-use std::{fmt::Debug, sync::Arc};
-use yew::{Callback, Html};
-use yew_bootstrap_icons::v1_10_3::Bi;
+use std::{fmt::Debug, rc::Rc};
+
+use leptos_icons::BsIcon;
 
 use crate::prelude::*;
 
@@ -11,12 +11,34 @@ pub enum States {
     Read,
 }
 
+#[derive(Clone)]
+pub struct Callback<T>(pub Rc<Box<dyn Fn(T)>>);
+
+impl <T> Callback<T> {
+    pub fn of<F: Fn(T) + 'static>(fun: F) -> Self {
+        Self(Rc::new(Box::new(fun)))
+    }
+}
+
+#[derive(Clone)]
+pub struct OutCallback<T, R>(pub Rc<Box<dyn Fn(T) -> R>>);
+
+impl <T, R> OutCallback<T, R> {
+    pub fn of<F: Fn(T) -> R + 'static>(fun: F) -> Self {
+        Self(Rc::new(Box::new(fun)))
+    }
+}
+
+#[derive(Clone)]
 pub struct ModalGeneration<T: CrudMainTrait> {
+    pub show_when: leptos::Signal<bool>,
     pub cancel: Callback<()>,
     pub execute: Callback<Option<T::ActionPayload>>,
 }
 
+#[derive(Clone)]
 pub struct EntityModalGeneration<T: CrudMainTrait> {
+    pub show_when: leptos::Signal<bool>,
     pub state: T::UpdateModel,
     pub cancel: Callback<()>,
     pub execute: Callback<Option<T::ActionPayload>>,
@@ -24,18 +46,19 @@ pub struct EntityModalGeneration<T: CrudMainTrait> {
 
 #[derive(Clone)]
 pub enum CrudEntityAction<T: CrudMainTrait> {
+    // TODO: Both id and name could be Cow
     Custom {
         id: &'static str,
         name: String,
-        icon: Option<Bi>,
-        variant: Variant,
-        valid_in: Vec<States>,
+        icon: Option<leptos_icons::Icon>,
+        button_color: leptonic::prelude::ButtonColor,
+        valid_in: Vec<States>, // TODO: Use potentially non-allocating type for small const vecs
         action: Callback<(
             T::UpdateModel,
             Option<T::ActionPayload>,
             Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
-        modal: Option<Box<Arc<dyn Fn(EntityModalGeneration<T>) -> Html>>>,
+        modal: Option<OutCallback<(leptos::Scope, EntityModalGeneration<T>), leptos::View>>,
     },
 }
 
@@ -46,7 +69,7 @@ impl<T: CrudMainTrait> Debug for CrudEntityAction<T> {
                 id,
                 name,
                 icon,
-                variant,
+                button_color,
                 valid_in,
                 action: _,
                 modal: _,
@@ -55,7 +78,7 @@ impl<T: CrudMainTrait> Debug for CrudEntityAction<T> {
                 .field("id", id)
                 .field("name", name)
                 .field("icon", icon)
-                .field("variant", variant)
+                .field("button_color", button_color)
                 .field("valid_in", valid_in)
                 .finish(),
         }
@@ -70,7 +93,7 @@ impl<T: CrudMainTrait> PartialEq for CrudEntityAction<T> {
                     id: l_id,
                     name: l_name,
                     icon: l_icon,
-                    variant: l_variant,
+                    button_color: l_button_color,
                     valid_in: l_valid_in,
                     action: _l_action,
                     modal: _l_modal,
@@ -79,7 +102,7 @@ impl<T: CrudMainTrait> PartialEq for CrudEntityAction<T> {
                     id: r_id,
                     name: r_name,
                     icon: r_icon,
-                    variant: r_variant,
+                    button_color: r_button_color,
                     valid_in: r_valid_in,
                     action: _r_action,
                     modal: _r_modal,
@@ -88,7 +111,7 @@ impl<T: CrudMainTrait> PartialEq for CrudEntityAction<T> {
                 l_id == r_id
                     && l_name == r_name
                     && l_icon == r_icon
-                    && l_variant == r_variant
+                    && l_button_color == r_button_color
                     && l_valid_in == r_valid_in
             }
         }
@@ -96,14 +119,23 @@ impl<T: CrudMainTrait> PartialEq for CrudEntityAction<T> {
 }
 
 #[derive(Clone)]
+pub struct ActionModalGen<T, R>(pub Rc<Box<dyn Fn(T) -> R>>);
+
+impl <T, R> ActionModalGen<T, R> {
+    pub fn of<F: Fn(T) -> R + 'static>(fun: F) -> Self {
+        Self(Rc::new(Box::new(fun)))
+    }
+}
+
+#[derive(Clone)]
 pub enum CrudAction<T: CrudMainTrait> {
     Custom {
-        id: &'static str,
+        id: &'static str, // TODO: Should this be Cow?
         name: String,
         icon: Option<leptos_icons::Icon>,
-        variant: Variant,
+        button_color: leptonic::prelude::ButtonColor,
         action: Callback<(Option<T::ActionPayload>, Callback<Result<CrudActionAftermath, CrudActionAftermath>>)>,
-        modal: Option<Box<Arc<dyn Fn(ModalGeneration<T>) -> Html>>>,
+        modal: Option<OutCallback<(leptos::Scope, ModalGeneration<T>), leptos::View>>,
     },
 }
 
@@ -114,7 +146,7 @@ impl<T: CrudMainTrait> Debug for CrudAction<T> {
                 id,
                 name,
                 icon,
-                variant,
+                button_color,
                 action: _,
                 modal: _,
             } => f
@@ -122,7 +154,7 @@ impl<T: CrudMainTrait> Debug for CrudAction<T> {
                 .field("id", id)
                 .field("name", name)
                 .field("icon", icon)
-                .field("variant", variant)
+                .field("button_color", button_color)
                 .finish(),
         }
     }
@@ -136,7 +168,7 @@ impl<T: CrudMainTrait> PartialEq for CrudAction<T> {
                     id: l_id,
                     name: l_name,
                     icon: l_icon,
-                    variant: l_variant,
+                    button_color: l_button_color,
                     action: _l_action,
                     modal: _l_modal,
                 },
@@ -144,17 +176,18 @@ impl<T: CrudMainTrait> PartialEq for CrudAction<T> {
                     id: r_id,
                     name: r_name,
                     icon: r_icon,
-                    variant: r_variant,
+                    button_color: r_button_color,
                     action: _r_action,
                     modal: _r_modal,
                 },
-            ) => l_id == r_id && l_name == r_name && l_icon == r_icon && l_variant == r_variant,
+            ) => l_id == r_id && l_name == r_name && l_icon == r_icon && l_button_color == r_button_color,
         }
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct CrudActionAftermath {
-    pub show_toast: Option<Toast>,
+    pub show_toast: Option<leptonic::toast::Toast>,
     pub reload_data: bool,
 }
 
@@ -162,7 +195,7 @@ pub struct CrudActionAftermath {
 /// Currently not related with the CrudAction enum.
 pub trait CrudActionTrait: Debug {
     fn get_name(&self) -> String;
-    fn get_icon(&self) -> Option<Bi>;
+    fn get_icon(&self) -> Option<leptos_icons::Icon>;
     fn eq(&self, other: &dyn CrudActionTrait) -> bool;
 }
 
@@ -170,14 +203,14 @@ pub trait CrudActionTrait: Debug {
 #[derive(PartialEq, Debug)]
 pub struct ShowListViewAction {
     name: String,
-    icon: Option<Bi>,
+    icon: Option<leptos_icons::Icon>,
 }
 
 impl Default for ShowListViewAction {
     fn default() -> Self {
         Self {
             name: "List".to_owned(),
-            icon: Some(Bi::List),
+            icon: Some(BsIcon::BsList.into()),
         }
     }
 }
@@ -187,7 +220,7 @@ impl CrudActionTrait for ShowListViewAction {
         self.name.clone()
     }
 
-    fn get_icon(&self) -> Option<Bi> {
+    fn get_icon(&self) -> Option<leptos_icons::Icon> {
         self.icon
     }
 
@@ -200,14 +233,14 @@ impl CrudActionTrait for ShowListViewAction {
 #[derive(PartialEq, Debug)]
 pub struct ShowReadViewAction {
     name: String,
-    icon: Option<Bi>,
+    icon: Option<leptos_icons::Icon>,
 }
 
 impl Default for ShowReadViewAction {
     fn default() -> Self {
         Self {
             name: "Read".to_owned(),
-            icon: Some(Bi::Eye),
+            icon: Some(BsIcon::BsEye.into()),
         }
     }
 }
@@ -217,7 +250,7 @@ impl CrudActionTrait for ShowReadViewAction {
         self.name.clone()
     }
 
-    fn get_icon(&self) -> Option<Bi> {
+    fn get_icon(&self) -> Option<leptos_icons::Icon> {
         self.icon
     }
 
@@ -230,14 +263,14 @@ impl CrudActionTrait for ShowReadViewAction {
 #[derive(PartialEq, Debug)]
 pub struct ShowEditViewAction {
     name: String,
-    icon: Option<Bi>,
+    icon: Option<leptos_icons::Icon>,
 }
 
 impl Default for ShowEditViewAction {
     fn default() -> Self {
         Self {
             name: "Edit".to_owned(),
-            icon: Some(Bi::Pencil),
+            icon: Some(BsIcon::BsPencil.into()),
         }
     }
 }
@@ -247,7 +280,7 @@ impl CrudActionTrait for ShowEditViewAction {
         self.name.clone()
     }
 
-    fn get_icon(&self) -> Option<Bi> {
+    fn get_icon(&self) -> Option<leptos_icons::Icon> {
         self.icon
     }
 
@@ -260,14 +293,14 @@ impl CrudActionTrait for ShowEditViewAction {
 #[derive(PartialEq, Debug)]
 pub struct DeleteAction {
     name: String,
-    icon: Option<Bi>,
+    icon: Option<leptos_icons::Icon>,
 }
 
 impl Default for DeleteAction {
     fn default() -> Self {
         Self {
             name: "Delete".to_owned(),
-            icon: Some(Bi::Trash),
+            icon: Some(BsIcon::BsTrash.into()),
         }
     }
 }
@@ -277,7 +310,7 @@ impl CrudActionTrait for DeleteAction {
         self.name.clone()
     }
 
-    fn get_icon(&self) -> Option<Bi> {
+    fn get_icon(&self) -> Option<leptos_icons::Icon> {
         self.icon
     }
 

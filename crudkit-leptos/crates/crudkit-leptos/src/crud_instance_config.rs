@@ -45,15 +45,6 @@ pub enum CreateElements<T: CrudMainTrait> {
 pub struct CrudStaticInstanceConfig<T: CrudMainTrait> {
     pub actions: Vec<CrudAction<T>>,
     pub entity_actions: Vec<CrudEntityAction<T>>,
-    pub custom_read_fields: CustomReadFields<T, yew::Html>,
-    pub custom_create_fields: CustomCreateFields<T, yew::Html>,
-    pub custom_update_fields: CustomUpdateFields<T, yew::Html>,
-}
-
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct CrudStaticInstanceConfigL<T: CrudMainTrait> {
-    pub actions: Vec<CrudAction<T>>,
-    pub entity_actions: Vec<CrudEntityAction<T>>,
     pub custom_read_fields: CustomReadFields<T, leptos::View>,
     pub custom_create_fields: CustomCreateFields<T, leptos::View>,
     pub custom_update_fields: CustomUpdateFields<T, leptos::View>,

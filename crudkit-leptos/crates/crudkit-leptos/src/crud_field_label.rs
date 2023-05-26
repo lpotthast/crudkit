@@ -1,33 +1,12 @@
-use yew::prelude::*;
+use crudkit_web::Label;
+use leptos::*;
 
-use crate::prelude::*;
-
-pub enum Msg {}
-
-#[derive(Properties, PartialEq)]
-pub struct Props {
-    pub label: Label,
-}
-
-pub struct CrudFieldLabel {}
-
-impl Component for CrudFieldLabel {
-    type Message = Msg;
-    type Properties = Props;
-
-    fn create(_ctx: &Context<Self>) -> Self {
-        Self {}
-    }
-
-    fn update(&mut self, _ctx: &Context<Self>, _msg: Self::Message) -> bool {
-        false
-    }
-
-    fn view(&self, ctx: &Context<Self>) -> Html {
-        html! {
-            <span class={"crud-field-label"}>
-                {ctx.props().label.name.clone()}
-            </span>
-        }
+// TODO: Extract into leptonic
+#[component]
+pub fn CrudFieldLabel(cx: Scope, label: Label) -> impl IntoView {
+    view! {cx,
+        <span class="crud-field-label">
+            {label.name.clone()}
+        </span>
     }
 }
