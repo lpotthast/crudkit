@@ -177,17 +177,16 @@ pub fn CrudInstance<T>(
     //pub children: ChildrenRenderer<Item>,
     #[prop(into)] name: String,
 
-    #[prop(into)] api_base_url: Signal<String>,
-    #[prop(into)] view: Signal<CrudView<T::ReadModelId, T::UpdateModelId>>,
-    #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
-    #[prop(into)] create_elements: Signal<CreateElements<T>>,
-    #[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
-    #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
-    #[prop(into)] items_per_page: Signal<u64>,
-    #[prop(into)] current_page: Signal<u64>,
-    #[prop(into)] active_tab: Signal<Option<Label>>,
-    #[prop(into)] nested: Signal<Option<NestedConfig>>,
-
+    //#[prop(into)] api_base_url: Signal<String>,
+    //#[prop(into)] view: Signal<CrudView<T::ReadModelId, T::UpdateModelId>>,
+    //#[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
+    //#[prop(into)] create_elements: Signal<CreateElements<T>>,
+    //#[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
+    //#[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
+    //#[prop(into)] items_per_page: Signal<u64>,
+    //#[prop(into)] current_page: Signal<u64>,
+    //#[prop(into)] active_tab: Signal<Option<Label>>,
+    //#[prop(into)] nested: Signal<Option<NestedConfig>>,
     config: CrudInstanceConfig<T>,
     static_config: CrudStaticInstanceConfig<T>,
     //pub portal_target: Option<String>,
@@ -195,19 +194,20 @@ pub fn CrudInstance<T>(
 where
     T: CrudMainTrait + 'static,
 {
-    let (view, set_view) = create_signal(cx, view.get());
-    let (current_page, set_current_page) = create_signal(cx, current_page.get());
-    let (items_per_page, set_items_per_page) = create_signal(cx, items_per_page.get());
-    let (order_by, set_order_by) = create_signal(cx, order_by.get());
+    let (api_base_url, set_api_base_url) = create_signal(cx, config.api_base_url.clone());
+    let (view, set_view) = create_signal(cx, config.view.clone());
+    let (headers, set_headers) = create_signal(cx, config.headers.clone());
+    let (current_page, set_current_page) = create_signal(cx, config.page.clone());
+    let (items_per_page, set_items_per_page) = create_signal(cx, config.items_per_page.clone());
+    let (order_by, set_order_by) = create_signal(cx, config.order_by.clone());
     let (deletion_request, set_deletion_request) = create_signal(cx, None);
-    let show_delete_modal = Signal::derive(cx, move || deletion_request.get().is_some());
     let (reload, set_reload) = create_signal(cx, Uuid::new_v4());
+
+    let default_config = store_value(cx, config);
 
     let data_provider = Signal::derive(cx, move || {
         CrudRestDataProvider::<T>::new(api_base_url.get())
     });
-
-    let default_config = store_value(cx, config);
 
     provide_context(
         cx,
@@ -402,32 +402,23 @@ where
                         }
                     } }
 
-                    { move || match deletion_request.get() {
-                        Some(deletable_model) => {
-                            match deletable_model {
-                                DeletableModel::Read(read_model) => view! {cx,
-                                    <CrudDeleteModal
-                                        show_when=show_delete_modal
-                                        entity=read_model.clone()
-                                        on_cancel=on_cancel_delete
-                                        on_accept=move |entity| on_accept_delete(DeletableModel::Read(entity))>
-                                    </CrudDeleteModal>
-                                }.into_view(cx),
-                                DeletableModel::Update(update_model) => view! {cx,
-                                    <CrudDeleteModal
-                                        show_when=show_delete_modal
-                                        entity=update_model.clone()
-                                        on_cancel=on_cancel_delete
-                                        on_accept=move |entity| on_accept_delete(DeletableModel::Update(entity))>
-                                    </CrudDeleteModal>
-                                }.into_view(cx)
-                            }
-                        },
-                        None => {
-                            tracing::info!("Delete: None");
-                            ().into_view(cx)
-                        }
-                    } }
+                    <CrudDeleteModal
+                        entity=Signal::derive(cx, move || deletion_request.get().map(|deletable| match deletable {
+                            DeletableModel::Read(read_model) => Some(read_model),
+                            DeletableModel::Update(_) => None,
+                        }).flatten())
+                        on_cancel=on_cancel_delete
+                        on_accept=move |entity| on_accept_delete(DeletableModel::Read(entity))>
+                    </CrudDeleteModal>
+
+                    <CrudDeleteModal
+                        entity=Signal::derive(cx, move || deletion_request.get().map(|deletable| match deletable {
+                            DeletableModel::Read(_) => None,
+                            DeletableModel::Update(update_model) => Some(update_model),
+                        }).flatten())
+                        on_cancel=on_cancel_delete
+                        on_accept=move |entity| on_accept_delete(DeletableModel::Update(entity))>
+                    </CrudDeleteModal>
                 </div>
             </div>
         }
