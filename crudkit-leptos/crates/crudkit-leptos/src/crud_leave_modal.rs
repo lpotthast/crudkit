@@ -1,82 +1,66 @@
-use std::rc::Rc;
+use leptonic::{prelude::*, root::GlobalKeyboardEvent};
+use leptos::*;
 
-use yew::prelude::*;
-use yewdux::prelude::Dispatch;
+#[component]
+pub fn CrudLeaveModal<C, A>(
+    cx: Scope,
+    show_when: Signal<bool>,
+    on_cancel: C,
+    on_accept: A,
+) -> impl IntoView
+where
+    C: Fn() + Clone + 'static,
+    A: Fn() + Clone + 'static,
+{
+    let on_cancel = store_value(cx, on_cancel);
+    let on_accept = store_value(cx, on_accept);
 
-use crate::prelude::*;
-use crate::stores::global_key_up::GlobalKeyUp;
-
-pub enum Msg {
-    OnCancel,
-    OnLeave,
-    GlobalKeyUp(Rc<GlobalKeyUp>),
-}
-
-#[derive(Properties, PartialEq)]
-pub struct Props {
-    pub on_cancel: Callback<()>,
-    pub on_leave: Callback<()>,
-}
-
-pub struct CrudLeaveModal {
-    _global_key_up_dispatch: Dispatch<GlobalKeyUp>,
-}
-
-impl Component for CrudLeaveModal {
-    type Message = Msg;
-    type Properties = Props;
-
-    fn create(ctx: &Context<Self>) -> Self {
-        Self {
-            _global_key_up_dispatch: Dispatch::subscribe(ctx.link().callback(Msg::GlobalKeyUp)),
-        }
-    }
-
-    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
-        match msg {
-            Msg::OnCancel => {
-                ctx.props().on_cancel.emit(());
-            }
-            Msg::OnLeave => {
-                ctx.props().on_leave.emit(());
-            }
-            Msg::GlobalKeyUp(state) => {
-                if let Some(event) = state.latest_event() {
-                    if event.key().as_str() == "Escape" {
-                        ctx.props().on_cancel.emit(());
-                    }
-                }
+    let g_keyboard_event: GlobalKeyboardEvent = expect_context::<GlobalKeyboardEvent>(cx);
+    create_effect(cx, move |_old| {
+        let is_shown = show_when.get_untracked();
+        if let Some(e) = g_keyboard_event.read_signal.get() {
+            if is_shown && e.key().as_str() == "Escape" {
+                (on_cancel.get_value())();
             }
         }
-        false
-    }
+    });
 
-    fn view(&self, ctx: &Context<Self>) -> Html {
-        html! {
-            <div class={"crud-modal"}>
-                <div class={"crud-modal-header"}>
-                    <div class={"crud-modal-title"}>
-                        {"Ungespeicherte Änderungen"}
-                    </div>
-                </div>
+    view! {cx,
+        <ModalFn show_when=show_when>
+            <ModalHeader>
+                <ModalTitle>
+                    "Ungespeicherte Änderungen"
+                </ModalTitle>
+            </ModalHeader>
 
-                <div class={"crud-modal-body"} style={"text-align: center;"}>
-                    {"Du hast deine Änderungen noch nicht gespeichert."}<br/>
-                    {"Möchtest du den Bereich wirklich verlassen?"}<br/>
-                    {"Ungespeicherte Änderungen gehen verloren!"}
-                </div>
+            <ModalBody style="text-align: center;">
+                "Du hast deine Änderungen noch nicht gespeichert."<br />
+                "Möchtest du den Bereich wirklich verlassen?"<br />
+                "Ungespeicherte Änderungen gehen verloren!"
+            </ModalBody>
 
-                <div class={"crud-modal-footer"}>
-                    <div class={"crud-row"}>
-                        <div class={"crud-col crud-col-flex-end"}>
-                            <CrudBtnWrapper>
-                                <CrudBtn name={"Zurück"} variant={Variant::Default} onclick={&ctx.link().callback(|_| Msg::OnCancel)}/>
-                                <CrudBtn name={"Verlassen"} variant={Variant::Warn} onclick={&ctx.link().callback(|_| Msg::OnLeave)}/>
-                            </CrudBtnWrapper>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        }
+            <ModalFooter>
+                <Grid spacing=6>
+                    <Row>
+                        <Col h_align=ColAlign::End>
+                            <ButtonWrapper>
+                                <Button color=ButtonColor::Secondary on_click=move |_| {
+                                    tracing::info!("cancel");
+                                    (on_cancel.get_value())()
+                                }>
+                                    "Zurück"
+                                </Button>
+                                <Button color=ButtonColor::Warn on_click=move |_| {
+                                    tracing::info!("leave");
+                                    (on_accept.get_value())()
+                                }>
+                                    "Verlassen"
+                                </Button>
+                            </ButtonWrapper>
+                        </Col>
+                    </Row>
+                </Grid>
+            </ModalFooter>
+        </ModalFn>
     }
 }
