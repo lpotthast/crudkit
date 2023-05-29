@@ -1,421 +1,423 @@
-use std::rc::Rc;
+use std::{marker::PhantomData, rc::Rc};
 
 use crudkit_shared::Order;
-use yew::{
-    html::{ChildrenRenderer, Scope},
-    prelude::*,
-};
-use yew_bootstrap_icons::v1_10_3::Bi;
+use crudkit_web::prelude::*;
+use indexmap::IndexMap;
+use leptonic::prelude::*;
+use leptos::*;
+use leptos_icons::BsIcon;
+use uuid::Uuid;
 
 use crate::{
-    crud_action::ModalGeneration,
-    crud_instance::Item,
-    prelude::*,
+    crud_action::{Callback, CrudAction, CrudActionAftermath, ModalGeneration},
+    crud_instance::CrudInstanceContext,
+    crud_pagination::CrudPagination,
+    crud_table::NoDataAvailable,
+    prelude::CrudTable,
 };
 
-// TODO: Disable the reset button as long as there is an ongoing request!
-// TODO: Disable the reset button when a reset is going on...
-
-pub enum Msg<T: CrudMainTrait> {
-    ComponentCreated,
-    PageSelected(u64),
-    ItemCountSelected(u64),
-    PageLoaded(Result<Vec<T::ReadModel>, RequestError>),
-    CountRead(Result<usize, RequestError>),
-    ToggleFilter,
-    OrderBy((<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)),
-    Create,
-    EntrySelectionChanged(Vec<T::ReadModel>),
-    Read(T::ReadModel),
-    Edit(T::ReadModel),
-    Delete(T::ReadModel),
-    ActionInitialized {
-        action_id: &'static str,
-    },
-    ActionCancelled {
-        action_id: &'static str,
-    },
-    ActionTriggered {
-        action_id: &'static str,
-        action_payload: Option<T::ActionPayload>,
-        action: Callback<(
-            Option<T::ActionPayload>,
-            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
-        )>,
-    },
-    ActionExecuted {
-        action_id: &'static str,
-        result: Result<CrudActionAftermath, CrudActionAftermath>,
-    },
-    EntityActionTriggered((Rc<Box<dyn CrudActionTrait>>, T::ReadModel)),
-    Reset,
-    Reload,
+#[derive(Debug, Clone, PartialEq)]
+struct PageReq<T: CrudMainTrait + 'static> {
+    reload: Uuid,
+    order_by: IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>,
+    page: u64,
+    items_per_page: u64,
+    data_provider: CrudRestDataProvider<T>,
 }
 
-#[derive(Properties, PartialEq)]
-pub struct Props<T: CrudMainTrait + 'static> {
-    pub children: ChildrenRenderer<Item>,
-    pub custom_fields: CustomReadFields<T, yew::Html>,
-    pub data_provider: CrudRestDataProvider<T>,
-    pub config: CrudInstanceConfig<T>,
-    pub static_config: CrudStaticInstanceConfig<T>,
-    pub on_reset: Callback<()>,
-    pub on_create: Callback<()>,
-    pub on_read: Callback<T::ReadModel>,
-    pub on_edit: Callback<T::ReadModel>,
-    pub on_delete: Callback<T::ReadModel>,
-    pub on_order_by: Callback<(<T::ReadModel as CrudDataTrait>::Field, OrderByUpdateOptions)>,
-    pub on_page_selected: Callback<u64>,
-    pub on_item_count_selected: Callback<u64>,
-    pub on_entity_action: Callback<(Rc<Box<dyn CrudActionTrait>>, T::ReadModel)>,
-    pub on_global_action: Callback<CrudActionAftermath>,
-    pub on_link: Callback<Option<Scope<CrudListView<T>>>>,
+async fn load_page<T: CrudMainTrait + 'static>(
+    req: PageReq<T>,
+) -> Result<Vec<T::ReadModel>, RequestError> {
+    req.data_provider
+        .read_many(ReadMany {
+            limit: Some(req.items_per_page),
+            skip: Some(req.items_per_page * (req.page - 1)),
+            order_by: Some(req.order_by),
+            condition: None,
+        })
+        .await
 }
 
-pub struct CrudListView<T: 'static + CrudMainTrait> {
-    data: Result<Rc<Vec<T::ReadModel>>, (NoData, time::OffsetDateTime)>,
-    selected: Vec<T::ReadModel>,
-    filter: Option<()>,
-    item_count: Result<u64, (NoData, time::OffsetDateTime)>,
-    user_wants_to_activate: Vec<String>,
-    actions_executing: Vec<&'static str>,
+#[derive(Debug, Clone, PartialEq)]
+struct CountReq<T: CrudMainTrait + 'static> {
+    reload: Uuid,
+    data_provider: CrudRestDataProvider<T>,
 }
 
-impl<T: CrudMainTrait> CrudListView<T> {
-    fn load_page(&self, ctx: &Context<CrudListView<T>>) {
-        let order_by = ctx.props().config.order_by.clone();
-        let page = ctx.props().config.page as u64;
-        let items_per_page = ctx.props().config.items_per_page as u64;
-        let data_provider = ctx.props().data_provider.clone();
-        ctx.link().send_future(async move {
-            Msg::PageLoaded(
-                data_provider
-                    .read_many(ReadMany {
-                        limit: Some(items_per_page),
-                        skip: Some(items_per_page * (page - 1)),
-                        order_by: Some(order_by),
-                        condition: None,
-                    })
-                    .await,
-            )
+async fn load_count<T: CrudMainTrait + 'static>(req: CountReq<T>) -> Result<u64, RequestError> {
+    req.data_provider
+        .read_count(ReadCount { condition: None })
+        .await
+}
+
+#[derive(Debug, Clone)]
+pub struct CrudListViewContext<T: CrudMainTrait + 'static> {
+    pub data: Memo<Result<Rc<Vec<T::ReadModel>>, NoDataAvailable>>,
+    pub has_data: Signal<bool>,
+
+    pub selected: ReadSignal<Rc<Vec<T::ReadModel>>>,
+    set_selected: WriteSignal<Rc<Vec<T::ReadModel>>>,
+    pub all_selected: Signal<bool>,
+}
+
+impl<T: CrudMainTrait + 'static> CrudListViewContext<T> {
+    pub fn toggle_select_all(&self) {
+        if let Ok(data) = self.data.get() {
+            let selected = self.selected.get();
+            if selected.len() < data.len() {
+                // Select all
+                self.set_selected
+                    .update(|selected| *selected = data.clone());
+            } else {
+                // Deselect all
+                self.set_selected
+                    .update(|selected| *selected = Rc::new(Vec::new()));
+            }
+        } else {
+            tracing::warn!("Tried to toggle_select_all when no data was present.");
+        }
+    }
+
+    pub fn select(&self, entity: T::ReadModel, state: bool) {
+        self.set_selected.update(|list| {
+            let mut selected = list.as_ref().clone();
+
+            let pos = selected.iter().position(|it| it == &entity);
+            match (pos, state) {
+                (None, true) => selected.push(entity),
+                (None, false) => {}
+                (Some(_pos), true) => {}
+                (Some(pos), false) => {
+                    selected.remove(pos);
+                }
+            }
+
+            *list = Rc::new(selected);
         });
     }
 
-    fn load_count(&self, ctx: &Context<CrudListView<T>>) {
-        let data_provider = ctx.props().data_provider.clone();
-        ctx.link().send_future(async move {
-            Msg::CountRead(
-                data_provider
-                    .read_count(ReadCount { condition: None })
-                    .await,
-            )
+    pub fn toggle_entity_selection(&self, entity: T::ReadModel) {
+        self.set_selected.update(|list| {
+            let mut selected = list.as_ref().clone();
+
+            let pos = selected.iter().position(|it| it == &entity);
+            match pos {
+                None => selected.push(entity),
+                Some(pos) => {
+                    selected.remove(pos);
+                }
+            }
+
+            *list = Rc::new(selected);
         });
-    }
-
-    fn get_data(&self) -> Option<Rc<Vec<T::ReadModel>>> {
-        match &self.data {
-            Ok(data) => Some(data.clone()),
-            Err(_) => None,
-        }
-    }
-
-    fn get_data_error(&self) -> Option<(NoData, time::OffsetDateTime)> {
-        match &self.data {
-            Ok(_) => None,
-            Err(err) => Some(err.clone()),
-        }
     }
 }
 
-impl<T: 'static + CrudMainTrait> Component for CrudListView<T> {
-    type Message = Msg<T>;
-    type Properties = Props<T>;
+#[component]
+pub fn CrudListView<T>(
+    cx: Scope,
+    #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
+    #[prop(into)] api_base_url: Signal<String>,
+    #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
+    #[prop(into)] custom_fields: Signal<CustomReadFields<T, leptos::View>>,
+    #[prop(into)] actions: Signal<Vec<CrudAction<T>>>,
+) -> impl IntoView
+where
+    T: CrudMainTrait + 'static,
+{
+    let instance_ctx = expect_context::<CrudInstanceContext<T>>(cx);
 
-    fn create(ctx: &Context<Self>) -> Self {
-        ctx.props().on_link.emit(Some(ctx.link().clone()));
-        ctx.link().send_future(async move { Msg::ComponentCreated });
-        Self {
-            data: Err((NoData::NotYetLoaded, time::OffsetDateTime::now_utc())),
-            selected: vec![],
-            filter: None,
-            item_count: Err((NoData::NotYetLoaded, time::OffsetDateTime::now_utc())),
-            user_wants_to_activate: vec![],
-            actions_executing: vec![],
+    let (filter, set_filter) = create_signal(cx, Option::<String>::None);
+
+    let read_allowed = Signal::derive(cx, move || true);
+    let edit_allowed = Signal::derive(cx, move || true);
+    let delete_allowed = Signal::derive(cx, move || true);
+
+    let headers = create_memo(cx, move |_prev| {
+        let order_by = instance_ctx.order_by.get();
+        //tracing::debug!(?order_by, "headers");
+        headers
+            .get()
+            .iter()
+            .map(|(field, options)| (field.clone(), options.clone(), order_by.get(field).cloned()))
+            .collect::<Vec<(
+                <T::ReadModel as CrudDataTrait>::Field,
+                HeaderOptions,
+                Option<Order>,
+            )>>()
+    });
+
+    // Whenever this signal returns a new/different value, the currently viewed page is re-fetched.
+    let page_req = Signal::derive(cx, move || {
+        tracing::debug!("page_req");
+        // Every server-provided resource must be reloaded when a general reload is requested!
+        let reload = instance_ctx.reload.get();
+        let order_by = instance_ctx.order_by.get();
+        let page = instance_ctx.current_page.get();
+        let items_per_page = instance_ctx.items_per_page.get();
+        let data_provider = data_provider.get();
+        PageReq {
+            reload,
+            order_by,
+            page,
+            items_per_page,
+            data_provider,
         }
-    }
+    });
 
-    fn destroy(&mut self, ctx: &Context<Self>) {
-        ctx.props().on_link.emit(None);
-    }
+    // Whenever this signal returns a new/different value, the item-count is re-fetched.
+    let count_req = Signal::derive(cx, move || {
+        tracing::debug!("count_req");
+        // Every server-provided resource must be reloaded when a general reload is requested!
+        let reload = instance_ctx.reload.get();
+        let data_provider = data_provider.get();
+        CountReq { reload, data_provider }
+    });
 
-    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
-        match msg {
-            Msg::ComponentCreated => {
-                self.load_page(ctx);
-                self.load_count(ctx);
-                false
-            }
-            Msg::PageSelected(page) => {
-                ctx.props().on_page_selected.emit(page);
-                //self.data = Err(NoData::NotYetLoaded);
-                false
-            }
-            Msg::ItemCountSelected(page) => {
-                ctx.props().on_item_count_selected.emit(page);
-                //self.data = Err(NoData::NotYetLoaded);
-                false
-            }
-            Msg::PageLoaded(data) => {
-                self.data = data
-                    .map(Rc::new)
-                    .map_err(|err| (NoData::FetchFailed(err), time::OffsetDateTime::now_utc()));
-                true
-            }
-            Msg::CountRead(data) => {
-                self.item_count = data
-                    .map_err(|err| (NoData::FetchFailed(err), time::OffsetDateTime::now_utc()))
-                    .map(|val| val as u64);
-                true
-            }
-            Msg::Reset => {
-                ctx.props().on_reset.emit(());
-                true
-            }
-            Msg::ToggleFilter => todo!(),
-            Msg::OrderBy((field, options)) => {
-                ctx.props().on_order_by.emit((field, options));
-                false
-            }
-            Msg::Create => {
-                ctx.props().on_create.emit(());
-                false
-            }
-            Msg::EntrySelectionChanged(selected) => {
-                self.selected = selected;
-                // TODO: Show special ui for multi-selection.
-                true
-            }
-            Msg::Read(entity) => {
-                ctx.props().on_read.emit(entity);
-                false
-            }
-            Msg::Edit(entity) => {
-                ctx.props().on_edit.emit(entity);
-                false
-            }
-            Msg::Delete(entity) => {
-                ctx.props().on_delete.emit(entity);
-                false
-            }
-            Msg::ActionInitialized { action_id } => {
-                self.user_wants_to_activate.push(action_id.to_string());
-                true
-            }
-            Msg::ActionCancelled { action_id } => {
-                if let Some(index) = self
-                    .user_wants_to_activate
-                    .iter()
-                    .position(|it| it.as_str() == action_id)
-                {
-                    self.user_wants_to_activate.remove(index);
-                    true
-                } else {
-                    false
-                }
-            }
-            Msg::ActionTriggered {
-                action_id,
-                action_payload,
-                action,
-            } => {
-                if let Some(index) = self
-                    .user_wants_to_activate
-                    .iter()
-                    .position(|it| it.as_str() == action_id)
-                {
-                    self.user_wants_to_activate.remove(index);
-                }
-                action.emit((
-                    action_payload,
-                    ctx.link()
-                        .callback(move |result| Msg::ActionExecuted { action_id, result }),
-                ));
-                if !self.actions_executing.contains(&action_id) {
-                    self.actions_executing.push(action_id);
-                    true
-                } else {
-                    false
-                }
-            }
-            Msg::ActionExecuted { action_id, result } => {
-                // We currently handle both the success and the error path in the same way. This might need to be changes in the future.
-                // But the user should always state in which path we are!
-                match result {
-                    Ok(aftermath) => ctx.props().on_global_action.emit(aftermath),
-                    Err(aftermath) => ctx.props().on_global_action.emit(aftermath),
-                }
-                if let Some(index) = self
-                    .actions_executing
-                    .iter()
-                    .position(|it| *it == action_id)
-                {
-                    self.actions_executing.remove(index);
-                    true
-                } else {
-                    false
-                }
-            }
-            Msg::EntityActionTriggered((action, entity)) => {
-                ctx.props().on_entity_action.emit((action, entity));
-                false
-            }
-            Msg::Reload => {
-                self.load_page(ctx);
-                self.load_count(ctx);
-                false
+    let page_res = create_local_resource(cx, move || page_req.get(), load_page);
+    let count_res = create_local_resource(cx, move || count_req.get(), load_count);
+
+    // The data of the page when successfully loaded.
+    // TODO: create_memo or Signal::derive??? We only want this once..
+    let data = create_memo(cx, move |_prev| match page_res.read(cx) {
+        Some(result) => {
+            tracing::info!("loaded list data");
+            match result {
+                Ok(data) => Ok(Rc::new(data)),
+                Err(reason) => Err(NoDataAvailable::FetchFailed(reason)),
             }
         }
-    }
+        None => Err(NoDataAvailable::NotYetLoaded),
+    });
 
-    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
-        self.load_page(ctx);
-        true
-    }
+    let count = Signal::derive(cx, move || count_res.read(cx));
 
-    fn view(&self, ctx: &Context<Self>) -> Html {
-        html! {
-            <>
-                <div class={"crud-row crud-nav"}>
-                    <div class={"crud-col"}>
-                        <CrudBtnWrapper>
-                            <CrudBtn name={""} variant={Variant::Success} icon={Bi::PlusCircle} onclick={ctx.link().callback(|_| Msg::Create)}>
-                                <CrudBtnName>
-                                    <span style="text-decoration: underline">{"N"}</span>{"eu"}
-                                </CrudBtnName>
-                            </CrudBtn>
+    let (selected, set_selected) = create_signal(cx, Rc::new(Vec::<T::ReadModel>::new()));
 
-                            {
-                                ctx.props().static_config.actions.iter()
-                                    .map(|action| match action {
-                                        CrudAction::Custom {id, name, icon, variant, action, modal} => {
-                                            let action_id: &str = (&id).clone();
-                                            let action = action.clone();
+    provide_context(
+        cx,
+        CrudListViewContext::<T> {
+            data,
+            has_data: Signal::derive(cx, move || {
+                let data = data.get();
+                data.is_ok() && data.as_ref().unwrap().len() > 0
+            }),
+            selected,
+            set_selected,
+            all_selected: Signal::derive(cx, move || {
+                let data = data.get();
+                let selected = selected.get();
+                data.is_ok() // TODO: Performance, memo?
+                    && selected.len() == data.as_ref().unwrap().len()
+                    && data.as_ref().unwrap().len() > 0
+            }),
+        },
+    );
 
-                                            if let Some(modal) = modal {
-                                                html! {
-                                                    <>
-                                                    <CrudBtn
-                                                        name={name.clone()}
-                                                        variant={variant.clone()}
-                                                        icon={None} //icon.clone() leptos!
-                                                        disabled={self.actions_executing.contains(&id)}
-                                                        onclick={ctx.link().callback(move |_| Msg::ActionInitialized { action_id }) }
-                                                    />
-                                                    if self.user_wants_to_activate.iter().any(|it| it.as_str() == action_id) {
-                                                        <CrudModal>
-                                                            {{ modal(ModalGeneration {
-                                                                cancel: ctx.link().callback(move |_| Msg::ActionCancelled { action_id }),
-                                                                execute: ctx.link().callback(move |action_payload| Msg::ActionTriggered { action_id, action_payload, action: action.clone() }),
-                                                            }) }}
-                                                        </CrudModal>
-                                                    }
-                                                    </>
+    let toggle_filter = move |e| {};
+
+    // Stores the actions for which execution was requested by the user.
+    let (actions_requested, set_actions_requested) = create_signal(cx, Vec::<String>::new());
+
+    let is_action_requested = move |action_id| {
+        Signal::derive(cx, move || {
+            actions_requested
+                .get()
+                .iter()
+                .any(|it| it.as_str() == action_id)
+        })
+    };
+
+    // Stores the actions which are currently executing. This allows us to not let a user execute an action while it is already executing.
+    let (actions_executing, set_actions_executing) = create_signal(cx, Vec::new());
+
+    let is_action_executing = move |action_id: String| actions_executing.get().contains(&action_id);
+
+    let request_action = move |action_id| {
+        tracing::info!(action_id, "request_action");
+        set_actions_requested.update(|actions| actions.push(action_id));
+    };
+
+    let cancel_action = move |action_id| {
+        tracing::info!(action_id, "cancel_action");
+        set_actions_requested.update(|actions| {
+            let pos = actions.iter().position(|id| id == action_id);
+            if let Some(pos) = pos {
+                actions.remove(pos);
+            }
+        });
+    };
+
+    let trigger_action = move |action_id: &'static str,
+                               action_payload,
+                               action: Callback<(
+        Option<T::ActionPayload>,
+        Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
+    )>| {
+        tracing::info!(action_id, ?action_payload, "trigger_action");
+
+        // The user accepted the request. The action is no longer requested.
+        set_actions_requested.update(|actions| {
+            let pos = actions.iter().position(|id| id == action_id);
+            if let Some(pos) = pos {
+                actions.remove(pos);
+            }
+        });
+
+        // We are going to execute the action and track that here.
+        set_actions_executing.update(|actions| actions.push(action_id.to_owned()));
+
+        action.0((
+            action_payload,
+            Callback::of(move |outcome| {
+                tracing::info!(?outcome, "action finished");
+
+                // Regardless of the outcome, the action is now finished.
+                set_actions_executing.update(|actions| {
+                    let pos = actions.iter().position(|id| id == action_id);
+                    if let Some(pos) = pos {
+                        actions.remove(pos);
+                    }
+                });
+
+                // We might have to act in a way that this list view can not comprehend and therefore let the instance handle the outcome.
+                expect_context::<CrudInstanceContext<T>>(cx).handle_action_outcome(cx, outcome);
+            }),
+        ));
+    };
+
+    let action_row = view! {cx,
+        <Grid spacing=6 class="crud-nav">
+            <Row>
+                <Col xs=6>
+                    <ButtonWrapper>
+                        <Button color=ButtonColor::Success on_click=move |_| { expect_context::<CrudInstanceContext<T>>(cx).create() }>
+                            <Icon icon=BsIcon::BsPlusCircle/>
+                            <span style="text-decoration: underline">"N"</span> "eu"
+                        </Button>
+
+                        { move || actions.get().into_iter()
+                                .map(|action| match action {
+                                    CrudAction::Custom {id, name, icon, button_color, action, modal} => {
+                                        let action_id: &'static str = id; // TODO: remove
+                                        let action = action.clone();
+
+                                        if let Some(modal) = modal {
+                                            view! {cx,
+                                                <Button
+                                                    color=button_color
+                                                    disabled=is_action_executing(action_id.to_owned())
+                                                    on_click=move |_| request_action(action_id.to_owned())
+                                                >
+                                                    { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
+                                                    { name.clone() }
+                                                </Button>
+                                                {
+                                                    modal.0((cx, ModalGeneration {
+                                                        show_when: is_action_requested(action_id),
+                                                        cancel: Callback::of(move |_| cancel_action(action_id.clone())),
+                                                        execute: Callback::of(move |action_payload| trigger_action(action_id, action_payload, action.clone())),
+                                                    }))
                                                 }
-                                            } else {
-                                                html! {
-                                                    <CrudBtn
-                                                        name={name.clone()}
-                                                        variant={variant.clone()}
-                                                        icon={None} //icon.clone() leptos!
-                                                        disabled={self.actions_executing.contains(&id)}
-                                                        onclick={ctx.link().callback(move |_| Msg::ActionTriggered { action_id, action_payload: None, action: action.clone() }) }
-                                                    />
-                                                }
-                                            }
+                                            }.into_view(cx)
+                                        } else {
+                                            view! {cx,
+                                                <Button
+                                                    color=button_color
+                                                    disabled=is_action_executing(action_id.to_owned())
+                                                    on_click=move |_| trigger_action(action_id, None, action.clone())
+                                                >
+                                                    { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
+                                                    { name.clone() }
+                                                </Button>
+                                            }.into_view(cx)
                                         }
-                                    })
-                                    .collect::<Html>()
-                            }
-                        </CrudBtnWrapper>
-                    </div>
-
-                    <div class={"crud-col crud-col-flex-end"}>
-                        <CrudBtnWrapper>
-                            <CrudBtn name={""} variant={Variant::Default} icon={Bi::ArrowRepeat} disabled={false} onclick={ctx.link().callback(|_| Msg::Reset)}>
-                                <CrudBtnName>
-                                    {"Reset"}
-                                </CrudBtnName>
-                            </CrudBtn>
-                            <CrudBtn name={""} variant={Variant::Primary} icon={Bi::Search} disabled={true} onclick={ctx.link().callback(|_| Msg::ToggleFilter)}>
-                                <CrudBtnName>
-                                    {"Filter"}
-                                    if self.filter.is_some() {
-                                        <div style={"font-size: 0.5em; font-weight: bold; margin-left: 0.3em;"}>
-                                            {"aktiv"}
-                                        </div>
                                     }
-                                </CrudBtnName>
-                            </CrudBtn>
-                        </CrudBtnWrapper>
-                    </div>
-                </div>
-
-                <CrudTable<T::ReadModel>
-                    children={ctx.props().children.clone()}
-                    custom_fields={ctx.props().custom_fields.clone()}
-                    api_base_url={ctx.props().config.api_base_url.clone()}
-                    data={self.get_data()}
-                    no_data={self.get_data_error()}
-                    headers={ctx.props().config.headers.iter()
-                        .map(|(field, options)| (field.clone(), options.clone(), ctx.props().config.order_by.get(field).cloned()))
-                        .collect::<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions, Option<Order>)>>()}
-                    on_order_by={ctx.link().callback(Msg::OrderBy)}
-                    read_allowed={true}
-                    edit_allowed={true}
-                    delete_allowed={true}
-                    selected={self.selected.clone()}
-                    on_selection={ctx.link().callback(Msg::EntrySelectionChanged)}
-                    on_read={ctx.link().callback(Msg::Read)}
-                    on_edit={ctx.link().callback(Msg::Edit)}
-                    on_delete={ctx.link().callback(Msg::Delete)}
-                    additional_item_actions={vec![]}
-                    on_additional_item_action={ctx.link().callback(Msg::EntityActionTriggered)}
-                />
-
-                {
-                    match self.selected.len() {
-                        0 => html! {},
-                        num_selected => html! {
-                            <div class={"multiselect-actions"}>
-                                <div>
-                                    { num_selected } {"servers selected"}
+                                }).collect_view(cx)
+                        }
+                    </ButtonWrapper>
+                </Col>
+                <Col xs=6 h_align=ColAlign::End>
+                    <ButtonWrapper>
+                        <Button color=ButtonColor::Secondary on_click=move |_| { expect_context::<CrudInstanceContext<T>>(cx).reset() }>
+                            <Icon icon=BsIcon::BsArrowRepeat/>
+                            "Reset"
+                        </Button>
+                        <Button color=ButtonColor::Primary disabled=true on_click=toggle_filter>
+                            <Icon icon=BsIcon::BsSearch/>
+                            "Filter"
+                            { move || filter.get().map(|_filter| view! {cx,
+                                <div style="font-size: 0.5em; font-weight: bold; margin-left: 0.3em;">
+                                    "aktiv"
                                 </div>
-                            </div>
-                        },
-                    }
-                }
+                            }) }
+                        </Button>
+                    </ButtonWrapper>
+                </Col>
+            </Row>
+        </Grid>
+    };
 
-                {
-                    match &self.item_count {
-                        Ok(count) => html! {
-                            <CrudPagination
-                                current_page={ctx.props().config.page}
-                                item_count={*count}
-                                items_per_page={ctx.props().config.items_per_page}
-                                on_page_select={ctx.link().callback(|page| Msg::PageSelected(page))}
-                                on_item_count_select={ctx.link().callback(|page| Msg::ItemCountSelected(page))}
-                            />
-                        },
-                        Err((reason, since)) => if (time::OffsetDateTime::now_utc() - *since).whole_seconds() > 5 {
-                            html! {
-                                <div>{format!("Keine Daten verfügbar: {reason:?}")}</div>
-                            }
-                        } else {
-                            html! {}
-                        },
-                    }
+    let multiselect_info = move || match selected.get().len() {
+        0 => None,
+        num_selected => Some(view! {cx,
+            <div class="multiselect-actions">
+                <div>
+                    { num_selected } " selected"
+                </div>
+            </div>
+        }),
+    };
+
+    let pagination = move || {
+        match count.get() {
+        Some(result) => match result {
+            Ok(count) => Some(
+                view! {cx,
+                    <CrudPagination
+                        current_page=instance_ctx.current_page
+                        item_count=count
+                        items_per_page=instance_ctx.items_per_page
+                        on_page_select=move |page_number| {
+                            expect_context::<CrudInstanceContext<T>>(cx).set_page(page_number)
+                        }
+                        on_item_count_select=move |item_count| {
+                            expect_context::<CrudInstanceContext<T>>(cx).set_items_per_page(item_count)
+                        }
+                    />
                 }
-            </>
-        }
+                .into_view(cx),
+            ),
+            Err(reason) => Some(
+                view! {cx,
+                    <div>
+                        {format!("Keine Daten verfügbar: {reason:?}") }
+                    </div>
+                }
+                .into_view(cx),
+            ),
+        },
+        None => None,
+    }
+    };
+
+    view! {cx,
+        { action_row }
+
+        <CrudTable
+            _phantom={PhantomData::<T>::default()}
+            api_base_url=api_base_url
+            headers=headers
+            data=data
+            custom_fields=custom_fields
+            read_allowed=read_allowed
+            edit_allowed=edit_allowed
+            delete_allowed=delete_allowed
+            additional_item_actions=Signal::derive(cx, move || vec![])
+        />
+
+        { multiselect_info }
+
+        { pagination }
     }
 }

@@ -6,7 +6,7 @@ use leptonic::prelude::*;
 use leptos::*;
 
 use crate::{
-    crud_instance_leptos::CrudInstanceContext, crud_list_view_leptos::CrudListViewContext,
+    crud_instance::CrudInstanceContext, crud_list_view::CrudListViewContext,
     prelude::CrudSafeHtml,
 };
 

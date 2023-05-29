@@ -7,7 +7,7 @@ use leptos::*;
 // TODO: Add prelude entry for CrudActionTrait
 use crate::{
     crud_action::CrudActionTrait,
-    crud_list_view_leptos::CrudListViewContext,
+    crud_list_view::CrudListViewContext,
     prelude::{CrudTableFooter, CrudTableHeader, CrudTableBody},
 };
 

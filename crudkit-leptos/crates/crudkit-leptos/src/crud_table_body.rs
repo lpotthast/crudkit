@@ -11,7 +11,7 @@ use leptos_icons::BsIcon;
 
 use crate::{
     crud_action::CrudActionTrait, crud_field_leptos::CrudFieldL,
-    crud_instance_leptos::CrudInstanceContext, crud_list_view_leptos::CrudListViewContext,
+    crud_instance::CrudInstanceContext, crud_list_view::CrudListViewContext,
     crud_table::NoDataAvailable,
 };
 
