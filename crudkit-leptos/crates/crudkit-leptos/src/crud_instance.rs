@@ -377,6 +377,9 @@ where
                         CrudView::Edit(id) => {
                             view! {cx,
                                 <CrudEditView
+                                    _phantom={ PhantomData::<T>::default() }
+                                    id=id
+                                    data_provider=data_provider
                                     // api_base_url=api_base_url
                                     // data_provider=data_provider
                                     // headers=headers
@@ -409,7 +412,7 @@ where
                     } }
 
                     <CrudDeleteModal
-                        _phantom={PhantomData::<T>::default()}
+                        _phantom={ PhantomData::<T>::default() }
                         entity=deletion_request
                         on_cancel=on_cancel_delete
                         on_accept=on_accept_delete>

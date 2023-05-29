@@ -4,7 +4,7 @@ use leptos::*;
 #[component]
 pub fn CrudLeaveModal<C, A>(
     cx: Scope,
-    show_when: Signal<bool>,
+    #[prop(into)] show_when: Signal<bool>,
     on_cancel: C,
     on_accept: A,
 ) -> impl IntoView
