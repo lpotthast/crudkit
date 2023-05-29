@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, marker::PhantomData};
 
 use crudkit_id::Id;
 use crudkit_shared::{DeleteResult, Order};
@@ -205,7 +205,7 @@ where
 
     let default_config = store_value(cx, config);
 
-    let data_provider = Signal::derive(cx, move || {
+    let data_provider = create_memo(cx, move |_| {
         CrudRestDataProvider::<T>::new(api_base_url.get())
     });
 
@@ -237,6 +237,7 @@ where
         tracing::info!("Removing delete request");
         set_deletion_request.set(None);
     };
+
     let on_accept_delete = move |entity: DeletableModel<T::ReadModel, T::UpdateModel>| {
         // TODO: A create_action_once could save us a clone...
         let action = create_action(cx, move |_data: &()| {
@@ -244,9 +245,9 @@ where
                 DeletableModel::Read(entity) => entity.get_id().into_serializable_id(),
                 DeletableModel::Update(entity) => entity.get_id().into_serializable_id(),
             };
+            let data_provider = data_provider.get();
             async move {
                 data_provider
-                    .get()
                     .delete_by_id(DeleteById { id: id.clone() })
                     .await
             }
@@ -403,21 +404,10 @@ where
                     } }
 
                     <CrudDeleteModal
-                        entity=Signal::derive(cx, move || deletion_request.get().map(|deletable| match deletable {
-                            DeletableModel::Read(read_model) => Some(read_model),
-                            DeletableModel::Update(_) => None,
-                        }).flatten())
+                        _phantom={PhantomData::<T>::default()}
+                        entity=deletion_request
                         on_cancel=on_cancel_delete
-                        on_accept=move |entity| on_accept_delete(DeletableModel::Read(entity))>
-                    </CrudDeleteModal>
-
-                    <CrudDeleteModal
-                        entity=Signal::derive(cx, move || deletion_request.get().map(|deletable| match deletable {
-                            DeletableModel::Read(_) => None,
-                            DeletableModel::Update(update_model) => Some(update_model),
-                        }).flatten())
-                        on_cancel=on_cancel_delete
-                        on_accept=move |entity| on_accept_delete(DeletableModel::Update(entity))>
+                        on_accept=on_accept_delete>
                     </CrudDeleteModal>
                 </div>
             </div>

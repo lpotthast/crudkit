@@ -1,19 +1,22 @@
-use crudkit_web::{CrudDataTrait, CrudIdTrait};
+use std::marker::PhantomData;
+
+use crudkit_web::{CrudIdTrait, CrudMainTrait, DeletableModel};
 use leptonic::{prelude::*, root::GlobalKeyboardEvent};
 use leptos::*;
 
 #[component]
 pub fn CrudDeleteModal<T, C, A>(
     cx: Scope,
+    _phantom: PhantomData<T>,
     // Modal is shown when this Signal contains a Some value.
-    entity: Signal<Option<T>>, // TODO: Take DeletableModel instead? Do not take Option
+    #[prop(into)] entity: Signal<Option<DeletableModel<T::ReadModel, T::UpdateModel>>>, // TODO: Do not take Option
     on_cancel: C,
     on_accept: A,
 ) -> impl IntoView
 where
-    T: CrudDataTrait + CrudIdTrait + 'static,
+    T: CrudMainTrait + 'static,
     C: Fn() + Clone + 'static,
-    A: Fn(T) + Clone + 'static,
+    A: Fn(DeletableModel<T::ReadModel, T::UpdateModel>) + Clone + 'static,
 {
     let on_cancel = store_value(cx, on_cancel);
     let on_accept = store_value(cx, on_accept);
@@ -35,7 +38,10 @@ where
             <ModalHeader>
                 <ModalTitle>
                     //TODO: Consider using an "EntryVisualizer" of some sort...
-                    { move || format!("Löschen - {}", entity.get().unwrap().get_id()) }
+                    { move || entity.get().map(|it| format!("Löschen - {}", match it {
+                        DeletableModel::Read(model) => model.get_id().to_string(),
+                        DeletableModel::Update(model) => model.get_id().to_string(),
+                    })).unwrap_or_default() }
                 </ModalTitle>
             </ModalHeader>
 
@@ -57,7 +63,10 @@ where
                                 </Button>
                                 <Button color=ButtonColor::Danger on_click=move |_| {
                                     tracing::info!("cancel");
-                                    (on_accept.get_value())(entity.get().unwrap())
+                                    match entity.get() {
+                                        Some(model) => (on_accept.get_value())(model),
+                                        None => {},
+                                    }
                                 }>
                                     "Löschen"
                                 </Button>

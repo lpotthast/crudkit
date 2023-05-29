@@ -116,7 +116,7 @@ impl<T: CrudMainTrait + 'static> CrudListViewContext<T> {
 #[component]
 pub fn CrudListViewL<T>(
     cx: Scope,
-    data_provider: Signal<CrudRestDataProvider<T>>,
+    #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
     #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
     #[prop(into)] custom_fields: Signal<CustomReadFields<T, leptos::View>>,
