@@ -175,8 +175,8 @@ where
         CountReq { reload, data_provider }
     });
 
-    let page_res = create_local_resource(cx, page_req, load_page);
-    let count_res = create_local_resource(cx, count_req, load_count);
+    let page_res = create_local_resource(cx, move || page_req.get(), load_page);
+    let count_res = create_local_resource(cx, move || count_req.get(), load_count);
 
     // The data of the page when successfully loaded.
     // TODO: create_memo or Signal::derive??? We only want this once..

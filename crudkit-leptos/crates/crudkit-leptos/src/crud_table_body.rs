@@ -86,7 +86,7 @@ where
                 </td>
 
                 <For
-                    each=headers
+                    each=move || headers.get()
                     key=|(field, options, _order)| (field.get_name(), options.clone())
                     view=move |cx, (field, options, _order)| view! {cx,
                         <td>

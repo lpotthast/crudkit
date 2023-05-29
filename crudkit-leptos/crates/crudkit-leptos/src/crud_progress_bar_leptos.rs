@@ -12,7 +12,7 @@ pub fn CrudProgressBarL(cx: Scope, percent: Signal<f64>, show_percentage: MaybeS
     };
 
     view! {cx,
-        <div class="crud-progress-bar" style=style>
+        <div class="crud-progress-bar" style=move || style.get()>
             { optional_percentage_span }
         </div>
     }

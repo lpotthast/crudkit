@@ -46,7 +46,7 @@ where
                 }) }
 
                 <For
-                    each=headers
+                    each=move || headers.get()
                     key=|(field, options, order)| (field.get_name(), options.clone(), order.clone())
                     view=move |cx, (field, options, order)| {
                         let field_clone = field.clone();

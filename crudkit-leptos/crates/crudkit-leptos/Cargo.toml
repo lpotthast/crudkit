@@ -23,6 +23,22 @@ dyn-clone = "1"
 gloo = "0.8"
 indexmap = { version = "1", features = ["serde"] }
 js-sys = "0.3"
+leptonic = { path = "../../../../leptonic" }
+leptos = { version = "0.3", default-features = false, features = [
+    "csr",
+    "tracing",
+    "stable",
+] }
+leptos-icons = { git = "https://github.com/lpotthast/leptos-icons", branch = "enum", features = [
+    "BsPlusCircle",
+    "BsArrowRepeat",
+    "BsSearch",
+    "BsEye",
+    "BsPencil",
+    "BsTrash",
+    "BsList",
+    "BsQuestion",
+] }
 once_cell = "1"
 parking_lot = "0.12"
 reqwest = { version = "0.11", default-features = false, features = [
@@ -52,17 +68,4 @@ web-sys = { version = "0.3", features = [
     "Event",
     "EventTarget",
     "DomRect",
-] }
-
-leptonic = { path = "../../../../leptonic" }
-leptos = { version = "0.3", default-features = false, features = ["csr", "tracing"] }
-leptos-icons = { git = "https://github.com/lpotthast/leptos-icons", branch = "enum", features = [
-    "BsPlusCircle",
-    "BsArrowRepeat",
-    "BsSearch",
-    "BsEye",
-    "BsPencil",
-    "BsTrash",
-    "BsList",
-    "BsQuestion",
 ] }
