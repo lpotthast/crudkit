@@ -15,7 +15,7 @@ use crate::{
     crud_instance_config::{
         CreateElements, CrudInstanceConfig, CrudStaticInstanceConfig, NestedConfig,
     },
-    prelude::{CrudListView, CrudEditView},
+    prelude::{CrudEditView, CrudListView},
 };
 
 /// Runtime data of this instance, provided to child components through provide_context.
@@ -55,7 +55,15 @@ pub struct CrudInstanceContext<T: CrudMainTrait + 'static> {
     set_reload: WriteSignal<Uuid>,
 }
 
+// TODO: This allows us to easily use this context but more copies are made...
+impl <T: CrudMainTrait> Copy for CrudInstanceContext<T> {}
+
 impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
+    /// Opens the list view.
+    pub fn list(&self) {
+        self.set_view.update(|view| *view = CrudView::List);
+    }
+
     /// Opens the create view.
     pub fn create(&self) {
         self.set_view.update(|view| *view = CrudView::Create);
@@ -238,6 +246,7 @@ where
         set_deletion_request.set(None);
     };
 
+    // TODO: Always open the list view after a successful delete.
     let on_accept_delete = move |entity: DeletableModel<T::ReadModel, T::UpdateModel>| {
         // TODO: A create_action_once could save us a clone...
         let action = create_action(cx, move |_data: &()| {
@@ -380,6 +389,7 @@ where
                                     _phantom={ PhantomData::<T>::default() }
                                     id=id
                                     data_provider=data_provider
+                                    actions=entity_actions
                                     // api_base_url=api_base_url
                                     // data_provider=data_provider
                                     // headers=headers

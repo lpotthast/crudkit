@@ -42,7 +42,7 @@ pub enum CreateElements<T: CrudMainTrait> {
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct CrudStaticInstanceConfig<T: CrudMainTrait> {
+pub struct CrudStaticInstanceConfig<T: CrudMainTrait + 'static> {
     pub actions: Vec<CrudAction<T>>,
     pub entity_actions: Vec<CrudEntityAction<T>>,
     pub custom_read_fields: CustomReadFields<T, leptos::View>,

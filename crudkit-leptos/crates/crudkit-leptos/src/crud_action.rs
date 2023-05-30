@@ -37,15 +37,15 @@ pub struct ModalGeneration<T: CrudMainTrait> {
 }
 
 #[derive(Clone)]
-pub struct EntityModalGeneration<T: CrudMainTrait> {
+pub struct EntityModalGeneration<T: CrudMainTrait + 'static> {
     pub show_when: leptos::Signal<bool>,
-    pub state: T::UpdateModel,
+    pub state: leptos::Signal<Option<T::UpdateModel>>,
     pub cancel: Callback<()>,
     pub execute: Callback<Option<T::ActionPayload>>,
 }
 
 #[derive(Clone)]
-pub enum CrudEntityAction<T: CrudMainTrait> {
+pub enum CrudEntityAction<T: CrudMainTrait + 'static> {
     // TODO: Both id and name could be Cow
     Custom {
         id: &'static str,

@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     crud_action::{Callback, CrudAction, CrudActionAftermath, ModalGeneration},
+    crud_action_context::CrudActionContext,
     crud_instance::CrudInstanceContext,
     crud_pagination::CrudPagination,
     crud_table::NoDataAvailable,
@@ -171,7 +172,10 @@ where
         // Every server-provided resource must be reloaded when a general reload is requested!
         let reload = instance_ctx.reload.get();
         let data_provider = data_provider.get();
-        CountReq { reload, data_provider }
+        CountReq {
+            reload,
+            data_provider,
+        }
     });
 
     let page_res = create_local_resource(cx, move || page_req.get(), load_page);
@@ -216,75 +220,7 @@ where
 
     let toggle_filter = move |e| {};
 
-    // Stores the actions for which execution was requested by the user.
-    let (actions_requested, set_actions_requested) = create_signal(cx, Vec::<String>::new());
-
-    let is_action_requested = move |action_id| {
-        Signal::derive(cx, move || {
-            actions_requested
-                .get()
-                .iter()
-                .any(|it| it.as_str() == action_id)
-        })
-    };
-
-    // Stores the actions which are currently executing. This allows us to not let a user execute an action while it is already executing.
-    let (actions_executing, set_actions_executing) = create_signal(cx, Vec::new());
-
-    let is_action_executing = move |action_id: String| actions_executing.get().contains(&action_id);
-
-    let request_action = move |action_id| {
-        tracing::info!(action_id, "request_action");
-        set_actions_requested.update(|actions| actions.push(action_id));
-    };
-
-    let cancel_action = move |action_id| {
-        tracing::info!(action_id, "cancel_action");
-        set_actions_requested.update(|actions| {
-            let pos = actions.iter().position(|id| id == action_id);
-            if let Some(pos) = pos {
-                actions.remove(pos);
-            }
-        });
-    };
-
-    let trigger_action = move |action_id: &'static str,
-                               action_payload,
-                               action: Callback<(
-        Option<T::ActionPayload>,
-        Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
-    )>| {
-        tracing::info!(action_id, ?action_payload, "trigger_action");
-
-        // The user accepted the request. The action is no longer requested.
-        set_actions_requested.update(|actions| {
-            let pos = actions.iter().position(|id| id == action_id);
-            if let Some(pos) = pos {
-                actions.remove(pos);
-            }
-        });
-
-        // We are going to execute the action and track that here.
-        set_actions_executing.update(|actions| actions.push(action_id.to_owned()));
-
-        action.0((
-            action_payload,
-            Callback::of(move |outcome| {
-                tracing::info!(?outcome, "action finished");
-
-                // Regardless of the outcome, the action is now finished.
-                set_actions_executing.update(|actions| {
-                    let pos = actions.iter().position(|id| id == action_id);
-                    if let Some(pos) = pos {
-                        actions.remove(pos);
-                    }
-                });
-
-                // We might have to act in a way that this list view can not comprehend and therefore let the instance handle the outcome.
-                expect_context::<CrudInstanceContext<T>>(cx).handle_action_outcome(cx, outcome);
-            }),
-        ));
-    };
+    let action_ctx = CrudActionContext::<T>::new(cx);
 
     let action_row = view! {cx,
         <Grid spacing=6 class="crud-nav">
@@ -297,43 +233,43 @@ where
                         </Button>
 
                         { move || actions.get().into_iter()
-                                .map(|action| match action {
-                                    CrudAction::Custom {id, name, icon, button_color, action, modal} => {
-                                        let action_id: &'static str = id; // TODO: remove
-                                        let action = action.clone();
+                            .map(|action| match action {
+                                CrudAction::Custom {id, name, icon, button_color, action, modal} => {
+                                    let action_id: &'static str = id; // TODO: remove
+                                    let action = action.clone();
 
-                                        if let Some(modal) = modal {
-                                            view! {cx,
-                                                <Button
-                                                    color=button_color
-                                                    disabled=is_action_executing(action_id.to_owned())
-                                                    on_click=move |_| request_action(action_id.to_owned())
-                                                >
-                                                    { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
-                                                    { name.clone() }
-                                                </Button>
-                                                {
-                                                    modal.0((cx, ModalGeneration {
-                                                        show_when: is_action_requested(action_id),
-                                                        cancel: Callback::of(move |_| cancel_action(action_id.clone())),
-                                                        execute: Callback::of(move |action_payload| trigger_action(action_id, action_payload, action.clone())),
-                                                    }))
-                                                }
-                                            }.into_view(cx)
-                                        } else {
-                                            view! {cx,
-                                                <Button
-                                                    color=button_color
-                                                    disabled=is_action_executing(action_id.to_owned())
-                                                    on_click=move |_| trigger_action(action_id, None, action.clone())
-                                                >
-                                                    { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
-                                                    { name.clone() }
-                                                </Button>
-                                            }.into_view(cx)
-                                        }
+                                    if let Some(modal) = modal {
+                                        view! {cx,
+                                            <Button
+                                                color=button_color
+                                                disabled=Signal::derive(cx, move || action_ctx.is_action_executing(action_id))
+                                                on_click=move |_| action_ctx.request_action(action_id)
+                                            >
+                                                { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
+                                                { name.clone() }
+                                            </Button>
+                                            {
+                                                modal.0((cx, ModalGeneration {
+                                                    show_when: Signal::derive(cx, move || action_ctx.is_action_requested(action_id)),
+                                                    cancel: Callback::of(move |_| action_ctx.cancel_action(action_id.clone())),
+                                                    execute: Callback::of(move |action_payload| action_ctx.trigger_action(cx, action_id, action_payload, action.clone())),
+                                                }))
+                                            }
+                                        }.into_view(cx)
+                                    } else {
+                                        view! {cx,
+                                            <Button
+                                                color=button_color
+                                                disabled=Signal::derive(cx, move || action_ctx.is_action_executing(action_id))
+                                                on_click=move |_| action_ctx.trigger_action(cx, action_id, None, action.clone())
+                                            >
+                                                { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
+                                                { name.clone() }
+                                            </Button>
+                                        }.into_view(cx)
                                     }
-                                }).collect_view(cx)
+                                }
+                            }).collect_view(cx)
                         }
                     </ButtonWrapper>
                 </Col>
