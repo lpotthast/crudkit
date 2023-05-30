@@ -716,7 +716,7 @@ pub enum SerializableCrudView {
     Edit(SerializableId),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum CrudSimpleView {
     List,
     Create,
@@ -851,6 +851,8 @@ pub enum Elem<T: CrudDataTrait> {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Tab<T: CrudDataTrait> {
+    /// A unique identifier for this tab.
+    pub id: Cow<'static, str>,
     pub label: Label,
     #[serde(bound = "")]
     pub group: Group<T>,
