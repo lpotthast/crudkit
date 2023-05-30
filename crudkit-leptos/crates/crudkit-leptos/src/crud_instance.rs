@@ -208,6 +208,8 @@ where
     let (current_page, set_current_page) = create_signal(cx, config.page.clone());
     let (items_per_page, set_items_per_page) = create_signal(cx, config.items_per_page.clone());
     let (order_by, set_order_by) = create_signal(cx, config.order_by.clone());
+    let (create_elements, set_create_elements) = create_signal(cx, config.create_elements.clone());
+    let (update_elements, set_update_elements) = create_signal(cx, config.elements.clone());
     let (deletion_request, set_deletion_request) = create_signal(cx, None);
     let (reload, set_reload) = create_signal(cx, Uuid::new_v4());
 
@@ -237,6 +239,8 @@ where
     );
 
     let custom_read_fields = Signal::derive(cx, move || static_config.custom_read_fields.clone());
+    let custom_create_fields = Signal::derive(cx, move || static_config.custom_create_fields.clone());
+    let custom_update_fields = Signal::derive(cx, move || static_config.custom_update_fields.clone());
 
     let actions = Signal::derive(cx, move || static_config.actions.clone());
     let entity_actions = Signal::derive(cx, move || static_config.entity_actions.clone());
@@ -387,9 +391,12 @@ where
                             view! {cx,
                                 <CrudEditView
                                     _phantom={ PhantomData::<T>::default() }
+                                    api_base_url=api_base_url
                                     id=id
                                     data_provider=data_provider
                                     actions=entity_actions
+                                    elements=update_elements
+                                    custom_fields=custom_update_fields
                                     // api_base_url=api_base_url
                                     // data_provider=data_provider
                                     // headers=headers

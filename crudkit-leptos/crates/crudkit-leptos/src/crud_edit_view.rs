@@ -3,9 +3,9 @@ use std::marker::PhantomData;
 use crudkit_condition::IntoAllEqualCondition;
 use crudkit_id::{Id, IdField};
 use crudkit_web::{
-    prelude::{CrudRestDataProvider, ReadOne},
+    prelude::{CrudRestDataProvider, CustomUpdateFields, ReadOne},
     requests::RequestError,
-    CrudMainTrait, DeletableModel,
+    CrudMainTrait, CrudSimpleView, DeletableModel, Elem, FieldMode,
 };
 use leptonic::prelude::*;
 use leptos::*;
@@ -14,6 +14,7 @@ use uuid::Uuid;
 use crate::{
     crud_action::{Callback, CrudEntityAction, EntityModalGeneration, States},
     crud_action_context::CrudActionContext,
+    crud_fields::CrudFields,
     crud_instance::CrudInstanceContext,
     crud_leave_modal::CrudLeaveModal,
     crud_table::NoDataAvailable,
@@ -47,11 +48,14 @@ async fn load_entity<T: CrudMainTrait + 'static>(
 pub fn CrudEditView<T>(
     cx: Scope,
     _phantom: PhantomData<T>,
+    #[prop(into)] api_base_url: Signal<String>,
     /// The ID of the entity being edited.
     #[prop(into)]
     id: MaybeSignal<T::UpdateModelId>,
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
     #[prop(into)] actions: Signal<Vec<CrudEntityAction<T>>>,
+    #[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
+    #[prop(into)] custom_fields: Signal<CustomUpdateFields<T, leptos::View>>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
@@ -81,13 +85,19 @@ where
         Some(result) => {
             tracing::info!("loaded entity data");
             match result {
-                Ok(data) => {
-                    // Copying the loaded entity data to be our current input, so that input fields can work on the data.
-                    // TODO: Call something like into_update_model(), to make this into more readable.
-                    set_input.set(data.clone().map(|it| it.into()));
-                    Ok(data)
-                }
-                Err(reason) => Err(NoDataAvailable::FetchFailed(reason)),
+                Ok(data) => match data {
+                    Some(data) => {
+                        let update_model = data.into();
+                        // Copying the loaded entity data to be our current input, so that input fields can work on the data.
+                        // TODO: Call something like into_update_model(), to make this into more readable.
+                        set_input.set(Some(update_model.clone()));
+                        Ok(update_model)
+                    }
+                    None => Err(NoDataAvailable::RequestReturnedNoData(format!(
+                        "Eintrag existiert nicht."
+                    ))),
+                },
+                Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
             }
         }
         None => Err(NoDataAvailable::NotYetLoaded),
@@ -95,7 +105,7 @@ where
 
     let (user_wants_to_leave, set_user_wants_to_leave) = create_signal(cx, false);
 
-    // TODO: Should probably be derived.
+    // TODO: Should probably be derived. Only allow saves when changes were made...
     let (save_disabled, set_save_disabled) = create_signal(cx, true);
     let (delete_disabled, set_delete_disabled) = create_signal(cx, false);
 
@@ -196,22 +206,23 @@ where
             Ok(data) => view! {cx,
                 { action_row }
 
-                // <CrudFields<T::UpdateModel>
-                //     api_base_url={ctx.props().config.api_base_url.clone()}
+                <CrudFields
                 //     children={ChildrenRenderer::new(ctx.props().children.iter().filter(|it| match it {
                 //         Item::NestedInstance(_) => true,
                 //         Item::Relation(_) => true,
                 //         Item::Select(select) => select.props.for_model == crate::crud_reset_field::Model::Update,
                 //     }).collect::<Vec<Item>>())}
-                //     custom_fields={ctx.props().custom_fields.clone()}
-                //     elements={ctx.props().config.elements.clone()}
-                //     entity={self.input.clone()}
-                //     mode={FieldMode::Editable}
-                //     current_view={CrudSimpleView::Edit}
+
+                    custom_fields=custom_fields
+                    api_base_url=api_base_url
+                    elements=elements
+                    entity=Signal::derive(cx, move || data.clone()) // TODO: Can this be made easier! What about performance?
+                    mode=FieldMode::Editable
+                    current_view=CrudSimpleView::Edit
                 //     value_changed={ctx.link().callback(Msg::ValueChanged)}
                 //     active_tab={ctx.props().config.active_tab.clone()}
                 //     on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
-                // />
+                />
             }.into_view(cx),
             Err(no_data) => view! {cx,
                 <Grid spacing=6 class="crud-nav">

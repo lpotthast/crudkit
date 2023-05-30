@@ -14,7 +14,8 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub enum NoDataAvailable {
     NotYetLoaded,
-    FetchFailed(RequestError),
+    RequestFailed(RequestError),
+    RequestReturnedNoData(String),
 }
 
 #[component]

@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::prelude::CrudFieldLabel;
 
 #[component]
-pub fn CrudFieldL<T, C>(
+pub fn CrudField<T, C>(
     cx: Scope,
     //children: Children,
     custom_fields: Signal<CustomFields<T, leptos::View>>,

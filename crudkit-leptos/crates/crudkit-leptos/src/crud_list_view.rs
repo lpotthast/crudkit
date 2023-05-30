@@ -188,7 +188,7 @@ where
             tracing::info!("loaded list data");
             match result {
                 Ok(data) => Ok(Rc::new(data)),
-                Err(reason) => Err(NoDataAvailable::FetchFailed(reason)),
+                Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
             }
         }
         None => Err(NoDataAvailable::NotYetLoaded),

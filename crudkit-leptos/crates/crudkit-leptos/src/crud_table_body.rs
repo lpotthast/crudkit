@@ -10,7 +10,7 @@ use leptos::*;
 use leptos_icons::BsIcon;
 
 use crate::{
-    crud_action::CrudActionTrait, crud_field_leptos::CrudFieldL,
+    crud_action::CrudActionTrait, crud_field_leptos::CrudField,
     crud_instance::CrudInstanceContext, crud_list_view::CrudListViewContext,
     crud_table::NoDataAvailable,
 };
@@ -90,7 +90,7 @@ where
                     key=|(field, options, _order)| (field.get_name(), options.clone())
                     view=move |cx, (field, options, _order)| view! {cx,
                         <td>
-                            <CrudFieldL
+                            <CrudField
                                 //children={ctx.props().children.clone()} // TODO: make this work
                                 custom_fields=custom_fields
                                 api_base_url=api_base_url
@@ -177,7 +177,15 @@ where
                         </tr>
                     }
                     .into_view(cx),
-                    NoDataAvailable::FetchFailed(reason) => view! {cx,
+                    NoDataAvailable::RequestFailed(reason) => view! {cx,
+                        <tr>
+                            <td colspan="100%">
+                                { format!("No data available: {reason:?}") }
+                            </td>
+                        </tr>
+                    }
+                    .into_view(cx),
+                    NoDataAvailable::RequestReturnedNoData(reason) => view! {cx,
                         <tr>
                             <td colspan="100%">
                                 { format!("No data available: {reason:?}") }
