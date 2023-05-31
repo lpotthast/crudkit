@@ -9,7 +9,7 @@ use leptos_icons::BsIcon;
 use uuid::Uuid;
 
 use crate::{
-    crud_action::{Callback, CrudAction, CrudActionAftermath, ModalGeneration},
+    crud_action::{SimpleCallback, CrudAction, CrudActionAftermath, ModalGeneration},
     crud_action_context::CrudActionContext,
     crud_instance::CrudInstanceContext,
     crud_pagination::CrudPagination,
@@ -251,8 +251,8 @@ where
                                             {
                                                 modal.0((cx, ModalGeneration {
                                                     show_when: Signal::derive(cx, move || action_ctx.is_action_requested(action_id)),
-                                                    cancel: Callback::of(move |_| action_ctx.cancel_action(action_id.clone())),
-                                                    execute: Callback::of(move |action_payload| action_ctx.trigger_action(cx, action_id, action_payload, action.clone())),
+                                                    cancel: SimpleCallback::of(move |_| action_ctx.cancel_action(action_id.clone())),
+                                                    execute: SimpleCallback::of(move |action_payload| action_ctx.trigger_action(cx, action_id, action_payload, action.clone())),
                                                 }))
                                             }
                                         }.into_view(cx)

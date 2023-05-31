@@ -1,29 +1,12 @@
 use crudkit_web::{
-    prelude::CustomFields, CrudDataTrait, CrudSimpleView, Elem, Enclosing, FieldMode,
+    prelude::CustomFields, CrudDataTrait, CrudSimpleView, Elem, Enclosing, FieldMode, Value,
 };
 use leptonic::prelude::*;
 use leptos::*;
 
-use crate::crud_field_leptos::CrudField;
+use crate::{crud_action::Callback, crud_field_leptos::CrudField};
 
-// pub enum Msg<T: CrudDataTrait> {
-//     ValueChanged((T::Field, Result<Value, String>)),
-//     TabSelected(Label),
-// }
-//
-//
-// fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
-//     match msg {
-//         Msg::ValueChanged((field_type, value)) => {
-//             ctx.props().value_changed.emit((field_type, value));
-//             false
-//         }
-//         Msg::TabSelected(label) => {
-//             ctx.props().on_tab_selection.emit(label);
-//             false
-//         }
-//     }
-// }
+// TODO: Propagate tab selection...
 
 #[component]
 pub fn CrudFields<T>(
@@ -32,10 +15,10 @@ pub fn CrudFields<T>(
     custom_fields: Signal<CustomFields<T, leptos::View>>,
     api_base_url: Signal<String>,
     #[prop(into)] elements: MaybeSignal<Vec<Elem<T>>>,
-    #[prop(into)] entity: Signal<T>,
+    #[prop(into)] entity: StoredValue<T>,
     mode: FieldMode,
     current_view: CrudSimpleView,
-    // value_changed: Callback<(T::Field, Result<Value, String>)>,
+    value_changed: Callback<(T::Field, Result<Value, String>)>,
     // active_tab: Option<Label>,
     // on_tab_selection: Callback<Label>,
 ) -> impl IntoView
@@ -59,7 +42,7 @@ where
                                     entity=entity
                                     mode=mode.clone()
                                     current_view=current_view.clone()
-                                    //value_changed={ctx.props().value_changed.clone()}
+                                    value_changed=value_changed
                                     //active_tab={ctx.props().active_tab.clone()}
                                     //on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                                 />
@@ -71,7 +54,7 @@ where
                                 >
                                     { tabs.into_iter().map(|tab| {
                                         view! {cx,
-                                            <Tab name=tab.id label=view! {cx, { tab.label.name.clone() } }>
+                                            <Tab name=tab.id label=tab.label.name.clone().into_view(cx)>
                                                 <CrudFields
                                                     //children={ctx.props().children.clone()}
                                                     custom_fields=custom_fields
@@ -80,7 +63,7 @@ where
                                                     entity=entity
                                                     mode=mode.clone()
                                                     current_view=current_view.clone()
-                                                    //value_changed={ctx.props().value_changed.clone()}
+                                                    value_changed=value_changed
                                                     //active_tab={ctx.props().active_tab.clone()}
                                                     //on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                                                 />
@@ -99,7 +82,7 @@ where
                                         entity=entity
                                         mode=mode.clone()
                                         current_view=current_view.clone()
-                                        //value_changed={ctx.props().value_changed.clone()}
+                                        value_changed=value_changed
                                         //active_tab={ctx.props().active_tab.clone()}
                                         //on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                                     />
@@ -108,32 +91,18 @@ where
                         }
                     }
                     Elem::Field((field, field_options)) => {
-                        view! {cx,
-                            // <CrudField
-                            //     // children={ctx.props().children.clone()}
-                            //     custom_fields={ctx.props().custom_fields.clone()}
-                            //     api_base_url={ctx.props().api_base_url.clone()}
-                            //     current_view={ctx.props().current_view.clone()}
-                            //     // field_type={field_type.clone()}
-                            //     // field_options={field_options.clone()}
-                            //     // field_mode={ctx.props().mode}
-                            //     // entity={ctx.props().entity.clone()}
-                            //     // value_changed={ctx.link().callback(Msg::ValueChanged)}
-                            // />
-                            {move || {
-                                let e = entity.get();
-                                view!{cx, <CrudField
+                        view!{cx,
+                            <CrudField
                                 //children={ctx.props().children.clone()} // TODO: make this work
                                 custom_fields=custom_fields
                                 api_base_url=api_base_url
                                 current_view=current_view
                                 field=field.clone()
                                 field_options=field_options.clone()
-                                entity=e
+                                entity=entity.get_value()
                                 field_mode=mode.clone()
-                                value_changed=|_, _| {}
+                                value_changed=move |a, b| value_changed.with_value(|cb| cb((a, b)))
                             />
-                            }}}
                         }.into_view(cx)
                     },
                     Elem::Separator => view! {cx,

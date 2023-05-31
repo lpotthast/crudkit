@@ -4,7 +4,7 @@ use crudkit_web::CrudMainTrait;
 use leptos::*;
 
 use crate::{
-    crud_action::{Callback, CrudActionAftermath},
+    crud_action::{SimpleCallback, CrudActionAftermath},
     crud_instance::CrudInstanceContext,
 };
 
@@ -81,9 +81,9 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
         cx: Scope,
         action_id: ActionId,
         action_payload: Option<T::ActionPayload>,
-        action: Callback<(
+        action: SimpleCallback<(
             Option<T::ActionPayload>,
-            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
+            SimpleCallback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
     ) {
         tracing::debug!(action_id, ?action_payload, "trigger_action");
@@ -103,7 +103,7 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
         let this = self.clone();
         action.0((
             action_payload,
-            Callback::of(move |outcome| {
+            SimpleCallback::of(move |outcome| {
                 tracing::debug!(?outcome, "action finished");
 
                 // Regardless of the outcome, the action is now finished.
@@ -127,10 +127,10 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
         action_id: ActionId,
         entity: T::UpdateModel,
         action_payload: Option<T::ActionPayload>,
-        action: Callback<(
+        action: SimpleCallback<(
             T::UpdateModel,
             Option<T::ActionPayload>,
-            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
+            SimpleCallback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
     ) {
         tracing::debug!(action_id, ?action_payload, "trigger_action");
@@ -151,7 +151,7 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
         action.0((
             entity,
             action_payload,
-            Callback::of(move |outcome| {
+            SimpleCallback::of(move |outcome| {
                 tracing::debug!(?outcome, "action finished");
 
                 // Regardless of the outcome, the action is now finished.

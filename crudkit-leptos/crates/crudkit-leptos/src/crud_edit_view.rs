@@ -1,18 +1,19 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, rc::Rc};
 
 use crudkit_condition::IntoAllEqualCondition;
 use crudkit_id::{Id, IdField};
 use crudkit_web::{
     prelude::{CrudRestDataProvider, CustomUpdateFields, ReadOne},
     requests::RequestError,
-    CrudMainTrait, CrudSimpleView, DeletableModel, Elem, FieldMode,
+    CrudDataTrait, CrudFieldValueTrait, CrudMainTrait, CrudSimpleView, DeletableModel, Elem,
+    FieldMode, Value,
 };
 use leptonic::prelude::*;
 use leptos::*;
 use uuid::Uuid;
 
 use crate::{
-    crud_action::{Callback, CrudEntityAction, EntityModalGeneration, States},
+    crud_action::{Callback, CrudEntityAction, EntityModalGeneration, SimpleCallback, States},
     crud_action_context::CrudActionContext,
     crud_fields::CrudFields,
     crud_instance::CrudInstanceContext,
@@ -81,32 +82,38 @@ where
     let entity_res = create_local_resource(cx, move || entity_req.get(), load_entity);
 
     // TODO: create_memo or Signal::derive??? We only want this once..
-    let data = create_memo(cx, move |_prev| match entity_res.read(cx) {
-        Some(result) => {
-            tracing::info!("loaded entity data");
-            match result {
-                Ok(data) => match data {
-                    Some(data) => {
-                        let update_model = data.into();
-                        // Copying the loaded entity data to be our current input, so that input fields can work on the data.
-                        // TODO: Call something like into_update_model(), to make this into more readable.
-                        set_input.set(Some(update_model.clone()));
-                        Ok(update_model)
-                    }
-                    None => Err(NoDataAvailable::RequestReturnedNoData(format!(
-                        "Eintrag existiert nicht."
-                    ))),
-                },
-                Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
+    let data: Memo<Result<StoredValue<T::UpdateModel>, NoDataAvailable>> =
+        create_memo(cx, move |_prev| match entity_res.read(cx) {
+            Some(result) => {
+                tracing::info!("loaded entity data");
+                match result {
+                    Ok(data) => match data {
+                        Some(data) => {
+                            let update_model = data.into();
+                            // Copying the loaded entity data to be our current input, so that input fields can work on the data.
+                            // TODO: Call something like into_update_model(), to make this into more readable.
+                            set_input.set(Some(update_model.clone()));
+                            Ok(store_value(cx, update_model))
+                        }
+                        None => Err(NoDataAvailable::RequestReturnedNoData(format!(
+                            "Eintrag existiert nicht."
+                        ))),
+                    },
+                    Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
+                }
             }
-        }
-        None => Err(NoDataAvailable::NotYetLoaded),
-    });
+            None => Err(NoDataAvailable::NotYetLoaded),
+        });
 
     let (user_wants_to_leave, set_user_wants_to_leave) = create_signal(cx, false);
 
+    // Only allow the user to save if the input diverges from the initial data of the entity.
+    let save_disabled = Signal::derive(cx, move || match (input.get(), data.get()) {
+        (Some(input), Ok(data)) => data.with_value(|data| input == *data),
+        _ => false,
+    });
+
     // TODO: Should probably be derived. Only allow saves when changes were made...
-    let (save_disabled, set_save_disabled) = create_signal(cx, true);
     let (delete_disabled, set_delete_disabled) = create_signal(cx, false);
 
     let force_leave = move || {
@@ -165,8 +172,8 @@ where
                                                         modal.0((cx, EntityModalGeneration {
                                                             show_when: Signal::derive(cx, move || action_ctx.is_action_requested(action_id)),
                                                             state: input.into(),
-                                                            cancel: Callback::of(move |_| action_ctx.cancel_action(action_id.clone())),
-                                                            execute: Callback::of(move |action_payload| action_ctx.trigger_entity_action(cx, action_id, input.get().unwrap(), action_payload, action.clone())),
+                                                            cancel: SimpleCallback::of(move |_| action_ctx.cancel_action(action_id.clone())),
+                                                            execute: SimpleCallback::of(move |action_payload| action_ctx.trigger_entity_action(cx, action_id, input.get().unwrap(), action_payload, action.clone())),
                                                         }))
                                                     }
                                                 }.into_view(cx)
@@ -201,6 +208,22 @@ where
         }
     };
 
+    let value_changed = Callback::<(
+        <T::UpdateModel as CrudDataTrait>::Field,
+        Result<Value, String>,
+    )>::new(cx, move |(field, result)| {
+        tracing::info!(?field, ?result, "value changed");
+        match result {
+            Ok(value) => {
+                set_input.update(|input| match input {
+                    Some(input) => field.set_value(input, value),
+                    None => {}
+                });
+            }
+            Err(err) => {}
+        }
+    });
+
     view! {cx,
         { move || match data.get() {
             Ok(data) => view! {cx,
@@ -216,10 +239,10 @@ where
                     custom_fields=custom_fields
                     api_base_url=api_base_url
                     elements=elements
-                    entity=Signal::derive(cx, move || data.clone()) // TODO: Can this be made easier! What about performance?
+                    entity=data
                     mode=FieldMode::Editable
                     current_view=CrudSimpleView::Edit
-                //     value_changed={ctx.link().callback(Msg::ValueChanged)}
+                    value_changed=value_changed
                 //     active_tab={ctx.props().config.active_tab.clone()}
                 //     on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                 />
