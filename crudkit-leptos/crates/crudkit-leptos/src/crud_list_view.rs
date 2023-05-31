@@ -9,7 +9,7 @@ use leptos_icons::BsIcon;
 use uuid::Uuid;
 
 use crate::{
-    crud_action::{SimpleCallback, CrudAction, CrudActionAftermath, ModalGeneration},
+    crud_action::{Callback, CrudAction, ModalGeneration, Callable},
     crud_action_context::CrudActionContext,
     crud_instance::CrudInstanceContext,
     crud_pagination::CrudPagination,
@@ -26,29 +26,10 @@ struct PageReq<T: CrudMainTrait + 'static> {
     data_provider: CrudRestDataProvider<T>,
 }
 
-async fn load_page<T: CrudMainTrait + 'static>(
-    req: PageReq<T>,
-) -> Result<Vec<T::ReadModel>, RequestError> {
-    req.data_provider
-        .read_many(ReadMany {
-            limit: Some(req.items_per_page),
-            skip: Some(req.items_per_page * (req.page - 1)),
-            order_by: Some(req.order_by),
-            condition: None,
-        })
-        .await
-}
-
 #[derive(Debug, Clone, PartialEq)]
 struct CountReq<T: CrudMainTrait + 'static> {
     reload: Uuid,
     data_provider: CrudRestDataProvider<T>,
-}
-
-async fn load_count<T: CrudMainTrait + 'static>(req: CountReq<T>) -> Result<u64, RequestError> {
-    req.data_provider
-        .read_count(ReadCount { condition: None })
-        .await
 }
 
 #[derive(Debug, Clone)]
@@ -151,39 +132,31 @@ where
     // Whenever this signal returns a new/different value, the currently viewed page is re-fetched.
     let page_req = Signal::derive(cx, move || {
         tracing::debug!("page_req");
-        // Every server-provided resource must be reloaded when a general reload is requested!
-        let reload = instance_ctx.reload.get();
-        let order_by = instance_ctx.order_by.get();
-        let page = instance_ctx.current_page.get();
-        let items_per_page = instance_ctx.items_per_page.get();
-        let data_provider = data_provider.get();
         PageReq {
-            reload,
-            order_by,
-            page,
-            items_per_page,
-            data_provider,
+            reload: instance_ctx.reload.get(),
+            order_by: instance_ctx.order_by.get(),
+            page: instance_ctx.current_page.get(),
+            items_per_page: instance_ctx.items_per_page.get(),
+            data_provider: data_provider.get(),
         }
     });
-
-    // Whenever this signal returns a new/different value, the item-count is re-fetched.
-    let count_req = Signal::derive(cx, move || {
-        tracing::debug!("count_req");
-        // Every server-provided resource must be reloaded when a general reload is requested!
-        let reload = instance_ctx.reload.get();
-        let data_provider = data_provider.get();
-        CountReq {
-            reload,
-            data_provider,
-        }
-    });
-
-    let page_res = create_local_resource(cx, move || page_req.get(), load_page);
-    let count_res = create_local_resource(cx, move || count_req.get(), load_count);
-
+    let page_res = create_local_resource(
+        cx,
+        move || page_req.get(),
+        move |req| async move {
+            req.data_provider
+                .read_many(ReadMany {
+                    limit: Some(req.items_per_page),
+                    skip: Some(req.items_per_page * (req.page - 1)),
+                    order_by: Some(req.order_by),
+                    condition: None,
+                })
+                .await
+        },
+    );
     // The data of the page when successfully loaded.
     // TODO: create_memo or Signal::derive??? We only want this once..
-    let data = create_memo(cx, move |_prev| match page_res.read(cx) {
+    let page = create_memo(cx, move |_prev| match page_res.read(cx) {
         Some(result) => {
             tracing::info!("loaded list data");
             match result {
@@ -194,6 +167,23 @@ where
         None => Err(NoDataAvailable::NotYetLoaded),
     });
 
+    // Whenever this signal returns a new/different value, the item-count is re-fetched.
+    let count_req = Signal::derive(cx, move || {
+        tracing::debug!("count_req");
+        CountReq {
+            reload: instance_ctx.reload.get(),
+            data_provider: data_provider.get(),
+        }
+    });
+    let count_res = create_local_resource(
+        cx,
+        move || count_req.get(),
+        move |req| async move {
+            req.data_provider
+                .read_count(ReadCount { condition: None })
+                .await
+        },
+    );
     let count = Signal::derive(cx, move || count_res.read(cx));
 
     let (selected, set_selected) = create_signal(cx, Rc::new(Vec::<T::ReadModel>::new()));
@@ -201,15 +191,15 @@ where
     provide_context(
         cx,
         CrudListViewContext::<T> {
-            data,
+            data: page,
             has_data: Signal::derive(cx, move || {
-                let data = data.get();
+                let data = page.get();
                 data.is_ok() && data.as_ref().unwrap().len() > 0
             }),
             selected,
             set_selected,
             all_selected: Signal::derive(cx, move || {
-                let data = data.get();
+                let data = page.get();
                 let selected = selected.get();
                 data.is_ok() // TODO: Performance, memo?
                     && selected.len() == data.as_ref().unwrap().len()
@@ -232,27 +222,28 @@ where
                             <span style="text-decoration: underline">"N"</span> "eu"
                         </Button>
 
-                        { move || actions.get().into_iter()
-                            .map(|action| match action {
+                        <For
+                            each=move || actions.get()
+                            key=|action| match action {
+                                CrudAction::Custom {id, name: _, icon: _, button_color: _, action: _, modal: _} => *id,
+                            }
+                            view=move |cx, action| match action {
                                 CrudAction::Custom {id, name, icon, button_color, action, modal} => {
-                                    let action_id: &'static str = id; // TODO: remove
-                                    let action = action.clone();
-
-                                    if let Some(modal) = modal {
+                                    if let Some(modal_generator) = modal {
                                         view! {cx,
                                             <Button
                                                 color=button_color
-                                                disabled=Signal::derive(cx, move || action_ctx.is_action_executing(action_id))
-                                                on_click=move |_| action_ctx.request_action(action_id)
+                                                disabled=Signal::derive(cx, move || action_ctx.is_action_executing(id))
+                                                on_click=move |_| action_ctx.request_action(id)
                                             >
                                                 { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
                                                 { name.clone() }
                                             </Button>
                                             {
-                                                modal.0((cx, ModalGeneration {
-                                                    show_when: Signal::derive(cx, move || action_ctx.is_action_requested(action_id)),
-                                                    cancel: SimpleCallback::of(move |_| action_ctx.cancel_action(action_id.clone())),
-                                                    execute: SimpleCallback::of(move |action_payload| action_ctx.trigger_action(cx, action_id, action_payload, action.clone())),
+                                                modal_generator.call_with((cx, ModalGeneration {
+                                                    show_when: Signal::derive(cx, move || action_ctx.is_action_requested(id)),
+                                                    cancel: Callback::new(cx, move |_| action_ctx.cancel_action(id)),
+                                                    execute: Callback::new(cx, move |action_payload| action_ctx.trigger_action(cx, id, action_payload, action)),
                                                 }))
                                             }
                                         }.into_view(cx)
@@ -260,8 +251,8 @@ where
                                         view! {cx,
                                             <Button
                                                 color=button_color
-                                                disabled=Signal::derive(cx, move || action_ctx.is_action_executing(action_id))
-                                                on_click=move |_| action_ctx.trigger_action(cx, action_id, None, action.clone())
+                                                disabled=Signal::derive(cx, move || action_ctx.is_action_executing(id))
+                                                on_click=move |_| action_ctx.trigger_action(cx, id, None, action)
                                             >
                                                 { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
                                                 { name.clone() }
@@ -269,8 +260,8 @@ where
                                         }.into_view(cx)
                                     }
                                 }
-                            }).collect_view(cx)
-                        }
+                            }
+                        />
                     </ButtonWrapper>
                 </Col>
                 <Col xs=6 h_align=ColAlign::End>
@@ -344,7 +335,7 @@ where
             _phantom={PhantomData::<T>::default()}
             api_base_url=api_base_url
             headers=headers
-            data=data
+            data=page
             custom_fields=custom_fields
             read_allowed=read_allowed
             edit_allowed=edit_allowed

@@ -11,17 +11,47 @@ pub enum States {
     Read,
 }
 
-#[derive(Clone)]
-pub struct SimpleCallback<T>(pub Rc<dyn Fn(T)>);
-
-impl<T> SimpleCallback<T> {
-    pub fn of<F: Fn(T) + 'static>(fun: F) -> Self {
-        Self(Rc::new(fun))
-    }
-}
+// #[derive(Clone)]
+// pub struct SimpleCallback<T>(pub Rc<dyn Fn(T)>);
+// impl<T> SimpleCallback<T> {
+//     pub fn of<F: Fn(T) + 'static>(fun: F) -> Self {
+//         Self(Rc::new(fun))
+//     }
+// }
 
 pub trait Callable<T>: Clone + Copy {
     fn call_with(&self, arg: T);
+}
+
+// TODO: Derive Debug
+pub struct Function<T: 'static, R: 'static>(leptos::StoredValue<Rc<dyn Fn(T) -> R>>);
+
+impl<T: 'static, R: 'static> Function<T, R> {
+    pub fn new<F: Fn(T) -> R + 'static>(cx: leptos::Scope, fun: F) -> Self {
+        Self(leptos::store_value(cx, Rc::new(fun)))
+    }
+}
+
+impl<T: 'static, R: 'static> std::ops::Deref for Function<T, R> {
+    type Target = leptos::StoredValue<Rc<dyn Fn(T) -> R>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: 'static, R: 'static> Clone for Function<T, R> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T: 'static, R: 'static> Copy for Function<T, R> {}
+
+impl<T: 'static, R: 'static> Callable<T> for Function<T, R> {
+    fn call_with(&self, arg: T) {
+        self.0.with_value(|cb| cb(arg));
+    }
 }
 
 // TODO: Derive Debug
@@ -106,27 +136,18 @@ impl<T: 'static> Clone for CallbackArc<T> {
 impl<T: 'static> Copy for CallbackArc<T> {}
 
 #[derive(Clone)]
-pub struct OutCallback<T, R>(pub Rc<Box<dyn Fn(T) -> R>>);
-
-impl<T, R> OutCallback<T, R> {
-    pub fn of<F: Fn(T) -> R + 'static>(fun: F) -> Self {
-        Self(Rc::new(Box::new(fun)))
-    }
-}
-
-#[derive(Clone)]
-pub struct ModalGeneration<T: CrudMainTrait> {
+pub struct ModalGeneration<T: CrudMainTrait + 'static> {
     pub show_when: leptos::Signal<bool>,
-    pub cancel: SimpleCallback<()>,
-    pub execute: SimpleCallback<Option<T::ActionPayload>>,
+    pub cancel: Callback<()>,
+    pub execute: Callback<Option<T::ActionPayload>>,
 }
 
 #[derive(Clone)]
 pub struct EntityModalGeneration<T: CrudMainTrait + 'static> {
     pub show_when: leptos::Signal<bool>,
     pub state: leptos::Signal<Option<T::UpdateModel>>,
-    pub cancel: SimpleCallback<()>,
-    pub execute: SimpleCallback<Option<T::ActionPayload>>,
+    pub cancel: Callback<()>,
+    pub execute: Callback<Option<T::ActionPayload>>,
 }
 
 #[derive(Clone)]
@@ -138,12 +159,12 @@ pub enum CrudEntityAction<T: CrudMainTrait + 'static> {
         icon: Option<leptos_icons::Icon>,
         button_color: leptonic::prelude::ButtonColor,
         valid_in: Vec<States>, // TODO: Use potentially non-allocating type for small const vecs
-        action: SimpleCallback<(
+        action: Callback<(
             T::UpdateModel,
             Option<T::ActionPayload>,
-            SimpleCallback<Result<CrudActionAftermath, CrudActionAftermath>>,
+            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
-        modal: Option<OutCallback<(leptos::Scope, EntityModalGeneration<T>), leptos::View>>,
+        modal: Option<Function<(leptos::Scope, EntityModalGeneration<T>), leptos::View>>,
     },
 }
 
@@ -213,17 +234,17 @@ impl<T, R> ActionModalGen<T, R> {
 }
 
 #[derive(Clone)]
-pub enum CrudAction<T: CrudMainTrait> {
+pub enum CrudAction<T: CrudMainTrait + 'static> {
     Custom {
         id: &'static str, // TODO: Should this be Cow?
         name: String,
         icon: Option<leptos_icons::Icon>,
         button_color: leptonic::prelude::ButtonColor,
-        action: SimpleCallback<(
+        action: Callback<(
             Option<T::ActionPayload>,
-            SimpleCallback<Result<CrudActionAftermath, CrudActionAftermath>>,
+            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
-        modal: Option<OutCallback<(leptos::Scope, ModalGeneration<T>), leptos::View>>,
+        modal: Option<Function<(leptos::Scope, ModalGeneration<T>), leptos::View>>,
     },
 }
 

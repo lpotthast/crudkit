@@ -4,7 +4,7 @@ use crudkit_web::CrudMainTrait;
 use leptos::*;
 
 use crate::{
-    crud_action::{SimpleCallback, CrudActionAftermath},
+    crud_action::{Callable, Callback, CrudActionAftermath},
     crud_instance::CrudInstanceContext,
 };
 
@@ -81,9 +81,9 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
         cx: Scope,
         action_id: ActionId,
         action_payload: Option<T::ActionPayload>,
-        action: SimpleCallback<(
+        action: Callback<(
             Option<T::ActionPayload>,
-            SimpleCallback<Result<CrudActionAftermath, CrudActionAftermath>>,
+            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
     ) {
         tracing::debug!(action_id, ?action_payload, "trigger_action");
@@ -101,24 +101,23 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             .update(|actions| actions.push(action_id));
 
         let this = self.clone();
-        action.0((
-            action_payload,
-            SimpleCallback::of(move |outcome| {
-                tracing::debug!(?outcome, "action finished");
+        let finish_handler = Callback::new(cx, move |outcome| {
+            tracing::debug!(?outcome, "action finished");
 
-                // Regardless of the outcome, the action is now finished.
-                this.set_actions_executing.update(|actions| {
-                    let pos = actions.iter().position(|id| id == &action_id);
-                    if let Some(pos) = pos {
-                        actions.remove(pos);
-                    }
-                });
+            // Regardless of the outcome, the action is now finished.
+            this.set_actions_executing.update(|actions| {
+                let pos = actions.iter().position(|id| id == &action_id);
+                if let Some(pos) = pos {
+                    actions.remove(pos);
+                }
+            });
 
-                // TODO: Can we take a handler function as input to this new() fn?
-                // We might have to act in a way that this list view can not comprehend and therefore let the instance handle the outcome.
-                expect_context::<CrudInstanceContext<T>>(cx).handle_action_outcome(cx, outcome);
-            }),
-        ));
+            // TODO: Can we take a handler function as input to this new() fn?
+            // We might have to act in a way that this list view can not comprehend and therefore let the instance handle the outcome.
+            expect_context::<CrudInstanceContext<T>>(cx).handle_action_outcome(cx, outcome);
+        });
+
+        action.call_with((action_payload, finish_handler));
     }
 
     pub fn trigger_entity_action(
@@ -127,10 +126,10 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
         action_id: ActionId,
         entity: T::UpdateModel,
         action_payload: Option<T::ActionPayload>,
-        action: SimpleCallback<(
+        action: Callback<(
             T::UpdateModel,
             Option<T::ActionPayload>,
-            SimpleCallback<Result<CrudActionAftermath, CrudActionAftermath>>,
+            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
     ) {
         tracing::debug!(action_id, ?action_payload, "trigger_action");
@@ -148,24 +147,22 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             .update(|actions| actions.push(action_id));
 
         let this = self.clone();
-        action.0((
-            entity,
-            action_payload,
-            SimpleCallback::of(move |outcome| {
-                tracing::debug!(?outcome, "action finished");
+        let finish_handler = Callback::new(cx, move |outcome| {
+            tracing::debug!(?outcome, "action finished");
 
-                // Regardless of the outcome, the action is now finished.
-                this.set_actions_executing.update(|actions| {
-                    let pos = actions.iter().position(|id| id == &action_id);
-                    if let Some(pos) = pos {
-                        actions.remove(pos);
-                    }
-                });
+            // Regardless of the outcome, the action is now finished.
+            this.set_actions_executing.update(|actions| {
+                let pos = actions.iter().position(|id| id == &action_id);
+                if let Some(pos) = pos {
+                    actions.remove(pos);
+                }
+            });
 
-                // TODO: Can we take a handler function as input to this new() fn?
-                // We might have to act in a way that this list view can not comprehend and therefore let the instance handle the outcome.
-                expect_context::<CrudInstanceContext<T>>(cx).handle_action_outcome(cx, outcome);
-            }),
-        ));
+            // TODO: Can we take a handler function as input to this new() fn?
+            // We might have to act in a way that this list view can not comprehend and therefore let the instance handle the outcome.
+            expect_context::<CrudInstanceContext<T>>(cx).handle_action_outcome(cx, outcome);
+        });
+
+        action.call_with((entity, action_payload, finish_handler));
     }
 }

@@ -283,8 +283,10 @@ where
                                     created_at: OffsetDateTime::now_utc(),
                                     variant: ToastVariant::Success,
                                     header: view! {cx, "Löschen" }.into_view(cx),
-                                    body: view! {cx, { format!("Erfolgreich {num} Einträge geköscht.") } }
-                                        .into_view(cx),
+                                    body: format!("{num} {} erfolgreich gelöscht.", match num {
+                                        1 => "Eintrag",
+                                        _ => "Einträge",
+                                    }).into_view(cx),
                                     timeout: ToastTimeout::DefaultDelay,
                                 })
                             }

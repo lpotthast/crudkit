@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, rc::Rc};
+use std::marker::PhantomData;
 
 use crudkit_condition::IntoAllEqualCondition;
 use crudkit_id::{Id, IdField};
@@ -13,7 +13,7 @@ use leptos::*;
 use uuid::Uuid;
 
 use crate::{
-    crud_action::{Callback, CrudEntityAction, EntityModalGeneration, SimpleCallback, States},
+    crud_action::{Callable, Callback, CrudEntityAction, EntityModalGeneration, States},
     crud_action_context::CrudActionContext,
     crud_fields::CrudFields,
     crud_instance::CrudInstanceContext,
@@ -26,23 +26,6 @@ struct EntityReq<T: CrudMainTrait + 'static> {
     reload: Uuid,
     id: T::UpdateModelId,
     data_provider: CrudRestDataProvider<T>,
-}
-
-async fn load_entity<T: CrudMainTrait + 'static>(
-    req: EntityReq<T>,
-) -> Result<Option<T::ReadModel>, RequestError> {
-    // TODO: This is complex and requires several use statements. Should be made easier.
-    let condition = <T as CrudMainTrait>::UpdateModelId::fields_iter(&req.id)
-        .map(|field| (field.name().to_owned(), field.to_value()))
-        .into_all_equal_condition();
-
-    req.data_provider
-        .read_one(ReadOne {
-            skip: None,
-            order_by: None,
-            condition: Some(condition),
-        })
-        .await
 }
 
 #[component]
@@ -68,18 +51,29 @@ where
     // Whenever this signal returns a new/different value, the data of the currently viewed entity is re-fetched.
     let entity_req = Signal::derive(cx, move || {
         tracing::debug!("entity_req");
-        // Every server-provided resource must be reloaded when a general reload is requested!
-        let reload = instance_ctx.reload.get();
-        let id = id.get();
-        let data_provider = data_provider.get();
         EntityReq {
-            reload,
-            id,
-            data_provider,
+            reload: instance_ctx.reload.get(),
+            id: id.get(),
+            data_provider: data_provider.get(),
         }
     });
 
-    let entity_res = create_local_resource(cx, move || entity_req.get(), load_entity);
+    // The entity resource, triggered when entity_req changes.
+    let entity_res = create_local_resource(
+        cx,
+        move || entity_req.get(),
+        move |req| async move {
+            req.data_provider
+            .read_one(ReadOne {
+                skip: None,
+                order_by: None,
+                condition: Some(<T as CrudMainTrait>::UpdateModelId::fields_iter(&req.id) // TODO: This is complex and requires several use statements. Should be made easier.
+                .map(|field| (field.name().to_owned(), field.to_value()))
+                .into_all_equal_condition()),
+            })
+            .await
+        },
+    );
 
     // TODO: create_memo or Signal::derive??? We only want this once..
     let data: Memo<Result<StoredValue<T::UpdateModel>, NoDataAvailable>> =
@@ -155,25 +149,22 @@ where
                                 move || actions.get().into_iter().map(|action| match action {
                                     CrudEntityAction::Custom {id, name, icon, button_color, valid_in, action, modal} => {
                                         valid_in.contains(&States::Update).then(|| {
-                                            let action_id: &'static str = id; // TODO: remove
-                                            let action = action.clone();
-
-                                            if let Some(modal) = modal {
+                                            if let Some(modal_generator) = modal {
                                                 view! {cx,
                                                     <Button
                                                         color=button_color
-                                                        disabled=Signal::derive(cx, move || action_ctx.is_action_executing(action_id))
-                                                        on_click=move |_| action_ctx.request_action(action_id)
+                                                        disabled=Signal::derive(cx, move || action_ctx.is_action_executing(id))
+                                                        on_click=move |_| action_ctx.request_action(id)
                                                     >
                                                         { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
                                                         { name.clone() }
                                                     </Button>
                                                     {
-                                                        modal.0((cx, EntityModalGeneration {
-                                                            show_when: Signal::derive(cx, move || action_ctx.is_action_requested(action_id)),
+                                                        modal_generator.call_with((cx, EntityModalGeneration {
+                                                            show_when: Signal::derive(cx, move || action_ctx.is_action_requested(id)),
                                                             state: input.into(),
-                                                            cancel: SimpleCallback::of(move |_| action_ctx.cancel_action(action_id.clone())),
-                                                            execute: SimpleCallback::of(move |action_payload| action_ctx.trigger_entity_action(cx, action_id, input.get().unwrap(), action_payload, action.clone())),
+                                                            cancel: Callback::new(cx, move |_| action_ctx.cancel_action(id)),
+                                                            execute: Callback::new(cx, move |action_payload| action_ctx.trigger_entity_action(cx, id, input.get().unwrap(), action_payload, action)),
                                                         }))
                                                     }
                                                 }.into_view(cx)
@@ -181,8 +172,8 @@ where
                                                 view! {cx,
                                                     <Button
                                                         color=button_color
-                                                        disabled=Signal::derive(cx, move || action_ctx.is_action_executing(action_id))
-                                                        on_click=move |_| action_ctx.trigger_entity_action(cx ,action_id, input.get().unwrap(), None, action.clone())
+                                                        disabled=Signal::derive(cx, move || action_ctx.is_action_executing(id))
+                                                        on_click=move |_| action_ctx.trigger_entity_action(cx, id, input.get().unwrap(), None, action)
                                                     >
                                                         { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
                                                         { name.clone() }

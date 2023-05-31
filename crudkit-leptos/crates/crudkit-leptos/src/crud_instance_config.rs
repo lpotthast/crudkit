@@ -41,6 +41,7 @@ pub enum CreateElements<T: CrudMainTrait> {
     Custom(Vec<Elem<T::CreateModel>>),
 }
 
+/// This config is non-serializable. Every piece of runtime-changing data relevant to be tracked and reloaded should be part of the CrudInstanceConfig struct.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct CrudStaticInstanceConfig<T: CrudMainTrait + 'static> {
     pub actions: Vec<CrudAction<T>>,
