@@ -2,8 +2,9 @@ use std::marker::PhantomData;
 
 use crudkit_condition::IntoAllEqualCondition;
 use crudkit_id::{Id, IdField};
+use crudkit_shared::{SaveResult, Saved};
 use crudkit_web::{
-    prelude::{CrudRestDataProvider, CustomUpdateFields, ReadOne},
+    prelude::{CrudRestDataProvider, CustomUpdateFields, ReadOne, UpdateOne},
     requests::RequestError,
     CrudDataTrait, CrudFieldValueTrait, CrudMainTrait, CrudSimpleView, DeletableModel, Elem,
     FieldMode, Value,
@@ -28,6 +29,13 @@ struct EntityReq<T: CrudMainTrait + 'static> {
     data_provider: CrudRestDataProvider<T>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Then {
+    DoNothing,
+    OpenListView,
+    OpenCreateView,
+}
+
 #[component]
 pub fn CrudEditView<T>(
     cx: Scope,
@@ -35,11 +43,18 @@ pub fn CrudEditView<T>(
     #[prop(into)] api_base_url: Signal<String>,
     /// The ID of the entity being edited.
     #[prop(into)]
-    id: MaybeSignal<T::UpdateModelId>,
+    id: Signal<T::UpdateModelId>,
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
     #[prop(into)] actions: Signal<Vec<CrudEntityAction<T>>>,
     #[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
     #[prop(into)] custom_fields: Signal<CustomUpdateFields<T, leptos::View>>,
+
+    on_entity_updated: Callback<Saved<T::UpdateModel>>,
+    on_entity_update_aborted: Callback<String>,
+    on_entity_not_updated_critical_errors: Callback<()>,
+    on_entity_update_failed: Callback<RequestError>,
+    on_list: Callback<()>,
+    on_create: Callback<()>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
@@ -48,20 +63,16 @@ where
 
     let (input, set_input) = create_signal(cx, Option::<T::UpdateModel>::None);
 
-    // Whenever this signal returns a new/different value, the data of the currently viewed entity is re-fetched.
-    let entity_req = Signal::derive(cx, move || {
-        tracing::debug!("entity_req");
-        EntityReq {
-            reload: instance_ctx.reload.get(),
-            id: id.get(),
-            data_provider: data_provider.get(),
-        }
-    });
-
-    // The entity resource, triggered when entity_req changes.
-    let entity_res = create_local_resource(
+    let entity_resource = create_local_resource(
         cx,
-        move || entity_req.get(),
+        move || {
+            tracing::debug!("entity_req");
+            EntityReq {
+                reload: instance_ctx.reload.get(),
+                id: id.get(),
+                data_provider: data_provider.get(),
+            }
+        },
         move |req| async move {
             req.data_provider
             .read_one(ReadOne {
@@ -75,9 +86,8 @@ where
         },
     );
 
-    // TODO: create_memo or Signal::derive??? We only want this once..
-    let data: Memo<Result<StoredValue<T::UpdateModel>, NoDataAvailable>> =
-        create_memo(cx, move |_prev| match entity_res.read(cx) {
+    let entity: Memo<Result<StoredValue<T::UpdateModel>, NoDataAvailable>> =
+        create_memo(cx, move |_prev| match entity_resource.read(cx) {
             Some(result) => {
                 tracing::info!("loaded entity data");
                 match result {
@@ -102,9 +112,62 @@ where
     let (user_wants_to_leave, set_user_wants_to_leave) = create_signal(cx, false);
 
     // Only allow the user to save if the input diverges from the initial data of the entity.
-    let save_disabled = Signal::derive(cx, move || match (input.get(), data.get()) {
-        (Some(input), Ok(data)) => data.with_value(|data| input == *data),
+    let save_disabled = Signal::derive(cx, move || match (input.get(), entity.get()) {
+        (Some(input), Ok(entity)) => entity.with_value(|entity| input == *entity),
         _ => false,
+    });
+
+    let save_action = create_action(cx, move |(entity, and_then): &(T::UpdateModel, Then)| {
+        let entity: <T as CrudMainTrait>::UpdateModel = entity.clone();
+        let and_then = and_then.clone();
+        async move {
+            (
+                data_provider
+                    .get() // TODO: This does not track!!
+                    .update_one(UpdateOne {
+                        entity: entity.clone(),
+                        condition: Some(<T as CrudMainTrait>::UpdateModelId::fields_iter(&id.get()) // TODO: Simplify this!
+                        .map(|field| (field.name().to_owned(), field.to_value()))
+                        .into_all_equal_condition()),
+                    })
+                    .await,
+                and_then
+            )
+        }
+    });
+    let save_action_value = save_action.value();
+    create_effect(cx, move |_prev| {
+        if let Some((result, and_then)) = save_action_value.get() {
+            // TODO: Impl this
+            // self.set_entity_from_save_result(result.clone(), SetFrom::Update, ctx);
+
+            match result {
+                Ok(save_result) => match save_result {
+                    SaveResult::Saved(saved) => {
+                        on_entity_updated.call_with(saved);
+                        match and_then {
+                            Then::DoNothing => {}
+                            Then::OpenListView => on_list.call_with(()),
+                            Then::OpenCreateView => on_create.call_with(()),
+                        }
+                    }
+                    SaveResult::Aborted { reason } => {
+                        on_entity_update_aborted.call_with(reason);
+                    }
+                    SaveResult::CriticalValidationErrors => {
+                        tracing::info!("Entity was not updated due to critical validation errors.");
+                        on_entity_not_updated_critical_errors.call_with(());
+                    }
+                },
+                Err(err) => {
+                    warn!(
+                        "Could not update entity due to RequestError: {}",
+                        err.to_string()
+                    );
+                    on_entity_update_failed.call_with(err);
+                }
+            }
+        }
     });
 
     // TODO: Should probably be derived. Only allow saves when changes were made...
@@ -114,9 +177,9 @@ where
         instance_ctx.list();
     };
     let request_leave = move || {};
-    let trigger_save = move || {};
-    let trigger_save_and_return = move || {};
-    let trigger_save_and_new = move || {};
+    let trigger_save = move || save_action.dispatch((input.get().unwrap(), Then::DoNothing));
+    let trigger_save_and_return = move || save_action.dispatch((input.get().unwrap(), Then::OpenListView));
+    let trigger_save_and_new = move || save_action.dispatch((input.get().unwrap(), Then::OpenCreateView));
     let trigger_delete = move || {
         instance_ctx.request_deletion_of(DeletableModel::Update(
             input.get().expect("Entity to be already loaded"),
@@ -145,8 +208,12 @@ where
                                 "Löschen"
                             </Button>
 
-                            {
-                                move || actions.get().into_iter().map(|action| match action {
+                            <For
+                                each=move || actions.get()
+                                key=|action| match action {
+                                    CrudEntityAction::Custom {id, name: _, icon: _, button_color: _, valid_in: _, action: _, modal: _} => *id
+                                }
+                                view=move |cx, action| match action {
                                     CrudEntityAction::Custom {id, name, icon, button_color, valid_in, action, modal} => {
                                         valid_in.contains(&States::Update).then(|| {
                                             if let Some(modal_generator) = modal {
@@ -182,8 +249,8 @@ where
                                             }
                                         })
                                     }
-                                }).collect_view(cx)
-                            }
+                                }
+                            />
                         </ButtonWrapper>
                     </Col>
 
@@ -216,8 +283,8 @@ where
     });
 
     view! {cx,
-        { move || match data.get() {
-            Ok(data) => view! {cx,
+        { move || match entity.get() {
+            Ok(entity) => view! {cx,
                 { action_row }
 
                 <CrudFields
@@ -230,7 +297,7 @@ where
                     custom_fields=custom_fields
                     api_base_url=api_base_url
                     elements=elements
-                    entity=data
+                    entity=entity
                     mode=FieldMode::Editable
                     current_view=CrudSimpleView::Edit
                     value_changed=value_changed

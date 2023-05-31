@@ -9,7 +9,7 @@ use leptos_icons::BsIcon;
 use uuid::Uuid;
 
 use crate::{
-    crud_action::{Callback, CrudAction, ModalGeneration, Callable},
+    crud_action::{Callable, Callback, CrudAction, ModalGeneration},
     crud_action_context::CrudActionContext,
     crud_instance::CrudInstanceContext,
     crud_pagination::CrudPagination,
@@ -117,7 +117,7 @@ where
 
     let headers = create_memo(cx, move |_prev| {
         let order_by = instance_ctx.order_by.get();
-        //tracing::debug!(?order_by, "headers");
+        tracing::debug!(?order_by, "headers");
         headers
             .get()
             .iter()
@@ -129,20 +129,18 @@ where
             )>>()
     });
 
-    // Whenever this signal returns a new/different value, the currently viewed page is re-fetched.
-    let page_req = Signal::derive(cx, move || {
-        tracing::debug!("page_req");
-        PageReq {
-            reload: instance_ctx.reload.get(),
-            order_by: instance_ctx.order_by.get(),
-            page: instance_ctx.current_page.get(),
-            items_per_page: instance_ctx.items_per_page.get(),
-            data_provider: data_provider.get(),
-        }
-    });
-    let page_res = create_local_resource(
+    let page_resource = create_local_resource(
         cx,
-        move || page_req.get(),
+        move || {
+            tracing::debug!("page_req");
+            PageReq {
+                reload: instance_ctx.reload.get(),
+                order_by: instance_ctx.order_by.get(),
+                page: instance_ctx.current_page.get(),
+                items_per_page: instance_ctx.items_per_page.get(),
+                data_provider: data_provider.get(),
+            }
+        },
         move |req| async move {
             req.data_provider
                 .read_many(ReadMany {
@@ -154,9 +152,8 @@ where
                 .await
         },
     );
-    // The data of the page when successfully loaded.
-    // TODO: create_memo or Signal::derive??? We only want this once..
-    let page = create_memo(cx, move |_prev| match page_res.read(cx) {
+
+    let page = create_memo(cx, move |_prev| match page_resource.read(cx) {
         Some(result) => {
             tracing::info!("loaded list data");
             match result {
@@ -167,24 +164,23 @@ where
         None => Err(NoDataAvailable::NotYetLoaded),
     });
 
-    // Whenever this signal returns a new/different value, the item-count is re-fetched.
-    let count_req = Signal::derive(cx, move || {
-        tracing::debug!("count_req");
-        CountReq {
-            reload: instance_ctx.reload.get(),
-            data_provider: data_provider.get(),
-        }
-    });
-    let count_res = create_local_resource(
+    let count_resource = create_local_resource(
         cx,
-        move || count_req.get(),
+        move || {
+            tracing::debug!("count_req");
+            CountReq {
+                reload: instance_ctx.reload.get(),
+                data_provider: data_provider.get(),
+            }
+        },
         move |req| async move {
             req.data_provider
                 .read_count(ReadCount { condition: None })
                 .await
         },
     );
-    let count = Signal::derive(cx, move || count_res.read(cx));
+
+    let count = Signal::derive(cx, move || count_resource.read(cx));
 
     let (selected, set_selected) = create_signal(cx, Rc::new(Vec::<T::ReadModel>::new()));
 

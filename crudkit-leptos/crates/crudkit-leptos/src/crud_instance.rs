@@ -10,7 +10,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{
-    crud_action::CrudActionAftermath,
+    crud_action::{CrudActionAftermath, Callback},
     crud_delete_modal::CrudDeleteModal,
     crud_instance_config::{
         CreateElements, CrudInstanceConfig, CrudStaticInstanceConfig, NestedConfig,
@@ -333,7 +333,7 @@ where
         });
     };
 
-    let content = move |cx, view| {
+    let content = move |cx, view: crudkit_web::CrudView<T::ReadModelId, T::UpdateModelId>| {
         view! {cx,
             <div class="crud-instance">
                 <div class="body">
@@ -394,11 +394,17 @@ where
                                 <CrudEditView
                                     _phantom={ PhantomData::<T>::default() }
                                     api_base_url=api_base_url
-                                    id=id
+                                    id=Signal::derive(cx, move || id.clone()) // TODO: This cant be good...
                                     data_provider=data_provider
                                     actions=entity_actions
                                     elements=update_elements
                                     custom_fields=custom_update_fields
+                                    on_entity_updated=Callback::new(cx, move |saved| {})
+                                    on_entity_update_aborted=Callback::new(cx, move |reason| {})
+                                    on_entity_not_updated_critical_errors=Callback::new(cx, move |()| {})
+                                    on_entity_update_failed=Callback::new(cx, move |request_error| {})
+                                    on_list=Callback::new(cx, move |()| {})
+                                    on_create=Callback::new(cx, move |()| {})
                                     // api_base_url=api_base_url
                                     // data_provider=data_provider
                                     // headers=headers
