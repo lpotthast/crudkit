@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{collections::HashMap, marker::PhantomData};
 
 use crudkit_condition::IntoAllEqualCondition;
 use crudkit_id::{Id, IdField};
@@ -36,6 +36,8 @@ pub enum Then {
     OpenCreateView,
 }
 
+// TODO: CrudEditView tracks changes, but CrudCreateView does not. Consolidate this logic into a shared component.
+
 #[component]
 pub fn CrudEditView<T>(
     cx: Scope,
@@ -53,14 +55,16 @@ pub fn CrudEditView<T>(
     on_entity_update_aborted: Callback<String>,
     on_entity_not_updated_critical_errors: Callback<()>,
     on_entity_update_failed: Callback<RequestError>,
-    on_list: Callback<()>,
-    on_create: Callback<()>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
 {
     let instance_ctx = expect_context::<CrudInstanceContext<T>>(cx);
 
+    // The input is `None`, if the `entity` was not yet loaded. After the entity is loaded for the first time,
+    // the this signal becomes a copy of the current (loaded) entity state.
+    // We cannot use a `Default` value. The UpdateModel type may contain fields for which no default is available.
+    // All modifications made through the UI are stored in this signal.
     let (input, set_input) = create_signal(cx, Option::<T::UpdateModel>::None);
 
     let entity_resource = create_local_resource(
@@ -86,8 +90,16 @@ where
         },
     );
 
-    let entity: Memo<Result<StoredValue<T::UpdateModel>, NoDataAvailable>> =
-        create_memo(cx, move |_prev| match entity_resource.read(cx) {
+    // Stores the current state of the entity or an error, if no entity could be fetched.
+    // Until the initial fetch request is completed, this is in the `Err(NoDataAvailable::NotYetLoaded` state!
+    let (entity, set_entity) = create_signal(
+        cx,
+        Result::<StoredValue<T::UpdateModel>, NoDataAvailable>::Err(NoDataAvailable::NotYetLoaded),
+    );
+
+    // Update the `entity` signal whenever we fetched a new version of the edited entity.
+    create_effect(cx, move |_prev| {
+        set_entity.set(match entity_resource.read(cx) {
             Some(result) => {
                 tracing::info!("loaded entity data");
                 match result {
@@ -107,14 +119,32 @@ where
                 }
             }
             None => Err(NoDataAvailable::NotYetLoaded),
-        });
+        })
+    });
+
+    let input_changed = Signal::derive(cx, move || match (input.get(), entity.get()) {
+        (Some(input), Ok(entity)) => entity.with_value(|entity| input != *entity),
+        _ => false,
+    });
+
+    // The state of the `input` signal should be considered to be erroneous if at least one field is contained in this error list.
+    let (input_errors, set_input_errors) = create_signal(
+        cx,
+        HashMap::<<T::UpdateModel as CrudDataTrait>::Field, String>::new(),
+    );
 
     let (user_wants_to_leave, set_user_wants_to_leave) = create_signal(cx, false);
+    let (show_leave_modal, set_show_leave_modal) = create_signal(cx, false);
 
-    // Only allow the user to save if the input diverges from the initial data of the entity.
-    let save_disabled = Signal::derive(cx, move || match (input.get(), entity.get()) {
-        (Some(input), Ok(entity)) => entity.with_value(|entity| input == *entity),
-        _ => false,
+    let force_leave = move || instance_ctx.list();
+    let request_leave = move || set_user_wants_to_leave.set(true);
+
+    create_effect(cx, move |_prev| {
+        match (user_wants_to_leave.get(), input_changed.get()) {
+            (true, true) => set_show_leave_modal.set(true),
+            (true, false) => force_leave(),
+            (false, _) => {}
+        }
     });
 
     let save_action = create_action(cx, move |(entity, and_then): &(T::UpdateModel, Then)| {
@@ -135,20 +165,27 @@ where
             )
         }
     });
+
+    let save_disabled = Signal::derive(cx, move || {
+        save_action.pending().get() || !input_changed.get()
+    });
+
+    let delete_disabled = Signal::derive(cx, move || {
+        save_action.pending().get() || input.get().is_none()
+    });
+
     let save_action_value = save_action.value();
     create_effect(cx, move |_prev| {
         if let Some((result, and_then)) = save_action_value.get() {
-            // TODO: Impl this
-            // self.set_entity_from_save_result(result.clone(), SetFrom::Update, ctx);
-
             match result {
                 Ok(save_result) => match save_result {
                     SaveResult::Saved(saved) => {
+                        set_entity.set(Ok(store_value(cx, saved.entity.clone())));
                         on_entity_updated.call_with(saved);
                         match and_then {
                             Then::DoNothing => {}
-                            Then::OpenListView => on_list.call_with(()),
-                            Then::OpenCreateView => on_create.call_with(()),
+                            Then::OpenListView => instance_ctx.list(),
+                            Then::OpenCreateView => instance_ctx.create(),
                         }
                     }
                     SaveResult::Aborted { reason } => {
@@ -159,27 +196,26 @@ where
                         on_entity_not_updated_critical_errors.call_with(());
                     }
                 },
-                Err(err) => {
+                Err(request_error) => {
+                    set_entity.set(Err(NoDataAvailable::RequestFailed(request_error.clone())));
                     warn!(
                         "Could not update entity due to RequestError: {}",
-                        err.to_string()
+                        request_error.to_string()
                     );
-                    on_entity_update_failed.call_with(err);
+                    on_entity_update_failed.call_with(request_error);
                 }
             }
         }
     });
 
-    // TODO: Should probably be derived. Only allow saves when changes were made...
-    let (delete_disabled, set_delete_disabled) = create_signal(cx, false);
-
-    let force_leave = move || {
-        instance_ctx.list();
-    };
-    let request_leave = move || {};
     let trigger_save = move || save_action.dispatch((input.get().unwrap(), Then::DoNothing));
-    let trigger_save_and_return = move || save_action.dispatch((input.get().unwrap(), Then::OpenListView));
-    let trigger_save_and_new = move || save_action.dispatch((input.get().unwrap(), Then::OpenCreateView));
+
+    let trigger_save_and_return =
+        move || save_action.dispatch((input.get().unwrap(), Then::OpenListView));
+
+    let trigger_save_and_new =
+        move || save_action.dispatch((input.get().unwrap(), Then::OpenCreateView));
+
     let trigger_delete = move || {
         instance_ctx.request_deletion_of(DeletableModel::Update(
             input.get().expect("Entity to be already loaded"),
@@ -187,84 +223,6 @@ where
     };
 
     let action_ctx = CrudActionContext::<T>::new(cx);
-
-    let action_row = move || {
-        view! {cx,
-            <Grid spacing=6 class="crud-nav">
-                <Row>
-                    <Col>
-                        <ButtonWrapper>
-                            <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save() variations=view!{cx,
-                                <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save_and_return()>
-                                    "Speichern und zurück"
-                                </Button>
-                                <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save_and_new()>
-                                    "Speichern und neu"
-                                </Button>
-                            }.into_view(cx)>
-                                "Speichern"
-                            </Button>
-                            <Button color=ButtonColor::Danger disabled=delete_disabled on_click=move |_| trigger_delete()>
-                                "Löschen"
-                            </Button>
-
-                            <For
-                                each=move || actions.get()
-                                key=|action| match action {
-                                    CrudEntityAction::Custom {id, name: _, icon: _, button_color: _, valid_in: _, action: _, modal: _} => *id
-                                }
-                                view=move |cx, action| match action {
-                                    CrudEntityAction::Custom {id, name, icon, button_color, valid_in, action, modal} => {
-                                        valid_in.contains(&States::Update).then(|| {
-                                            if let Some(modal_generator) = modal {
-                                                view! {cx,
-                                                    <Button
-                                                        color=button_color
-                                                        disabled=Signal::derive(cx, move || action_ctx.is_action_executing(id))
-                                                        on_click=move |_| action_ctx.request_action(id)
-                                                    >
-                                                        { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
-                                                        { name.clone() }
-                                                    </Button>
-                                                    {
-                                                        modal_generator.call_with((cx, EntityModalGeneration {
-                                                            show_when: Signal::derive(cx, move || action_ctx.is_action_requested(id)),
-                                                            state: input.into(),
-                                                            cancel: Callback::new(cx, move |_| action_ctx.cancel_action(id)),
-                                                            execute: Callback::new(cx, move |action_payload| action_ctx.trigger_entity_action(cx, id, input.get().unwrap(), action_payload, action)),
-                                                        }))
-                                                    }
-                                                }.into_view(cx)
-                                            } else {
-                                                view! {cx,
-                                                    <Button
-                                                        color=button_color
-                                                        disabled=Signal::derive(cx, move || action_ctx.is_action_executing(id))
-                                                        on_click=move |_| action_ctx.trigger_entity_action(cx, id, input.get().unwrap(), None, action)
-                                                    >
-                                                        { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
-                                                        { name.clone() }
-                                                    </Button>
-                                                }.into_view(cx)
-                                            }
-                                        })
-                                    }
-                                }
-                            />
-                        </ButtonWrapper>
-                    </Col>
-
-                    <Col h_align=ColAlign::End>
-                        <ButtonWrapper>
-                            <Button color=ButtonColor::Secondary on_click=move |_| force_leave()>
-                                <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
-                            </Button>
-                        </ButtonWrapper>
-                    </Col>
-                </Row>
-            </Grid>
-        }
-    };
 
     let value_changed = Callback::<(
         <T::UpdateModel as CrudDataTrait>::Field,
@@ -277,23 +235,101 @@ where
                     Some(input) => field.set_value(input, value),
                     None => {}
                 });
+                set_input_errors.update(|errors| { errors.remove(&field); });
             }
-            Err(err) => {}
+            Err(err) => {
+                set_input_errors.update(|errors| { errors.insert(field, err); });
+            }
         }
     });
 
     view! {cx,
         { move || match entity.get() {
             Ok(entity) => view! {cx,
-                { action_row }
+                { move || {
+                    view! {cx,
+                        <Grid spacing=6 class="crud-nav">
+                            <Row>
+                                <Col>
+                                    <ButtonWrapper>
+                                        <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save() variations=view!{cx,
+                                            <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save_and_return()>
+                                                "Speichern und zurück"
+                                            </Button>
+                                            <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save_and_new()>
+                                                "Speichern und neu"
+                                            </Button>
+                                        }.into_view(cx)>
+                                            "Speichern"
+                                        </Button>
+                                        <Button color=ButtonColor::Danger disabled=delete_disabled on_click=move |_| trigger_delete()>
+                                            "Löschen"
+                                        </Button>
+
+                                        <For
+                                            each=move || actions.get()
+                                            key=|action| match action {
+                                                CrudEntityAction::Custom {id, name: _, icon: _, button_color: _, valid_in: _, action: _, modal: _} => *id
+                                            }
+                                            view=move |cx, action| match action {
+                                                CrudEntityAction::Custom {id, name, icon, button_color, valid_in, action, modal} => {
+                                                    valid_in.contains(&States::Update).then(|| {
+                                                        if let Some(modal_generator) = modal {
+                                                            view! {cx,
+                                                                <Button
+                                                                    color=button_color
+                                                                    disabled=Signal::derive(cx, move || action_ctx.is_action_executing(id))
+                                                                    on_click=move |_| action_ctx.request_action(id)
+                                                                >
+                                                                    { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
+                                                                    { name.clone() }
+                                                                </Button>
+                                                                {
+                                                                    modal_generator.call_with((cx, EntityModalGeneration {
+                                                                        show_when: Signal::derive(cx, move || action_ctx.is_action_requested(id)),
+                                                                        state: input.into(),
+                                                                        cancel: Callback::new(cx, move |_| action_ctx.cancel_action(id)),
+                                                                        execute: Callback::new(cx, move |action_payload| action_ctx.trigger_entity_action(cx, id, input.get().unwrap(), action_payload, action)),
+                                                                    }))
+                                                                }
+                                                            }.into_view(cx)
+                                                        } else {
+                                                            view! {cx,
+                                                                <Button
+                                                                    color=button_color
+                                                                    disabled=Signal::derive(cx, move || action_ctx.is_action_executing(id))
+                                                                    on_click=move |_| action_ctx.trigger_entity_action(cx, id, input.get().unwrap(), None, action)
+                                                                >
+                                                                    { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
+                                                                    { name.clone() }
+                                                                </Button>
+                                                            }.into_view(cx)
+                                                        }
+                                                    })
+                                                }
+                                            }
+                                        />
+                                    </ButtonWrapper>
+                                </Col>
+
+                                <Col h_align=ColAlign::End>
+                                    <ButtonWrapper>
+                                        <Button color=ButtonColor::Secondary on_click=move |_| request_leave()>
+                                            <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
+                                        </Button>
+                                    </ButtonWrapper>
+                                </Col>
+                            </Row>
+                        </Grid>
+                    }
+                } }
 
                 <CrudFields
-                //     children={ChildrenRenderer::new(ctx.props().children.iter().filter(|it| match it {
-                //         Item::NestedInstance(_) => true,
-                //         Item::Relation(_) => true,
-                //         Item::Select(select) => select.props.for_model == crate::crud_reset_field::Model::Update,
-                //     }).collect::<Vec<Item>>())}
-
+                    // children={ChildrenRenderer::new(ctx.props().children.iter().filter(|it| match it {
+                    //     Item::NestedInstance(_) => true,
+                    //     Item::Relation(_) => true,
+                    //     Item::Select(select) => select.props.for_model == crate::crud_reset_field::Model::Update,
+                    // }).collect::<Vec<Item>>())}
                     custom_fields=custom_fields
                     api_base_url=api_base_url
                     elements=elements
@@ -301,8 +337,9 @@ where
                     mode=FieldMode::Editable
                     current_view=CrudSimpleView::Edit
                     value_changed=value_changed
-                //     active_tab={ctx.props().config.active_tab.clone()}
-                //     on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
+                    //     active_tab={ctx.props().config.active_tab.clone()}
+                    // TODO: Propagate tab selections: ctx.props().on_tab_selected.emit(label);
+                    //     on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                 />
             }.into_view(cx),
             Err(no_data) => view! {cx,
@@ -324,9 +361,15 @@ where
         } }
 
         <CrudLeaveModal
-            show_when=user_wants_to_leave
-            on_cancel=move || set_user_wants_to_leave.set(false)
-            on_accept=move || set_user_wants_to_leave.set(false)
+            show_when=show_leave_modal
+            on_cancel=move || {
+                set_show_leave_modal.set(false);
+                set_user_wants_to_leave.set(false);
+            }
+            on_accept=move || {
+                set_show_leave_modal.set(false);
+                force_leave();
+            }
         />
     }
 }

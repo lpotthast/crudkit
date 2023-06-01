@@ -292,38 +292,6 @@ where
         }),
     };
 
-    let pagination = move || {
-        match count.get() {
-        Some(result) => match result {
-            Ok(count) => Some(
-                view! {cx,
-                    <CrudPagination
-                        current_page=instance_ctx.current_page
-                        item_count=count
-                        items_per_page=instance_ctx.items_per_page
-                        on_page_select=move |page_number| {
-                            expect_context::<CrudInstanceContext<T>>(cx).set_page(page_number)
-                        }
-                        on_item_count_select=move |item_count| {
-                            expect_context::<CrudInstanceContext<T>>(cx).set_items_per_page(item_count)
-                        }
-                    />
-                }
-                .into_view(cx),
-            ),
-            Err(reason) => Some(
-                view! {cx,
-                    <div>
-                        {format!("Keine Daten verfügbar: {reason:?}") }
-                    </div>
-                }
-                .into_view(cx),
-            ),
-        },
-        None => None,
-    }
-    };
-
     view! {cx,
         { action_row }
 
@@ -341,6 +309,35 @@ where
 
         { multiselect_info }
 
-        { pagination }
+        // Pagination
+        { move || match count.get() {
+            Some(result) => match result {
+                Ok(count) => Some(
+                    view! {cx,
+                        <CrudPagination
+                            current_page=instance_ctx.current_page
+                            item_count=count
+                            items_per_page=instance_ctx.items_per_page
+                            on_page_select=move |page_number| {
+                                expect_context::<CrudInstanceContext<T>>(cx).set_page(page_number)
+                            }
+                            on_item_count_select=move |item_count| {
+                                expect_context::<CrudInstanceContext<T>>(cx).set_items_per_page(item_count)
+                            }
+                        />
+                    }
+                    .into_view(cx),
+                ),
+                Err(reason) => Some(
+                    view! {cx,
+                        <div>
+                            {format!("Keine Daten verfügbar: {reason:?}") }
+                        </div>
+                    }
+                    .into_view(cx),
+                ),
+            },
+            None => None,
+        } }
     }
 }

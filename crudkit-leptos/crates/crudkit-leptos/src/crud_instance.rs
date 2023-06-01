@@ -10,11 +10,9 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{
-    crud_action::{CrudActionAftermath, Callback},
+    crud_action::{Callback, CrudActionAftermath},
     crud_delete_modal::CrudDeleteModal,
-    crud_instance_config::{
-        CreateElements, CrudInstanceConfig, CrudStaticInstanceConfig, NestedConfig,
-    },
+    crud_instance_config::{CrudInstanceConfig, CrudStaticInstanceConfig},
     prelude::{CrudEditView, CrudListView},
 };
 
@@ -56,7 +54,7 @@ pub struct CrudInstanceContext<T: CrudMainTrait + 'static> {
 }
 
 // TODO: This allows us to easily use this context but more copies are made...
-impl <T: CrudMainTrait> Copy for CrudInstanceContext<T> {}
+impl<T: CrudMainTrait> Copy for CrudInstanceContext<T> {}
 
 impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
     /// Opens the list view.
@@ -239,8 +237,10 @@ where
     );
 
     let custom_read_fields = Signal::derive(cx, move || static_config.custom_read_fields.clone());
-    let custom_create_fields = Signal::derive(cx, move || static_config.custom_create_fields.clone());
-    let custom_update_fields = Signal::derive(cx, move || static_config.custom_update_fields.clone());
+    let custom_create_fields =
+        Signal::derive(cx, move || static_config.custom_create_fields.clone());
+    let custom_update_fields =
+        Signal::derive(cx, move || static_config.custom_update_fields.clone());
 
     let actions = Signal::derive(cx, move || static_config.actions.clone());
     let entity_actions = Signal::derive(cx, move || static_config.entity_actions.clone());
@@ -272,6 +272,9 @@ where
             if let Some(result) = value.get() {
                 // The delete operation was performed and must therefore no longer be requested.
                 set_deletion_request.set(None);
+
+                // No matter where the user deleted an entity, the list view should be shown afterwards.
+                expect_context::<CrudInstanceContext<T>>(cx).list();
 
                 // The user must be notified how the delete operation went.
                 match result {
@@ -403,8 +406,6 @@ where
                                     on_entity_update_aborted=Callback::new(cx, move |reason| {})
                                     on_entity_not_updated_critical_errors=Callback::new(cx, move |()| {})
                                     on_entity_update_failed=Callback::new(cx, move |request_error| {})
-                                    on_list=Callback::new(cx, move |()| {})
-                                    on_create=Callback::new(cx, move |()| {})
                                     // api_base_url=api_base_url
                                     // data_provider=data_provider
                                     // headers=headers
