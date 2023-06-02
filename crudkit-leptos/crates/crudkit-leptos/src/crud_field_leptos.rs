@@ -8,10 +8,10 @@ use time::{
 };
 use uuid::Uuid;
 
-use crate::prelude::CrudFieldLabel;
+use crate::{prelude::CrudFieldLabel, crud_action::{Callback, Callable}};
 
 #[component]
-pub fn CrudField<T, C>(
+pub fn CrudField<T>(
     cx: Scope,
     //children: Children,
     custom_fields: Signal<CustomFields<T, leptos::View>>,
@@ -21,17 +21,17 @@ pub fn CrudField<T, C>(
     field_options: FieldOptions,
     field_mode: FieldMode,
     entity: T,
-    value_changed: C, // how can we handle all possible types? serialization? TODO: Only take Value, not Result
+    value_changed: Callback<(T::Field, Result<Value, String>)>, // how can we handle all possible types? serialization? TODO: Only take Value, not Result
 ) -> impl IntoView
 where
     T: CrudDataTrait + 'static,
-    C: Fn(T::Field, Result<Value, String>) -> () + 'static,
 {
     let id = format!("f{}", Uuid::new_v4().to_string());
 
     let field_clone = field.clone();
+
     let set_value = move |result: Result<Value, Box<dyn std::error::Error>>| match result {
-        Ok(new) => value_changed(field_clone.clone(), Ok(new)),
+        Ok(new) => value_changed.call_with((field_clone.clone(), Ok(new))),
         Err(err) => tracing::error!("Could not get input value: {}", err),
     };
 
@@ -78,20 +78,24 @@ where
         Value::Bool(value) => {
             view! {cx, <CrudBoolField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=set_value/>}.into_view(cx)
         },
-        Value::ValidationStatus(_) => todo!(),
-        Value::PrimitiveDateTime(_) => todo!(),
-        Value::OffsetDateTime(_) => todo!(),
+        Value::ValidationStatus(_) => view! {cx, "TODO: Render Value::ValidationStatus"}.into_view(cx),
+        Value::PrimitiveDateTime(value) => {
+            view! {cx, <CrudPrimitiveDateTimeField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=set_value/>}.into_view(cx)
+        },
+        Value::OffsetDateTime(_) => view! {cx, "TODO: Render Value::OffsetDateTime"}.into_view(cx),
         Value::OptionalPrimitiveDateTime(value) => {
             view! {cx, <CrudOptionalPrimitiveDateTimeField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=set_value/>}.into_view(cx)
         },
-        Value::OptionalOffsetDateTime(_) => todo!(),
-        Value::OneToOneRelation(_) => todo!(),
-        Value::NestedTable(_) => todo!(),
-        Value::Custom(_) => todo!(),
-        Value::Select(_) => todo!(),
-        Value::Multiselect(_) => todo!(),
-        Value::OptionalSelect(_) => todo!(),
-        Value::OptionalMultiselect(_) => todo!(),
+        Value::OptionalOffsetDateTime(_) => view! {cx, "TODO: Render Value::OptionalOffsetDateTime"}.into_view(cx),
+        Value::OneToOneRelation(_) => view! {cx, "TODO: Render Value::OneToOneRelation"}.into_view(cx),
+        Value::NestedTable(_) => view! {cx, "TODO: Render Value::NestedTable"}.into_view(cx),
+        Value::Custom(_) => view! {cx, "TODO: Render Value::Custom"}.into_view(cx),
+        Value::Select(value) => {
+            view! {cx, <CrudSelectField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=set_value/>}.into_view(cx)
+        },
+        Value::Multiselect(_) => view! {cx, "TODO: Render Value::Multiselect"}.into_view(cx),
+        Value::OptionalSelect(_) => view! {cx, "TODO: Render Value::OptionalSelect"}.into_view(cx),
+        Value::OptionalMultiselect(_) => view! {cx, "TODO: Render Value::OptionalMultiselect"}.into_view(cx),
     }
 }
 
@@ -105,7 +109,7 @@ pub fn CrudStringField<C>(
     value_changed: C, // how can we handle all possible types? serialization?
 ) -> impl IntoView
 where
-    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + 'static,
+    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + Clone + 'static,
 {
     match field_mode {
         FieldMode::Display => view! {cx,
@@ -354,7 +358,7 @@ pub fn CrudU32Field<C>(
     value_changed: C, // how can we handle all possible types? serialization?
 ) -> impl IntoView
 where
-    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + 'static,
+    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + Clone + 'static,
 {
     match field_mode {
         FieldMode::Display => view! {cx,
@@ -402,7 +406,7 @@ pub fn CrudOptionalU32Field<C>(
     value_changed: C, // how can we handle all possible types? serialization?
 ) -> impl IntoView
 where
-    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + 'static,
+    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + Clone + 'static,
 {
     match field_mode {
         FieldMode::Display => match value {
@@ -455,7 +459,7 @@ pub fn CrudI32Field<C>(
     value_changed: C, // how can we handle all possible types? serialization?
 ) -> impl IntoView
 where
-    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + 'static,
+    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + Clone + 'static,
 {
     match field_mode {
         FieldMode::Display => view! {cx,
@@ -503,7 +507,7 @@ pub fn CrudOptionalI32Field<C>(
     value_changed: C, // how can we handle all possible types? serialization?
 ) -> impl IntoView
 where
-    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + 'static,
+    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + Clone + 'static,
 {
     match field_mode {
         FieldMode::Display => match value {
@@ -556,7 +560,7 @@ pub fn CrudI64Field<C>(
     value_changed: C, // how can we handle all possible types? serialization?
 ) -> impl IntoView
 where
-    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + 'static,
+    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + Clone + 'static,
 {
     match field_mode {
         FieldMode::Display => view! {cx,
@@ -604,7 +608,7 @@ pub fn CrudOptionalI64Field<C>(
     value_changed: C, // how can we handle all possible types? serialization?
 ) -> impl IntoView
 where
-    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + 'static,
+    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + Clone + 'static,
 {
     match field_mode {
         FieldMode::Display => match value {
@@ -657,7 +661,7 @@ pub fn CrudF32Field<C>(
     value_changed: C, // how can we handle all possible types? serialization?
 ) -> impl IntoView
 where
-    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + 'static,
+    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + Clone + 'static,
 {
     match field_mode {
         FieldMode::Display => view! {cx,
@@ -739,6 +743,61 @@ where
 }
 
 #[component]
+pub fn CrudPrimitiveDateTimeField<C>(
+    cx: Scope,
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    value: PrimitiveDateTime,
+    value_changed: C, // how can we handle all possible types? serialization?
+) -> impl IntoView
+where
+    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + 'static,
+{
+    match field_mode {
+        FieldMode::Display => match field_options.date_time_display {
+            DateTimeDisplay::IsoUtc => view! {cx,
+                <div>{ value.format(&Rfc3339).unwrap() }</div>
+            },
+            // TODO: Use icu4x formatting using the current users locale!
+            DateTimeDisplay::LocalizedLocal => view! {cx,
+                <div>{ value.format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap() }</div>
+            },
+        },
+        FieldMode::Readable => view! {cx,
+            <div class="crud-field">
+                { render_label(cx, field_options.label.clone()) }
+                <div id=id.clone() class="crud-input-field">
+                    <DateTimeInput
+                        id=id.clone()
+                        get=Some(value.clone().assume_utc())
+                        set=move |_v| {}
+                        disabled=true
+                    />
+                </div>
+            </div>
+        },
+        FieldMode::Editable => view! {cx,
+            <div class="crud-field">
+                { render_label(cx, field_options.label.clone()) }
+                <div id=id.clone() class="crud-input-field">
+                    <DateTimeInput
+                        id=id.clone()
+                        get=Some(value.clone().assume_utc())
+                        set=move |v| match v {
+                            // TODO: We previously did this... `Value::OffsetDateTime(datetime.expect("Expected OffsetDateTime to not be None!"))`
+                            Some(v) => value_changed(Ok(Value::PrimitiveDateTime(PrimitiveDateTime::new(v.date(), v.time())))),
+                            None => {},
+                        }
+                        disabled=field_options.disabled
+                    />
+                </div>
+            </div>
+        },
+    }
+}
+
+#[component]
 pub fn CrudOptionalPrimitiveDateTimeField<C>(
     cx: Scope,
     id: String,
@@ -799,9 +858,54 @@ where
     }
 }
 
+#[component]
+pub fn CrudSelectField<C>(
+    cx: Scope,
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    value: Box<dyn CrudSelectableTrait>,
+    value_changed: C, // how can we handle all possible types? serialization?
+) -> impl IntoView
+where
+    C: Fn(Result<Value, Box<dyn std::error::Error>>) -> () + 'static,
+{
+    match field_mode {
+        FieldMode::Display => format!("{value:?}").into_view(cx),
+        FieldMode::Readable => view! {cx,
+            <div class="crud-field">
+                { render_label(cx, field_options.label.clone()) }
+                { render_select_child(cx) }
+            </div>
+        }.into_view(cx),
+        FieldMode::Editable => view! {cx,
+            <div class="crud-field">
+                { render_label(cx, field_options.label.clone()) }
+                { render_select_child(cx) }
+            </div>
+        }.into_view(cx),
+    }
+}
+
 fn render_label(cx: Scope, label: Option<Label>) -> impl IntoView {
     match label {
         Some(label) => view! {cx, <CrudFieldLabel label=label.clone() />}.into_view(cx),
         None => ().into_view(cx),
     }
+}
+
+// <T: CrudDataTrait + 'static>
+fn render_select_child(cx: Scope) -> impl IntoView {
+    view! {cx, "TODO: Implement render_select_child" }
+    //ctx.props().children.iter().find(|child| {
+    //    match child {
+    //        Item::NestedInstance(_) => false,
+    //        Item::Relation(_) => false,
+    //        Item::Select(select) => select.props.name == ctx.props().field_type.get_name(),
+    //    }
+    //}).map_or(html! {
+    //    <CrudAlert variant={crate::crud_alert::Variant::Danger}>
+    //        {"Could not find required 'Select' child. Help: You might be missing the <CrudSelectField> in your instance markup."}
+    //    </CrudAlert>
+    //}, |it| it.into() )
 }

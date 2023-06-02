@@ -10,7 +10,7 @@ use leptos::*;
 use leptos_icons::BsIcon;
 
 use crate::{
-    crud_action::CrudActionTrait, crud_field_leptos::CrudField,
+    crud_action::{CrudActionTrait, Callback}, crud_field_leptos::CrudField,
     crud_instance::CrudInstanceContext, crud_list_view::CrudListViewContext,
     crud_table::NoDataAvailable,
 };
@@ -74,6 +74,8 @@ where
         let trigger_action =
             move |entity: T::ReadModel, action: Rc<Box<dyn CrudActionTrait>>| todo!();
 
+        let dummy_value_changed_callback = Callback::new(cx, move |_| {});
+
         view! {cx,
             <tr class="interactable"
                 on:click=move |_e| { expect_context::<CrudInstanceContext<T>>(cx).edit(stored_entity.get_value().into()) }
@@ -98,8 +100,8 @@ where
                                 field=field.clone()
                                 field_options=FieldOptions { disabled: false, label: None, date_time_display: options.date_time_display }
                                 entity=stored_entity.get_value()
-                                field_mode=FieldMode::Display
-                                value_changed=|_, _| {}
+                                field_mode=FieldMode::Display // TODO: We could tie the value_changed callback to the field_mode, as it is only required when a value can actually change!
+                                value_changed=dummy_value_changed_callback
                             />
                         </td>
                     }

@@ -101,7 +101,7 @@ where
                                 field_options=field_options.clone()
                                 entity=entity.get_value()
                                 field_mode=mode.clone()
-                                value_changed=move |a, b| value_changed.with_value(|cb| cb((a, b)))
+                                value_changed=value_changed
                             />
                         }.into_view(cx)
                     },
