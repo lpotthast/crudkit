@@ -1,12 +1,10 @@
 use std::marker::PhantomData;
 
 use crudkit_web::CrudMainTrait;
+use leptonic::prelude::*;
 use leptos::*;
 
-use crate::{
-    crud_action::{Callable, Callback, CrudActionAftermath},
-    crud_instance::CrudInstanceContext,
-};
+use crate::{crud_action::CrudActionAftermath, crud_instance::CrudInstanceContext};
 
 pub type ActionId = &'static str;
 
@@ -117,7 +115,7 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             expect_context::<CrudInstanceContext<T>>(cx).handle_action_outcome(cx, outcome);
         });
 
-        action.call_with((action_payload, finish_handler));
+        action.call((action_payload, finish_handler));
     }
 
     pub fn trigger_entity_action(
@@ -163,6 +161,6 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             expect_context::<CrudInstanceContext<T>>(cx).handle_action_outcome(cx, outcome);
         });
 
-        action.call_with((entity, action_payload, finish_handler));
+        action.call((entity, action_payload, finish_handler));
     }
 }

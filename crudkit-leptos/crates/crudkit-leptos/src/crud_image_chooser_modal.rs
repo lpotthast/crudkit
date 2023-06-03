@@ -6,6 +6,8 @@ use yewdux::prelude::Dispatch;
 use super::prelude::*;
 use crate::stores::global_key_up::GlobalKeyUp;
 
+// Implement in leptonic
+
 pub enum Msg {
     Selected(FileResource),
     OnCancel,

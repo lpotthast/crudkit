@@ -14,7 +14,7 @@ use leptos::*;
 use uuid::Uuid;
 
 use crate::{
-    crud_action::{Callable, Callback, CrudEntityAction, EntityModalGeneration, States},
+    crud_action::{CrudEntityAction, EntityModalGeneration, States},
     crud_action_context::CrudActionContext,
     crud_fields::CrudFields,
     crud_instance::CrudInstanceContext,
@@ -181,7 +181,7 @@ where
                 Ok(save_result) => match save_result {
                     SaveResult::Saved(saved) => {
                         set_entity.set(Ok(store_value(cx, saved.entity.clone())));
-                        on_entity_updated.call_with(saved);
+                        on_entity_updated.call(saved);
                         match and_then {
                             Then::DoNothing => {}
                             Then::OpenListView => instance_ctx.list(),
@@ -189,11 +189,11 @@ where
                         }
                     }
                     SaveResult::Aborted { reason } => {
-                        on_entity_update_aborted.call_with(reason);
+                        on_entity_update_aborted.call(reason);
                     }
                     SaveResult::CriticalValidationErrors => {
                         tracing::info!("Entity was not updated due to critical validation errors.");
-                        on_entity_not_updated_critical_errors.call_with(());
+                        on_entity_not_updated_critical_errors.call(());
                     }
                 },
                 Err(request_error) => {
@@ -202,7 +202,7 @@ where
                         "Could not update entity due to RequestError: {}",
                         request_error.to_string()
                     );
-                    on_entity_update_failed.call_with(request_error);
+                    on_entity_update_failed.call(request_error);
                 }
             }
         }
@@ -235,10 +235,14 @@ where
                     Some(input) => field.set_value(input, value),
                     None => {}
                 });
-                set_input_errors.update(|errors| { errors.remove(&field); });
+                set_input_errors.update(|errors| {
+                    errors.remove(&field);
+                });
             }
             Err(err) => {
-                set_input_errors.update(|errors| { errors.insert(field, err); });
+                set_input_errors.update(|errors| {
+                    errors.insert(field, err);
+                });
             }
         }
     });
@@ -285,7 +289,7 @@ where
                                                                     { name.clone() }
                                                                 </Button>
                                                                 {
-                                                                    modal_generator.call_with((cx, EntityModalGeneration {
+                                                                    modal_generator.call((cx, EntityModalGeneration {
                                                                         show_when: Signal::derive(cx, move || action_ctx.is_action_requested(id)),
                                                                         state: input.into(),
                                                                         cancel: Callback::new(cx, move |_| action_ctx.cancel_action(id)),
@@ -362,14 +366,14 @@ where
 
         <CrudLeaveModal
             show_when=show_leave_modal
-            on_cancel=move || {
+            on_cancel=Callback::new(cx, move |()| {
                 set_show_leave_modal.set(false);
                 set_user_wants_to_leave.set(false);
-            }
-            on_accept=move || {
+            })
+            on_accept=Callback::new(cx, move |()| {
                 set_show_leave_modal.set(false);
                 force_leave();
-            }
+            })
         />
     }
 }

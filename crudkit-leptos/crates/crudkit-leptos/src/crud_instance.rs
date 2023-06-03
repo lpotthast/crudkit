@@ -4,13 +4,13 @@ use crudkit_id::Id;
 use crudkit_shared::{DeleteResult, Order};
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
-use leptonic::toast::{Toast, ToastTimeout, ToastVariant, Toasts};
+use leptonic::prelude::*;
 use leptos::*;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{
-    crud_action::{Callback, CrudActionAftermath},
+    crud_action::CrudActionAftermath,
     crud_delete_modal::CrudDeleteModal,
     crud_instance_config::{CrudInstanceConfig, CrudStaticInstanceConfig},
     prelude::{CrudEditView, CrudListView},
@@ -245,41 +245,43 @@ where
     let actions = Signal::derive(cx, move || static_config.actions.clone());
     let entity_actions = Signal::derive(cx, move || static_config.entity_actions.clone());
 
-    let on_cancel_delete = move || {
+    let on_cancel_delete = Callback::new(cx, move |()| {
         tracing::info!("Removing delete request");
         set_deletion_request.set(None);
-    };
+    });
 
     // TODO: Always open the list view after a successful delete.
-    let on_accept_delete = move |entity: DeletableModel<T::ReadModel, T::UpdateModel>| {
-        // TODO: A create_action_once could save us a clone...
-        let action = create_action(cx, move |_data: &()| {
-            let id = match &entity {
-                DeletableModel::Read(entity) => entity.get_id().into_serializable_id(),
-                DeletableModel::Update(entity) => entity.get_id().into_serializable_id(),
-            };
-            let data_provider = data_provider.get();
-            async move {
-                data_provider
-                    .delete_by_id(DeleteById { id: id.clone() })
-                    .await
-            }
-        });
-        action.dispatch(());
+    let on_accept_delete = Callback::new(
+        cx,
+        move |entity: DeletableModel<T::ReadModel, T::UpdateModel>| {
+            // TODO: A create_action_once could save us a clone...
+            let action = create_action(cx, move |_data: &()| {
+                let id = match &entity {
+                    DeletableModel::Read(entity) => entity.get_id().into_serializable_id(),
+                    DeletableModel::Update(entity) => entity.get_id().into_serializable_id(),
+                };
+                let data_provider = data_provider.get();
+                async move {
+                    data_provider
+                        .delete_by_id(DeleteById { id: id.clone() })
+                        .await
+                }
+            });
+            action.dispatch(());
 
-        let value = action.value();
-        create_effect(cx, move |_prev| {
-            if let Some(result) = value.get() {
-                // The delete operation was performed and must therefore no longer be requested.
-                set_deletion_request.set(None);
+            let value = action.value();
+            create_effect(cx, move |_prev| {
+                if let Some(result) = value.get() {
+                    // The delete operation was performed and must therefore no longer be requested.
+                    set_deletion_request.set(None);
 
-                // No matter where the user deleted an entity, the list view should be shown afterwards.
-                expect_context::<CrudInstanceContext<T>>(cx).list();
+                    // No matter where the user deleted an entity, the list view should be shown afterwards.
+                    expect_context::<CrudInstanceContext<T>>(cx).list();
 
-                // The user must be notified how the delete operation went.
-                match result {
-                    Ok(delete_result) => {
-                        match delete_result {
+                    // The user must be notified how the delete operation went.
+                    match result {
+                        Ok(delete_result) => {
+                            match delete_result {
                             DeleteResult::Deleted(num) => {
                                 expect_context::<Toasts>(cx).push(Toast {
                                     id: Uuid::new_v4(),
@@ -316,10 +318,10 @@ where
                                     timeout: ToastTimeout::DefaultDelay,
                                 }),
                         }
-                        expect_context::<CrudInstanceContext<T>>(cx).reload()
-                    }
-                    Err(err) => {
-                        expect_context::<Toasts>(cx).push(Toast {
+                            expect_context::<CrudInstanceContext<T>>(cx).reload()
+                        }
+                        Err(err) => {
+                            expect_context::<Toasts>(cx).push(Toast {
                             id: Uuid::new_v4(),
                             created_at: OffsetDateTime::now_utc(),
                             variant: ToastVariant::Error,
@@ -329,12 +331,13 @@ where
                                     .into_view(cx),
                             timeout: ToastTimeout::DefaultDelay,
                         });
-                        expect_context::<CrudInstanceContext<T>>(cx).reload()
+                            expect_context::<CrudInstanceContext<T>>(cx).reload()
+                        }
                     }
                 }
-            }
-        });
-    };
+            });
+        },
+    );
 
     let content = move |cx, view: crudkit_web::CrudView<T::ReadModelId, T::UpdateModelId>| {
         view! {cx,

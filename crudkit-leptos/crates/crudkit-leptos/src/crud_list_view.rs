@@ -9,7 +9,7 @@ use leptos_icons::BsIcon;
 use uuid::Uuid;
 
 use crate::{
-    crud_action::{Callable, Callback, CrudAction, ModalGeneration},
+    crud_action::{CrudAction, ModalGeneration},
     crud_action_context::CrudActionContext,
     crud_instance::CrudInstanceContext,
     crud_pagination::CrudPagination,
@@ -122,10 +122,7 @@ where
             .get()
             .iter()
             .map(|(field, options)| (field.clone(), options.clone()))
-            .collect::<Vec<(
-                <T::ReadModel as CrudDataTrait>::Field,
-                HeaderOptions,
-            )>>()
+            .collect::<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>()
     });
 
     let page_resource = create_local_resource(
@@ -235,7 +232,7 @@ where
                                                 { name.clone() }
                                             </Button>
                                             {
-                                                modal_generator.call_with((cx, ModalGeneration {
+                                                modal_generator.call((cx, ModalGeneration {
                                                     show_when: Signal::derive(cx, move || action_ctx.is_action_requested(id)),
                                                     cancel: Callback::new(cx, move |_| action_ctx.cancel_action(id)),
                                                     execute: Callback::new(cx, move |action_payload| action_ctx.trigger_action(cx, id, action_payload, action)),
@@ -318,12 +315,12 @@ where
                             current_page=instance_ctx.current_page
                             item_count=count
                             items_per_page=instance_ctx.items_per_page
-                            on_page_select=move |page_number| {
+                            on_page_select=Callback::new(cx, move |page_number| {
                                 expect_context::<CrudInstanceContext<T>>(cx).set_page(page_number)
-                            }
-                            on_item_count_select=move |item_count| {
+                            })
+                            on_item_count_select=Callback::new(cx, move |item_count| {
                                 expect_context::<CrudInstanceContext<T>>(cx).set_items_per_page(item_count)
-                            }
+                            })
                         />
                     }
                     .into_view(cx),

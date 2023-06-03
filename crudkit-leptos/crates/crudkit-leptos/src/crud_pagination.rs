@@ -1,21 +1,17 @@
-use std::{fmt::Display, borrow::Cow};
+use std::{borrow::Cow, fmt::Display};
 
-use leptos::*;
 use leptonic::prelude::*;
+use leptos::*;
 
 #[component]
-pub fn CrudPagination<PS, ICS>(
+pub fn CrudPagination(
     cx: Scope,
     #[prop(into)] current_page: Signal<u64>,
     #[prop(into)] item_count: MaybeSignal<u64>,
     #[prop(into, default = 5.into())] items_per_page: MaybeSignal<u64>,
-    on_page_select: PS,
-    on_item_count_select: ICS,
-) -> impl IntoView
-where
-    PS: Fn(u64) + Clone + 'static,
-    ICS: Fn(u64) + 'static,
-{
+    on_page_select: Callback<u64>,
+    on_item_count_select: Callback<u64>,
+) -> impl IntoView {
     let page_count = Signal::derive(cx, move || {
         (item_count.get() as f64 / items_per_page.get() as f64).ceil() as u64
     });
@@ -108,9 +104,8 @@ where
         default_options
     });
 
-    let on_page_select = store_value(cx, on_page_select);
-
-    move || (item_count.get() > 0).then(|| view! {cx,
+    move || {
+        (item_count.get() > 0).then(|| view! {cx,
         <Grid spacing=6 class="crud-pagination">
             <Row>
                 <Col h_align=ColAlign::Start> // crud-col-flex
@@ -144,7 +139,7 @@ where
                                         // TODO: Still required?
                                         //active=*page_number == Some(current_page.get())
                                         on_click=move |_| if let Some(number) = page_number {
-                                            on_page_select.get_value()(number)
+                                            on_page_select.call(number)
                                         }
                                     >
                                         { match page_number {
@@ -160,6 +155,7 @@ where
             </Row>
         </Grid>
     })
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]

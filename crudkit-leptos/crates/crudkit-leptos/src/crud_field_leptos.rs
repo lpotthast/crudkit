@@ -8,10 +8,7 @@ use time::{
 };
 use uuid::Uuid;
 
-use crate::{
-    crud_action::{Callable, Callback, SimpleCallback},
-    prelude::CrudFieldLabel,
-};
+use crate::prelude::CrudFieldLabel;
 
 #[component]
 pub fn CrudField<T>(
@@ -34,7 +31,7 @@ where
     let field_clone = field.clone();
 
     let value_changed = SimpleCallback::new(move |result| match result {
-        Ok(new) => value_changed.call_with((field_clone.clone(), Ok(new))),
+        Ok(new) => value_changed.call((field_clone.clone(), Ok(new))),
         Err(err) => tracing::error!("Could not get input value: {}", err),
     });
 
@@ -137,7 +134,7 @@ pub fn CrudStringField(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=value.clone()
-                    set=move |new| value_changed.call_with(Ok(Value::String(new)))
+                    set=move |new| value_changed.call(Ok(Value::String(new)))
                 />
             </div>
         },
@@ -368,7 +365,7 @@ pub fn CrudU32Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=format!("{value}")
-                    set=move |new| value_changed.call_with(match new.parse::<u32>() {
+                    set=move |new| value_changed.call(match new.parse::<u32>() {
                         Ok(new) => Ok(Value::U32(new)),
                         Err(err) =>Err(err.into()),
                     })
@@ -418,7 +415,7 @@ pub fn CrudOptionalU32Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=format!("{}", value.unwrap_or_default())
-                    set=move |new| value_changed.call_with(match new.parse::<u32>() {
+                    set=move |new| value_changed.call(match new.parse::<u32>() {
                         Ok(new) => Ok(Value::OptionalU32(Some(new))),
                         Err(err) =>Err(err.into()),
                     })
@@ -463,7 +460,7 @@ pub fn CrudI32Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=format!("{value}")
-                    set=move |new| value_changed.call_with(match new.parse::<i32>() {
+                    set=move |new| value_changed.call(match new.parse::<i32>() {
                         Ok(new) => Ok(Value::I32(new)),
                         Err(err) =>Err(err.into()),
                     })
@@ -513,7 +510,7 @@ pub fn CrudOptionalI32Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=format!("{}", value.unwrap_or_default())
-                    set=move |new| value_changed.call_with(match new.parse::<i32>() {
+                    set=move |new| value_changed.call(match new.parse::<i32>() {
                         Ok(new) => Ok(Value::OptionalI32(Some(new))),
                         Err(err) =>Err(err.into()),
                     })
@@ -558,7 +555,7 @@ pub fn CrudI64Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=format!("{value}")
-                    set=move |new| value_changed.call_with(match new.parse::<i64>() {
+                    set=move |new| value_changed.call(match new.parse::<i64>() {
                         Ok(new) => Ok(Value::I64(new)),
                         Err(err) =>Err(err.into()),
                     })
@@ -608,7 +605,7 @@ pub fn CrudOptionalI64Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=format!("{}", value.unwrap_or_default())
-                    set=move |new| value_changed.call_with(match new.parse::<i64>() {
+                    set=move |new| value_changed.call(match new.parse::<i64>() {
                         Ok(new) => Ok(Value::OptionalI64(Some(new))),
                         Err(err) =>Err(err.into()),
                     })
@@ -653,7 +650,7 @@ pub fn CrudF32Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=format!("{value}")
-                    set=move |new| value_changed.call_with(match new.parse::<f32>() {
+                    set=move |new| value_changed.call(match new.parse::<f32>() {
                         Ok(new) => Ok(Value::F32(new)),
                         Err(err) =>Err(err.into()),
                     })
@@ -694,7 +691,7 @@ pub fn CrudBoolField(
                 <div id=id.clone() class="crud-input-field">
                     <Toggle
                         state=value
-                        on_toggle=move |new| value_changed.call_with(Ok(Value::Bool(new)))
+                        on_toggle=move |new| value_changed.call(Ok(Value::Bool(new)))
                         disabled=field_options.disabled
                     />
                 </div>
@@ -744,7 +741,7 @@ pub fn CrudPrimitiveDateTimeField(
                         get=Some(value.clone().assume_utc())
                         set=move |v| match v {
                             // TODO: We previously did this... `Value::OffsetDateTime(datetime.expect("Expected OffsetDateTime to not be None!"))`
-                            Some(v) => value_changed.call_with(Ok(Value::PrimitiveDateTime(PrimitiveDateTime::new(v.date(), v.time())))),
+                            Some(v) => value_changed.call(Ok(Value::PrimitiveDateTime(PrimitiveDateTime::new(v.date(), v.time())))),
                             None => {},
                         }
                         disabled=field_options.disabled

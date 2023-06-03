@@ -9,11 +9,8 @@ use leptos::*;
 use leptos_icons::BsIcon;
 
 use crate::{
-    crud_action::{Callback, CrudActionTrait},
-    crud_field_leptos::CrudField,
-    crud_instance::CrudInstanceContext,
-    crud_list_view::CrudListViewContext,
-    crud_table::NoDataAvailable,
+    crud_action::CrudActionTrait, crud_field_leptos::CrudField, crud_instance::CrudInstanceContext,
+    crud_list_view::CrudListViewContext, crud_table::NoDataAvailable,
 };
 
 #[component]

@@ -4,7 +4,7 @@ use crudkit_web::{
 use leptonic::prelude::*;
 use leptos::*;
 
-use crate::{crud_action::Callback, crud_field_leptos::CrudField};
+use crate::crud_field_leptos::CrudField;
 
 // TODO: Propagate tab selection...
 

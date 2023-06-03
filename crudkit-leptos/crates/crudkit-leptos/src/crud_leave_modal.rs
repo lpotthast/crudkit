@@ -2,25 +2,18 @@ use leptonic::{prelude::*, root::GlobalKeyboardEvent};
 use leptos::*;
 
 #[component]
-pub fn CrudLeaveModal<C, A>(
+pub fn CrudLeaveModal(
     cx: Scope,
     #[prop(into)] show_when: Signal<bool>,
-    on_cancel: C,
-    on_accept: A,
-) -> impl IntoView
-where
-    C: Fn() + Clone + 'static,
-    A: Fn() + Clone + 'static,
-{
-    let on_cancel = store_value(cx, on_cancel);
-    let on_accept = store_value(cx, on_accept);
-
+    on_cancel: Callback<()>,
+    on_accept: Callback<()>,
+) -> impl IntoView {
     let g_keyboard_event: GlobalKeyboardEvent = expect_context::<GlobalKeyboardEvent>(cx);
     create_effect(cx, move |_old| {
         let is_shown = show_when.get_untracked();
         if let Some(e) = g_keyboard_event.read_signal.get() {
             if is_shown && e.key().as_str() == "Escape" {
-                (on_cancel.get_value())();
+                on_cancel.call(());
             }
         }
     });
@@ -46,13 +39,13 @@ where
                             <ButtonWrapper>
                                 <Button color=ButtonColor::Secondary on_click=move |_| {
                                     tracing::info!("cancel");
-                                    (on_cancel.get_value())()
+                                    on_cancel.call(());
                                 }>
                                     "Zurück"
                                 </Button>
                                 <Button color=ButtonColor::Warn on_click=move |_| {
                                     tracing::info!("leave");
-                                    (on_accept.get_value())()
+                                    on_accept.call(());
                                 }>
                                     "Verlassen"
                                 </Button>
