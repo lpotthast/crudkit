@@ -101,6 +101,7 @@ pub fn CrudListView<T>(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
     #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
+    #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
     #[prop(into)] custom_fields: Signal<CustomReadFields<T, leptos::View>>,
     #[prop(into)] actions: Signal<Vec<CrudAction<T>>>,
 ) -> impl IntoView
@@ -116,16 +117,14 @@ where
     let delete_allowed = Signal::derive(cx, move || true);
 
     let headers = create_memo(cx, move |_prev| {
-        let order_by = instance_ctx.order_by.get();
-        tracing::debug!(?order_by, "headers");
+        tracing::debug!("headers");
         headers
             .get()
             .iter()
-            .map(|(field, options)| (field.clone(), options.clone(), order_by.get(field).cloned()))
+            .map(|(field, options)| (field.clone(), options.clone()))
             .collect::<Vec<(
                 <T::ReadModel as CrudDataTrait>::Field,
                 HeaderOptions,
-                Option<Order>,
             )>>()
     });
 
@@ -299,6 +298,7 @@ where
             _phantom={PhantomData::<T>::default()}
             api_base_url=api_base_url
             headers=headers
+            order_by=order_by
             data=page
             custom_fields=custom_fields
             read_allowed=read_allowed

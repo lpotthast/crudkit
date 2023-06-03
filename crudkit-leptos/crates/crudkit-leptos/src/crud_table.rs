@@ -2,13 +2,14 @@ use std::{marker::PhantomData, rc::Rc};
 
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
+use indexmap::IndexMap;
 use leptos::*;
 
 // TODO: Add prelude entry for CrudActionTrait
 use crate::{
     crud_action::CrudActionTrait,
     crud_list_view::CrudListViewContext,
-    prelude::{CrudTableFooter, CrudTableHeader, CrudTableBody},
+    prelude::{CrudTableBody, CrudTableFooter, CrudTableHeader},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -23,13 +24,8 @@ pub fn CrudTable<T>(
     cx: Scope,
     _phantom: PhantomData<T>,
     #[prop(into)] api_base_url: Signal<String>,
-    #[prop(into)] headers: Signal<
-        Vec<(
-            <T::ReadModel as CrudDataTrait>::Field,
-            HeaderOptions,
-            Option<Order>,
-        )>,
-    >,
+    #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
+    #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
     #[prop(into)] data: Signal<Result<Rc<Vec<T::ReadModel>>, NoDataAvailable>>,
     #[prop(into)] custom_fields: Signal<CustomFields<T::ReadModel, leptos::View>>,
     #[prop(into)] read_allowed: Signal<bool>,
@@ -56,6 +52,7 @@ where
                 <CrudTableHeader
                     _phantom={PhantomData::<T>::default()}
                     headers=headers
+                    order_by=order_by
                     with_actions=with_actions
                     with_select_column=list_ctx.has_data
                     all_selected=list_ctx.all_selected

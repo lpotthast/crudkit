@@ -783,7 +783,7 @@ pub enum DeletableModel<
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct HeaderOptions {
     pub display_name: Cow<'static, str>,
-    pub min_width: bool,
+    pub min_width: bool, // TODO: Rename to fit content.
     pub ordering_allowed: bool,
     pub date_time_display: DateTimeDisplay,
 }

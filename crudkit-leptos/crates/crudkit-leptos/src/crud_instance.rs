@@ -98,7 +98,7 @@ impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
                 Order,
             >| {
                 let prev = order_by.get(&field).cloned();
-                //tracing::debug!(?field, ?options, "order by");
+                tracing::debug!(?field, ?options, "order by");
                 if !options.append {
                     order_by.clear();
                 }
@@ -347,6 +347,7 @@ where
                                     api_base_url=api_base_url
                                     data_provider=data_provider
                                     headers=headers
+                                    order_by=order_by
                                     custom_fields=custom_read_fields
                                     actions=actions
                                 />

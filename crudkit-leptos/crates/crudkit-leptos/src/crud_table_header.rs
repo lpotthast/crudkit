@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
+use indexmap::IndexMap;
 use leptonic::prelude::*;
 use leptos::*;
 
@@ -14,13 +15,8 @@ use crate::{
 pub fn CrudTableHeader<T>(
     cx: Scope,
     _phantom: PhantomData<T>,
-    #[prop(into)] headers: Signal<
-        Vec<(
-            <T::ReadModel as CrudDataTrait>::Field,
-            HeaderOptions,
-            Option<Order>,
-        )>,
-    >,
+    #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
+    #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
     // Whether or not an action column should be displayed.
     #[prop(into)] with_actions: Signal<bool>,
     /// Recommended to be set to false when the table body does not actually display content.
@@ -40,49 +36,49 @@ where
         <thead class="crud-table-header">
             <tr>
                 { move || with_select_column.get().then(|| view! {cx,
-                    <th class="select min-width">
+                    <th class="select fit-content">
                         <Checkbox checked=all_selected on_toggle=move || { expect_context::<CrudListViewContext<T>>(cx).toggle_select_all() } />
                     </th>
                 }) }
 
                 <For
                     each=move || headers.get()
-                    key=|(field, options, order)| (field.get_name(), options.clone(), order.clone())
-                    view=move |cx, (field, options, order)| {
-                        let field_clone = field.clone();
-                        let ordering_allowed = options.ordering_allowed;
-                        // tracing::info!(?field, ?order, "render header");
-                        view! { cx,
-                            <th
-                                class="crud-column-header"
-                                class:crud-column-ordered=order.is_some()
-                                class:crud-order-by-trigger=options.ordering_allowed
-                                class:min-width=options.min_width
-                                on:click=move |_| if ordering_allowed { update_order_of_field(field_clone.clone()) }
-                            >
-                                <div class="crud-row">
-                                    <div class="crud-col crud-col-flex-start crud-col-flex-top crud-column-header-main-row">
-                                        { options.display_name.clone() }
-                                        <span class="crud-order-by-sign" class:active=order.is_some()>
-                                            <CrudSafeHtml html={
-                                                match order {
-                                                    Some(order) => match order {
-                                                        Order::Asc => "&uarr;",
-                                                        Order::Desc => "&darr;",
-                                                    },
-                                                    None => "&uarr;",
-                                                }
-                                            } />
-                                        </span>
-                                    </div>
-                                </div>
-                            </th>
+                    key=|(field, _options)| field.get_name()
+                    view=move |cx, (field, options)| {
+                        move || {
+                            let field_clone = field.clone();
+                            let order_by = order_by.get();
+                            let order = order_by.get(&field);
+                            tracing::debug!(?field, ?order, "render header");
+
+                            view! { cx,
+                                <th
+                                    class="crud-column-header"
+                                    class:crud-column-ordered=order.is_some()
+                                    class:crud-order-by-trigger=options.ordering_allowed
+                                    class:min-width=options.min_width
+                                    on:click=move |_| if options.ordering_allowed { update_order_of_field(field_clone.clone()) }
+                                >
+                                    { options.display_name.clone() }
+                                    <span class="crud-order-by-sign" class:active=order.is_some()>
+                                        <CrudSafeHtml html={
+                                            match order {
+                                                Some(order) => match order {
+                                                    Order::Asc => "&uarr;",
+                                                    Order::Desc => "&darr;",
+                                                },
+                                                None => "&uarr;",
+                                            }
+                                        } />
+                                    </span>
+                                </th>
+                            }
                         }
                     }
                 />
 
                 { move || with_actions.get().then(|| view! {cx,
-                    <th class="actions min-width">
+                    <th class="actions fit-content">
                         "Aktionen"
                     </th>
                 }) }

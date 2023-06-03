@@ -1,6 +1,5 @@
 use std::{marker::PhantomData, rc::Rc};
 
-use crudkit_shared::Order;
 use crudkit_web::{
     prelude::CustomFields, CrudDataTrait, CrudFieldNameTrait, CrudIdTrait, CrudMainTrait,
     CrudSimpleView, DeletableModel, FieldMode, FieldOptions, HeaderOptions,
@@ -10,8 +9,10 @@ use leptos::*;
 use leptos_icons::BsIcon;
 
 use crate::{
-    crud_action::{CrudActionTrait, Callback}, crud_field_leptos::CrudField,
-    crud_instance::CrudInstanceContext, crud_list_view::CrudListViewContext,
+    crud_action::{Callback, CrudActionTrait},
+    crud_field_leptos::CrudField,
+    crud_instance::CrudInstanceContext,
+    crud_list_view::CrudListViewContext,
     crud_table::NoDataAvailable,
 };
 
@@ -21,13 +22,7 @@ pub fn CrudTableBody<T>(
     _phantom: PhantomData<T>,
     #[prop(into)] data: Signal<Result<Rc<Vec<T::ReadModel>>, NoDataAvailable>>,
     #[prop(into)] api_base_url: Signal<String>,
-    #[prop(into)] headers: Signal<
-        Vec<(
-            <T::ReadModel as CrudDataTrait>::Field,
-            HeaderOptions,
-            Option<Order>,
-        )>,
-    >,
+    #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
     #[prop(into)] custom_fields: Signal<CustomFields<T::ReadModel, leptos::View>>,
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
@@ -80,7 +75,7 @@ where
             <tr class="interactable"
                 on:click=move |_e| { expect_context::<CrudInstanceContext<T>>(cx).edit(stored_entity.get_value().into()) }
             >
-                <td class="select" on:click=move |e| e.stop_propagation()>
+                <td class="select fit-content" on:click=move |e| e.stop_propagation()>
                     <Checkbox
                         checked=is_selected
                         on_toggle=toggle_selected
@@ -89,9 +84,9 @@ where
 
                 <For
                     each=move || headers.get()
-                    key=|(field, options, _order)| (field.get_name(), options.clone())
-                    view=move |cx, (field, options, _order)| view! {cx,
-                        <td>
+                    key=|(field, _options)| field.get_name()
+                    view=move |cx, (field, options)| view! {cx,
+                        <td class:fit-content=options.min_width>
                             <CrudField
                                 //children={ctx.props().children.clone()} // TODO: make this work
                                 custom_fields=custom_fields
@@ -109,7 +104,7 @@ where
 
                 { move || {
                     with_actions.get().then(|| view! {cx,
-                        <td on:click=|e| e.stop_propagation()>
+                        <td class="fit-content" on:click=|e| e.stop_propagation()>
                             <div class="action-icons">
                                 { read_allowed.get().then(|| view! {cx,
                                     <div class="action-icon" on:click=move |_| read(stored_entity.get_value())>
