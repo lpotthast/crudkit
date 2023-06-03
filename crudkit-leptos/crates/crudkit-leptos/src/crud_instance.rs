@@ -2,7 +2,7 @@ use std::{cell::RefCell, marker::PhantomData};
 
 use crudkit_id::Id;
 use crudkit_shared::{DeleteResult, Order};
-use crudkit_web::prelude::*;
+use crudkit_web::{prelude::*, TabId};
 use indexmap::IndexMap;
 use leptonic::prelude::*;
 use leptos::*;
@@ -13,7 +13,7 @@ use crate::{
     crud_action::CrudActionAftermath,
     crud_delete_modal::CrudDeleteModal,
     crud_instance_config::{CrudInstanceConfig, CrudStaticInstanceConfig},
-    prelude::{CrudEditView, CrudListView},
+    prelude::{CrudEditView, CrudListView}, crud_read_view::CrudReadView,
 };
 
 /// Runtime data of this instance, provided to child components through provide_context.
@@ -114,6 +114,10 @@ impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
                 );
             },
         )
+    }
+
+    pub fn tab_selected(&self, tab_id: TabId) {
+        tracing::info!(?tab_id, "tab_selected");
     }
 
     pub fn request_deletion_of(&self, entity: DeletableModel<T::ReadModel, T::UpdateModel>) {
@@ -382,17 +386,16 @@ where
                         }
                         CrudView::Read(id) => {
                             view! {cx,
-                                "read"
-                                //<CrudReadView<T>
-                                //    data_provider={self.data_provider.clone()}
-                                //    children={ctx.props().children.clone()}
-                                //    custom_fields={self.static_config.custom_update_fields.clone()}
-                                //    config={self.config.clone()}
-                                //    id={id.clone()}
-                                //    list_view_available={true}
-                                //    on_list_view={ctx.link().callback(|_| Msg::List)}
-                                //    on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
-                                // />
+                                <CrudReadView
+                                    _phantom={ PhantomData::<T>::default() }
+                                    api_base_url=api_base_url
+                                    id=Signal::derive(cx, move || id.clone()) // TODO: This cant be good...
+                                    data_provider=data_provider
+                                    elements=update_elements
+                                    custom_fields=custom_update_fields
+                                    on_list_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
+                                    on_tab_selected=Callback::new(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
+                                />
                             }
                             .into_view(cx)
                         }
@@ -410,11 +413,7 @@ where
                                     on_entity_update_aborted=Callback::new(cx, move |reason| {})
                                     on_entity_not_updated_critical_errors=Callback::new(cx, move |()| {})
                                     on_entity_update_failed=Callback::new(cx, move |request_error| {})
-                                    // api_base_url=api_base_url
-                                    // data_provider=data_provider
-                                    // headers=headers
-                                    // custom_fields=custom_read_fields
-                                    // actions=actions
+                                    on_tab_selected=Callback::new(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
                                 />
                                 //<CrudEditView<T>
                                 //    data_provider={self.data_provider.clone()}

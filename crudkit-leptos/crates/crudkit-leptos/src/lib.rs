@@ -17,7 +17,7 @@ pub mod crud_list_view;
 pub mod crud_pagination;
 pub mod crud_progress_bar;
 //pub mod crud_quicksearch;
-//pub mod crud_read_view;
+pub mod crud_read_view;
 //pub mod crud_related_field;
 //pub mod crud_relation;
 //pub mod crud_reset_field;

@@ -1,5 +1,5 @@
 use crudkit_web::{
-    prelude::CustomFields, CrudDataTrait, CrudSimpleView, Elem, Enclosing, FieldMode, Value,
+    prelude::CustomFields, CrudDataTrait, CrudSimpleView, Elem, Enclosing, FieldMode, TabId, Value,
 };
 use leptonic::prelude::*;
 use leptos::*;
@@ -20,7 +20,7 @@ pub fn CrudFields<T>(
     current_view: CrudSimpleView,
     value_changed: Callback<(T::Field, Result<Value, String>)>,
     // active_tab: Option<Label>,
-    // on_tab_selection: Callback<Label>,
+    on_tab_selection: Callback<TabId>,
 ) -> impl IntoView
 where
     T: CrudDataTrait + 'static,
@@ -44,7 +44,7 @@ where
                                     current_view=current_view.clone()
                                     value_changed=value_changed
                                     //active_tab={ctx.props().active_tab.clone()}
-                                    //on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
+                                    on_tab_selection=on_tab_selection
                                 />
                             }.into_view(cx),
                             Enclosing::Tabs(tabs) => view! {cx,
@@ -53,8 +53,9 @@ where
                                     //on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
                                 >
                                     { tabs.into_iter().map(|tab| {
+                                        let id = tab.id.clone();
                                         view! {cx,
-                                            <Tab name=tab.id label=tab.label.name.clone().into_view(cx)>
+                                            <Tab name=tab.id label=tab.label.name.clone().into_view(cx) on_show=Callback::new(cx, move |()| { on_tab_selection.call(id.clone()) })>
                                                 <CrudFields
                                                     //children={ctx.props().children.clone()}
                                                     custom_fields=custom_fields
@@ -65,7 +66,7 @@ where
                                                     current_view=current_view.clone()
                                                     value_changed=value_changed
                                                     //active_tab={ctx.props().active_tab.clone()}
-                                                    //on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
+                                                    on_tab_selection=on_tab_selection
                                                 />
                                             </Tab>
                                         }
@@ -84,7 +85,7 @@ where
                                         current_view=current_view.clone()
                                         value_changed=value_changed
                                         //active_tab={ctx.props().active_tab.clone()}
-                                        //on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
+                                        on_tab_selection=on_tab_selection
                                     />
                                 </div>
                             }.into_view(cx),

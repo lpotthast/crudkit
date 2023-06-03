@@ -849,10 +849,12 @@ pub enum Elem<T: CrudDataTrait> {
     Separator,
 }
 
+pub type TabId = Cow<'static, str>;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Tab<T: CrudDataTrait> {
     /// A unique identifier for this tab.
-    pub id: Cow<'static, str>,
+    pub id: TabId,
     pub label: Label,
     #[serde(bound = "")]
     pub group: Group<T>,

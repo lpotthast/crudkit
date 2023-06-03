@@ -7,7 +7,7 @@ use crudkit_web::{
     prelude::{CrudRestDataProvider, CustomUpdateFields, ReadOne, UpdateOne},
     requests::RequestError,
     CrudDataTrait, CrudFieldValueTrait, CrudMainTrait, CrudSimpleView, DeletableModel, Elem,
-    FieldMode, Value,
+    FieldMode, Value, TabId,
 };
 use leptonic::prelude::*;
 use leptos::*;
@@ -55,6 +55,7 @@ pub fn CrudEditView<T>(
     on_entity_update_aborted: Callback<String>,
     on_entity_not_updated_critical_errors: Callback<()>,
     on_entity_update_failed: Callback<RequestError>,
+    on_tab_selected: Callback<TabId>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
@@ -342,8 +343,7 @@ where
                     current_view=CrudSimpleView::Edit
                     value_changed=value_changed
                     //     active_tab={ctx.props().config.active_tab.clone()}
-                    // TODO: Propagate tab selections: ctx.props().on_tab_selected.emit(label);
-                    //     on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
+                    on_tab_selection=on_tab_selected
                 />
             }.into_view(cx),
             Err(no_data) => view! {cx,
