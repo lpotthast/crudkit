@@ -9,15 +9,13 @@ pub mod crud_edit_view;
 pub mod crud_field_label;
 pub mod crud_field_leptos;
 pub mod crud_fields;
-//pub mod crud_instance;
 pub mod crud_instance;
 pub mod crud_instance_config;
 pub mod crud_leave_modal;
 pub mod crud_list_view;
 //pub mod crud_nested_instance;
 pub mod crud_pagination;
-//pub mod crud_progress_bar;
-pub mod crud_progress_bar_leptos;
+pub mod crud_progress_bar;
 //pub mod crud_quicksearch;
 //pub mod crud_read_view;
 //pub mod crud_related_field;
@@ -32,13 +30,9 @@ pub mod crud_table_body;
 pub mod crud_table_footer;
 pub mod crud_table_header;
 //pub mod crud_tiptap_editor;
-//pub mod crud_toast;
-//pub mod crud_toasts;
 
 pub mod stores;
 pub mod types;
-
-//mod event_functions;
 
 /*
 * Reexport common modules.
@@ -91,7 +85,7 @@ pub mod prelude {
     pub use super::crud_leave_modal::CrudLeaveModal;
     pub use super::crud_list_view::CrudListView;
     pub use super::crud_pagination::CrudPagination;
-    pub use super::crud_progress_bar_leptos::CrudProgressBarL;
+    pub use super::crud_progress_bar::CrudProgressBar;
     pub use super::crud_safe_html::CrudSafeHtml;
     pub use super::crud_select::Selection;
     pub use super::crud_table::CrudTable;
