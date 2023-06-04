@@ -105,7 +105,10 @@ pub fn CrudPagination(
     });
 
     move || {
-        (item_count.get() > 0).then(|| view! {cx,
+        let page_options = page_options.get();
+        let item_count = item_count.get();
+
+        (item_count > 0).then(|| view! {cx,
         <Grid spacing=6 class="crud-pagination">
             <Row>
                 <Col h_align=ColAlign::Start> // crud-col-flex
@@ -130,14 +133,13 @@ pub fn CrudPagination(
                 <Col h_align=ColAlign::End> // crud-col-flex crud-col-flex-row
                     <ButtonGroup>
                         {
-                            page_options.get().into_iter().map(|page_number| {
+                            page_options.into_iter().map(|page_number| {
                                 view! {cx,
                                     <Button
                                         variant=ButtonVariant::Filled
                                         color=ButtonColor::Secondary
                                         disabled=page_number.is_none()
-                                        // TODO: Still required?
-                                        //active=*page_number == Some(current_page.get())
+                                        active=MaybeSignal::from(page_number == Some(current_page.get()))
                                         on_click=move |_| if let Some(number) = page_number {
                                             on_page_select.call(number)
                                         }
