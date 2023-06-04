@@ -1,4 +1,4 @@
-use leptonic::{prelude::*, root::GlobalKeyboardEvent};
+use leptonic::prelude::*;
 use leptos::*;
 
 #[component]
@@ -10,9 +10,8 @@ pub fn CrudLeaveModal(
 ) -> impl IntoView {
     let g_keyboard_event: GlobalKeyboardEvent = expect_context::<GlobalKeyboardEvent>(cx);
     create_effect(cx, move |_old| {
-        let is_shown = show_when.get_untracked();
         if let Some(e) = g_keyboard_event.read_signal.get() {
-            if is_shown && e.key().as_str() == "Escape" {
+            if show_when.get_untracked() && e.key().as_str() == "Escape" {
                 on_cancel.call(());
             }
         }
