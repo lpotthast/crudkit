@@ -6,10 +6,7 @@ use indexmap::IndexMap;
 use leptonic::prelude::*;
 use leptos::*;
 
-use crate::{
-    crud_instance::CrudInstanceContext, crud_list_view::CrudListViewContext,
-    prelude::CrudSafeHtml,
-};
+use crate::{crud_instance::CrudInstanceContext, crud_list_view::CrudListViewContext};
 
 #[component]
 pub fn CrudTableHeader<T>(
@@ -61,7 +58,7 @@ where
                                 >
                                     { options.display_name.clone() }
                                     <span class="crud-order-by-sign" class:active=order.is_some()>
-                                        <CrudSafeHtml html={
+                                        <SafeHtml html={
                                             match order {
                                                 Some(order) => match order {
                                                     Order::Asc => "&uarr;",

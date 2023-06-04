@@ -3,7 +3,7 @@
 
 pub mod crud_action;
 pub mod crud_action_context;
-//pub mod crud_create_view;
+pub mod crud_create_view;
 pub mod crud_delete_modal;
 pub mod crud_edit_view;
 pub mod crud_field_label;
@@ -21,7 +21,6 @@ pub mod crud_read_view;
 //pub mod crud_related_field;
 //pub mod crud_relation;
 //pub mod crud_reset_field;
-pub mod crud_safe_html;
 pub mod crud_select;
 //pub mod crud_select_field;
 //pub mod crud_slider;
@@ -32,7 +31,6 @@ pub mod crud_table_header;
 //pub mod crud_tiptap_editor;
 
 pub mod stores;
-pub mod types;
 
 /*
 * Reexport common modules.
@@ -74,6 +72,7 @@ pub mod prelude {
     pub use super::crud_action::CrudEntityAction;
     pub use super::crud_action::States;
     pub use super::crud_action_context::CrudActionContext;
+    pub use super::crud_create_view::CrudCreateView;
     pub use super::crud_edit_view::CrudEditView;
     pub use super::crud_field_label::CrudFieldLabel;
     pub use super::crud_field_leptos::CrudField;
@@ -86,13 +85,10 @@ pub mod prelude {
     pub use super::crud_list_view::CrudListView;
     pub use super::crud_pagination::CrudPagination;
     pub use super::crud_progress_bar::CrudProgressBar;
-    pub use super::crud_safe_html::CrudSafeHtml;
+    pub use super::crud_read_view::CrudReadView;
     pub use super::crud_select::Selection;
     pub use super::crud_table::CrudTable;
     pub use super::crud_table_body::CrudTableBody;
     pub use super::crud_table_footer::CrudTableFooter;
     pub use super::crud_table_header::CrudTableHeader;
-    // pub use super::types::toasts::Toast;
-    // pub use super::types::toasts::ToastAutomaticallyClosing;
-    // pub use super::types::toasts::ToastVariant;
 }

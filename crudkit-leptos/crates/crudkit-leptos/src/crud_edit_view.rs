@@ -50,7 +50,8 @@ pub fn CrudEditView<T>(
     #[prop(into)] actions: Signal<Vec<CrudEntityAction<T>>>,
     #[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
     #[prop(into)] custom_fields: Signal<CustomUpdateFields<T, leptos::View>>,
-
+    on_list_view: Callback<()>,
+    on_create_view: Callback<()>,
     on_entity_updated: Callback<Saved<T::UpdateModel>>,
     on_entity_update_aborted: Callback<String>,
     on_entity_not_updated_critical_errors: Callback<()>,
@@ -137,7 +138,7 @@ where
     let (user_wants_to_leave, set_user_wants_to_leave) = create_signal(cx, false);
     let (show_leave_modal, set_show_leave_modal) = create_signal(cx, false);
 
-    let force_leave = move || instance_ctx.list();
+    let force_leave = move || on_list_view.call(());
     let request_leave = move || set_user_wants_to_leave.set(true);
 
     create_effect(cx, move |_prev| {
@@ -185,8 +186,8 @@ where
                         on_entity_updated.call(saved);
                         match and_then {
                             Then::DoNothing => {}
-                            Then::OpenListView => instance_ctx.list(),
-                            Then::OpenCreateView => instance_ctx.create(),
+                            Then::OpenListView => on_list_view.call(()),
+                            Then::OpenCreateView => on_create_view.call(()),
                         }
                     }
                     SaveResult::Aborted { reason } => {

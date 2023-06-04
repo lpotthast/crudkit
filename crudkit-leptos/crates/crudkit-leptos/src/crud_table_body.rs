@@ -54,10 +54,11 @@ where
                 .toggle_entity_selection(stored_entity.get_value())
         };
 
-        let read =
-            move |entity: T::ReadModel| expect_context::<CrudInstanceContext<T>>(cx).read(entity);
+        let read = move |entity: T::ReadModel| {
+            expect_context::<CrudInstanceContext<T>>(cx).read(entity.get_id())
+        };
         let edit = move |entity: T::ReadModel| {
-            expect_context::<CrudInstanceContext<T>>(cx).edit(entity.into())
+            expect_context::<CrudInstanceContext<T>>(cx).edit(entity.into().get_id())
         };
         let delete = move |entity: T::ReadModel| {
             expect_context::<CrudInstanceContext<T>>(cx)
@@ -70,7 +71,7 @@ where
 
         view! {cx,
             <tr class="interactable"
-                on:click=move |_e| { expect_context::<CrudInstanceContext<T>>(cx).edit(stored_entity.get_value().into()) }
+                on:click=move |_e| { expect_context::<CrudInstanceContext<T>>(cx).edit(stored_entity.get_value().into().get_id()) }
             >
                 <td class="select fit-content" on:click=move |e| e.stop_propagation()>
                     <Checkbox

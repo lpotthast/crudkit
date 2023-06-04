@@ -13,7 +13,7 @@ use crate::{
     crud_action::CrudActionAftermath,
     crud_delete_modal::CrudDeleteModal,
     crud_instance_config::{CrudInstanceConfig, CrudStaticInstanceConfig},
-    prelude::{CrudEditView, CrudListView}, crud_read_view::CrudReadView,
+    prelude::{CrudEditView, CrudListView, CrudCreateView}, crud_read_view::CrudReadView,
 };
 
 /// Runtime data of this instance, provided to child components through provide_context.
@@ -68,15 +68,15 @@ impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
     }
 
     /// Opens the read view for the given entity.
-    pub fn read(&self, entity: T::ReadModel) {
+    pub fn read(&self, entity_with_id: T::ReadModelId) {
         self.set_view
-            .update(|view| *view = CrudView::Read(entity.get_id()));
+            .update(|view| *view = CrudView::Read(entity_with_id));
     }
 
     /// Opens the edit view for the given entity.
-    pub fn edit(&self, entity: T::UpdateModel) {
+    pub fn edit(&self, entity_with_id: T::UpdateModelId) {
         self.set_view
-            .update(|view| *view = CrudView::Edit(entity.get_id()));
+            .update(|view| *view = CrudView::Edit(entity_with_id));
     }
 
     pub fn set_page(&self, page_number: u64) {
@@ -363,23 +363,26 @@ where
                         }
                         CrudView::Create => {
                             view! {cx,
-                                "create"
+                                <CrudCreateView
+                                    _phantom={ PhantomData::<T>::default() }
+                                    api_base_url=api_base_url
+                                    data_provider=data_provider
+                                    create_elements=create_elements
+                                    custom_fields=custom_create_fields
+                                    on_edit_view=Callback::new(cx, move |id| expect_context::<CrudInstanceContext<T>>(cx).edit(id))
+                                    on_list_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
+                                    on_create_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).create())
+                                    on_entity_created=Callback::new(cx, move |saved| {})
+                                    on_entity_creation_aborted=Callback::new(cx, move |reason| {})
+                                    on_entity_not_created_critical_errors=Callback::new(cx, move |()| {})
+                                    on_entity_creation_failed=Callback::new(cx, move |request_error| {})
+                                    on_tab_selected=Callback::new(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
+                                />
                                 //<CrudCreateView<T>
-                                //    data_provider={self.data_provider.clone()}
                                 //    parent_id={self.parent_id.clone()}
                                 //    children={ctx.props().children.clone()}
                                 //    custom_create_fields={self.static_config.custom_create_fields.clone()}
                                 //    custom_update_fields={self.static_config.custom_update_fields.clone()}
-                                //    config={self.config.clone()}
-                                //    list_view_available={true}
-                                //    on_list_view={ctx.link().callback(|_| Msg::List)}
-                                //    on_entity_created={ctx.link().callback(Msg::EntityCreated)}
-                                //    on_entity_creation_aborted={ctx.link().callback(Msg::EntityCreationAborted)}
-                                //    on_entity_not_created_critical_errors={ctx.link().callback(|_| Msg::EntityNotCreatedDueToCriticalErrors)}
-                                //    on_entity_creation_failed={ctx.link().callback(Msg::EntityCreationFailed)}
-                                //    on_link={ctx.link().callback(|link: Option<Scope<CrudCreateView<T>>>|
-                                //        Msg::ViewLinked(link.map(|link| ViewLink::Create(link))))}
-                                //    on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
                                 // />
                             }
                             .into_view(cx)
@@ -409,6 +412,8 @@ where
                                     actions=entity_actions
                                     elements=update_elements
                                     custom_fields=custom_update_fields
+                                    on_list_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
+                                    on_create_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).create())
                                     on_entity_updated=Callback::new(cx, move |saved| {})
                                     on_entity_update_aborted=Callback::new(cx, move |reason| {})
                                     on_entity_not_updated_critical_errors=Callback::new(cx, move |()| {})
