@@ -143,6 +143,16 @@ pub fn store(input: TokenStream) -> TokenStream {
         },
     };
 
+    let all_field_enum_accessors = input.fields().iter().map(|field| {
+        let name = field.ident.as_ref().expect("Expected named field!");
+        let name = name.to_string();
+        let type_name = field_name_as_type_name(&name);
+        let type_ident = Ident::new(type_name.as_str(), Span::call_site());
+        quote! {
+            #field_name::#type_ident
+        }
+    });
+
     let get_field_arms = input.fields().iter().map(|field| {
         let name = field.ident.as_ref().expect("Expected named field!");
         let name = name.to_string();
@@ -180,6 +190,10 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         impl crudkit_web::CrudDataTrait for #name {
             type Field = #field_name;
+
+            fn get_all_fields() -> Vec<#field_name> {
+                vec![ #(#all_field_enum_accessors),* ]
+            }
 
             fn get_field(field_name: &str) -> #field_name {
                 #get_field_impl
