@@ -9,8 +9,9 @@ use requests::{AuthProvider, RequestError};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     any::Any,
+    borrow::Cow,
     fmt::{Debug, Display},
-    hash::Hash, borrow::Cow,
+    hash::Hash, rc::Rc,
 };
 use time::format_description::well_known::Rfc3339;
 use tracing::warn;
@@ -222,6 +223,7 @@ pub trait CrudDataTrait: PartialEq + Clone + Debug + Serialize + DeserializeOwne
         + DeserializeOwned
         + Send;
 
+    fn get_all_fields() -> Vec<Self::Field>;
     fn get_field(field_name: &str) -> Self::Field;
 }
 
@@ -243,10 +245,9 @@ pub trait CrudResourceTrait {
 pub trait CrudSelectableSource: Debug {
     type Selectable: CrudSelectableTrait;
 
-    fn new() -> Self;
-
     async fn load(
-    ) -> Result<Vec<Self::Selectable>, Box<dyn std::error::Error + Send + Sync + 'static>>;
+        &self,
+    ) -> Result<Vec<Self::Selectable>, Rc<dyn std::error::Error + Send + Sync + 'static>>;
 
     fn set_selectable(&mut self, selectable: Vec<Self::Selectable>);
 
@@ -259,10 +260,6 @@ pub trait CrudSelectableTrait: Debug + Display + DynClone {
     fn as_any(&self) -> &dyn Any;
 }
 dyn_clone::clone_trait_object!(CrudSelectableTrait);
-
-pub trait Foo {
-    fn as_any(&self) -> &dyn Any;
-}
 
 /// All variants should be stateless / copy-replaceable.
 // TODO: DEFERRED: Implement Serialize and Deserialize with typetag when wasm is supported in typetag. Comment in "typetag" occurrences.
