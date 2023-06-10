@@ -1,8 +1,8 @@
 use std::{collections::HashMap, marker::PhantomData, rc::Rc};
 
 use crudkit_web::{
-    prelude::CustomFields, CrudDataTrait, CrudFieldNameTrait, CrudIdTrait, CrudMainTrait,
-    CrudSimpleView, DeletableModel, FieldMode, FieldOptions, HeaderOptions,
+    prelude::CustomFields, CrudDataTrait, CrudFieldNameTrait, CrudFieldValueTrait, CrudIdTrait,
+    CrudMainTrait, CrudSimpleView, DeletableModel, FieldMode, FieldOptions, HeaderOptions,
 };
 use leptonic::prelude::*;
 use leptos::*;
@@ -11,7 +11,7 @@ use leptos_icons::BsIcon;
 use crate::{
     crud_action::CrudActionTrait, crud_field_leptos::CrudField, crud_instance::CrudInstanceContext,
     crud_instance_config::DynSelectConfig, crud_list_view::CrudListViewContext,
-    crud_table::NoDataAvailable,
+    crud_table::NoDataAvailable, IntoReactiveValue,
 };
 
 #[component]
@@ -35,7 +35,8 @@ where
 {
     let render_entry = move |cx, entity: T::ReadModel| {
         // TODO: Check https://github.com/rust-lang/rfcs/issues/2407, we might be able to remove explicit clones in the future!
-        let stored_entity: ReadSignal<<T as CrudMainTrait>::ReadModel> = create_rw_signal(cx, entity).read_only(); // TODO: Move signal creation up
+        let stored_entity: ReadSignal<<T as CrudMainTrait>::ReadModel> =
+            create_rw_signal(cx, entity).read_only(); // TODO: Move signal creation up
 
         let with_actions = Signal::derive(cx, move || {
             !additional_item_actions.get().is_empty()
@@ -89,21 +90,30 @@ where
                 <For
                     each=move || headers.get()
                     key=|(field, _options)| field.get_name()
-                    view=move |cx, (field, options)| view! {cx,
-                        <td class:fit-content=options.min_width>
-                            <CrudField
-                                //children={ctx.props().children.clone()} // TODO: make this work
-                                custom_fields=custom_fields
-                                field_config=field_config
-                                api_base_url=api_base_url
-                                current_view=CrudSimpleView::List
-                                field=field.clone()
-                                field_options=FieldOptions { disabled: false, label: None, date_time_display: options.date_time_display }
-                                entity=stored_entity.into()
-                                field_mode=FieldMode::Display // TODO: We could tie the value_changed callback to the field_mode, as it is only required when a value can actually change!
-                                value_changed=dummy_value_changed_callback
-                            />
-                        </td>
+                    view=move |cx, (field, options)| {
+                        // TODO: Is it ok to recreate this reactive value on the fly?
+                        let entity = stored_entity.get(); // TODO: Optimize. Do we still need a StoredEntity?
+                        let reactive_value = {
+                            let initial = field.get_value(&entity);
+                            initial.into_reactive_value(cx)
+                        };
+
+                        view! {cx,
+                            <td class:fit-content=options.min_width>
+                                <CrudField
+                                    //children={ctx.props().children.clone()} // TODO: make this work
+                                    custom_fields=custom_fields
+                                    field_config=field_config
+                                    api_base_url=api_base_url
+                                    current_view=CrudSimpleView::List
+                                    field=field.clone()
+                                    field_options=FieldOptions { disabled: false, label: None, date_time_display: options.date_time_display }
+                                    field_mode=FieldMode::Display // TODO: We could tie the value_changed callback to the field_mode, as it is only required when a value can actually change!
+                                    value=reactive_value
+                                    value_changed=dummy_value_changed_callback
+                                />
+                            </td>
+                        }
                     }
                 />
 

@@ -6,7 +6,7 @@ use crudkit_web::{
 use leptonic::prelude::*;
 use leptos::*;
 
-use crate::{crud_field_leptos::CrudField, crud_instance_config::DynSelectConfig};
+use crate::{crud_field_leptos::CrudField, crud_instance_config::DynSelectConfig, ReactiveValue};
 
 // TODO: Propagate tab selection...
 
@@ -18,7 +18,7 @@ pub fn CrudFields<T>(
     field_config: Signal<HashMap<T::Field, DynSelectConfig>>,
     api_base_url: Signal<String>,
     #[prop(into)] elements: MaybeSignal<Vec<Elem<T>>>,
-    #[prop(into)] entity: Signal<T>,
+    #[prop(into)] signals: StoredValue<HashMap<T::Field, ReactiveValue>>,
     mode: FieldMode,
     current_view: CrudSimpleView,
     value_changed: Callback<(T::Field, Result<Value, String>)>,
@@ -42,7 +42,7 @@ where
                                     field_config=field_config
                                     api_base_url=api_base_url
                                     elements=group.children.clone()
-                                    entity=entity
+                                    signals=signals.clone()
                                     mode=mode.clone()
                                     current_view=current_view.clone()
                                     value_changed=value_changed
@@ -57,6 +57,7 @@ where
                                 >
                                     { tabs.into_iter().map(|tab| {
                                         let id = tab.id.clone();
+                                        let signals = signals.clone();
                                         view! {cx,
                                             <Tab name=tab.id label=tab.label.name.clone().into_view(cx) on_show=Callback::new(cx, move |()| { on_tab_selection.call(id.clone()) })>
                                                 <CrudFields
@@ -64,7 +65,7 @@ where
                                                     field_config=field_config
                                                     api_base_url=api_base_url
                                                     elements=tab.group.children.clone()
-                                                    entity=entity
+                                                    signals=signals.clone()
                                                     mode=mode.clone()
                                                     current_view=current_view.clone()
                                                     value_changed=value_changed
@@ -83,7 +84,7 @@ where
                                         field_config=field_config
                                         api_base_url=api_base_url
                                         elements={group.children.clone()}
-                                        entity=entity
+                                        signals=signals.clone()
                                         mode=mode.clone()
                                         current_view=current_view.clone()
                                         value_changed=value_changed
@@ -103,8 +104,8 @@ where
                                 current_view=current_view
                                 field=field.clone()
                                 field_options=field_options.clone()
-                                entity=entity
                                 field_mode=mode.clone()
+                                value=signals.with_value(|map| *map.get(&field).expect("Signal map to contain signal for field"))
                                 value_changed=value_changed
                             />
                         }.into_view(cx)

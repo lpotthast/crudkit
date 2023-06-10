@@ -42,7 +42,10 @@ pub use crudkit_id;
 pub use crudkit_shared;
 pub use crudkit_validation;
 pub use crudkit_web;
+pub use crudkit_web::prelude::*;
+use crudkit_web::JsonValue;
 pub use crudkit_websocket;
+use leptos::*;
 
 pub mod prelude {
     pub use crudkit_condition;
@@ -83,4 +86,90 @@ pub mod prelude {
     pub use super::crud_table_body::CrudTableBody;
     pub use super::crud_table_footer::CrudTableFooter;
     pub use super::crud_table_header::CrudTableHeader;
+}
+
+// TODO: Move into own module
+#[derive(Debug, Clone, Copy)]
+pub enum ReactiveValue {
+    String(RwSignal<String>),  // TODO: Add optional string!
+    Text(RwSignal<String>),    // TODO: Add optional text!
+    Json(RwSignal<JsonValue>), // TODO: Add optional json value
+    OptionalJson(RwSignal<Option<JsonValue>>),
+    UuidV4(RwSignal<uuid::Uuid>), // TODO: Add optional UuidV4 value
+    UuidV7(RwSignal<uuid::Uuid>), // TODO: Add optional UuidV7 value
+    U32(RwSignal<u32>),
+    OptionalU32(RwSignal<Option<u32>>),
+    I32(RwSignal<i32>),
+    OptionalI32(RwSignal<Option<i32>>),
+    I64(RwSignal<i64>),
+    OptionalI64(RwSignal<Option<i64>>),
+    F32(RwSignal<f32>),
+    Bool(RwSignal<bool>),
+    // Specialized bool-case, render as a green check mark if false and an orange exclamation mark if true.
+    ValidationStatus(RwSignal<bool>),
+    PrimitiveDateTime(RwSignal<time::PrimitiveDateTime>),
+    OffsetDateTime(RwSignal<time::OffsetDateTime>),
+    OptionalPrimitiveDateTime(RwSignal<Option<time::PrimitiveDateTime>>),
+    OptionalOffsetDateTime(RwSignal<Option<time::OffsetDateTime>>),
+    OneToOneRelation(RwSignal<Option<u32>>),
+    NestedTable(RwSignal<Vec<Box<dyn crudkit_id::IdField>>>),
+    Custom(RwSignal<()>),
+    Select(RwSignal<Box<dyn CrudSelectableTrait>>),
+    Multiselect(RwSignal<Vec<Box<dyn CrudSelectableTrait>>>),
+    OptionalSelect(RwSignal<Option<Box<dyn CrudSelectableTrait>>>),
+    OptionalMultiselect(RwSignal<Option<Vec<Box<dyn CrudSelectableTrait>>>>),
+    //Select(Box<dyn CrudSelectableSource<Selectable = dyn CrudSelectableTrait>>),
+}
+
+pub trait IntoReactiveValue {
+    fn into_reactive_value(self, cx: Scope) -> ReactiveValue;
+}
+
+impl IntoReactiveValue for Value {
+    fn into_reactive_value(self, cx: Scope) -> ReactiveValue {
+        match self {
+            Value::String(value) => ReactiveValue::String(create_rw_signal(cx, value)),
+            Value::Text(value) => ReactiveValue::Text(create_rw_signal(cx, value)),
+            Value::Json(value) => ReactiveValue::Json(create_rw_signal(cx, value)),
+            Value::OptionalJson(value) => ReactiveValue::OptionalJson(create_rw_signal(cx, value)),
+            Value::UuidV4(value) => ReactiveValue::UuidV4(create_rw_signal(cx, value)),
+            Value::UuidV7(value) => ReactiveValue::UuidV7(create_rw_signal(cx, value)),
+            Value::U32(value) => ReactiveValue::U32(create_rw_signal(cx, value)),
+            Value::OptionalU32(value) => ReactiveValue::OptionalU32(create_rw_signal(cx, value)),
+            Value::I32(value) => ReactiveValue::I32(create_rw_signal(cx, value)),
+            Value::OptionalI32(value) => ReactiveValue::OptionalI32(create_rw_signal(cx, value)),
+            Value::I64(value) => ReactiveValue::I64(create_rw_signal(cx, value)),
+            Value::OptionalI64(value) => ReactiveValue::OptionalI64(create_rw_signal(cx, value)),
+            Value::F32(value) => ReactiveValue::F32(create_rw_signal(cx, value)),
+            Value::Bool(value) => ReactiveValue::Bool(create_rw_signal(cx, value)),
+            Value::ValidationStatus(value) => {
+                ReactiveValue::ValidationStatus(create_rw_signal(cx, value))
+            }
+            Value::PrimitiveDateTime(value) => {
+                ReactiveValue::PrimitiveDateTime(create_rw_signal(cx, value))
+            }
+            Value::OffsetDateTime(value) => {
+                ReactiveValue::OffsetDateTime(create_rw_signal(cx, value))
+            }
+            Value::OptionalPrimitiveDateTime(value) => {
+                ReactiveValue::OptionalPrimitiveDateTime(create_rw_signal(cx, value))
+            }
+            Value::OptionalOffsetDateTime(value) => {
+                ReactiveValue::OptionalOffsetDateTime(create_rw_signal(cx, value))
+            }
+            Value::OneToOneRelation(value) => {
+                ReactiveValue::OneToOneRelation(create_rw_signal(cx, value))
+            }
+            Value::NestedTable(value) => ReactiveValue::NestedTable(create_rw_signal(cx, value)),
+            Value::Custom(value) => ReactiveValue::Custom(create_rw_signal(cx, value)),
+            Value::Select(value) => ReactiveValue::Select(create_rw_signal(cx, value)),
+            Value::Multiselect(value) => ReactiveValue::Multiselect(create_rw_signal(cx, value)),
+            Value::OptionalSelect(value) => {
+                ReactiveValue::OptionalSelect(create_rw_signal(cx, value))
+            }
+            Value::OptionalMultiselect(value) => {
+                ReactiveValue::OptionalMultiselect(create_rw_signal(cx, value))
+            }
+        }
+    }
 }

@@ -11,6 +11,7 @@ use uuid::Uuid;
 use crate::{
     crud_instance_config::{DynSelectConfig, SelectConfigTrait},
     prelude::CrudFieldLabel,
+    ReactiveValue,
 };
 
 #[component]
@@ -24,14 +25,12 @@ pub fn CrudField<T>(
     field: T::Field,
     field_options: FieldOptions,
     field_mode: FieldMode,
-     entity: Signal<T>,
-    value_changed: Callback<(T::Field, Result<Value, String>)>, // how can we handle all possible types? serialization? TODO: Only take Value, not Result
+    value: ReactiveValue,
+    value_changed: Callback<(T::Field, Result<Value, String>)>, // how can we handle all possible types? serialization? TODO: Only take Value, not Result?; TODO: Use WriteSignal from ReactiveValue?
 ) -> impl IntoView
 where
     T: CrudDataTrait + 'static,
 {
-    // NOTE: A field is re-rendered when the "entity" signal updates, as the fields is dependant on the current value inside the entity.
-    // TODO: This is not fine-grained. When one value changes, all fields are re-rendered... We should use a Map<Field, Signal<Value>> and render fields fine-grained!!
     move || {
         let id = format!("f{}", Uuid::new_v4().to_string());
 
@@ -43,74 +42,72 @@ where
         });
 
         let field_config = field_config.with(|map| map.get(&field).cloned());
+        let field_options = field_options.clone();
 
-        entity.with(|entity| {
-            let field_options = field_options.clone();
-            match field.get_value(entity) {
-                Value::String(value) => {
-                    view! {cx, <CrudStringField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::Text(value) => {
-                    view! {cx, <CrudTextField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::Json(value) => {
-                    view! {cx, <CrudJsonField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::OptionalJson(value) => {
-                    view! {cx, <CrudOptionalJsonField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::UuidV4(value) => {
-                    view! {cx, <CrudUuidV4Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::UuidV7(value) => {
-                    view! {cx, <CrudUuidV7Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::U32(value) => {
-                    view! {cx, <CrudU32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::OptionalU32(value) => {
-                    view! {cx, <CrudOptionalU32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::I32(value) => {
-                    view! {cx, <CrudI32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::OptionalI32(value) => {
-                    view! {cx, <CrudOptionalI32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::I64(value) => {
-                    view! {cx, <CrudI64Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::OptionalI64(value) => {
-                    view! {cx, <CrudOptionalI64Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::F32(value) => {
-                    view! {cx, <CrudF32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::Bool(value) => {
-                    view! {cx, <CrudBoolField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::ValidationStatus(_) => view! {cx, "TODO: Render Value::ValidationStatus"}.into_view(cx),
-                Value::PrimitiveDateTime(value) => {
-                    view! {cx, <CrudPrimitiveDateTimeField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::OffsetDateTime(_) => view! {cx, "TODO: Render Value::OffsetDateTime"}.into_view(cx),
-                Value::OptionalPrimitiveDateTime(value) => {
-                    view! {cx, <CrudOptionalPrimitiveDateTimeField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::OptionalOffsetDateTime(_) => view! {cx, "TODO: Render Value::OptionalOffsetDateTime"}.into_view(cx),
-                Value::OneToOneRelation(_) => view! {cx, "TODO: Render Value::OneToOneRelation"}.into_view(cx),
-                Value::NestedTable(_) => view! {cx, "TODO: Render Value::NestedTable"}.into_view(cx),
-                Value::Custom(_) => view! {cx, "TODO: Render Value::Custom"}.into_view(cx),
-                Value::Select(value) => {
-                    view! {cx, <CrudSelectField id=id.clone() field_config=field_config field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::Multiselect(_) => view! {cx, "TODO: Render Value::Multiselect"}.into_view(cx),
-                Value::OptionalSelect(value) => {
-                    view! {cx, <CrudOptionalSelectField id=id.clone() field_config=field_config field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-                },
-                Value::OptionalMultiselect(_) => view! {cx, "TODO: Render Value::OptionalMultiselect"}.into_view(cx),
-            }
-        })
+        match value {
+            ReactiveValue::String(value) => {
+                view! {cx, <CrudStringField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::Text(value) => {
+                view! {cx, <CrudTextField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::Json(value) => {
+                view! {cx, <CrudJsonField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::OptionalJson(value) => {
+                view! {cx, <CrudOptionalJsonField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::UuidV4(value) => {
+                view! {cx, <CrudUuidV4Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::UuidV7(value) => {
+                view! {cx, <CrudUuidV7Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::U32(value) => {
+                view! {cx, <CrudU32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::OptionalU32(value) => {
+                view! {cx, <CrudOptionalU32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::I32(value) => {
+                view! {cx, <CrudI32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::OptionalI32(value) => {
+                view! {cx, <CrudOptionalI32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::I64(value) => {
+                view! {cx, <CrudI64Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::OptionalI64(value) => {
+                view! {cx, <CrudOptionalI64Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::F32(value) => {
+                view! {cx, <CrudF32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::Bool(value) => {
+                view! {cx, <CrudBoolField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::ValidationStatus(_) => view! {cx, "TODO: Render ReactiveValue::ValidationStatus"}.into_view(cx),
+            ReactiveValue::PrimitiveDateTime(value) => {
+                view! {cx, <CrudPrimitiveDateTimeField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::OffsetDateTime(_) => view! {cx, "TODO: Render ReactiveValue::OffsetDateTime"}.into_view(cx),
+            ReactiveValue::OptionalPrimitiveDateTime(value) => {
+                view! {cx, <CrudOptionalPrimitiveDateTimeField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::OptionalOffsetDateTime(_) => view! {cx, "TODO: Render ReactiveValue::OptionalOffsetDateTime"}.into_view(cx),
+            ReactiveValue::OneToOneRelation(_) => view! {cx, "TODO: Render ReactiveValue::OneToOneRelation"}.into_view(cx),
+            ReactiveValue::NestedTable(_) => view! {cx, "TODO: Render ReactiveValue::NestedTable"}.into_view(cx),
+            ReactiveValue::Custom(_) => view! {cx, "TODO: Render ReactiveValue::Custom"}.into_view(cx),
+            ReactiveValue::Select(value) => {
+                view! {cx, <CrudSelectField id=id.clone() field_config=field_config field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::Multiselect(_) => view! {cx, "TODO: Render ReactiveValue::Multiselect"}.into_view(cx),
+            ReactiveValue::OptionalSelect(value) => {
+                view! {cx, <CrudOptionalSelectField id=id.clone() field_config=field_config field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+            },
+            ReactiveValue::OptionalMultiselect(_) => view! {cx, "TODO: Render ReactiveValue::OptionalMultiselect"}.into_view(cx),
+        }
     }
 }
 
@@ -120,12 +117,12 @@ pub fn CrudStringField(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: String,
+    #[prop(into)] value: Signal<String>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! {cx,
-            <div>{value.clone()}</div>
+            <div>{ move || value.get() }</div>
         },
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
@@ -135,7 +132,7 @@ pub fn CrudStringField(
                     ty=InputType::Text
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
-                    get=value.clone()
+                    get=value
                     set=move |_| {}
                 />
             </div>
@@ -148,7 +145,7 @@ pub fn CrudStringField(
                     ty=InputType::Text
                     class="crud-input-field"
                     disabled=field_options.disabled
-                    get=value.clone()
+                    get=value
                     set=move |new| value_changed.call(Ok(Value::String(new)))
                 />
             </div>
@@ -162,12 +159,12 @@ pub fn CrudTextField(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: String,
+    #[prop(into)] value: Signal<String>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! {cx,
-            <div>{value.clone()}</div>
+            <div>{ move || value.get() }</div>
         },
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
@@ -205,12 +202,12 @@ pub fn CrudJsonField(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: JsonValue,
+    #[prop(into)] value: Signal<JsonValue>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! {cx,
-            <div>{value.get_string_representation().to_owned()}</div>
+            <div>{ move || value.get().get_string_representation().to_owned() }</div>
         },
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
@@ -248,12 +245,12 @@ pub fn CrudOptionalJsonField(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: Option<JsonValue>,
+    #[prop(into)] value: Signal<Option<JsonValue>>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! {cx,
-            <div>{value.as_ref().map(|it| Cow::Owned(it.get_string_representation().to_owned())).unwrap_or(Cow::Borrowed(""))}</div>
+            <div>{ move || value.get().as_ref().map(|it| Cow::Owned(it.get_string_representation().to_owned())).unwrap_or(Cow::Borrowed("")) }</div>
         },
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
@@ -291,12 +288,12 @@ pub fn CrudUuidV4Field(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: Uuid,
+    #[prop(into)] value: Signal<Uuid>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! {cx,
-            <div>{value.to_string()}</div>
+            <div>{ move || value.get().to_string() }</div>
         },
         // Never editable, TODO: why though? we could allow editing uuids if we can guarantee their validity.
         FieldMode::Readable | FieldMode::Editable => view! {cx,
@@ -307,7 +304,7 @@ pub fn CrudUuidV4Field(
                     ty=InputType::Text
                     class="crud-input-field"
                     disabled=true
-                    get=value.to_string()
+                    get=MaybeSignal::derive(cx, move || { value.get().to_string() })
                     set=move |_| {}
                 />
             </div>
@@ -321,12 +318,12 @@ pub fn CrudUuidV7Field(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: Uuid,
+    #[prop(into)] value: Signal<Uuid>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! {cx,
-            <div>{value.to_string()}</div>
+            <div>{ move || value.get().to_string() }</div>
         },
         // Never editable, TODO: why though? we could allow editing uuids if we can guarantee their validity.
         FieldMode::Readable | FieldMode::Editable => view! {cx,
@@ -337,7 +334,7 @@ pub fn CrudUuidV7Field(
                     ty=InputType::Text
                     class="crud-input-field"
                     disabled=true
-                    get=value.to_string()
+                    get=MaybeSignal::derive(cx, move || { value.get().to_string() })
                     set=move |_| {}
                 />
             </div>
@@ -351,12 +348,12 @@ pub fn CrudU32Field(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: u32,
+    #[prop(into)] value: Signal<u32>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! {cx,
-            <div>{value}</div>
+            <div>{ move || value.get() }</div>
         },
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
@@ -366,7 +363,7 @@ pub fn CrudU32Field(
                     ty=InputType::Number
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
-                    get=format!("{value}")
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
                     set=move |_| {}
                 />
             </div>
@@ -379,7 +376,7 @@ pub fn CrudU32Field(
                     ty=InputType::Number
                     class="crud-input-field"
                     disabled=field_options.disabled
-                    get=format!("{value}")
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
                     set=move |new| value_changed.call(match new.parse::<u32>() {
                         Ok(new) => Ok(Value::U32(new)),
                         Err(err) =>Err(err.into()),
@@ -396,18 +393,18 @@ pub fn CrudOptionalU32Field(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: Option<u32>,
+    #[prop(into)] value: Signal<Option<u32>>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => match value {
+        FieldMode::Display => { move || match value.get() {
             Some(value) => view! {cx,
-                <div>{value}</div>
+                <div>{ value }</div>
             },
             None => view! {cx,
                 <div>"-"</div>
             },
-        },
+        }}.into_view(cx),
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
@@ -416,11 +413,11 @@ pub fn CrudOptionalU32Field(
                     ty=InputType::Number
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
-                    get=format!("{}", value.unwrap_or_default())
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get().unwrap_or_default()))
                     set=move |_| {}
                 />
             </div>
-        },
+        }.into_view(cx),
         FieldMode::Editable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
@@ -429,14 +426,14 @@ pub fn CrudOptionalU32Field(
                     ty=InputType::Number
                     class="crud-input-field"
                     disabled=field_options.disabled
-                    get=format!("{}", value.unwrap_or_default())
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get().unwrap_or_default()))
                     set=move |new| value_changed.call(match new.parse::<u32>() {
                         Ok(new) => Ok(Value::OptionalU32(Some(new))),
                         Err(err) =>Err(err.into()),
                     })
                 />
             </div>
-        },
+        }.into_view(cx),
     }
 }
 
@@ -446,12 +443,12 @@ pub fn CrudI32Field(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: i32,
+    #[prop(into)] value: Signal<i32>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! {cx,
-            <div>{value}</div>
+            <div>{ move || value.get() }</div>
         },
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
@@ -461,7 +458,7 @@ pub fn CrudI32Field(
                     ty=InputType::Number
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
-                    get=format!("{value}")
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
                     set=move |_| {}
                 />
             </div>
@@ -474,7 +471,7 @@ pub fn CrudI32Field(
                     ty=InputType::Number
                     class="crud-input-field"
                     disabled=field_options.disabled
-                    get=format!("{value}")
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
                     set=move |new| value_changed.call(match new.parse::<i32>() {
                         Ok(new) => Ok(Value::I32(new)),
                         Err(err) =>Err(err.into()),
@@ -491,18 +488,18 @@ pub fn CrudOptionalI32Field(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: Option<i32>,
+    #[prop(into)] value: Signal<Option<i32>>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => match value {
+        FieldMode::Display => { move || match value.get() {
             Some(value) => view! {cx,
-                <div>{value}</div>
+                <div>{ value }</div>
             },
             None => view! {cx,
                 <div>"-"</div>
             },
-        },
+        }}.into_view(cx),
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
@@ -511,11 +508,11 @@ pub fn CrudOptionalI32Field(
                     ty=InputType::Number
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
-                    get=format!("{}", value.unwrap_or_default())
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get().unwrap_or_default()))
                     set=move |_| {}
                 />
             </div>
-        },
+        }.into_view(cx),
         FieldMode::Editable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
@@ -524,14 +521,14 @@ pub fn CrudOptionalI32Field(
                     ty=InputType::Number
                     class="crud-input-field"
                     disabled=field_options.disabled
-                    get=format!("{}", value.unwrap_or_default())
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get().unwrap_or_default()))
                     set=move |new| value_changed.call(match new.parse::<i32>() {
                         Ok(new) => Ok(Value::OptionalI32(Some(new))),
                         Err(err) =>Err(err.into()),
                     })
                 />
             </div>
-        },
+        }.into_view(cx),
     }
 }
 
@@ -541,12 +538,12 @@ pub fn CrudI64Field(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: i64,
+    #[prop(into)] value: Signal<i64>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! {cx,
-            <div>{value}</div>
+            <div>{ move || value.get() }</div>
         },
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
@@ -556,7 +553,7 @@ pub fn CrudI64Field(
                     ty=InputType::Number
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
-                    get=format!("{value}")
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
                     set=move |_| {}
                 />
             </div>
@@ -569,7 +566,7 @@ pub fn CrudI64Field(
                     ty=InputType::Number
                     class="crud-input-field"
                     disabled=field_options.disabled
-                    get=format!("{value}")
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
                     set=move |new| value_changed.call(match new.parse::<i64>() {
                         Ok(new) => Ok(Value::I64(new)),
                         Err(err) =>Err(err.into()),
@@ -586,18 +583,18 @@ pub fn CrudOptionalI64Field(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: Option<i64>,
+    #[prop(into)] value: Signal<Option<i64>>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => match value {
+        FieldMode::Display => { move || match value.get() {
             Some(value) => view! {cx,
-                <div>{value}</div>
+                <div>{ value }</div>
             },
             None => view! {cx,
                 <div>"-"</div>
             },
-        },
+        }}.into_view(cx),
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
@@ -606,11 +603,11 @@ pub fn CrudOptionalI64Field(
                     ty=InputType::Number
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
-                    get=format!("{}", value.unwrap_or_default())
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get().unwrap_or_default()))
                     set=move |_| {}
                 />
             </div>
-        },
+        }.into_view(cx),
         FieldMode::Editable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
@@ -619,14 +616,14 @@ pub fn CrudOptionalI64Field(
                     ty=InputType::Number
                     class="crud-input-field"
                     disabled=field_options.disabled
-                    get=format!("{}", value.unwrap_or_default())
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get().unwrap_or_default()))
                     set=move |new| value_changed.call(match new.parse::<i64>() {
                         Ok(new) => Ok(Value::OptionalI64(Some(new))),
                         Err(err) =>Err(err.into()),
                     })
                 />
             </div>
-        },
+        }.into_view(cx),
     }
 }
 
@@ -636,12 +633,12 @@ pub fn CrudF32Field(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: f32,
+    #[prop(into)] value: Signal<f32>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! {cx,
-            <div>{value}</div>
+            <div>{ move || value.get() }</div>
         },
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
@@ -651,7 +648,7 @@ pub fn CrudF32Field(
                     ty=InputType::Number
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
-                    get=format!("{value}")
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
                     set=move |_| {}
                 />
             </div>
@@ -664,7 +661,7 @@ pub fn CrudF32Field(
                     ty=InputType::Number
                     class="crud-input-field"
                     disabled=field_options.disabled
-                    get=format!("{value}")
+                    get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
                     set=move |new| value_changed.call(match new.parse::<f32>() {
                         Ok(new) => Ok(Value::F32(new)),
                         Err(err) =>Err(err.into()),
@@ -681,12 +678,12 @@ pub fn CrudBoolField(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: bool,
+    #[prop(into)] value: Signal<bool>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! {cx,
-            <div>{value}</div>
+            <div>{ move || value.get() }</div>
         },
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
@@ -721,17 +718,17 @@ pub fn CrudPrimitiveDateTimeField(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: PrimitiveDateTime,
+    #[prop(into)] value: Signal<PrimitiveDateTime>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => match field_options.date_time_display {
             DateTimeDisplay::IsoUtc => view! {cx,
-                <div>{ value.format(&Rfc3339).unwrap() }</div>
+                <div>{ move || value.get().format(&Rfc3339).unwrap() }</div>
             },
             // TODO: Use icu4x formatting using the current users locale!
             DateTimeDisplay::LocalizedLocal => view! {cx,
-                <div>{ value.format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap() }</div>
+                <div>{ move || value.get().format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap() }</div>
             },
         },
         FieldMode::Readable => view! {cx,
@@ -740,7 +737,7 @@ pub fn CrudPrimitiveDateTimeField(
                 <div id=id.clone() class="crud-input-field">
                     <DateTimeInput
                         id=id.clone()
-                        get=Some(value.clone().assume_utc())
+                        get=MaybeSignal::derive(cx, move || Some(value.get().assume_utc()))
                         set=move |_v| {}
                         disabled=true
                     />
@@ -753,7 +750,7 @@ pub fn CrudPrimitiveDateTimeField(
                 <div id=id.clone() class="crud-input-field">
                     <DateTimeInput
                         id=id.clone()
-                        get=Some(value.clone().assume_utc())
+                        get=MaybeSignal::derive(cx, move || Some(value.get().assume_utc()))
                         set=move |v| match v {
                             // TODO: We previously did this... `Value::OffsetDateTime(datetime.expect("Expected OffsetDateTime to not be None!"))`
                             Some(v) => value_changed.call(Ok(Value::PrimitiveDateTime(PrimitiveDateTime::new(v.date(), v.time())))),
@@ -773,20 +770,20 @@ pub fn CrudOptionalPrimitiveDateTimeField(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: Option<PrimitiveDateTime>,
+    #[prop(into)] value: Signal<Option<PrimitiveDateTime>>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => match field_options.date_time_display {
-            DateTimeDisplay::IsoUtc => match value {
+            DateTimeDisplay::IsoUtc => {move || match value.get() {
                 Some(date_time) => view! {cx,
                     <div>{date_time.format(&Rfc3339).unwrap()}</div>
                 },
                 None => view! {cx,
                     <div>""</div>
                 },
-            },
-            DateTimeDisplay::LocalizedLocal => match value {
+            }}.into_view(cx),
+            DateTimeDisplay::LocalizedLocal => {move || match value.get() {
                 // TODO: Use icu4x formatting using the current users locale!
                 Some(date_time) => view! {cx,
                     <div>{date_time.format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap()}</div>
@@ -794,7 +791,7 @@ pub fn CrudOptionalPrimitiveDateTimeField(
                 None => view! {cx,
                     <div>""</div>
                 },
-            },
+            }}.into_view(cx),
         },
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
@@ -809,7 +806,7 @@ pub fn CrudOptionalPrimitiveDateTimeField(
                 //    set=move |_| {}
                 // />
             </div>
-        },
+        }.into_view(cx),
         FieldMode::Editable => view! {cx,
             <div class="crud-field">
                 "TODO: DataTime input field"
@@ -821,7 +818,7 @@ pub fn CrudOptionalPrimitiveDateTimeField(
                 //    disabled={options.disabled}
                 // />
             </div>
-        },
+        }.into_view(cx),
     }
 }
 
@@ -832,17 +829,17 @@ pub fn CrudSelectField(
     field_config: Option<Box<dyn SelectConfigTrait>>,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: Box<dyn CrudSelectableTrait>,
+    #[prop(into)] value: Signal<Box<dyn CrudSelectableTrait>>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => format!("{value:?}").into_view(cx),
+        FieldMode::Display => { move || format!("{:?}", value.get()) }.into_view(cx),
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
                 { match field_config {
                     None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
-                    Some(field_config) => field_config.render_select(cx, Signal::derive(cx, move || value.clone()), SimpleCallback::new(move |o| value_changed.call(Ok(Value::Select(o))))),
+                    Some(field_config) => field_config.render_select(cx, value, SimpleCallback::new(move |o| value_changed.call(Ok(Value::Select(o))))),
                 } }
             </div>
         }
@@ -852,7 +849,7 @@ pub fn CrudSelectField(
                 { render_label(cx, field_options.label.clone()) }
                 { match field_config {
                     None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
-                    Some(field_config) => field_config.render_select(cx, Signal::derive(cx, move || value.clone()), SimpleCallback::new(move |o| value_changed.call(Ok(Value::Select(o))))),
+                    Some(field_config) => field_config.render_select(cx, value, SimpleCallback::new(move |o| value_changed.call(Ok(Value::Select(o))))),
                 } }
             </div>
         }
@@ -867,17 +864,17 @@ pub fn CrudOptionalSelectField(
     field_config: Option<Box<dyn SelectConfigTrait>>,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    value: Option<Box<dyn CrudSelectableTrait>>,
+    #[prop(into)] value: Signal<Option<Box<dyn CrudSelectableTrait>>>,
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => format!("{value:?}").into_view(cx),
+        FieldMode::Display => { move || format!("{:?}", value.get()) }.into_view(cx),
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
                 { match field_config {
                     None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
-                    Some(field_config) => field_config.render_optional_select(cx, Signal::derive(cx, move || value.clone()), SimpleCallback::new(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
+                    Some(field_config) => field_config.render_optional_select(cx, value, SimpleCallback::new(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
                 } }
             </div>
         }
@@ -887,7 +884,7 @@ pub fn CrudOptionalSelectField(
                 { render_label(cx, field_options.label.clone()) }
                 { match field_config {
                     None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
-                    Some(field_config) => field_config.render_optional_select(cx, Signal::derive(cx, move || value.clone()), SimpleCallback::new(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
+                    Some(field_config) => field_config.render_optional_select(cx, value, SimpleCallback::new(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
                 } }
             </div>
         }
@@ -900,20 +897,4 @@ fn render_label(cx: Scope, label: Option<Label>) -> impl IntoView {
         Some(label) => view! {cx, <CrudFieldLabel label=label.clone() />}.into_view(cx),
         None => ().into_view(cx),
     }
-}
-
-// <T: CrudDataTrait + 'static>
-fn render_select_child(cx: Scope) -> impl IntoView {
-    view! {cx, "TODO: Implement render_select_child" }
-    //ctx.props().children.iter().find(|child| {
-    //    match child {
-    //        Item::NestedInstance(_) => false,
-    //        Item::Relation(_) => false,
-    //        Item::Select(select) => select.props.name == ctx.props().field_type.get_name(),
-    //    }
-    //}).map_or(html! {
-    //    <CrudAlert variant={crate::crud_alert::Variant::Danger}>
-    //        {"Could not find required 'Select' child. Help: You might be missing the <CrudSelectField> in your instance markup."}
-    //    </CrudAlert>
-    //}, |it| it.into() )
 }

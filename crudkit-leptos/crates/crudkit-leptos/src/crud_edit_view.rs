@@ -7,7 +7,7 @@ use crudkit_web::{
     prelude::{CrudRestDataProvider, CustomUpdateFields, ReadOne, UpdateOne},
     requests::RequestError,
     CrudDataTrait, CrudFieldValueTrait, CrudMainTrait, CrudSimpleView, DeletableModel, Elem,
-    FieldMode, Value, TabId,
+    FieldMode, TabId, Value,
 };
 use leptonic::prelude::*;
 use leptos::*;
@@ -18,8 +18,10 @@ use crate::{
     crud_action_context::CrudActionContext,
     crud_fields::CrudFields,
     crud_instance::CrudInstanceContext,
+    crud_instance_config::DynSelectConfig,
     crud_leave_modal::CrudLeaveModal,
-    crud_table::NoDataAvailable, crud_instance_config::DynSelectConfig,
+    crud_table::NoDataAvailable,
+    IntoReactiveValue, ReactiveValue,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -38,6 +40,12 @@ pub enum Then {
 
 // TODO: CrudEditView tracks changes, but CrudCreateView does not. Consolidate this logic into a shared component.
 
+// When the entity state is loaded, its data is put into a map of signals.
+// One key-value pair for each field and its corresponding signal.
+// We need to know if some inputs were changed.
+// We do this by comparing every fields signal value against the value of the entity loaded.
+// If any field value differs, the input was changed. This can be memoized.
+
 #[component]
 pub fn CrudEditView<T>(
     cx: Scope,
@@ -50,7 +58,9 @@ pub fn CrudEditView<T>(
     #[prop(into)] actions: Signal<Vec<CrudEntityAction<T>>>,
     #[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
     #[prop(into)] custom_fields: Signal<CustomUpdateFields<T, leptos::View>>,
-    #[prop(into)] field_config: Signal<HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>>,
+    #[prop(into)] field_config: Signal<
+        HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>,
+    >,
     on_list_view: Callback<()>,
     on_create_view: Callback<()>,
     on_entity_updated: Callback<Saved<T::UpdateModel>>,
@@ -100,6 +110,10 @@ where
         Result::<T::UpdateModel, NoDataAvailable>::Err(NoDataAvailable::NotYetLoaded),
     );
 
+    let (signals, set_sig) = create_signal::<
+        StoredValue<HashMap<<T::UpdateModel as CrudDataTrait>::Field, ReactiveValue>>,
+    >(cx, store_value(cx, HashMap::new()));
+
     // Update the `entity` signal whenever we fetched a new version of the edited entity.
     create_effect(cx, move |_prev| {
         set_entity.set(match entity_resource.read(cx) {
@@ -109,9 +123,19 @@ where
                     Ok(data) => match data {
                         Some(data) => {
                             let update_model = data.into();
-                            // Copying the loaded entity data to be our current input, so that input fields can work on the data.
-                            // TODO: Call something like into_update_model(), to make this into more readable.
+                            // Creating signals for all fields of the loaded entity, so that input fields can work on the data.
+                            set_sig.set({
+                                let mut map = HashMap::new();
+                                for field in T::UpdateModel::get_all_fields() {
+                                    let initial = field.get_value(&update_model);
+                                    map.insert(field, initial.into_reactive_value(cx));
+                                }
+                                store_value(cx, map)
+                            });
+
+                            // Copying the loaded entity data to be our current final input.
                             set_input.set(Some(update_model.clone()));
+
                             Ok(update_model)
                         }
                         None => Err(NoDataAvailable::RequestReturnedNoData(format!(
@@ -225,12 +249,6 @@ where
         ));
     };
 
-// TODO implement
-    // let mut sig: HashMap<<T::UpdateModel as CrudDataTrait>::Field, Signal<Value>> = HashMap::new();
-    // for field in T::UpdateModel::get_all_fields() {
-    //     sig.insert()
-    // }
-
     let action_ctx = CrudActionContext::<T>::new(cx);
 
     let value_changed = Callback::<(
@@ -257,8 +275,8 @@ where
     });
 
     view! {cx,
-        { move || match entity.get() {
-            Ok(entity) => view! {cx,
+        { move || match (entity.get(), signals.get()) {
+            (Ok(_entity), signals) => view! {cx,
                 { move || {
                     view! {cx,
                         <Grid spacing=6 class="crud-nav">
@@ -338,16 +356,11 @@ where
                 } }
 
                 <CrudFields
-                    // children={ChildrenRenderer::new(ctx.props().children.iter().filter(|it| match it {
-                    //     Item::NestedInstance(_) => true,
-                    //     Item::Relation(_) => true,
-                    //     Item::Select(select) => select.props.for_model == crate::crud_reset_field::Model::Update,
-                    // }).collect::<Vec<Item>>())}
                     custom_fields=custom_fields
                     field_config=field_config
                     api_base_url=api_base_url
                     elements=elements
-                    entity=Signal::derive(cx, move || entity.clone())
+                    signals=signals
                     mode=FieldMode::Editable
                     current_view=CrudSimpleView::Edit
                     value_changed=value_changed
@@ -355,7 +368,7 @@ where
                     on_tab_selection=on_tab_selected
                 />
             }.into_view(cx),
-            Err(no_data) => view! {cx,
+            (Err(no_data), _) => view! {cx,
                 <Grid spacing=6 class="crud-nav">
                     <Row>
                         <Col h_align=ColAlign::End>

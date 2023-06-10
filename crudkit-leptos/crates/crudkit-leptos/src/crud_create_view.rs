@@ -12,8 +12,11 @@ use leptos::*;
 use uuid::Uuid;
 
 use crate::{
-    crud_fields::CrudFields, crud_instance::CrudInstanceContext,
-    crud_instance_config::{CreateElements, DynSelectConfig}, crud_leave_modal::CrudLeaveModal,
+    crud_fields::CrudFields,
+    crud_instance::CrudInstanceContext,
+    crud_instance_config::{CreateElements, DynSelectConfig},
+    crud_leave_modal::CrudLeaveModal,
+    IntoReactiveValue, ReactiveValue,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -64,7 +67,9 @@ pub fn CrudCreateView<T>(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
     #[prop(into)] create_elements: Signal<CreateElements<T>>,
     #[prop(into)] custom_fields: Signal<CustomCreateFields<T, leptos::View>>,
-    #[prop(into)] field_config: Signal<HashMap<<T::CreateModel as CrudDataTrait>::Field, DynSelectConfig>>,
+    #[prop(into)] field_config: Signal<
+        HashMap<<T::CreateModel as CrudDataTrait>::Field, DynSelectConfig>,
+    >,
     on_edit_view: Callback<T::UpdateModelId>,
     on_list_view: Callback<()>,
     on_create_view: Callback<()>,
@@ -84,6 +89,16 @@ where
     let instance_ctx = expect_context::<CrudInstanceContext<T>>(cx);
 
     let default_create_model: T::CreateModel = default_create_model::<T>();
+
+    let signals: StoredValue<HashMap<<T::CreateModel as CrudDataTrait>::Field, ReactiveValue>> =
+        store_value(cx, {
+            let mut map = HashMap::new();
+            for field in T::CreateModel::get_all_fields() {
+                let initial = field.get_value(&default_create_model);
+                map.insert(field, initial.into_reactive_value(cx));
+            }
+            map
+        });
 
     // The input is `None`, if the `entity` was not yet loaded. After the entity is loaded for the first time,
     // the this signal becomes a copy of the current (loaded) entity state.
@@ -236,7 +251,7 @@ where
                     field_config=field_config
                     api_base_url=api_base_url
                     elements=create_elements
-                    entity=input
+                    signals=signals
                     mode=FieldMode::Editable
                     current_view=CrudSimpleView::Create
                     value_changed=value_changed
