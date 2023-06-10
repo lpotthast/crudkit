@@ -266,7 +266,7 @@ dyn_clone::clone_trait_object!(CrudSelectableTrait);
 #[derive(Debug, Clone)]
 pub enum Value {
     String(String),  // TODO: Add optional string!
-    Text(String),    // TODO: Add optional text!
+    Text(String),    // TODO: Add optional text!, TODO: Remove this variant altogether and make "text" an optional editing mode for string values!
     Json(JsonValue), // TODO: Add optional json value
     OptionalJson(Option<JsonValue>),
     UuidV4(uuid::Uuid), // TODO: Add optional UuidV4 value
