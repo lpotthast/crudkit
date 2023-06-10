@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
 use crudkit_web::{
     prelude::CustomFields, CrudDataTrait, CrudSimpleView, Elem, Enclosing, FieldMode, TabId, Value,
 };
 use leptonic::prelude::*;
 use leptos::*;
 
-use crate::crud_field_leptos::CrudField;
+use crate::{crud_field_leptos::CrudField, crud_instance_config::DynSelectConfig};
 
 // TODO: Propagate tab selection...
 
@@ -13,9 +15,10 @@ pub fn CrudFields<T>(
     cx: Scope,
     // children: ChildrenRenderer<Item>,
     custom_fields: Signal<CustomFields<T, leptos::View>>,
+    field_config: Signal<HashMap<T::Field, DynSelectConfig>>,
     api_base_url: Signal<String>,
     #[prop(into)] elements: MaybeSignal<Vec<Elem<T>>>,
-    #[prop(into)] entity: StoredValue<T>,
+    #[prop(into)] entity: Signal<T>,
     mode: FieldMode,
     current_view: CrudSimpleView,
     value_changed: Callback<(T::Field, Result<Value, String>)>,
@@ -35,8 +38,8 @@ where
                         match enclosing {
                             Enclosing::None(group) => view! {cx,
                                 <CrudFields
-                                    //children={ctx.props().children.clone()}
                                     custom_fields=custom_fields
+                                    field_config=field_config
                                     api_base_url=api_base_url
                                     elements=group.children.clone()
                                     entity=entity
@@ -57,8 +60,8 @@ where
                                         view! {cx,
                                             <Tab name=tab.id label=tab.label.name.clone().into_view(cx) on_show=Callback::new(cx, move |()| { on_tab_selection.call(id.clone()) })>
                                                 <CrudFields
-                                                    //children={ctx.props().children.clone()}
                                                     custom_fields=custom_fields
+                                                    field_config=field_config
                                                     api_base_url=api_base_url
                                                     elements=tab.group.children.clone()
                                                     entity=entity
@@ -74,10 +77,10 @@ where
                                 </Tabs>
                             }.into_view(cx),
                             Enclosing::Card(group) => view! {cx,
-                                <div class={"crud-card"}>
+                                <div class={"crud-card"}> // TODO: Use leptonic card
                                     <CrudFields
-                                        //children={ctx.props().children.clone()}
                                         custom_fields=custom_fields
+                                        field_config=field_config
                                         api_base_url=api_base_url
                                         elements={group.children.clone()}
                                         entity=entity
@@ -94,13 +97,13 @@ where
                     Elem::Field((field, field_options)) => {
                         view!{cx,
                             <CrudField
-                                //children={ctx.props().children.clone()} // TODO: make this work
                                 custom_fields=custom_fields
+                                field_config=field_config
                                 api_base_url=api_base_url
                                 current_view=current_view
                                 field=field.clone()
                                 field_options=field_options.clone()
-                                entity=entity.get_value()
+                                entity=entity
                                 field_mode=mode.clone()
                                 value_changed=value_changed
                             />

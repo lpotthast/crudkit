@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, rc::Rc};
+use std::{marker::PhantomData, rc::Rc, collections::HashMap};
 
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
@@ -9,7 +9,7 @@ use leptos::*;
 use crate::{
     crud_action::CrudActionTrait,
     crud_list_view::CrudListViewContext,
-    prelude::{CrudTableBody, CrudTableFooter, CrudTableHeader},
+    prelude::{CrudTableBody, CrudTableFooter, CrudTableHeader}, crud_instance_config::DynSelectConfig,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,6 +28,7 @@ pub fn CrudTable<T>(
     #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
     #[prop(into)] data: Signal<Result<Rc<Vec<T::ReadModel>>, NoDataAvailable>>,
     #[prop(into)] custom_fields: Signal<CustomFields<T::ReadModel, leptos::View>>,
+    #[prop(into)] field_config: Signal<HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>>,
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
@@ -64,6 +65,7 @@ where
                     api_base_url=api_base_url
                     headers=headers
                     custom_fields=custom_fields
+                    field_config=field_config
                     read_allowed=read_allowed
                     edit_allowed=edit_allowed
                     delete_allowed=delete_allowed

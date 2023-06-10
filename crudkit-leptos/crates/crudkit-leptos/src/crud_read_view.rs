@@ -1,17 +1,17 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, collections::HashMap};
 
 use crudkit_condition::IntoAllEqualCondition;
 use crudkit_id::{Id, IdField};
 use crudkit_web::{
     prelude::{CrudRestDataProvider, CustomUpdateFields, ReadOne},
-    CrudMainTrait, CrudSimpleView, Elem, FieldMode, TabId,
+    CrudMainTrait, CrudSimpleView, Elem, FieldMode, TabId, CrudDataTrait,
 };
 use leptonic::prelude::*;
 use leptos::*;
 use uuid::Uuid;
 
 use crate::{
-    crud_fields::CrudFields, crud_instance::CrudInstanceContext, crud_table::NoDataAvailable,
+    crud_fields::CrudFields, crud_instance::CrudInstanceContext, crud_table::NoDataAvailable, crud_instance_config::DynSelectConfig,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -32,6 +32,7 @@ pub fn CrudReadView<T>(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
     #[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
     #[prop(into)] custom_fields: Signal<CustomUpdateFields<T, leptos::View>>,
+    #[prop(into)] field_config: Signal<HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>>,
     on_list_view: Callback<()>,
     on_tab_selected: Callback<TabId>,
 ) -> impl IntoView
@@ -67,7 +68,7 @@ where
     // Until the initial fetch request is completed, this is in the `Err(NoDataAvailable::NotYetLoaded` state!
     let (entity, set_entity) = create_signal(
         cx,
-        Result::<StoredValue<T::UpdateModel>, NoDataAvailable>::Err(NoDataAvailable::NotYetLoaded),
+        Result::<ReadSignal<T::UpdateModel>, NoDataAvailable>::Err(NoDataAvailable::NotYetLoaded),
     );
 
     // Update the `entity` signal whenever we fetched a new version of the edited entity.
@@ -79,7 +80,7 @@ where
                     Ok(data) => match data {
                         Some(data) => {
                             let update_model = data.into();
-                            Ok(store_value(cx, update_model))
+                            Ok(create_rw_signal(cx, update_model).read_only())
                         }
                         None => Err(NoDataAvailable::RequestReturnedNoData(format!(
                             "Eintrag existiert nicht."
@@ -120,6 +121,7 @@ where
                     //     Item::Select(select) => select.props.for_model == crate::crud_reset_field::Model::Update,
                     // }).collect::<Vec<Item>>())}
                     custom_fields=custom_fields
+                    field_config=field_config
                     api_base_url=api_base_url
                     elements=elements
                     entity=entity

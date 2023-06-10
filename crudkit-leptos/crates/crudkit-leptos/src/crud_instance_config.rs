@@ -1,6 +1,14 @@
+use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
+
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
+use dyn_clone::DynClone;
 use indexmap::{indexmap, IndexMap};
+use leptonic::{
+    prelude::{Callable, Callback, SimpleCallback},
+    select::{OptionalSelect, Select},
+};
+use leptos::{Scope, View, *};
 use serde::{Deserialize, Serialize};
 
 use crate::crud_action::{CrudAction, CrudEntityAction};
@@ -35,6 +43,155 @@ pub struct NestedConfig {
     pub reference_field: String, // TODO: This should be: T::ReadModel::Field? (ClusterCertificateField::CreatedAt)
 }
 
+pub trait SelectConfigTrait: Debug + DynClone {
+    fn render_select(
+        &self,
+        cx: Scope,
+        selected: leptos::Signal<Box<dyn CrudSelectableTrait>>,
+        set_selected: SimpleCallback<Box<dyn CrudSelectableTrait>>,
+    ) -> View;
+    fn render_optional_select(
+        &self,
+        cx: Scope,
+        selected: leptos::Signal<Option<Box<dyn CrudSelectableTrait>>>,
+        set_selected: SimpleCallback<Option<Box<dyn CrudSelectableTrait>>>,
+    ) -> View;
+}
+dyn_clone::clone_trait_object!(SelectConfigTrait);
+
+pub type DynSelectConfig = Box<dyn SelectConfigTrait>;
+
+#[derive(Debug, Clone)]
+pub enum SelectOptionsProvider<
+    O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static,
+> {
+    Static {
+        options: Vec<O>,
+    },
+    Dynamic {
+        provider: Rc<dyn CrudSelectableSource<Selectable = O>>,
+    },
+}
+
+impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static>
+    SelectOptionsProvider<O>
+{
+    pub fn provide(
+        &self,
+        cx: Scope,
+    ) -> MaybeSignal<Option<Result<Vec<O>, Rc<dyn std::error::Error + Send + Sync + 'static>>>>
+    {
+        match self {
+            SelectOptionsProvider::Static { options } => Some(Ok(options.clone())).into(),
+            SelectOptionsProvider::Dynamic { provider } => {
+                let provider = provider.clone();
+                let load_action = create_action(cx, move |()| {
+                    let provider = provider.clone();
+                    async move { provider.load().await }
+                });
+                load_action.dispatch(());
+                let load_action_value = load_action.value();
+                load_action_value.read_only().into()
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct SelectConfig<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> {
+    pub options_provider: SelectOptionsProvider<O>,
+    pub renderer: Callback<(Scope, O), View>,
+}
+
+impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> Debug
+    for SelectConfig<O>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SelectConfig")
+            .field("options", &self.options_provider)
+            .field("renderer", &self.renderer)
+            .finish()
+    }
+}
+
+impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> SelectConfigTrait
+    for SelectConfig<O>
+{
+    fn render_select(
+        &self,
+        cx: Scope,
+        selected: Signal<Box<dyn CrudSelectableTrait>>,
+        set_selected: SimpleCallback<Box<dyn CrudSelectableTrait>>,
+    ) -> View {
+        let options = self.options_provider.provide(cx);
+        let selected = Signal::derive(cx, move || {
+            selected.get().as_any().downcast_ref::<O>().unwrap().clone()
+        });
+        let set_selected = Callback::new(cx, move |o: O| set_selected.call(Box::new(o)));
+        let renderer = self.renderer;
+        view! {cx,
+            {move || {
+                let option = options.get();
+                match option {
+                    Some(result) => match result {
+                        Ok(options) => view! {cx,
+                            <Select
+                                options=options
+                                selected=selected
+                                set_selected=set_selected
+                                render_option=renderer
+                            />
+                        }.into_view(cx),
+                        Err(err) => format!("Could not load options... Err: {err:?}").into_view(cx),
+                    },
+                    None => "Loading...".into_view(cx),
+                }
+            }}
+        }
+        .into_view(cx)
+    }
+
+    fn render_optional_select(
+        &self,
+        cx: Scope,
+        selected: Signal<Option<Box<dyn CrudSelectableTrait>>>,
+        set_selected: SimpleCallback<Option<Box<dyn CrudSelectableTrait>>>,
+    ) -> View {
+        let options = self.options_provider.provide(cx);
+        let selected = Signal::derive(cx, move || {
+            selected
+                .get()
+                .map(|it| it.as_any().downcast_ref::<O>().unwrap().clone())
+        });
+        let set_selected = Callback::new(cx, move |o: Option<O>| match o {
+            Some(o) => set_selected.call(Some(Box::new(o))),
+            None => set_selected.call(None),
+        });
+        let renderer = self.renderer;
+        view! {cx,
+            {move || {
+                let option = options.get();
+                match option {
+                    Some(result) => match result {
+                        Ok(options) => view! {cx,
+                            <OptionalSelect
+                                options=options
+                                selected=selected
+                                set_selected=set_selected
+                                render_option=renderer
+                                allow_deselect=true
+                            />
+                        }.into_view(cx),
+                        Err(err) => format!("Could not load options... Err: {err:?}").into_view(cx),
+                    },
+                    None => "Loading...".into_view(cx),
+                }
+            }}
+        }
+        .into_view(cx)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CreateElements<T: CrudMainTrait> {
     None,
@@ -42,13 +199,33 @@ pub enum CreateElements<T: CrudMainTrait> {
 }
 
 /// This config is non-serializable. Every piece of runtime-changing data relevant to be tracked and reloaded should be part of the CrudInstanceConfig struct.
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct CrudStaticInstanceConfig<T: CrudMainTrait + 'static> {
     pub actions: Vec<CrudAction<T>>,
     pub entity_actions: Vec<CrudEntityAction<T>>,
-    pub custom_read_fields: CustomReadFields<T, leptos::View>,
-    pub custom_create_fields: CustomCreateFields<T, leptos::View>,
-    pub custom_update_fields: CustomUpdateFields<T, leptos::View>,
+    pub create_field_select_config:
+        HashMap<<T::CreateModel as CrudDataTrait>::Field, DynSelectConfig>,
+    pub read_field_select_config: HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>,
+    pub update_field_select_config:
+        HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>,
+    pub custom_read_fields: CustomReadFields<T, View>,
+    pub custom_create_fields: CustomCreateFields<T, View>,
+    pub custom_update_fields: CustomUpdateFields<T, View>,
+}
+
+impl<T: CrudMainTrait> Default for CrudStaticInstanceConfig<T> {
+    fn default() -> Self {
+        Self {
+            actions: Default::default(),
+            entity_actions: Default::default(),
+            create_field_select_config: Default::default(),
+            read_field_select_config: Default::default(),
+            update_field_select_config: Default::default(),
+            custom_read_fields: Default::default(),
+            custom_create_fields: Default::default(),
+            custom_update_fields: Default::default(),
+        }
+    }
 }
 
 impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {

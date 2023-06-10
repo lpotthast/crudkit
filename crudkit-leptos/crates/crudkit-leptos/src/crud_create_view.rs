@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::{
     crud_fields::CrudFields, crud_instance::CrudInstanceContext,
-    crud_instance_config::CreateElements, crud_leave_modal::CrudLeaveModal,
+    crud_instance_config::{CreateElements, DynSelectConfig}, crud_leave_modal::CrudLeaveModal,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -64,6 +64,7 @@ pub fn CrudCreateView<T>(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
     #[prop(into)] create_elements: Signal<CreateElements<T>>,
     #[prop(into)] custom_fields: Signal<CustomCreateFields<T, leptos::View>>,
+    #[prop(into)] field_config: Signal<HashMap<<T::CreateModel as CrudDataTrait>::Field, DynSelectConfig>>,
     on_edit_view: Callback<T::UpdateModelId>,
     on_list_view: Callback<()>,
     on_create_view: Callback<()>,
@@ -194,8 +195,6 @@ where
         }
     });
 
-    let initial_entity = store_value(cx, input.get_untracked());
-
     view! {cx,
         <Grid spacing=6 class="crud-nav">
             <Row>
@@ -234,9 +233,10 @@ where
                     //     Item::Select(select) => select.props.for_model == crate::crud_reset_field::Model::Create,
                     // }).collect::<Vec<Item>>())}
                     custom_fields=custom_fields
+                    field_config=field_config
                     api_base_url=api_base_url
                     elements=create_elements
-                    entity=initial_entity
+                    entity=input
                     mode=FieldMode::Editable
                     current_view=CrudSimpleView::Create
                     value_changed=value_changed

@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, rc::Rc};
+use std::{marker::PhantomData, rc::Rc, collections::HashMap};
 
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
@@ -14,7 +14,7 @@ use crate::{
     crud_instance::CrudInstanceContext,
     crud_pagination::CrudPagination,
     crud_table::NoDataAvailable,
-    prelude::CrudTable,
+    prelude::CrudTable, crud_instance_config::DynSelectConfig,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -103,6 +103,7 @@ pub fn CrudListView<T>(
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
     #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
     #[prop(into)] custom_fields: Signal<CustomReadFields<T, leptos::View>>,
+    #[prop(into)] field_config: Signal<HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>>,
     #[prop(into)] actions: Signal<Vec<CrudAction<T>>>,
 ) -> impl IntoView
 where
@@ -125,19 +126,22 @@ where
             .collect::<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>()
     });
 
+    // TODO: Investigate: After a fresh page load, the first change to one of the signals (items_per_page, ...) triggers an unexpected reload. source is not re-run.
     let page_resource = create_local_resource(
         cx,
         move || {
-            tracing::debug!("page_req");
-            PageReq {
+            let req = PageReq {
                 reload: instance_ctx.reload.get(),
                 order_by: instance_ctx.order_by.get(),
                 page: instance_ctx.current_page.get(),
                 items_per_page: instance_ctx.items_per_page.get(),
                 data_provider: data_provider.get(),
-            }
+            };
+            tracing::debug!(?req, "source");
+            req
         },
         move |req| async move {
+            tracing::debug!(?req, "fetcher");
             req.data_provider
                 .read_many(ReadMany {
                     limit: Some(req.items_per_page),
@@ -151,7 +155,7 @@ where
 
     let page = create_memo(cx, move |_prev| match page_resource.read(cx) {
         Some(result) => {
-            tracing::info!("loaded list data");
+            tracing::debug!("loaded list data");
             match result {
                 Ok(data) => Ok(Rc::new(data)),
                 Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
@@ -298,6 +302,7 @@ where
             order_by=order_by
             data=page
             custom_fields=custom_fields
+            field_config=field_config
             read_allowed=read_allowed
             edit_allowed=edit_allowed
             delete_allowed=delete_allowed
@@ -312,13 +317,13 @@ where
                 Ok(count) => Some(
                     view! {cx,
                         <CrudPagination
-                            current_page=instance_ctx.current_page
                             item_count=count
                             items_per_page=instance_ctx.items_per_page
-                            on_page_select=Callback::new(cx, move |page_number| {
+                            current_page=instance_ctx.current_page
+                            set_current_page=Callback::new(cx, move |page_number| {
                                 expect_context::<CrudInstanceContext<T>>(cx).set_page(page_number)
                             })
-                            on_item_count_select=Callback::new(cx, move |item_count| {
+                            set_items_per_page=Callback::new(cx, move |item_count| {
                                 expect_context::<CrudInstanceContext<T>>(cx).set_items_per_page(item_count)
                             })
                         />

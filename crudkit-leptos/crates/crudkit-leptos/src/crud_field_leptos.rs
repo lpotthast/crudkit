@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashMap};
 
 use crudkit_web::{prelude::*, DateTimeDisplay, JsonValue};
 use leptonic::prelude::*;
@@ -8,94 +8,109 @@ use time::{
 };
 use uuid::Uuid;
 
-use crate::prelude::CrudFieldLabel;
+use crate::{
+    crud_instance_config::{DynSelectConfig, SelectConfigTrait},
+    prelude::CrudFieldLabel,
+};
 
 #[component]
 pub fn CrudField<T>(
     cx: Scope,
     //children: Children,
     custom_fields: Signal<CustomFields<T, leptos::View>>,
+    field_config: Signal<HashMap<T::Field, DynSelectConfig>>,
     api_base_url: Signal<String>,
     current_view: CrudSimpleView,
     field: T::Field,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    entity: T,
+     entity: Signal<T>,
     value_changed: Callback<(T::Field, Result<Value, String>)>, // how can we handle all possible types? serialization? TODO: Only take Value, not Result
 ) -> impl IntoView
 where
     T: CrudDataTrait + 'static,
 {
-    let id = format!("f{}", Uuid::new_v4().to_string());
+    // NOTE: A field is re-rendered when the "entity" signal updates, as the fields is dependant on the current value inside the entity.
+    // TODO: This is not fine-grained. When one value changes, all fields are re-rendered... We should use a Map<Field, Signal<Value>> and render fields fine-grained!!
+    move || {
+        let id = format!("f{}", Uuid::new_v4().to_string());
 
-    let field_clone = field.clone();
+        let field_clone = field.clone();
 
-    let value_changed = SimpleCallback::new(move |result| match result {
-        Ok(new) => value_changed.call((field_clone.clone(), Ok(new))),
-        Err(err) => tracing::error!("Could not get input value: {}", err),
-    });
+        let value_changed = SimpleCallback::new(move |result| match result {
+            Ok(new) => value_changed.call((field_clone.clone(), Ok(new))),
+            Err(err) => tracing::error!("Could not get input value: {}", err),
+        });
 
-    match field.get_value(&entity) {
-        Value::String(value) => {
-            view! {cx, <CrudStringField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::Text(value) => {
-            view! {cx, <CrudTextField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::Json(value) => {
-            view! {cx, <CrudJsonField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::OptionalJson(value) => {
-            view! {cx, <CrudOptionalJsonField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::UuidV4(value) => {
-            view! {cx, <CrudUuidV4Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::UuidV7(value) => {
-            view! {cx, <CrudUuidV7Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::U32(value) => {
-            view! {cx, <CrudU32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::OptionalU32(value) => {
-            view! {cx, <CrudOptionalU32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::I32(value) => {
-            view! {cx, <CrudI32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::OptionalI32(value) => {
-            view! {cx, <CrudOptionalI32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::I64(value) => {
-            view! {cx, <CrudI64Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::OptionalI64(value) => {
-            view! {cx, <CrudOptionalI64Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::F32(value) => {
-            view! {cx, <CrudF32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::Bool(value) => {
-            view! {cx, <CrudBoolField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::ValidationStatus(_) => view! {cx, "TODO: Render Value::ValidationStatus"}.into_view(cx),
-        Value::PrimitiveDateTime(value) => {
-            view! {cx, <CrudPrimitiveDateTimeField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::OffsetDateTime(_) => view! {cx, "TODO: Render Value::OffsetDateTime"}.into_view(cx),
-        Value::OptionalPrimitiveDateTime(value) => {
-            view! {cx, <CrudOptionalPrimitiveDateTimeField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::OptionalOffsetDateTime(_) => view! {cx, "TODO: Render Value::OptionalOffsetDateTime"}.into_view(cx),
-        Value::OneToOneRelation(_) => view! {cx, "TODO: Render Value::OneToOneRelation"}.into_view(cx),
-        Value::NestedTable(_) => view! {cx, "TODO: Render Value::NestedTable"}.into_view(cx),
-        Value::Custom(_) => view! {cx, "TODO: Render Value::Custom"}.into_view(cx),
-        Value::Select(value) => {
-            view! {cx, <CrudSelectField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
-        },
-        Value::Multiselect(_) => view! {cx, "TODO: Render Value::Multiselect"}.into_view(cx),
-        Value::OptionalSelect(_) => view! {cx, "TODO: Render Value::OptionalSelect"}.into_view(cx),
-        Value::OptionalMultiselect(_) => view! {cx, "TODO: Render Value::OptionalMultiselect"}.into_view(cx),
+        let field_config = field_config.with(|map| map.get(&field).cloned());
+
+        entity.with(|entity| {
+            let field_options = field_options.clone();
+            match field.get_value(entity) {
+                Value::String(value) => {
+                    view! {cx, <CrudStringField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::Text(value) => {
+                    view! {cx, <CrudTextField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::Json(value) => {
+                    view! {cx, <CrudJsonField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::OptionalJson(value) => {
+                    view! {cx, <CrudOptionalJsonField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::UuidV4(value) => {
+                    view! {cx, <CrudUuidV4Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::UuidV7(value) => {
+                    view! {cx, <CrudUuidV7Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::U32(value) => {
+                    view! {cx, <CrudU32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::OptionalU32(value) => {
+                    view! {cx, <CrudOptionalU32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::I32(value) => {
+                    view! {cx, <CrudI32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::OptionalI32(value) => {
+                    view! {cx, <CrudOptionalI32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::I64(value) => {
+                    view! {cx, <CrudI64Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::OptionalI64(value) => {
+                    view! {cx, <CrudOptionalI64Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::F32(value) => {
+                    view! {cx, <CrudF32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::Bool(value) => {
+                    view! {cx, <CrudBoolField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::ValidationStatus(_) => view! {cx, "TODO: Render Value::ValidationStatus"}.into_view(cx),
+                Value::PrimitiveDateTime(value) => {
+                    view! {cx, <CrudPrimitiveDateTimeField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::OffsetDateTime(_) => view! {cx, "TODO: Render Value::OffsetDateTime"}.into_view(cx),
+                Value::OptionalPrimitiveDateTime(value) => {
+                    view! {cx, <CrudOptionalPrimitiveDateTimeField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::OptionalOffsetDateTime(_) => view! {cx, "TODO: Render Value::OptionalOffsetDateTime"}.into_view(cx),
+                Value::OneToOneRelation(_) => view! {cx, "TODO: Render Value::OneToOneRelation"}.into_view(cx),
+                Value::NestedTable(_) => view! {cx, "TODO: Render Value::NestedTable"}.into_view(cx),
+                Value::Custom(_) => view! {cx, "TODO: Render Value::Custom"}.into_view(cx),
+                Value::Select(value) => {
+                    view! {cx, <CrudSelectField id=id.clone() field_config=field_config field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::Multiselect(_) => view! {cx, "TODO: Render Value::Multiselect"}.into_view(cx),
+                Value::OptionalSelect(value) => {
+                    view! {cx, <CrudOptionalSelectField id=id.clone() field_config=field_config field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
+                },
+                Value::OptionalMultiselect(_) => view! {cx, "TODO: Render Value::OptionalMultiselect"}.into_view(cx),
+            }
+        })
     }
 }
 
@@ -814,6 +829,7 @@ pub fn CrudOptionalPrimitiveDateTimeField(
 pub fn CrudSelectField(
     cx: Scope,
     id: String,
+    field_config: Option<Box<dyn SelectConfigTrait>>,
     field_options: FieldOptions,
     field_mode: FieldMode,
     value: Box<dyn CrudSelectableTrait>,
@@ -824,14 +840,55 @@ pub fn CrudSelectField(
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
-                { render_select_child(cx) }
+                { match field_config {
+                    None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
+                    Some(field_config) => field_config.render_select(cx, Signal::derive(cx, move || value.clone()), SimpleCallback::new(move |o| value_changed.call(Ok(Value::Select(o))))),
+                } }
             </div>
         }
         .into_view(cx),
         FieldMode::Editable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
-                { render_select_child(cx) }
+                { match field_config {
+                    None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
+                    Some(field_config) => field_config.render_select(cx, Signal::derive(cx, move || value.clone()), SimpleCallback::new(move |o| value_changed.call(Ok(Value::Select(o))))),
+                } }
+            </div>
+        }
+        .into_view(cx),
+    }
+}
+
+#[component]
+pub fn CrudOptionalSelectField(
+    cx: Scope,
+    id: String,
+    field_config: Option<Box<dyn SelectConfigTrait>>,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    value: Option<Box<dyn CrudSelectableTrait>>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => format!("{value:?}").into_view(cx),
+        FieldMode::Readable => view! {cx,
+            <div class="crud-field">
+                { render_label(cx, field_options.label.clone()) }
+                { match field_config {
+                    None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
+                    Some(field_config) => field_config.render_optional_select(cx, Signal::derive(cx, move || value.clone()), SimpleCallback::new(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
+                } }
+            </div>
+        }
+        .into_view(cx),
+        FieldMode::Editable => view! {cx,
+            <div class="crud-field">
+                { render_label(cx, field_options.label.clone()) }
+                { match field_config {
+                    None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
+                    Some(field_config) => field_config.render_optional_select(cx, Signal::derive(cx, move || value.clone()), SimpleCallback::new(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
+                } }
             </div>
         }
         .into_view(cx),

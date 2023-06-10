@@ -246,6 +246,13 @@ where
     let custom_update_fields =
         Signal::derive(cx, move || static_config.custom_update_fields.clone());
 
+    let create_field_config =
+        Signal::derive(cx, move || static_config.create_field_select_config.clone());
+    let read_field_config =
+        Signal::derive(cx, move || static_config.read_field_select_config.clone());
+    let update_field_config =
+            Signal::derive(cx, move || static_config.update_field_select_config.clone());
+
     let actions = Signal::derive(cx, move || static_config.actions.clone());
     let entity_actions = Signal::derive(cx, move || static_config.entity_actions.clone());
 
@@ -356,6 +363,7 @@ where
                                     headers=headers
                                     order_by=order_by
                                     custom_fields=custom_read_fields
+                                    field_config=read_field_config
                                     actions=actions
                                 />
                             }
@@ -369,6 +377,7 @@ where
                                     data_provider=data_provider
                                     create_elements=create_elements
                                     custom_fields=custom_create_fields
+                                    field_config=create_field_config
                                     on_edit_view=Callback::new(cx, move |id| expect_context::<CrudInstanceContext<T>>(cx).edit(id))
                                     on_list_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
                                     on_create_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).create())
@@ -396,6 +405,7 @@ where
                                     data_provider=data_provider
                                     elements=update_elements
                                     custom_fields=custom_update_fields
+                                    field_config=update_field_config
                                     on_list_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
                                     on_tab_selected=Callback::new(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
                                 />
@@ -412,6 +422,7 @@ where
                                     actions=entity_actions
                                     elements=update_elements
                                     custom_fields=custom_update_fields
+                                    field_config=update_field_config
                                     on_list_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
                                     on_create_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).create())
                                     on_entity_updated=Callback::new(cx, move |saved| {})
@@ -463,6 +474,7 @@ where
             view.get();
 
         let (view, _) = cx.run_child_scope(|cx| {
+            // TODO: The Show component does this differently
             let prev_cx = std::mem::replace(&mut *child_scope.borrow_mut(), Some(cx));
             if let Some(prev_cx) = prev_cx {
                 prev_cx.dispose();

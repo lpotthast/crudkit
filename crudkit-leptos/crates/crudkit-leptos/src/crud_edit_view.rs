@@ -19,7 +19,7 @@ use crate::{
     crud_fields::CrudFields,
     crud_instance::CrudInstanceContext,
     crud_leave_modal::CrudLeaveModal,
-    crud_table::NoDataAvailable,
+    crud_table::NoDataAvailable, crud_instance_config::DynSelectConfig,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -50,6 +50,7 @@ pub fn CrudEditView<T>(
     #[prop(into)] actions: Signal<Vec<CrudEntityAction<T>>>,
     #[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
     #[prop(into)] custom_fields: Signal<CustomUpdateFields<T, leptos::View>>,
+    #[prop(into)] field_config: Signal<HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>>,
     on_list_view: Callback<()>,
     on_create_view: Callback<()>,
     on_entity_updated: Callback<Saved<T::UpdateModel>>,
@@ -96,7 +97,7 @@ where
     // Until the initial fetch request is completed, this is in the `Err(NoDataAvailable::NotYetLoaded` state!
     let (entity, set_entity) = create_signal(
         cx,
-        Result::<StoredValue<T::UpdateModel>, NoDataAvailable>::Err(NoDataAvailable::NotYetLoaded),
+        Result::<T::UpdateModel, NoDataAvailable>::Err(NoDataAvailable::NotYetLoaded),
     );
 
     // Update the `entity` signal whenever we fetched a new version of the edited entity.
@@ -111,7 +112,7 @@ where
                             // Copying the loaded entity data to be our current input, so that input fields can work on the data.
                             // TODO: Call something like into_update_model(), to make this into more readable.
                             set_input.set(Some(update_model.clone()));
-                            Ok(store_value(cx, update_model))
+                            Ok(update_model)
                         }
                         None => Err(NoDataAvailable::RequestReturnedNoData(format!(
                             "Eintrag existiert nicht."
@@ -125,7 +126,7 @@ where
     });
 
     let input_changed = Signal::derive(cx, move || match (input.get(), entity.get()) {
-        (Some(input), Ok(entity)) => entity.with_value(|entity| input != *entity),
+        (Some(input), Ok(entity)) => input != entity,
         _ => false,
     });
 
@@ -182,7 +183,7 @@ where
             match result {
                 Ok(save_result) => match save_result {
                     SaveResult::Saved(saved) => {
-                        set_entity.set(Ok(store_value(cx, saved.entity.clone())));
+                        set_entity.set(Ok(saved.entity.clone()));
                         on_entity_updated.call(saved);
                         match and_then {
                             Then::DoNothing => {}
@@ -223,6 +224,12 @@ where
             input.get().expect("Entity to be already loaded"),
         ));
     };
+
+// TODO implement
+    // let mut sig: HashMap<<T::UpdateModel as CrudDataTrait>::Field, Signal<Value>> = HashMap::new();
+    // for field in T::UpdateModel::get_all_fields() {
+    //     sig.insert()
+    // }
 
     let action_ctx = CrudActionContext::<T>::new(cx);
 
@@ -337,9 +344,10 @@ where
                     //     Item::Select(select) => select.props.for_model == crate::crud_reset_field::Model::Update,
                     // }).collect::<Vec<Item>>())}
                     custom_fields=custom_fields
+                    field_config=field_config
                     api_base_url=api_base_url
                     elements=elements
-                    entity=entity
+                    entity=Signal::derive(cx, move || entity.clone())
                     mode=FieldMode::Editable
                     current_view=CrudSimpleView::Edit
                     value_changed=value_changed

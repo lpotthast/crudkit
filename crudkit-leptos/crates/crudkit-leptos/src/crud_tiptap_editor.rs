@@ -5,6 +5,8 @@ use yew_tiptap::{
     ImageResource,
 };
 
+// TODO: Build leptos-tiptap
+
 type TiptapInstanceMsg = <TiptapInstance as Component>::Message;
 
 use crate::prelude::*;
