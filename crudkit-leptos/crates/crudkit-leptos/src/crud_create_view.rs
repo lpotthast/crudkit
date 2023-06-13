@@ -242,11 +242,6 @@ where
             CreateElements::None => view! {cx, "Keine Felder definiert." }.into_view(cx),
             CreateElements::Custom(create_elements) => view! {cx,
                 <CrudFields
-                    // children={ChildrenRenderer::new(ctx.props().children.iter().filter(|it| match it {
-                    //     Item::NestedInstance(_) => true,
-                    //     Item::Relation(_) => true,
-                    //     Item::Select(select) => select.props.for_model == crate::crud_reset_field::Model::Create,
-                    // }).collect::<Vec<Item>>())}
                     custom_fields=custom_fields
                     field_config=field_config
                     api_base_url=api_base_url
@@ -255,7 +250,7 @@ where
                     mode=FieldMode::Editable
                     current_view=CrudSimpleView::Create
                     value_changed=value_changed
-                    //     active_tab={ctx.props().config.active_tab.clone()}
+                    // active_tab={ctx.props().config.active_tab.clone()}
                     on_tab_selection=on_tab_selected
                 />
             }.into_view(cx),
