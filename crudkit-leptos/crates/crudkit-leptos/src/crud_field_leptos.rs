@@ -169,28 +169,30 @@ pub fn CrudTextField(
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
-                "TODO: Implement TipTap editor"
-                // <CrudTipTapEditor
-                //     api_base_url={ctx.props().api_base_url.clone()}
-                //     id={self.format_id()}
-                //     class={"crud-input-field"}
-                //     value={value}
-                //     disabled={true}
-                // />
+                <TiptapEditor
+                    // api_base_url={ctx.props().api_base_url.clone()}
+                    id=id.clone()
+                    class="crud-input-field"
+                    value=value
+                    set_value=move |_new| {}
+                    disabled=true
+                />
             </div>
         },
         FieldMode::Editable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
-                "TODO: Implement TipTap editor"
-                // <CrudTipTapEditor
-                //     api_base_url={ctx.props().api_base_url.clone()}
-                //     id={self.format_id()}
-                //     class={"crud-input-field"}
-                //     value={value}
-                //     onchange={ctx.link().callback(|input| Msg::Send(Value::Text(input)))}
-                //     disabled={options.disabled}
-                // />
+                <TiptapEditor
+                    // api_base_url={ctx.props().api_base_url.clone()}
+                    id=id.clone()
+                    class="crud-input-field"
+                    value=value
+                    set_value=move |new| value_changed.call(Ok(Value::Text(match new {
+                        TiptapContent::Html(content) => content,
+                        TiptapContent::Json(content) => content,
+                    })))
+                    disabled=field_options.disabled
+                />
             </div>
         },
     }
