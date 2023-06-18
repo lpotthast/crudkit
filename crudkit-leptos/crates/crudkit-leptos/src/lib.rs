@@ -17,7 +17,6 @@ pub mod crud_list_view;
 pub mod crud_pagination;
 pub mod crud_read_view;
 //pub mod crud_related_field;
-//pub mod crud_slider;
 pub mod crud_table;
 pub mod crud_table_body;
 pub mod crud_table_footer;
