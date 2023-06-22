@@ -23,7 +23,8 @@ dyn-clone = "1"
 gloo = "0.8"
 indexmap = { version = "1", features = ["serde"] }
 js-sys = "0.3"
-leptonic = { path = "../../../../leptonic" }
+# TODO: Add version
+leptonic = { path = "../../../../leptonic/leptonic" }
 leptos = { version = "0.3", default-features = false, features = [
     "csr",
     "tracing",
