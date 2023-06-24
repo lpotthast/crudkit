@@ -43,7 +43,7 @@ pub fn CrudPagination(
         default_options
     });
 
-    let set_items_per_page = Callback::new(cx, move |option: ItemsPerPage| {
+    let set_items_per_page = create_callback(cx, move |option: ItemsPerPage| {
         set_items_per_page.call(option.items_per_page);
 
         // We may have to update the current page as well if it would not show any element anymore!
@@ -64,7 +64,7 @@ pub fn CrudPagination(
                             </div>
                             <Select
                                 options=items_per_page_options
-                                render_option=Callback::new(cx, move |(cx, option)| format!("{option}").into_view(cx))
+                                render_option=create_callback(cx, move |(cx, option)| format!("{option}").into_view(cx))
                                 selected=Signal::derive(cx, move || ItemsPerPage::some(items_per_page.get()))
                                 set_selected=set_items_per_page
                             />

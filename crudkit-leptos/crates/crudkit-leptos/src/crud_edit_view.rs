@@ -319,8 +319,8 @@ where
                                                                     modal_generator.call((cx, EntityModalGeneration {
                                                                         show_when: Signal::derive(cx, move || action_ctx.is_action_requested(id)),
                                                                         state: input.into(),
-                                                                        cancel: Callback::new(cx, move |_| action_ctx.cancel_action(id)),
-                                                                        execute: Callback::new(cx, move |action_payload| action_ctx.trigger_entity_action(cx, id, input.get().unwrap(), action_payload, action)),
+                                                                        cancel: create_callback(cx, move |_| action_ctx.cancel_action(id)),
+                                                                        execute: create_callback(cx, move |action_payload| action_ctx.trigger_entity_action(cx, id, input.get().unwrap(), action_payload, action)),
                                                                     }))
                                                                 }
                                                             }.into_view(cx)
@@ -388,11 +388,11 @@ where
 
         <CrudLeaveModal
             show_when=show_leave_modal
-            on_cancel=Callback::new(cx, move |()| {
+            on_cancel=create_callback(cx, move |()| {
                 set_show_leave_modal.set(false);
                 set_user_wants_to_leave.set(false);
             })
-            on_accept=Callback::new(cx, move |()| {
+            on_accept=create_callback(cx, move |()| {
                 set_show_leave_modal.set(false);
                 force_leave();
             })

@@ -74,7 +74,7 @@ where
         let trigger_action =
             move |entity: T::ReadModel, action: Rc<Box<dyn CrudActionTrait>>| todo!();
 
-        let dummy_value_changed_callback = Callback::new(cx, move |_| {});
+        let dummy_value_changed_callback = create_callback(cx, move |_| {});
 
         view! {cx,
             <tr class="interactable"

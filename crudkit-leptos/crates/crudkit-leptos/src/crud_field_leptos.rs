@@ -36,7 +36,7 @@ where
 
         let field_clone = field.clone();
 
-        let value_changed = SimpleCallback::new(move |result| match result {
+        let value_changed = create_simple_callback(move |result| match result {
             Ok(new) => value_changed.call((field_clone.clone(), Ok(new))),
             Err(err) => tracing::error!("Could not get input value: {}", err),
         });
@@ -841,7 +841,7 @@ pub fn CrudSelectField(
                 { render_label(cx, field_options.label.clone()) }
                 { match field_config {
                     None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
-                    Some(field_config) => field_config.render_select(cx, value, SimpleCallback::new(move |o| value_changed.call(Ok(Value::Select(o))))),
+                    Some(field_config) => field_config.render_select(cx, value, create_simple_callback(move |o| value_changed.call(Ok(Value::Select(o))))),
                 } }
             </div>
         }
@@ -851,7 +851,7 @@ pub fn CrudSelectField(
                 { render_label(cx, field_options.label.clone()) }
                 { match field_config {
                     None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
-                    Some(field_config) => field_config.render_select(cx, value, SimpleCallback::new(move |o| value_changed.call(Ok(Value::Select(o))))),
+                    Some(field_config) => field_config.render_select(cx, value, create_simple_callback(move |o| value_changed.call(Ok(Value::Select(o))))),
                 } }
             </div>
         }
@@ -876,7 +876,7 @@ pub fn CrudOptionalSelectField(
                 { render_label(cx, field_options.label.clone()) }
                 { match field_config {
                     None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
-                    Some(field_config) => field_config.render_optional_select(cx, value, SimpleCallback::new(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
+                    Some(field_config) => field_config.render_optional_select(cx, value, create_simple_callback(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
                 } }
             </div>
         }
@@ -886,7 +886,7 @@ pub fn CrudOptionalSelectField(
                 { render_label(cx, field_options.label.clone()) }
                 { match field_config {
                     None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
-                    Some(field_config) => field_config.render_optional_select(cx, value, SimpleCallback::new(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
+                    Some(field_config) => field_config.render_optional_select(cx, value, create_simple_callback(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
                 } }
             </div>
         }

@@ -113,7 +113,7 @@ where
         })
     });
 
-    let value_changed = Callback::new(cx, move |_| {});
+    let value_changed = create_callback(cx, move |_| {});
 
     view! {cx,
         { move || match (entity.get(), signals.get()) {

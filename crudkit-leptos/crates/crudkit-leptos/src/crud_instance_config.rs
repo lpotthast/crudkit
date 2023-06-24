@@ -4,10 +4,7 @@ use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use dyn_clone::DynClone;
 use indexmap::{indexmap, IndexMap};
-use leptonic::{
-    prelude::{Callable, Callback, SimpleCallback},
-    select::{OptionalSelect, Select},
-};
+use leptonic::prelude::*;
 use leptos::{Scope, View, *};
 use serde::{Deserialize, Serialize};
 
@@ -127,7 +124,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
         let selected = Signal::derive(cx, move || {
             selected.get().as_any().downcast_ref::<O>().unwrap().clone()
         });
-        let set_selected = Callback::new(cx, move |o: O| set_selected.call(Box::new(o)));
+        let set_selected = create_callback(cx, move |o: O| set_selected.call(Box::new(o)));
         let renderer = self.renderer;
         view! {cx,
             {move || {
@@ -163,7 +160,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
                 .get()
                 .map(|it| it.as_any().downcast_ref::<O>().unwrap().clone())
         });
-        let set_selected = Callback::new(cx, move |o: Option<O>| match o {
+        let set_selected = create_callback(cx, move |o: Option<O>| match o {
             Some(o) => set_selected.call(Some(Box::new(o))),
             None => set_selected.call(None),
         });

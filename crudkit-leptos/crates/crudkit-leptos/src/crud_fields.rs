@@ -59,7 +59,11 @@ where
                                         let id = tab.id.clone();
                                         let signals = signals.clone();
                                         view! {cx,
-                                            <Tab name=tab.id label=tab.label.name.clone().into_view(cx) on_show=Callback::new(cx, move |()| { on_tab_selection.call(id.clone()) })>
+                                            <Tab
+                                                name=tab.id
+                                                label=tab.label.name.clone().into_view(cx)
+                                                on_show=create_callback(cx, move |()| { on_tab_selection.call(id.clone()) })
+                                            >
                                                 <CrudFields
                                                     custom_fields=custom_fields
                                                     field_config=field_config

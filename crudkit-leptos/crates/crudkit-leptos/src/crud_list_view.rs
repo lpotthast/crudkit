@@ -238,8 +238,8 @@ where
                                             {
                                                 modal_generator.call((cx, ModalGeneration {
                                                     show_when: Signal::derive(cx, move || action_ctx.is_action_requested(id)),
-                                                    cancel: Callback::new(cx, move |_| action_ctx.cancel_action(id)),
-                                                    execute: Callback::new(cx, move |action_payload| action_ctx.trigger_action(cx, id, action_payload, action)),
+                                                    cancel: create_callback(cx, move |_| action_ctx.cancel_action(id)),
+                                                    execute: create_callback(cx, move |action_payload| action_ctx.trigger_action(cx, id, action_payload, action)),
                                                 }))
                                             }
                                         }.into_view(cx)
@@ -320,10 +320,10 @@ where
                             item_count=count
                             items_per_page=instance_ctx.items_per_page
                             current_page=instance_ctx.current_page
-                            set_current_page=Callback::new(cx, move |page_number| {
+                            set_current_page=create_callback(cx, move |page_number| {
                                 expect_context::<CrudInstanceContext<T>>(cx).set_page(page_number)
                             })
-                            set_items_per_page=Callback::new(cx, move |item_count| {
+                            set_items_per_page=create_callback(cx, move |item_count| {
                                 expect_context::<CrudInstanceContext<T>>(cx).set_items_per_page(item_count)
                             })
                         />

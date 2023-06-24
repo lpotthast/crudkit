@@ -258,11 +258,11 @@ where
 
         <CrudLeaveModal
             show_when=show_leave_modal
-            on_cancel=Callback::new(cx, move |()| {
+            on_cancel=create_callback(cx, move |()| {
                 set_show_leave_modal.set(false);
                 set_user_wants_to_leave.set(false);
             })
-            on_accept=Callback::new(cx, move |()| {
+            on_accept=create_callback(cx, move |()| {
                 set_show_leave_modal.set(false);
                 force_leave();
             })

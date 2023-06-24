@@ -256,13 +256,13 @@ where
     let actions = Signal::derive(cx, move || static_config.actions.clone());
     let entity_actions = Signal::derive(cx, move || static_config.entity_actions.clone());
 
-    let on_cancel_delete = Callback::new(cx, move |()| {
+    let on_cancel_delete = create_callback(cx, move |()| {
         tracing::info!("Removing delete request");
         set_deletion_request.set(None);
     });
 
     // TODO: Always open the list view after a successful delete.
-    let on_accept_delete = Callback::new(
+    let on_accept_delete = create_callback(
         cx,
         move |entity: DeletableModel<T::ReadModel, T::UpdateModel>| {
             // TODO: A create_action_once could save us a clone...
@@ -378,14 +378,14 @@ where
                                     create_elements=create_elements
                                     custom_fields=custom_create_fields
                                     field_config=create_field_config
-                                    on_edit_view=Callback::new(cx, move |id| expect_context::<CrudInstanceContext<T>>(cx).edit(id))
-                                    on_list_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
-                                    on_create_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).create())
-                                    on_entity_created=Callback::new(cx, move |saved| {})
-                                    on_entity_creation_aborted=Callback::new(cx, move |reason| {})
-                                    on_entity_not_created_critical_errors=Callback::new(cx, move |()| {})
-                                    on_entity_creation_failed=Callback::new(cx, move |request_error| {})
-                                    on_tab_selected=Callback::new(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
+                                    on_edit_view=create_callback(cx, move |id| expect_context::<CrudInstanceContext<T>>(cx).edit(id))
+                                    on_list_view=create_callback(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
+                                    on_create_view=create_callback(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).create())
+                                    on_entity_created=create_callback(cx, move |saved| {})
+                                    on_entity_creation_aborted=create_callback(cx, move |reason| {})
+                                    on_entity_not_created_critical_errors=create_callback(cx, move |()| {})
+                                    on_entity_creation_failed=create_callback(cx, move |request_error| {})
+                                    on_tab_selected=create_callback(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
                                 />
                                 //<CrudCreateView<T>
                                 //    parent_id={self.parent_id.clone()}
@@ -406,8 +406,8 @@ where
                                     elements=update_elements
                                     custom_fields=custom_update_fields
                                     field_config=update_field_config
-                                    on_list_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
-                                    on_tab_selected=Callback::new(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
+                                    on_list_view=create_callback(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
+                                    on_tab_selected=create_callback(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
                                 />
                             }
                             .into_view(cx)
@@ -423,13 +423,13 @@ where
                                     elements=update_elements
                                     custom_fields=custom_update_fields
                                     field_config=update_field_config
-                                    on_list_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
-                                    on_create_view=Callback::new(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).create())
-                                    on_entity_updated=Callback::new(cx, move |saved| {})
-                                    on_entity_update_aborted=Callback::new(cx, move |reason| {})
-                                    on_entity_not_updated_critical_errors=Callback::new(cx, move |()| {})
-                                    on_entity_update_failed=Callback::new(cx, move |request_error| {})
-                                    on_tab_selected=Callback::new(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
+                                    on_list_view=create_callback(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
+                                    on_create_view=create_callback(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).create())
+                                    on_entity_updated=create_callback(cx, move |saved| {})
+                                    on_entity_update_aborted=create_callback(cx, move |reason| {})
+                                    on_entity_not_updated_critical_errors=create_callback(cx, move |()| {})
+                                    on_entity_update_failed=create_callback(cx, move |request_error| {})
+                                    on_tab_selected=create_callback(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
                                 />
                                 //<CrudEditView<T>
                                 //    data_provider={self.data_provider.clone()}
