@@ -45,7 +45,7 @@ where
             </ModalBody>
 
             <ModalFooter>
-                <Grid spacing=6>
+                <Grid spacing=Size::Em(0.6)>
                     <Row>
                         <Col h_align=ColAlign::End>
                             <ButtonWrapper>

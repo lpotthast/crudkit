@@ -209,7 +209,7 @@ where
     let action_ctx = CrudActionContext::<T>::new(cx);
 
     let action_row = view! {cx,
-        <Grid spacing=6 class="crud-nav">
+        <Grid spacing=Size::Em(0.6) class="crud-nav">
             <Row>
                 <Col xs=6>
                     <ButtonWrapper>

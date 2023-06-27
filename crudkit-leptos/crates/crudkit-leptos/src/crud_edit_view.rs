@@ -279,7 +279,7 @@ where
             (Ok(_entity), signals) => view! {cx,
                 { move || {
                     view! {cx,
-                        <Grid spacing=6 class="crud-nav">
+                        <Grid spacing=Size::Em(0.6) class="crud-nav">
                             <Row>
                                 <Col>
                                     <ButtonWrapper>
@@ -369,7 +369,7 @@ where
                 />
             }.into_view(cx),
             (Err(no_data), _) => view! {cx,
-                <Grid spacing=6 class="crud-nav">
+                <Grid spacing=Size::Em(0.6) class="crud-nav">
                     <Row>
                         <Col h_align=ColAlign::End>
                             <ButtonWrapper>
