@@ -30,7 +30,8 @@ leptos = { version = "0.3", default-features = false, features = [
     "tracing",
     "stable",
 ] }
-leptos_icons = { version = "0.0.14", features = [
+leptos_icons = { git = "https://github.com/Carlosted/leptos-icons", branch = "main", features = [
+#leptos_icons = { version = "0.0.15", features = [
     "BsPlusCircle",
     "BsArrowRepeat",
     "BsSearch",
