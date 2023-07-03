@@ -25,10 +25,8 @@ indexmap = { version = "1", features = ["serde"] }
 js-sys = "0.3"
 # TODO: Add version
 leptonic = { path = "../../../../leptonic/leptonic" }
-leptos = { version = "0.3", default-features = false, features = [
-    "csr",
+leptos = { version = "0.4", features = [
     "tracing",
-    "stable",
 ] }
 leptos_icons = { git = "https://github.com/Carlosted/leptos-icons", branch = "main", features = [
 #leptos_icons = { version = "0.0.15", features = [
