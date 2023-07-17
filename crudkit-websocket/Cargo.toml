@@ -7,4 +7,4 @@ edition = "2021"
 crudkit-id = { path = "../crudkit-id/crates/crudkit-id" }
 crudkit-validation = { path = "../crudkit-validation" }
 
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1.0.171", features = ["derive"] }

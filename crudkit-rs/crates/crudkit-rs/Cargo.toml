@@ -16,21 +16,21 @@ derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
 derive-update-model = { path = "../derive-update-model" }
 derive-validation-model = { path = "../derive-validation-model" }
 
-async-trait = "0.1"
-axum = "0.6"
-indexmap = { version = "1", features = ["serde"] }
-paste = "1"
-sea-orm = { version = "0.11", features = [
+async-trait = "0.1.71"
+axum = "0.6.18"
+indexmap = { version = "2.0.0", features = ["serde"] }
+paste = "1.0.14"
+sea-orm = { version = "0.11.3", features = [
     "debug-print",
     "runtime-tokio-rustls",
     "sqlx",
     "sqlx-postgres",
 ] }
-sea-query = { version = "0.28" }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-snafu = { version = "0.7", features = ["backtrace"] }
-time = { version = "0.3", features = ["serde", "serde-well-known"] }
-tracing = "0.1"
-utoipa = "3"
-uuid = { version = "1", features = ["v4", "v7", "serde"] }
+sea-query = { version = "0.28.5" }
+serde = { version = "1.0.171", features = ["derive"] }
+serde_json = "1.0.103"
+snafu = { version = "0.7.5", features = ["backtrace"] }
+time = { version = "0.3.23", features = ["serde", "serde-well-known"] }
+tracing = "0.1.37"
+utoipa = "3.4.0"
+uuid = { version = "1.4.0", features = ["v4", "v7", "serde"] }

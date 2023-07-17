@@ -19,5 +19,5 @@ syn = { workspace = true }
 
 [dev-dependencies]
 crudkit-web = { path = "../crudkit-web" }
-serde = "1"
-trybuild = { version = "1", features = ["diff"] }
+serde = "1.0.171"
+trybuild = { version = "1.0.81", features = ["diff"] }

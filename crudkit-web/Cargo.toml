@@ -3,8 +3,8 @@ members = ["crates/*"]
 default-members = ["crates/crudkit-web"]
 
 [workspace.dependencies]
-darling = "0.14"
-proc-macro-error = "1"
-proc-macro2 = "1"
-quote = "1"
-syn = { version = "1", features = ["extra-traits"] }
+darling = "0.20.3"
+proc-macro-error = "1.0.4"
+proc-macro2 = "1.0.65"
+quote = "1.0.30"
+syn = { version = "2.0.26", features = ["extra-traits"] }
