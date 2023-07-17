@@ -26,7 +26,7 @@ struct MyFieldReceiver {
 
     ty: syn::Type,
 
-    #[darling(rename = "type")]
+    #[darling(rename = "ty")]
     #[darling(map = "parse_type")]
     value_type: Option<ValueType>,
 }
