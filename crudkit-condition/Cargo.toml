@@ -12,5 +12,5 @@ serde = { version = "1.0.171", features = ["derive"] }
 serde_json = { version = "1.0.103" }
 snafu = { version = "0.7.5", features = ["backtrace"] }
 time = { version = "0.3.23", features = ["serde", "serde-well-known"] }
-utoipa = "3.4.0"
+utoipa = "3.3.0"
 uuid = { version = "1.4.0", features = ["v4", "v7", "serde"] }
