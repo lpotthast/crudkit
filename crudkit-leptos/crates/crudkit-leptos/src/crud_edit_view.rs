@@ -281,7 +281,7 @@ where
                     view! {cx,
                         <Grid spacing=Size::Em(0.6) class="crud-nav">
                             <Row>
-                                <Col>
+                                <Col xs=6>
                                     <ButtonWrapper>
                                         <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save() variations=view!{cx,
                                             <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save_and_return()>
@@ -343,7 +343,7 @@ where
                                     </ButtonWrapper>
                                 </Col>
 
-                                <Col h_align=ColAlign::End>
+                                <Col xs=6 h_align=ColAlign::End>
                                     <ButtonWrapper>
                                         <Button color=ButtonColor::Secondary on_click=move |_| request_leave()>
                                             <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}

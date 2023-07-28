@@ -57,7 +57,7 @@ pub fn CrudPagination(
         <Show when=move || { item_count.get() > 0 } fallback=|_| ()>
             <Grid spacing=Size::Em(0.6) class="crud-pagination">
                 <Row>
-                    <Col h_align=ColAlign::Start>
+                    <Col xs=6 h_align=ColAlign::Start>
                         <div class="items-per-page-selector">
                             <div class="label">
                                 "Einträge pro Seite"
@@ -71,7 +71,7 @@ pub fn CrudPagination(
                         </div>
                     </Col>
 
-                    <Col h_align=ColAlign::End>
+                    <Col xs=6 h_align=ColAlign::End>
                         <ButtonGroup>
                             {
                                 move || {

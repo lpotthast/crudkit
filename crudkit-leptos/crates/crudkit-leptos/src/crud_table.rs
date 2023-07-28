@@ -48,8 +48,8 @@ where
 
     // TODO: Extract to leptonic
     view! {cx,
-        <div class={"crud-table-wrapper"}>
-            <table class={"crud-table crud-table-bordered crud-table-hoverable"}>
+        <div class="crud-table-wrapper">
+            <table class="crud-table crud-table-bordered crud-table-hoverable">
                 <CrudTableHeader
                     _phantom={PhantomData::<T>::default()}
                     headers=headers

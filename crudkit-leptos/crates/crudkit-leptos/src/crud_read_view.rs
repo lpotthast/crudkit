@@ -122,7 +122,7 @@ where
                     view! {cx,
                         <Grid spacing=Size::Em(0.6) class="crud-nav">
                             <Row>
-                                <Col h_align=ColAlign::End>
+                                <Col xs=12 h_align=ColAlign::End>
                                     <ButtonWrapper>
                                         <Button color=ButtonColor::Secondary on_click=move |_| on_list_view.call(())>
                                             <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
