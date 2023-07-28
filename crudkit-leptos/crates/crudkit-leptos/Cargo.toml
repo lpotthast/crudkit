@@ -20,7 +20,7 @@ derive-field-value = { path = "../../../crudkit-web/crates/derive-field-value" }
 async-trait = "0.1.71"
 derive_more = "0.99.17"
 dyn-clone = "1.0.12"
-gloo = "0.8.1"
+gloo = "0.9.0"
 indexmap = { version = "2.0.0", features = ["serde"] }
 js-sys = "0.3.64"
 # TODO: Add version
