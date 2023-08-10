@@ -6,7 +6,7 @@ use crate::{CrudDataTrait, CrudMainTrait, FieldMode};
 /// O: Output of the renderer.
 #[derive(Clone)]
 pub struct CustomField<T: CrudDataTrait, O> {
-    pub renderer: Box<Arc<dyn Fn(&T, FieldMode) -> O>>,
+    pub renderer: Arc<dyn Fn(&T, FieldMode) -> O>,
 }
 
 impl<T: CrudDataTrait, O> Debug for CustomField<T, O> {

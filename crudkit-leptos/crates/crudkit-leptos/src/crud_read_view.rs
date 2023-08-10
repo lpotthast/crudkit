@@ -117,7 +117,7 @@ where
 
     view! {cx,
         { move || match (entity.get(), signals.get()) {
-            (Ok(_entity), signals) => view! {cx,
+            (Ok(entity), signals) => view! {cx,
                 { move || {
                     view! {cx,
                         <Grid spacing=Size::Em(0.6) class="crud-nav">
@@ -145,6 +145,7 @@ where
                     value_changed=value_changed
                     //     active_tab={ctx.props().config.active_tab.clone()}
                     on_tab_selection=on_tab_selected
+                    entity=entity.into()
                 />
             }.into_view(cx),
             (Err(no_data), _) => view! {cx,

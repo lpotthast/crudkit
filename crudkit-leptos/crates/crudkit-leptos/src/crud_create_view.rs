@@ -100,9 +100,8 @@ where
             map
         });
 
-    // The input is `None`, if the `entity` was not yet loaded. After the entity is loaded for the first time,
-    // the this signal becomes a copy of the current (loaded) entity state.
-    // We cannot use a `Default` value. The UpdateModel type may contain fields for which no default is available.
+    // The CreateModel enforces a `Default` value! We cannot deserialize a loaded model, so we have to create one from scratch with which the UI can be initialized.
+    // We therefore do not have to deal with None states in the create case, compared to the edit view.
     // All modifications made through the UI are stored in this signal.
     let (input, set_input) = create_signal::<T::CreateModel>(cx, default_create_model.clone());
 
@@ -148,7 +147,7 @@ where
     );
 
     let save_disabled = Signal::derive(cx, move || {
-        save_action.pending().get() || !input_changed.get()
+        save_action.pending().get() // Note (lukas): We deliberately ignore the input_changed state here, as the default input should always be saveable!
     });
 
     let save_action_value = save_action.value();
@@ -190,6 +189,7 @@ where
 
     let trigger_save_and_new = move || save_action.dispatch((input.get(), Then::OpenCreateView));
 
+    // TODO: Refactor this code. Much of it is shared with the edit_view!
     let value_changed = Callback::<(
         <T::CreateModel as CrudDataTrait>::Field,
         Result<Value, String>,
@@ -197,9 +197,12 @@ where
         tracing::info!(?field, ?result, "value changed");
         match result {
             Ok(value) => {
-                set_input.update(|input| field.set_value(input, value));
+                set_input.update(|input| field.set_value(input, value.clone())); // Clone avoidable? We have to set the signal as well...
                 set_input_errors.update(|errors| {
                     errors.remove(&field);
+                });
+                signals.update_value(|map| {
+                    map.get(&field).expect("field must be present").set(value);
                 });
             }
             Err(err) => {
@@ -252,6 +255,7 @@ where
                     value_changed=value_changed
                     // active_tab={ctx.props().config.active_tab.clone()}
                     on_tab_selection=on_tab_selected
+                    entity=input.into()
                 />
             }.into_view(cx),
         } }

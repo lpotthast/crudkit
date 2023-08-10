@@ -17,7 +17,7 @@ derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
 derive-field = { path = "../../../crudkit-web/crates/derive-field" }
 derive-field-value = { path = "../../../crudkit-web/crates/derive-field-value" }
 
-async-trait = "0.1.71"
+async-trait = "0.1.72"
 derive_more = "0.99.17"
 dyn-clone = "1.0.12"
 gloo = "0.9.0"
@@ -25,7 +25,7 @@ indexmap = { version = "2.0.0", features = ["serde"] }
 js-sys = "0.3.64"
 # TODO: Add version
 leptonic = { path = "../../../../leptonic/leptonic" }
-leptos = "0.4.3"
+leptos = "0.4.6"
 leptos_icons = { version = "0.0.15", features = [
     "BsPlusCircle",
     "BsArrowRepeat",
@@ -42,18 +42,18 @@ reqwest = { version = "0.11.18", default-features = false, features = [
     "json",
     "multipart",
 ] }
-serde = { version = "1.0.171", features = ["derive"] }
+serde = { version = "1.0.177", features = ["derive"] }
 serde-wasm-bindgen = "0.5.0"
-serde_json = { version = "1.0.103", features = ["raw_value"] }
-thiserror = "1.0.43"
+serde_json = { version = "1.0.104", features = ["raw_value"] }
+thiserror = "1.0.44"
 time = { version = "0.3.23", features = [
     "macros",
     "local-offset",
     "wasm-bindgen",
 ] }
 tracing = "0.1.37"
-urlencoding = "2.1.2"
-uuid = { version = "1.4.0", features = ["js", "v4", "v7", "serde"] }
+urlencoding = "2.1.3"
+uuid = { version = "1.4.1", features = ["js", "v4", "v7", "serde"] }
 wasm-bindgen = "0.2.87"
 wasm-bindgen-futures = "0.4.37"
 web-sys = { version = "0.3.64", features = [

@@ -171,3 +171,36 @@ impl IntoReactiveValue for Value {
         }
     }
 }
+
+impl ReactiveValue {
+    pub fn set(&self, v: Value) {
+        match self {
+            ReactiveValue::String(sig) => sig.set(v.take_string()),
+            ReactiveValue::Text(sig) => sig.set(v.take_text()),
+            ReactiveValue::Json(sig) => sig.set(v.take_json_value()),
+            ReactiveValue::OptionalJson(sig) => sig.set(v.take_optional_json_value()),
+            ReactiveValue::UuidV4(sig) => sig.set(v.take_uuid_v4()),
+            ReactiveValue::UuidV7(sig) => sig.set(v.take_uuid_v7()),
+            ReactiveValue::U32(sig) => sig.set(v.take_u32()),
+            ReactiveValue::OptionalU32(sig) => sig.set(v.take_optional_u32()),
+            ReactiveValue::I32(sig) => sig.set(v.take_i32()),
+            ReactiveValue::OptionalI32(sig) => sig.set(v.take_optional_i32()),
+            ReactiveValue::I64(sig) => sig.set(v.take_i64()),
+            ReactiveValue::OptionalI64(sig) => sig.set(v.take_optional_i64()),
+            ReactiveValue::F32(sig) => sig.set(v.take_f32()),
+            ReactiveValue::Bool(sig) => sig.set(v.take_bool()),
+            ReactiveValue::ValidationStatus(sig) => sig.set(v.take_validation_status()),
+            ReactiveValue::PrimitiveDateTime(sig) => sig.set(v.take_primitive_date_time()),
+            ReactiveValue::OffsetDateTime(sig) => sig.set(v.take_offset_date_time()),
+            ReactiveValue::OptionalPrimitiveDateTime(sig) => sig.set(v.take_optional_primitive_date_time()),
+            ReactiveValue::OptionalOffsetDateTime(sig) => sig.set(v.take_optional_offset_date_time()),
+            ReactiveValue::OneToOneRelation(sig) => sig.set(v.take_one_to_one_relation()),
+            ReactiveValue::NestedTable(sig) => sig.set(v.take_nested_table()),
+            ReactiveValue::Custom(sig) => sig.set(v.take_custom()),
+            ReactiveValue::Select(sig) => sig.set(v.take_select()),
+            ReactiveValue::Multiselect(sig) => sig.set(v.take_multiselect()),
+            ReactiveValue::OptionalSelect(sig) => sig.set(v.take_optional_select_downcast_to()),
+            ReactiveValue::OptionalMultiselect(sig) => sig.set(v.take_optional_multiselect_downcast_to()),
+        }
+    }
+}

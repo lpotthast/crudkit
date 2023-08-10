@@ -24,6 +24,7 @@ pub fn CrudFields<T>(
     value_changed: Callback<(T::Field, Result<Value, String>)>,
     // active_tab: Option<Label>,
     on_tab_selection: Callback<TabId>,
+    entity: Signal<T>,
 ) -> impl IntoView
 where
     T: CrudDataTrait + 'static,
@@ -48,6 +49,7 @@ where
                                     value_changed=value_changed
                                     //active_tab={ctx.props().active_tab.clone()}
                                     on_tab_selection=on_tab_selection
+                                    entity=entity
                                 />
                             }.into_view(cx),
                             Enclosing::Tabs(tabs) => view! {cx,
@@ -75,6 +77,7 @@ where
                                                     value_changed=value_changed
                                                     //active_tab={ctx.props().active_tab.clone()}
                                                     on_tab_selection=on_tab_selection
+                                                    entity=entity
                                                 />
                                             </Tab>
                                         }
@@ -94,6 +97,7 @@ where
                                         value_changed=value_changed
                                         //active_tab={ctx.props().active_tab.clone()}
                                         on_tab_selection=on_tab_selection
+                                        entity=entity
                                     />
                                 </div>
                             }.into_view(cx),
@@ -111,6 +115,7 @@ where
                                 field_mode=mode.clone()
                                 value=signals.with_value(|map| *map.get(&field).expect("Signal map to contain signal for field"))
                                 value_changed=value_changed
+                                entity=entity
                             />
                         }.into_view(cx)
                     },

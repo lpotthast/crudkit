@@ -259,11 +259,16 @@ where
         match result {
             Ok(value) => {
                 set_input.update(|input| match input {
-                    Some(input) => field.set_value(input, value),
+                    Some(input) => field.set_value(input, value.clone()),
                     None => {}
                 });
                 set_input_errors.update(|errors| {
                     errors.remove(&field);
+                });
+                signals.with(|signals| {
+                    signals.update_value(|map| {
+                        map.get(&field).expect("field must be present").set(value);
+                    })
                 });
             }
             Err(err) => {
@@ -273,6 +278,8 @@ where
             }
         }
     });
+
+    let expect_input = Signal::derive(cx, move || input.get().expect("input"));
 
     view! {cx,
         { move || match (entity.get(), signals.get()) {
@@ -366,6 +373,7 @@ where
                     value_changed=value_changed
                     //     active_tab={ctx.props().config.active_tab.clone()}
                     on_tab_selection=on_tab_selected
+                    entity=expect_input
                 />
             }.into_view(cx),
             (Err(no_data), _) => view! {cx,

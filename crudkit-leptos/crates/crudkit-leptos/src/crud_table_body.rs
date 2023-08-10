@@ -111,6 +111,7 @@ where
                                     field_mode=FieldMode::Display // TODO: We could tie the value_changed callback to the field_mode, as it is only required when a value can actually change!
                                     value=reactive_value
                                     value_changed=dummy_value_changed_callback
+                                    entity=stored_entity.into()
                                 />
                             </td>
                         }

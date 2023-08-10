@@ -11,7 +11,8 @@ use std::{
     any::Any,
     borrow::Cow,
     fmt::{Debug, Display},
-    hash::Hash, rc::Rc,
+    hash::Hash,
+    rc::Rc,
 };
 use time::format_description::well_known::Rfc3339;
 use tracing::warn;
@@ -84,10 +85,12 @@ pub mod prelude {
     pub use super::requests::RequestError;
     pub use super::CrudActionPayload;
     pub use super::CrudDataTrait;
+    pub use super::CrudField;
     pub use super::CrudFieldNameTrait;
     pub use super::CrudFieldValueTrait;
     pub use super::CrudIdTrait;
     pub use super::CrudMainTrait;
+    pub use super::CrudModel;
     pub use super::CrudResourceTrait;
     pub use super::CrudSelectableSource;
     pub use super::CrudSelectableTrait;
@@ -164,6 +167,22 @@ impl Variant {
 //        }
 //    }
 //}
+
+/// Any possible model.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CrudModel<T: CrudMainTrait> {
+    ReadModel(T::ReadModel),
+    CreateModel(T::CreateModel),
+    UpdateModel(T::UpdateModel),
+}
+
+/// Any possible field.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CrudField<T: CrudMainTrait> {
+    ReadModel(<T::ReadModel as CrudDataTrait>::Field),
+    CreateModel(<T::CreateModel as CrudDataTrait>::Field),
+    UpdateModel(<T::UpdateModel as CrudDataTrait>::Field),
+}
 
 // TODO: impl Clone if both types are clone, same for debug, ...
 pub trait CrudMainTrait:
@@ -266,7 +285,7 @@ dyn_clone::clone_trait_object!(CrudSelectableTrait);
 #[derive(Debug, Clone)]
 pub enum Value {
     String(String),  // TODO: Add optional string!
-    Text(String),    // TODO: Add optional text!, TODO: Remove this variant altogether and make "text" an optional editing mode for string values!
+    Text(String), // TODO: Add optional text!, TODO: Remove this variant altogether and make "text" an optional editing mode for string values!
     Json(JsonValue), // TODO: Add optional json value
     OptionalJson(Option<JsonValue>),
     UuidV4(uuid::Uuid), // TODO: Add optional UuidV4 value
@@ -384,9 +403,33 @@ impl Value {
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
+    pub fn take_json_value(self) -> JsonValue {
+        match self {
+            Self::Json(json) => json,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
     pub fn take_inner_json_value(self) -> serde_json::Value {
         match self {
             Self::Json(json) => json.into(),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_json_value(self) -> Option<JsonValue> {
+        match self {
+            Self::OptionalJson(json) => json,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_uuid_v4(self) -> uuid::Uuid {
+        match self {
+            Self::UuidV4(uuid) => uuid,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_uuid_v7(self) -> uuid::Uuid {
+        match self {
+            Self::UuidV7(uuid) => uuid,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -400,6 +443,12 @@ impl Value {
         match self {
             Self::U32(u32) => u32,
             Self::String(string) => string.parse().unwrap(),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_u32(self) -> Option<u32> {
+        match self {
+            Self::OptionalU32(u32) => u32,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -464,6 +513,12 @@ impl Value {
         }
     }
     */
+    pub fn take_validation_status(self) -> bool {
+        match self {
+            Self::ValidationStatus(bool) => bool,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
     pub fn take_primitive_date_time(self) -> time::PrimitiveDateTime {
         match self {
             Self::PrimitiveDateTime(primitive_date_time) => primitive_date_time,
@@ -551,6 +606,18 @@ impl Value {
             Value::OptionalU32(optional_u32) => optional_u32,
             Value::OneToOneRelation(optional_u32) => optional_u32,
             other => panic!("Expected Value of variant 'U32', 'OptionalU32' or 'OneToOneRelation'. Received: {other:?}"),
+        }
+    }
+    pub fn take_nested_table(self) -> Vec<Box<dyn crudkit_id::IdField>> {
+        match self {
+            Value::NestedTable(id) => id,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_custom(self) -> () {
+        match self {
+            Value::Custom(nothing) => nothing,
+            other => panic!("unsupported type provided: {other:?} "),
         }
     }
 }

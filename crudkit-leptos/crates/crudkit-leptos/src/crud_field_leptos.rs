@@ -27,6 +27,7 @@ pub fn CrudField<T>(
     field_mode: FieldMode,
     value: ReactiveValue,
     value_changed: Callback<(T::Field, Result<Value, String>)>, // how can we handle all possible types? serialization? TODO: Only take Value, not Result?; TODO: Use WriteSignal from ReactiveValue?
+    entity: Signal<T>,
 ) -> impl IntoView
 where
     T: CrudDataTrait + 'static,
@@ -35,6 +36,7 @@ where
         let id = format!("f{}", Uuid::new_v4().to_string());
 
         let field_clone = field.clone();
+        let field_clone2 = field.clone();
 
         let value_changed = create_simple_callback(move |result| match result {
             Ok(new) => value_changed.call((field_clone.clone(), Ok(new))),
@@ -98,7 +100,19 @@ where
             ReactiveValue::OptionalOffsetDateTime(_) => view! {cx, "TODO: Render ReactiveValue::OptionalOffsetDateTime"}.into_view(cx),
             ReactiveValue::OneToOneRelation(_) => view! {cx, "TODO: Render ReactiveValue::OneToOneRelation"}.into_view(cx),
             ReactiveValue::NestedTable(_) => view! {cx, "TODO: Render ReactiveValue::NestedTable"}.into_view(cx),
-            ReactiveValue::Custom(_) => view! {cx, "TODO: Render ReactiveValue::Custom"}.into_view(cx),
+            ReactiveValue::Custom(_) => custom_fields.with(|fields| match fields.get(&field_clone2) {
+                Some(custom_field) => {
+                    let custom_field = custom_field.clone();
+                    // Note (lukas): Not every custom child requires the entity data. The API and possibly performance would be nicer if `entity` was passed as a signal to the `render` function,
+                    // but as the function is declared in the framework-agnostic crudkit-web crate, that change is not trivial...
+                    (move || custom_field.render(&entity.get(), field_mode)).into_view(cx)
+                },
+                None => view! {cx,
+                    <Alert variant=AlertVariant::Danger title=move |_| "Missing custom field declaration!">
+                        { format!("The custom field '{:?}' should have been displayed here, but no renderer for that field was found in the `custom_*_fields` section of the static instance config. You might have forgotten to set the required HashMap entry.", &field_clone2)}
+                    </Alert>
+                }.into_view(cx),
+            }),
             ReactiveValue::Select(value) => {
                 view! {cx, <CrudSelectField id=id.clone() field_config=field_config field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
             },
