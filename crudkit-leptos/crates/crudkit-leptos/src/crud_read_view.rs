@@ -11,9 +11,13 @@ use leptos::*;
 use uuid::Uuid;
 
 use crate::{
-    crud_fields::CrudFields, crud_instance::CrudInstanceContext,
-    crud_instance_config::DynSelectConfig, crud_table::NoDataAvailable, IntoReactiveValue,
-    ReactiveValue,
+    crud_action_buttons::CrudActionButtons,
+    crud_fields::CrudFields,
+    crud_instance::CrudInstanceContext,
+    crud_instance_config::DynSelectConfig,
+    crud_table::NoDataAvailable,
+    prelude::{CrudActionContext, CrudEntityAction, States},
+    IntoReactiveValue, ReactiveValue,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -32,6 +36,7 @@ pub fn CrudReadView<T>(
     #[prop(into)]
     id: Signal<T::ReadModelId>,
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
+    #[prop(into)] actions: Signal<Vec<CrudEntityAction<T>>>,
     #[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
     #[prop(into)] custom_fields: Signal<CustomUpdateFields<T, leptos::View>>,
     #[prop(into)] field_config: Signal<
@@ -115,6 +120,15 @@ where
 
     let value_changed = create_callback(cx, move |_| {});
 
+    let action_ctx = CrudActionContext::<T>::new(cx);
+    let maybe_entity = Signal::derive(cx, move || {
+        if let Ok(entity) = entity.get() {
+            Some(entity.get())
+        } else {
+            None
+        }
+    });
+
     view! {cx,
         { move || match (entity.get(), signals.get()) {
             (Ok(entity), signals) => view! {cx,
@@ -122,7 +136,10 @@ where
                     view! {cx,
                         <Grid spacing=Size::Em(0.6) class="crud-nav">
                             <Row>
-                                <Col xs=12 h_align=ColAlign::End>
+                                <Col xs=6 h_align=ColAlign::Start>
+                                    <CrudActionButtons action_ctx=action_ctx actions=actions input=maybe_entity required_state=States::Read/>
+                                </Col>
+                                <Col xs=6 h_align=ColAlign::End>
                                     <ButtonWrapper>
                                         <Button color=ButtonColor::Secondary on_click=move |_| on_list_view.call(())>
                                             <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}

@@ -2,6 +2,7 @@
 #![deny(clippy::unwrap_used)]
 
 pub mod crud_action;
+pub mod crud_action_buttons;
 pub mod crud_action_context;
 pub mod crud_create_view;
 pub mod crud_delete_modal;
@@ -192,15 +193,21 @@ impl ReactiveValue {
             ReactiveValue::ValidationStatus(sig) => sig.set(v.take_validation_status()),
             ReactiveValue::PrimitiveDateTime(sig) => sig.set(v.take_primitive_date_time()),
             ReactiveValue::OffsetDateTime(sig) => sig.set(v.take_offset_date_time()),
-            ReactiveValue::OptionalPrimitiveDateTime(sig) => sig.set(v.take_optional_primitive_date_time()),
-            ReactiveValue::OptionalOffsetDateTime(sig) => sig.set(v.take_optional_offset_date_time()),
+            ReactiveValue::OptionalPrimitiveDateTime(sig) => {
+                sig.set(v.take_optional_primitive_date_time())
+            }
+            ReactiveValue::OptionalOffsetDateTime(sig) => {
+                sig.set(v.take_optional_offset_date_time())
+            }
             ReactiveValue::OneToOneRelation(sig) => sig.set(v.take_one_to_one_relation()),
             ReactiveValue::NestedTable(sig) => sig.set(v.take_nested_table()),
             ReactiveValue::Custom(sig) => sig.set(v.take_custom()),
             ReactiveValue::Select(sig) => sig.set(v.take_select()),
             ReactiveValue::Multiselect(sig) => sig.set(v.take_multiselect()),
             ReactiveValue::OptionalSelect(sig) => sig.set(v.take_optional_select_downcast_to()),
-            ReactiveValue::OptionalMultiselect(sig) => sig.set(v.take_optional_multiselect_downcast_to()),
+            ReactiveValue::OptionalMultiselect(sig) => {
+                sig.set(v.take_optional_multiselect_downcast_to())
+            }
         }
     }
 }

@@ -403,6 +403,7 @@ where
                                     api_base_url=api_base_url
                                     id=Signal::derive(cx, move || id.clone()) // TODO: This cant be good...
                                     data_provider=data_provider
+                                    actions=entity_actions
                                     elements=update_elements
                                     custom_fields=custom_update_fields
                                     field_config=update_field_config

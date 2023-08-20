@@ -108,7 +108,7 @@ where
                     (move || custom_field.render(&entity.get(), field_mode)).into_view(cx)
                 },
                 None => view! {cx,
-                    <Alert variant=AlertVariant::Danger title=move |_| "Missing custom field declaration!">
+                    <Alert variant=AlertVariant::Danger title=create_callback(cx, move |_| "Missing custom field declaration!")>
                         { format!("The custom field '{:?}' should have been displayed here, but no renderer for that field was found in the `custom_*_fields` section of the static instance config. You might have forgotten to set the required HashMap entry.", &field_clone2)}
                     </Alert>
                 }.into_view(cx),
@@ -147,7 +147,6 @@ pub fn CrudStringField(
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
                     get=value
-                    set=move |_| {}
                 />
             </div>
         },
@@ -160,7 +159,7 @@ pub fn CrudStringField(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=value
-                    set=move |new| value_changed.call(Ok(Value::String(new)))
+                    set=create_callback(cx, move |new| value_changed.call(Ok(Value::String(new))))
                 />
             </div>
         },
@@ -188,7 +187,6 @@ pub fn CrudTextField(
                     id=id.clone()
                     class="crud-input-field"
                     value=value
-                    set_value=move |_new| {}
                     disabled=true
                 />
             </div>
@@ -201,10 +199,10 @@ pub fn CrudTextField(
                     id=id.clone()
                     class="crud-input-field"
                     value=value
-                    set_value=move |new| value_changed.call(Ok(Value::Text(match new {
+                    set_value=create_callback(cx, move |new| value_changed.call(Ok(Value::Text(match new {
                         TiptapContent::Html(content) => content,
                         TiptapContent::Json(content) => content,
-                    })))
+                    }))))
                     disabled=field_options.disabled
                 />
             </div>
@@ -321,7 +319,6 @@ pub fn CrudUuidV4Field(
                     class="crud-input-field"
                     disabled=true
                     get=MaybeSignal::derive(cx, move || { value.get().to_string() })
-                    set=move |_| {}
                 />
             </div>
         },
@@ -351,7 +348,6 @@ pub fn CrudUuidV7Field(
                     class="crud-input-field"
                     disabled=true
                     get=MaybeSignal::derive(cx, move || { value.get().to_string() })
-                    set=move |_| {}
                 />
             </div>
         },
@@ -376,11 +372,10 @@ pub fn CrudU32Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
-                    set=move |_| {}
                 />
             </div>
         },
@@ -389,14 +384,14 @@ pub fn CrudU32Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
-                    set=move |new| value_changed.call(match new.parse::<u32>() {
+                    set=create_callback(cx, move |new: String| value_changed.call(match new.parse::<u32>() {
                         Ok(new) => Ok(Value::U32(new)),
                         Err(err) =>Err(err.into()),
-                    })
+                    }))
                 />
             </div>
         },
@@ -426,11 +421,10 @@ pub fn CrudOptionalU32Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get().unwrap_or_default()))
-                    set=move |_| {}
                 />
             </div>
         }.into_view(cx),
@@ -439,14 +433,14 @@ pub fn CrudOptionalU32Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get().unwrap_or_default()))
-                    set=move |new| value_changed.call(match new.parse::<u32>() {
+                    set=create_callback(cx, move |new: String| value_changed.call(match new.parse::<u32>() {
                         Ok(new) => Ok(Value::OptionalU32(Some(new))),
                         Err(err) =>Err(err.into()),
-                    })
+                    }))
                 />
             </div>
         }.into_view(cx),
@@ -471,11 +465,10 @@ pub fn CrudI32Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
-                    set=move |_| {}
                 />
             </div>
         },
@@ -484,14 +477,14 @@ pub fn CrudI32Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
-                    set=move |new| value_changed.call(match new.parse::<i32>() {
+                    set=create_callback(cx, move |new: String| value_changed.call(match new.parse::<i32>() {
                         Ok(new) => Ok(Value::I32(new)),
                         Err(err) =>Err(err.into()),
-                    })
+                    }))
                 />
             </div>
         },
@@ -521,11 +514,10 @@ pub fn CrudOptionalI32Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get().unwrap_or_default()))
-                    set=move |_| {}
                 />
             </div>
         }.into_view(cx),
@@ -534,14 +526,14 @@ pub fn CrudOptionalI32Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get().unwrap_or_default()))
-                    set=move |new| value_changed.call(match new.parse::<i32>() {
+                    set=create_callback(cx, move |new: String| value_changed.call(match new.parse::<i32>() {
                         Ok(new) => Ok(Value::OptionalI32(Some(new))),
                         Err(err) =>Err(err.into()),
-                    })
+                    }))
                 />
             </div>
         }.into_view(cx),
@@ -566,11 +558,10 @@ pub fn CrudI64Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
-                    set=move |_| {}
                 />
             </div>
         },
@@ -579,14 +570,14 @@ pub fn CrudI64Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
-                    set=move |new| value_changed.call(match new.parse::<i64>() {
+                    set=create_callback(cx, move |new: String| value_changed.call(match new.parse::<i64>() {
                         Ok(new) => Ok(Value::I64(new)),
                         Err(err) =>Err(err.into()),
-                    })
+                    }))
                 />
             </div>
         },
@@ -616,11 +607,10 @@ pub fn CrudOptionalI64Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get().unwrap_or_default()))
-                    set=move |_| {}
                 />
             </div>
         }.into_view(cx),
@@ -629,14 +619,14 @@ pub fn CrudOptionalI64Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get().unwrap_or_default()))
-                    set=move |new| value_changed.call(match new.parse::<i64>() {
+                    set=create_callback(cx, move |new: String| value_changed.call(match new.parse::<i64>() {
                         Ok(new) => Ok(Value::OptionalI64(Some(new))),
                         Err(err) =>Err(err.into()),
-                    })
+                    }))
                 />
             </div>
         }.into_view(cx),
@@ -661,11 +651,10 @@ pub fn CrudF32Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
                     disabled=true
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
-                    set=move |_| {}
                 />
             </div>
         },
@@ -674,14 +663,14 @@ pub fn CrudF32Field(
                 { render_label(cx, field_options.label.clone()) }
                 <Input
                     id=id.clone()
-                    ty=InputType::Number
+                    ty=InputType::Number { min: None, max: None, step: None }
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(cx, move || format!("{}", value.get()))
-                    set=move |new| value_changed.call(match new.parse::<f32>() {
+                    set=create_callback(cx, move |new: String| value_changed.call(match new.parse::<f32>() {
                         Ok(new) => Ok(Value::F32(new)),
                         Err(err) =>Err(err.into()),
-                    })
+                    }))
                 />
             </div>
         },
@@ -854,7 +843,7 @@ pub fn CrudSelectField(
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
                 { match field_config {
-                    None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
+                    None => view!{cx, <Alert variant=AlertVariant::Danger title=create_callback(cx, |_cx| "Config error")>"Missing a field_config entry for this field."</Alert>}.into_view(cx),
                     Some(field_config) => field_config.render_select(cx, value, create_simple_callback(move |o| value_changed.call(Ok(Value::Select(o))))),
                 } }
             </div>
@@ -864,7 +853,7 @@ pub fn CrudSelectField(
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
                 { match field_config {
-                    None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
+                    None => view!{cx, <Alert variant=AlertVariant::Danger title=create_callback(cx, |_cx| "Config error")>"Missing a field_config entry for this field."</Alert>}.into_view(cx),
                     Some(field_config) => field_config.render_select(cx, value, create_simple_callback(move |o| value_changed.call(Ok(Value::Select(o))))),
                 } }
             </div>
@@ -889,7 +878,7 @@ pub fn CrudOptionalSelectField(
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
                 { match field_config {
-                    None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
+                    None => view!{cx, <Alert variant=AlertVariant::Danger title=create_callback(cx, |_cx| "Config error")>"Missing a field_config entry for this field."</Alert>}.into_view(cx),
                     Some(field_config) => field_config.render_optional_select(cx, value, create_simple_callback(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
                 } }
             </div>
@@ -899,7 +888,7 @@ pub fn CrudOptionalSelectField(
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
                 { match field_config {
-                    None => view!{cx, <Alert variant=AlertVariant::Danger title=|_cx| "Config error">"Missing a field_config entry for this field."</Alert>}.into_view(cx),
+                    None => view!{cx, <Alert variant=AlertVariant::Danger title=create_callback(cx, |_cx| "Config error")>"Missing a field_config entry for this field."</Alert>}.into_view(cx),
                     Some(field_config) => field_config.render_optional_select(cx, value, create_simple_callback(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
                 } }
             </div>
