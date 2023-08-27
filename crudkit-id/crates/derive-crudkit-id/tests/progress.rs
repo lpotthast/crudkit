@@ -7,6 +7,7 @@ fn tests() {
     t.compile_fail("tests/04-uncommon-name-no-annotation.rs");
     t.pass("tests/05-id-struct.rs");
     t.pass("tests/06-id-enum.rs");
+    t.pass("tests/06b-id-enum-i64.rs");
     t.pass("tests/07-display-struct.rs");
     t.pass("tests/08-display-enum.rs");
     t.pass("tests/09-serialize-deserialize.rs");

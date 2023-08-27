@@ -6,10 +6,10 @@ use derive_crudkit_id::CkId;
 #[derive(CkId)]
 pub struct Foo {
     #[ck_id(id)]
-    id_a: i32,
+    id_a: i64,
 
     #[ck_id(id)]
-    id_b: i32,
+    id_b: i64,
 }
 
 fn main() {
@@ -21,6 +21,6 @@ fn main() {
     assert_eq!("id_b", field_b.name());
 
     use crudkit_id::IdValue;
-    assert_eq!(IdValue::I32(-1337), field_a.to_value());
-    assert_eq!(IdValue::I32(1337), field_b.to_value());
+    assert_eq!(IdValue::I64(-1337), field_a.to_value());
+    assert_eq!(IdValue::I64(1337), field_b.to_value());
 }

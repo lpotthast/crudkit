@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use derive_crudkit_id::CrudId;
+use derive_crudkit_id::CkId;
 
-#[derive(CrudId)]
+#[derive(CkId)]
 pub struct Foo {
     foo: i32,
 }
