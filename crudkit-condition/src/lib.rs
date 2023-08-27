@@ -33,7 +33,6 @@ pub struct ConditionClause {
 
 // TODO: Drop in favor of "Value" type
 #[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
-#[serde(untagged)]
 pub enum ConditionClauseValue {
     String(String),
     Json(String),
