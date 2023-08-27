@@ -120,7 +120,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             pub struct Model {
                 #[sea_orm(primary_key)]
                 #[serde(skip_deserializing)]
-                pub id: i32,
+                pub id: i64,
 
                 // Fields storing the primary key (might be composite) of a validated entity.
                 #(#pk_fields)*
