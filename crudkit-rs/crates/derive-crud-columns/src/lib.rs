@@ -213,7 +213,7 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
             "Option<time::PrimitiveDateTime>" => "to_primitive_date_time",
             "Option<time::OffsetDateTime>" => "to_offset_date_time",
             other => {
-                let message = format!("Unknown type {other:?}. Expected a known type.");
+                let message = format!("derive-crud-columns: Unknown type {other:?}. Expected a known type.");
                 abort!(
                     span, message;
                     help = "use one of the following types: [...]";
