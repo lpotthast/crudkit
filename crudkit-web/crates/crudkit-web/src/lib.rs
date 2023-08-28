@@ -365,6 +365,7 @@ impl Into<Value> for crudkit_shared::Value {
             crudkit_shared::Value::I32(value) => Value::I32(value),
             crudkit_shared::Value::I32Vec(_values) => todo!("support vector types"),
             crudkit_shared::Value::I64(value) => Value::I64(value),
+            crudkit_shared::Value::I64Vec(_values) => todo!("support vector types"),
             crudkit_shared::Value::U32(value) => Value::U32(value),
             crudkit_shared::Value::F32(value) => Value::F32(value),
             crudkit_shared::Value::Bool(value) => Value::Bool(value),

@@ -48,6 +48,7 @@ pub enum ConditionClauseValue {
     F32(f32),
     F64(f64),
     I32Vec(Vec<i32>),
+    I64Vec(Vec<i64>),
     //DateTime(time::OffsetDateTime), // TODO: Enable time
 }
 
@@ -62,6 +63,7 @@ impl Into<ConditionClauseValue> for Value {
             Value::I32(value) => ConditionClauseValue::I32(value),
             Value::I32Vec(values) => ConditionClauseValue::I32Vec(values),
             Value::I64(value) => ConditionClauseValue::I64(value),
+            Value::I64Vec(value) => ConditionClauseValue::I64Vec(value),
             Value::U32(value) => ConditionClauseValue::U32(value),
             Value::F32(value) => ConditionClauseValue::F32(value),
             Value::Bool(value) => ConditionClauseValue::Bool(value),

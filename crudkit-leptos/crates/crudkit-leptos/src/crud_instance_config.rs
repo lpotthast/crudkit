@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
+use crudkit_condition::Condition;
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use dyn_clone::DynClone;
@@ -25,6 +26,7 @@ pub struct CrudInstanceConfig<T: CrudMainTrait> {
     pub items_per_page: u64,
     pub page: u64,
     pub active_tab: Option<Label>,
+    pub base_condition: Option<Condition>,
     pub nested: Option<NestedConfig>,
 }
 
@@ -249,6 +251,7 @@ impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {
             items_per_page: 10,
             page: 1,
             active_tab: None,
+            base_condition: None,
             nested: None,
         }
     }

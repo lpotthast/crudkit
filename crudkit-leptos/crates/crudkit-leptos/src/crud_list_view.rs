@@ -1,5 +1,6 @@
-use std::{marker::PhantomData, rc::Rc, collections::HashMap};
+use std::{collections::HashMap, marker::PhantomData, rc::Rc};
 
+use crudkit_condition::Condition;
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
@@ -12,15 +13,17 @@ use crate::{
     crud_action::{CrudAction, ModalGeneration},
     crud_action_context::CrudActionContext,
     crud_instance::CrudInstanceContext,
+    crud_instance_config::DynSelectConfig,
     crud_pagination::CrudPagination,
     crud_table::NoDataAvailable,
-    prelude::CrudTable, crud_instance_config::DynSelectConfig,
+    prelude::CrudTable,
 };
 
 #[derive(Debug, Clone, PartialEq)]
 struct PageReq<T: CrudMainTrait + 'static> {
     reload: Uuid,
     order_by: IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>,
+    condition: Option<Condition>,
     page: u64,
     items_per_page: u64,
     data_provider: CrudRestDataProvider<T>,
@@ -103,7 +106,9 @@ pub fn CrudListView<T>(
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
     #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
     #[prop(into)] custom_fields: Signal<CustomReadFields<T, leptos::View>>,
-    #[prop(into)] field_config: Signal<HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>>,
+    #[prop(into)] field_config: Signal<
+        HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>,
+    >,
     #[prop(into)] actions: Signal<Vec<CrudAction<T>>>,
 ) -> impl IntoView
 where
@@ -133,6 +138,7 @@ where
             let req = PageReq {
                 reload: instance_ctx.reload.get(),
                 order_by: instance_ctx.order_by.get(),
+                condition: instance_ctx.base_condition.get(),
                 page: instance_ctx.current_page.get(),
                 items_per_page: instance_ctx.items_per_page.get(),
                 data_provider: data_provider.get(),
@@ -147,7 +153,7 @@ where
                     limit: Some(req.items_per_page),
                     skip: Some(req.items_per_page * (req.page - 1)),
                     order_by: Some(req.order_by),
-                    condition: None,
+                    condition: req.condition,
                 })
                 .await
         },

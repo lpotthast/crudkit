@@ -1,5 +1,6 @@
 use std::{cell::RefCell, marker::PhantomData};
 
+use crudkit_condition::Condition;
 use crudkit_id::Id;
 use crudkit_shared::{DeleteResult, Order};
 use crudkit_web::{prelude::*, TabId};
@@ -13,7 +14,8 @@ use crate::{
     crud_action::CrudActionAftermath,
     crud_delete_modal::CrudDeleteModal,
     crud_instance_config::{CrudInstanceConfig, CrudStaticInstanceConfig},
-    prelude::{CrudEditView, CrudListView, CrudCreateView}, crud_read_view::CrudReadView,
+    crud_read_view::CrudReadView,
+    prelude::{CrudCreateView, CrudEditView, CrudListView},
 };
 
 /// Runtime data of this instance, provided to child components through provide_context.
@@ -42,6 +44,10 @@ pub struct CrudInstanceContext<T: CrudMainTrait + 'static> {
     /// How data should be ordered when querying data for the ist view.
     pub order_by: ReadSignal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
     set_order_by: WriteSignal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
+
+    /// The base condition applicable when fetching data.
+    pub base_condition: ReadSignal<Option<Condition>>,
+    set_base_condition: WriteSignal<Option<Condition>>,
 
     /// Whenever the user requests to delete something, this is the place that information is stored.
     pub deletion_request: ReadSignal<Option<DeletableModel<T::ReadModel, T::UpdateModel>>>,
@@ -210,6 +216,7 @@ where
     let (current_page, set_current_page) = create_signal(cx, config.page.clone());
     let (items_per_page, set_items_per_page) = create_signal(cx, config.items_per_page.clone());
     let (order_by, set_order_by) = create_signal(cx, config.order_by.clone());
+    let (base_condition, set_base_condition) = create_signal(cx, config.base_condition.clone());
     let (create_elements, set_create_elements) = create_signal(cx, config.create_elements.clone());
     let (update_elements, set_update_elements) = create_signal(cx, config.elements.clone());
     let (deletion_request, set_deletion_request) = create_signal(cx, None);
@@ -233,6 +240,8 @@ where
             set_items_per_page,
             order_by,
             set_order_by,
+            base_condition,
+            set_base_condition,
             deletion_request,
             set_deletion_request,
             reload,
@@ -251,7 +260,7 @@ where
     let read_field_config =
         Signal::derive(cx, move || static_config.read_field_select_config.clone());
     let update_field_config =
-            Signal::derive(cx, move || static_config.update_field_select_config.clone());
+        Signal::derive(cx, move || static_config.update_field_select_config.clone());
 
     let actions = Signal::derive(cx, move || static_config.actions.clone());
     let entity_actions = Signal::derive(cx, move || static_config.entity_actions.clone());
