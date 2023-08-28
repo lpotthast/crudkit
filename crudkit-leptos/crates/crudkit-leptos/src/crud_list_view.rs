@@ -31,6 +31,7 @@ struct PageReq<T: CrudMainTrait + 'static> {
 
 #[derive(Debug, Clone, PartialEq)]
 struct CountReq<T: CrudMainTrait + 'static> {
+    condition: Option<Condition>,
     reload: Uuid,
     data_provider: CrudRestDataProvider<T>,
 }
@@ -175,13 +176,16 @@ where
         move || {
             tracing::debug!("count_req");
             CountReq {
+                condition: instance_ctx.base_condition.get(),
                 reload: instance_ctx.reload.get(),
                 data_provider: data_provider.get(),
             }
         },
         move |req| async move {
             req.data_provider
-                .read_count(ReadCount { condition: None })
+                .read_count(ReadCount {
+                    condition: req.condition,
+                })
                 .await
         },
     );

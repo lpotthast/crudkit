@@ -194,6 +194,7 @@ pub trait MaybeColumnTrait {
     fn get_col(name: &str) -> Option<Self::Column>;
 }
 
+// TODO: All these to functions support string->type parsing. Should this be removed and made explicit?
 pub fn to_i32(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
         ConditionClauseValue::I32(num) => Ok(Value::I32(num)),
@@ -208,6 +209,7 @@ pub fn to_i32(value: ConditionClauseValue) -> Result<Value, String> {
 pub fn to_i64(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
         ConditionClauseValue::I64(num) => Ok(Value::I64(num)),
+        ConditionClauseValue::I64Vec(numbers) => Ok(Value::I64Vec(numbers)),
         ConditionClauseValue::String(string) => parse::<i64>(&string).map(Value::I64),
         _ => Err(format!(
             "{value:?} can not be converted to an i64. Expected i64 or String."

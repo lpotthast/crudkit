@@ -1,6 +1,6 @@
 use std::{collections::HashMap, marker::PhantomData};
 
-use crudkit_condition::IntoAllEqualCondition;
+use crudkit_condition::{merge_conditions, Condition, IntoAllEqualCondition};
 use crudkit_id::{Id, IdField};
 use crudkit_web::{
     prelude::{CrudRestDataProvider, CustomUpdateFields, ReadOne},
@@ -22,8 +22,8 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq)]
 struct EntityReq<T: CrudMainTrait + 'static> {
+    condition: Option<Condition>,
     reload: Uuid,
-    id: T::ReadModelId,
     data_provider: CrudRestDataProvider<T>,
 }
 
@@ -54,22 +54,28 @@ where
         cx,
         move || {
             tracing::debug!("entity_req");
+            let id = id.get();
+            let equals_id_condition =
+                <T as CrudMainTrait>::ReadModelId::fields_iter(&id) // TODO: This is complex and requires several use statements. Should be made easier.
+                    .map(|field| (field.name().to_owned(), field.to_value()))
+                    .into_all_equal_condition();
             EntityReq {
+                condition: merge_conditions(
+                    instance_ctx.base_condition.get(),
+                    Some(equals_id_condition),
+                ),
                 reload: instance_ctx.reload.get(),
-                id: id.get(),
                 data_provider: data_provider.get(),
             }
         },
         move |req| async move {
             req.data_provider
-            .read_one(ReadOne {
-                skip: None,
-                order_by: None,
-                condition: Some(<T as CrudMainTrait>::ReadModelId::fields_iter(&req.id) // TODO: This is complex and requires several use statements. Should be made easier.
-                .map(|field| (field.name().to_owned(), field.to_value()))
-                .into_all_equal_condition()),
-            })
-            .await
+                .read_one(ReadOne {
+                    skip: None,
+                    order_by: None,
+                    condition: req.condition,
+                })
+                .await
         },
     );
 
