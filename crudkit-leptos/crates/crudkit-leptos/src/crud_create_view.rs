@@ -34,7 +34,7 @@ pub enum Then {
 }
 
 fn default_create_model<T: CrudMainTrait + 'static>() -> T::CreateModel {
-    let mut entity: T::CreateModel = Default::default();
+    let entity: T::CreateModel = Default::default();
     // TODO: implement
     //if let Some(nested) = &ctx.props().config.nested {
     //    if let Some(parent_id) = &ctx.props().parent_id {
