@@ -1,8 +1,0 @@
-[package]
-name = "crudkit-leptos-build-deps"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-# TODO: Does this need to be leptos specific? Otherwise rename to tiptap-wasm-bindings or something else...
-yew-tiptap-build-deps = { git = "https://github.com/lpotthast/yew-tiptap" }
