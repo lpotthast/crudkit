@@ -64,6 +64,7 @@ pub fn CrudPagination(
                             </div>
                             <Select
                                 options=items_per_page_options
+                                search_text_provider=create_callback(cx, move |o: ItemsPerPage| o.to_string())
                                 render_option=create_callback(cx, move |(cx, option)| format!("{option}").into_view(cx))
                                 selected=Signal::derive(cx, move || ItemsPerPage::some(items_per_page.get()))
                                 set_selected=set_items_per_page
