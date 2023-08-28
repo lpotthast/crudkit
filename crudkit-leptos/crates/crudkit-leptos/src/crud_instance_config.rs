@@ -177,6 +177,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
                                 options=options
                                 selected=selected
                                 set_selected=set_selected
+                                search_text_provider=create_callback(cx, move |o: O| o.to_string())
                                 render_option=renderer
                                 allow_deselect=true
                             />
