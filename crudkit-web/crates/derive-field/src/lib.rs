@@ -97,6 +97,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         .filter(|field| field.is_id())
         .collect::<Vec<_>>();
 
+    // TODO: Make this a separate derive macro?
     let id_impl = match id_fields.len() {
         // TODO: Create an error, as every aggregate needs an id?
         0 => quote! {},

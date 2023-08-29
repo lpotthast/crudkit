@@ -12,6 +12,7 @@ pub mod crud_field_leptos;
 pub mod crud_fields;
 pub mod crud_instance;
 pub mod crud_instance_config;
+pub mod crud_instance_mgr;
 pub mod crud_leave_modal;
 pub mod crud_list_view;
 //pub mod crud_nested_instance;
@@ -74,6 +75,8 @@ pub mod prelude {
     pub use super::crud_field_leptos::CrudField;
     pub use super::crud_fields::CrudFields;
     pub use super::crud_instance::CrudInstance;
+    pub use super::crud_instance_mgr::CrudInstanceMgr;
+    pub use super::crud_instance_mgr::CrudInstanceMgrContext;
     pub use super::crud_instance_config::CreateElements;
     pub use super::crud_instance_config::CrudInstanceConfig;
     pub use super::crud_instance_config::CrudStaticInstanceConfig;
@@ -111,7 +114,7 @@ pub enum ReactiveValue {
     OptionalPrimitiveDateTime(RwSignal<Option<time::PrimitiveDateTime>>),
     OptionalOffsetDateTime(RwSignal<Option<time::OffsetDateTime>>),
     OneToOneRelation(RwSignal<Option<u32>>),
-    NestedTable(RwSignal<Vec<Box<dyn crudkit_id::IdField>>>),
+    Reference(RwSignal<Vec<Box<dyn crudkit_id::IdField>>>),
     Custom(RwSignal<()>),
     Select(RwSignal<Box<dyn CrudSelectableTrait>>),
     Multiselect(RwSignal<Vec<Box<dyn CrudSelectableTrait>>>),
@@ -159,7 +162,7 @@ impl IntoReactiveValue for Value {
             Value::OneToOneRelation(value) => {
                 ReactiveValue::OneToOneRelation(create_rw_signal(cx, value))
             }
-            Value::NestedTable(value) => ReactiveValue::NestedTable(create_rw_signal(cx, value)),
+            Value::Reference(value) => ReactiveValue::Reference(create_rw_signal(cx, value)),
             Value::Custom(value) => ReactiveValue::Custom(create_rw_signal(cx, value)),
             Value::Select(value) => ReactiveValue::Select(create_rw_signal(cx, value)),
             Value::Multiselect(value) => ReactiveValue::Multiselect(create_rw_signal(cx, value)),
@@ -200,7 +203,7 @@ impl ReactiveValue {
                 sig.set(v.take_optional_offset_date_time())
             }
             ReactiveValue::OneToOneRelation(sig) => sig.set(v.take_one_to_one_relation()),
-            ReactiveValue::NestedTable(sig) => sig.set(v.take_nested_table()),
+            ReactiveValue::Reference(sig) => sig.set(v.take_reference()),
             ReactiveValue::Custom(sig) => sig.set(v.take_custom()),
             ReactiveValue::Select(sig) => sig.set(v.take_select()),
             ReactiveValue::Multiselect(sig) => sig.set(v.take_multiselect()),

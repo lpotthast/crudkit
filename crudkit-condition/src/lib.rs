@@ -163,8 +163,10 @@ pub trait IntoAllEqualCondition {
     fn into_all_equal_condition(self) -> Condition;
 }
 
-impl<'a, V: Into<ConditionClauseValue> + Clone + 'a, I: Iterator<Item = (String, V)>>
-    IntoAllEqualCondition for I
+impl<'a, V, I> IntoAllEqualCondition for I
+where
+    V: Into<ConditionClauseValue> + Clone + 'a,
+    I: Iterator<Item = (String, V)>,
 {
     fn into_all_equal_condition(self) -> Condition {
         Condition::All(

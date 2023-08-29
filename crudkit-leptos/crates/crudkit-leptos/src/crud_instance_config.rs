@@ -27,19 +27,18 @@ pub struct CrudInstanceConfig<T: CrudMainTrait> {
     pub page: u64,
     pub active_tab: Option<Label>,
     pub base_condition: Option<Condition>,
-    pub nested: Option<NestedConfig>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct NestedConfig {
+pub struct CrudParentConfig {
     /// The name of the parent instance from which the referenced id should be loaded.
-    pub parent_instance: String,
+    pub name: &'static str,
 
     /// The field of the parent instance from which the referenced id should be loaded. For example: "id".
-    pub parent_field: String,
+    pub referenced_field: String,
 
-    /// The `own` field in which the reference is stored. For example: "server_id", when referencing the Server entity.
-    pub reference_field: String, // TODO: This should be: T::ReadModel::Field? (ClusterCertificateField::CreatedAt)
+    /// The `own` field in which the reference is stored. For example: "user_id", when referencing a User entity.
+    pub referencing_field: String, // TODO: This should be: T::ReadModel::Field? (ClusterCertificateField::CreatedAt)
 }
 
 pub trait SelectConfigTrait: Debug + DynClone {
@@ -254,7 +253,6 @@ impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {
             page: 1,
             active_tab: None,
             base_condition: None,
-            nested: None,
         }
     }
 }

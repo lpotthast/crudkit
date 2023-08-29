@@ -254,6 +254,14 @@ pub trait CrudIdTrait {
     fn get_id(&self) -> Self::Id;
 }
 
+impl<T: CrudIdTrait> CrudIdTrait for &T {
+    type Id = T::Id;
+
+    fn get_id(&self) -> Self::Id {
+        T::get_id(&self)
+    }
+}
+
 pub trait CrudResourceTrait {
     fn get_resource_name() -> &'static str
     where
@@ -305,7 +313,7 @@ pub enum Value {
     OptionalPrimitiveDateTime(Option<time::PrimitiveDateTime>),
     OptionalOffsetDateTime(Option<time::OffsetDateTime>),
     OneToOneRelation(Option<u32>),
-    NestedTable(Vec<Box<dyn crudkit_id::IdField>>),
+    Reference(Vec<Box<dyn crudkit_id::IdField>>), // TODO: This variant should probably be named "Reference". Can it carry a "SerializableId" (as it is of known size)?
     Custom(()),
     Select(Box<dyn CrudSelectableTrait>),
     Multiselect(Vec<Box<dyn CrudSelectableTrait>>),
@@ -609,9 +617,9 @@ impl Value {
             other => panic!("Expected Value of variant 'U32', 'OptionalU32' or 'OneToOneRelation'. Received: {other:?}"),
         }
     }
-    pub fn take_nested_table(self) -> Vec<Box<dyn crudkit_id::IdField>> {
+    pub fn take_reference(self) -> Vec<Box<dyn crudkit_id::IdField>> {
         match self {
-            Value::NestedTable(id) => id,
+            Value::Reference(id) => id,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -667,7 +675,7 @@ impl Display for Value {
                 Some(value) => f.write_str(&value.to_string()),
                 None => f.write_str(""),
             },
-            Value::NestedTable(id) => {
+            Value::Reference(id) => {
                 for field in id {
                     f.write_fmt(format_args!(
                         "'{}': {:?}",
@@ -726,7 +734,7 @@ impl Into<ConditionClauseValue> for Value {
             Value::OptionalPrimitiveDateTime(value) => todo!(),
             Value::OptionalOffsetDateTime(value) => todo!(),
             Value::OneToOneRelation(value) => todo!(),
-            Value::NestedTable(value) => todo!(),
+            Value::Reference(value) => todo!(),
             Value::Custom(value) => todo!(),
             Value::Select(value) => todo!(),
             Value::Multiselect(value) => todo!(),

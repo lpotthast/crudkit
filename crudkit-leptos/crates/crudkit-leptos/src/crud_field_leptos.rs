@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, error::Error};
 
 use crudkit_web::{prelude::*, DateTimeDisplay, JsonValue};
 use leptonic::prelude::*;
@@ -99,7 +99,7 @@ where
             },
             ReactiveValue::OptionalOffsetDateTime(_) => view! {cx, "TODO: Render ReactiveValue::OptionalOffsetDateTime"}.into_view(cx),
             ReactiveValue::OneToOneRelation(_) => view! {cx, "TODO: Render ReactiveValue::OneToOneRelation"}.into_view(cx),
-            ReactiveValue::NestedTable(_) => view! {cx, "TODO: Render ReactiveValue::NestedTable"}.into_view(cx),
+            ReactiveValue::Reference(_) => view! {cx, "TODO: Render ReactiveValue::NestedTable"}.into_view(cx),
             ReactiveValue::Custom(_) => custom_fields.with(|fields| match fields.get(&field_clone2) {
                 Some(custom_field) => {
                     let custom_field = custom_field.clone();
@@ -181,7 +181,6 @@ pub fn CrudTextField(
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
                 <TiptapEditor
-                    // api_base_url={ctx.props().api_base_url.clone()}
                     id=id.clone()
                     class="crud-input-field"
                     value=value
@@ -193,7 +192,6 @@ pub fn CrudTextField(
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
                 <TiptapEditor
-                    // api_base_url={ctx.props().api_base_url.clone()}
                     id=id.clone()
                     class="crud-input-field"
                     value=value
@@ -224,28 +222,35 @@ pub fn CrudJsonField(
         FieldMode::Readable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
-                "TODO: Implement TipTap editor or Json editor"
-                // <CrudTipTapEditor
-                //     api_base_url={ctx.props().api_base_url.clone()}
-                //     id={self.format_id()}
-                //     class={"crud-input-field"}
-                //     value={value.get_string_representation().to_owned()}
-                //     disabled={true}
-                // />
+                // TODO: Implement a proper Json editor
+                <TiptapEditor
+                    id=id.clone()
+                    class="crud-input-field"
+                    value=Signal::derive(cx, move || value.get().get_string_representation().to_owned())
+                    disabled=true
+                />
             </div>
         },
         FieldMode::Editable => view! {cx,
             <div class="crud-field">
                 { render_label(cx, field_options.label.clone()) }
-                "TODO: Implement TipTap editor or Json editor"
-                // <CrudTipTapEditor
-                //     api_base_url={ctx.props().api_base_url.clone()}
-                //     id={self.format_id()}
-                //     class={"crud-input-field"}
-                //     value={value.get_string_representation().to_owned()}
-                //     onchange={ctx.link().callback(|input| Msg::Send(Value::Text(input)))}
-                //     disabled={options.disabled}
-                // />
+                // TODO: Implement a proper Json editor
+                <TiptapEditor
+                    id=id.clone()
+                    class="crud-input-field"
+                    value=Signal::derive(cx, move || value.get().get_string_representation().to_owned())
+                    set_value=create_callback(cx, move |new| {
+                        value_changed.call(
+                            match new {
+                                TiptapContent::Html(content) => serde_json::from_str(&content),
+                                TiptapContent::Json(content) => serde_json::from_str(&content),
+                            }
+                            .map(|json_value| Value::Json(JsonValue::new(json_value)))
+                            .map_err(|err| Box::new(err) as Box<dyn Error>)
+                        );
+                    })
+                    disabled=field_options.disabled
+                />
             </div>
         },
     }

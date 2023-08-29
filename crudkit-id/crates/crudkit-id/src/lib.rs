@@ -7,6 +7,7 @@ use utoipa::ToSchema;
 
 /// "ID-able" values. Values which might be part of an entities ID. All variants must implement `Eq` for proper comparability!
 /// This constraint excludes options like floats as parts of primary keys.
+/// We might use the `ordered-float` create in the future to relax this constraint.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)]
 pub enum IdValue {
     String(String),
@@ -20,8 +21,17 @@ pub enum IdValue {
     OffsetDateTime(time::OffsetDateTime),
 }
 
+/// A type implementing this trait represents fields of an ID value.
+///
+/// The derive functionality automatically implements this trait for a (also) derived enum
+/// which contains a variant for each field of a structs ID-tagged members.
+/// The generated enum variants all carry a single value of the type of their original struct-field.
+///
+/// A `Vec<dyn IdField>` could represent a dynamic entity ID.
 pub trait IdField: Debug + Display + DynClone {
+    /// The name of this field in its type.
     fn name(&self) -> &'static str;
+    /// The value of the field.
     fn to_value(&self) -> IdValue;
 }
 dyn_clone::clone_trait_object!(IdField);

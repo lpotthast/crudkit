@@ -7,7 +7,7 @@ use proc_macro2::{Ident, Span};
 use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
 use serde::Deserialize;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput, TypeTuple};
 
 // TODO: Merge FieldValue into Field, only use "field" attribute!
 
@@ -122,8 +122,11 @@ pub fn store(input: TokenStream) -> TokenStream {
                 quote! { entity.#field_ident.clone().map(|it| it.map(Into::into)) }
             }
             ValueType::OneToOneRelation => quote! { entity.#field_ident },
-            ValueType::NestedTable => quote! {
-                crudkit_id::Id::fields(&entity.get_id()).into_iter().map(|it| Box::new(it) as Box<dyn crudkit_id::IdField>).collect::<Vec<_>>()
+            ValueType::Reference => quote! {
+                crudkit_id::Id::fields(&crudkit_web::CrudIdTrait::get_id(&entity))
+                    .into_iter()
+                    .map(|it| Box::new(it) as Box<dyn crudkit_id::IdField>)
+                    .collect::<Vec<_>>()
             }, // not important, panics anyway...
             ValueType::Custom => quote! { () }, // not important, panics anyway...
         };
@@ -186,8 +189,8 @@ pub fn store(input: TokenStream) -> TokenStream {
                 quote! { entity.#field_ident = value.take_optional_multiselect_downcast_to().into() }
             }
             ValueType::OneToOneRelation => quote! { entity.#field_ident = value.take_one_to_one_relation() },
-            ValueType::NestedTable => {
-                quote! { tracing::warn!("Setting a nested table dummy field is not allowed") }
+            ValueType::Reference => {
+                quote! { tracing::warn!("Setting a 'reference' dummy field is not allowed") }
             }
             ValueType::Custom => {
                 quote! { tracing::warn!("Setting a custom field is not allowed") }
@@ -251,7 +254,7 @@ enum ValueType {
     OptionalSelect,
     OptionalMultiselect,
     OneToOneRelation,
-    NestedTable,
+    Reference,
     Custom,
 }
 
@@ -287,7 +290,7 @@ impl From<ValueType> for Ident {
                 ValueType::OptionalSelect => "OptionalSelect",
                 ValueType::OptionalMultiselect => "OptionalMultiselect",
                 ValueType::OneToOneRelation => "OneToOneRelation",
-                ValueType::NestedTable => "NestedTable",
+                ValueType::Reference => "Reference",
                 ValueType::Custom => "Custom",
             },
             Span::call_site(),
@@ -298,7 +301,21 @@ impl From<ValueType> for Ident {
 impl From<&syn::Type> for ValueType {
     fn from(ty: &syn::Type) -> Self {
         match &ty {
+            syn::Type::Tuple(syn::TypeTuple {
+                paren_token: _,
+                elems,
+            }) => match elems.is_empty() {
+                true => ValueType::Custom,
+                false => {
+                    let span = ty.span();
+                    let message = format!(
+                        "crudkit: derive-field-value: Tuple type with elements is unsupported. Only the `()` tuple is allowed, representing a custom field."
+                    );
+                    abort!(span, message);
+                }
+            },
             syn::Type::Path(path) => match join_path(&path.path).as_str() {
+                "()" => ValueType::Custom,
                 "bool" => ValueType::Bool,
                 "u32" => ValueType::U32,
                 "i32" => ValueType::I32,
@@ -328,7 +345,9 @@ impl From<&syn::Type> for ValueType {
             },
             other => {
                 let span = ty.span();
-                let message = format!("Unknown type {other:?}. Not a 'Path' variant.");
+                let message = format!(
+                    "crudkit: derive-field-value: Unknown type {other:?}. Not a 'Path' variant."
+                );
                 abort!(span, message);
             }
         }

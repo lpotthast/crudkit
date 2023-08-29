@@ -1,6 +1,5 @@
 use std::{cell::RefCell, marker::PhantomData};
 
-use crudkit_condition::Condition;
 use crudkit_id::Id;
 use crudkit_shared::{DeleteResult, Order};
 use crudkit_web::{prelude::*, TabId};
@@ -13,9 +12,10 @@ use uuid::Uuid;
 use crate::{
     crud_action::CrudActionAftermath,
     crud_delete_modal::CrudDeleteModal,
-    crud_instance_config::{CrudInstanceConfig, CrudStaticInstanceConfig},
+    crud_instance_config::{CrudInstanceConfig, CrudParentConfig, CrudStaticInstanceConfig},
+    crud_instance_mgr::InstanceState,
     crud_read_view::CrudReadView,
-    prelude::{CrudCreateView, CrudEditView, CrudListView},
+    prelude::{CrudCreateView, CrudEditView, CrudInstanceMgrContext, CrudListView},
 };
 
 /// Runtime data of this instance, provided to child components through provide_context.
@@ -46,8 +46,8 @@ pub struct CrudInstanceContext<T: CrudMainTrait + 'static> {
     set_order_by: WriteSignal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
 
     /// The base condition applicable when fetching data.
-    pub base_condition: ReadSignal<Option<Condition>>,
-    set_base_condition: WriteSignal<Option<Condition>>,
+    pub base_condition: ReadSignal<Option<crudkit_condition::Condition>>,
+    set_base_condition: WriteSignal<Option<crudkit_condition::Condition>>,
 
     /// Whenever the user requests to delete something, this is the place that information is stored.
     pub deletion_request: ReadSignal<Option<DeletableModel<T::ReadModel, T::UpdateModel>>>,
@@ -191,7 +191,7 @@ pub fn CrudInstance<T>(
     */
     //#[prop_or_default]
     //pub children: ChildrenRenderer<Item>,
-    #[prop(into)] name: String,
+    name: &'static str,
 
     //#[prop(into)] api_base_url: Signal<String>,
     //#[prop(into)] view: Signal<CrudView<T::ReadModelId, T::UpdateModelId>>,
@@ -205,6 +205,7 @@ pub fn CrudInstance<T>(
     //#[prop(into)] nested: Signal<Option<NestedConfig>>,
     config: CrudInstanceConfig<T>,
     static_config: CrudStaticInstanceConfig<T>,
+    #[prop(optional)] parent: Option<CrudParentConfig>,
     //pub portal_target: Option<String>,
 ) -> impl IntoView
 where
@@ -212,11 +213,61 @@ where
 {
     let (api_base_url, set_api_base_url) = create_signal(cx, config.api_base_url.clone());
     let (view, set_view) = create_signal(cx, config.view.clone());
+    // TODO: As memo?
+    let serializable_view = Signal::<SerializableCrudView>::derive(cx, move || view.get().into());
+
+    let mgr = expect_context::<CrudInstanceMgrContext>(cx);
+    mgr.register(
+        name,
+        InstanceState {
+            name,
+            view: serializable_view,
+        },
+    );
+
     let (headers, set_headers) = create_signal(cx, config.headers.clone());
     let (current_page, set_current_page) = create_signal(cx, config.page.clone());
     let (items_per_page, set_items_per_page) = create_signal(cx, config.items_per_page.clone());
     let (order_by, set_order_by) = create_signal(cx, config.order_by.clone());
-    let (base_condition, set_base_condition) = create_signal(cx, config.base_condition.clone());
+    let (base_condition, set_base_condition) = create_signal(cx, {
+        let user_provided_base_condition = config.base_condition.clone();
+
+        let referencing_parent_id: Option<crudkit_condition::Condition> = parent
+            .map(|parent| {
+                let mgr = expect_context::<CrudInstanceMgrContext>(cx);
+                let parent_state = mgr
+                    .instances
+                    .get()
+                    .get_by_name(parent.name)
+                    .expect("parent to be managed");
+                match parent_state.view.get() {
+                    SerializableCrudView::List => None,
+                    SerializableCrudView::Create => None,
+                    SerializableCrudView::Read(id) => Some(id),
+                    SerializableCrudView::Edit(id) => Some(id),
+                }
+                .map(|id| {
+                    let (_name, value) =
+                        id.0.into_iter()
+                            .find(|(id_field_name, _id_field_value)| {
+                                id_field_name == &parent.referenced_field
+                            })
+                            .expect("referenced field to be an ID field.");
+                    crudkit_condition::Condition::All(vec![
+                        crudkit_condition::ConditionElement::Clause(
+                            crudkit_condition::ConditionClause {
+                                column_name: parent.referencing_field.clone(),
+                                operator: crudkit_condition::Operator::Equal,
+                                value: value.clone().into(),
+                            },
+                        ),
+                    ])
+                })
+            })
+            .flatten();
+
+        crudkit_condition::merge_conditions(referencing_parent_id, user_provided_base_condition)
+    });
     let (create_elements, set_create_elements) = create_signal(cx, config.create_elements.clone());
     let (update_elements, set_update_elements) = create_signal(cx, config.elements.clone());
     let (deletion_request, set_deletion_request) = create_signal(cx, None);
@@ -302,55 +353,57 @@ where
                     match result {
                         Ok(delete_result) => {
                             match delete_result {
-                            DeleteResult::Deleted(num) => {
-                                expect_context::<Toasts>(cx).push(Toast {
-                                    id: Uuid::new_v4(),
-                                    created_at: OffsetDateTime::now_utc(),
-                                    variant: ToastVariant::Success,
-                                    header: view! {cx, "Löschen" }.into_view(cx),
-                                    body: format!("{num} {} erfolgreich gelöscht.", match num {
-                                        1 => "Eintrag",
-                                        _ => "Einträge",
-                                    }).into_view(cx),
-                                    timeout: ToastTimeout::DefaultDelay,
-                                })
-                            }
+                                DeleteResult::Deleted(num) => {
+                                    expect_context::<Toasts>(cx).push(Toast {
+                                        id: Uuid::new_v4(),
+                                        created_at: OffsetDateTime::now_utc(),
+                                        variant: ToastVariant::Success,
+                                        header: "Löschen".into_view(cx),
+                                        body: format!(
+                                            "{num} {} erfolgreich gelöscht.",
+                                            match num {
+                                                1 => "Eintrag",
+                                                _ => "Einträge",
+                                            }
+                                        )
+                                        .into_view(cx),
+                                        timeout: ToastTimeout::DefaultDelay,
+                                    })
+                                }
 
-                            DeleteResult::Aborted { reason } => {
-                                expect_context::<Toasts>(cx).push(Toast {
-                                    id: Uuid::new_v4(),
-                                    created_at: OffsetDateTime::now_utc(),
-                                    variant: ToastVariant::Warn,
-                                    header: view! {cx, "Delete" }.into_view(cx),
-                                    body: view! {cx, { format!("Löschvorgang abgebrochen. Grund: {reason}") } }
-                                        .into_view(cx),
-                                    timeout: ToastTimeout::DefaultDelay,
-                                })
+                                DeleteResult::Aborted { reason } => expect_context::<Toasts>(cx)
+                                    .push(Toast {
+                                        id: Uuid::new_v4(),
+                                        created_at: OffsetDateTime::now_utc(),
+                                        variant: ToastVariant::Warn,
+                                        header: "Delete".into_view(cx),
+                                        body: format!("Löschvorgang abgebrochen. Grund: {reason}")
+                                            .into_view(cx),
+                                        timeout: ToastTimeout::DefaultDelay,
+                                    }),
+                                DeleteResult::CriticalValidationErrors => {
+                                    expect_context::<Toasts>(cx).push(Toast {
+                                        id: Uuid::new_v4(),
+                                        created_at: OffsetDateTime::now_utc(),
+                                        variant: ToastVariant::Error,
+                                        header: "Delete".into_view(cx),
+                                        body: format!("{delete_result:#?}").into_view(cx),
+                                        timeout: ToastTimeout::DefaultDelay,
+                                    })
+                                }
                             }
-                            DeleteResult::CriticalValidationErrors => expect_context::<Toasts>(cx)
-                                .push(Toast {
-                                    id: Uuid::new_v4(),
-                                    created_at: OffsetDateTime::now_utc(),
-                                    variant: ToastVariant::Error,
-                                    header: view! {cx, "Delete" }.into_view(cx),
-                                    body: view! {cx, { format!("{delete_result:#?}") } }
-                                        .into_view(cx),
-                                    timeout: ToastTimeout::DefaultDelay,
-                                }),
-                        }
                             expect_context::<CrudInstanceContext<T>>(cx).reload()
                         }
                         Err(err) => {
                             expect_context::<Toasts>(cx).push(Toast {
-                            id: Uuid::new_v4(),
-                            created_at: OffsetDateTime::now_utc(),
-                            variant: ToastVariant::Error,
-                            header: view! {cx, "Delete" }.into_view(cx),
-                            body:
-                                view! {cx, { format!("Konnte Eintrag nicht Löschen: {err:#?}") } }
+                                id: Uuid::new_v4(),
+                                created_at: OffsetDateTime::now_utc(),
+                                variant: ToastVariant::Error,
+                                header: "Delete".into_view(cx),
+                                body: format!("Konnte Eintrag nicht Löschen: {err:#?}")
                                     .into_view(cx),
-                            timeout: ToastTimeout::DefaultDelay,
-                        });
+                                timeout: ToastTimeout::DefaultDelay,
+                            });
                             expect_context::<CrudInstanceContext<T>>(cx).reload()
                         }
                     }
@@ -396,12 +449,6 @@ where
                                     on_entity_creation_failed=create_callback(cx, move |request_error| {})
                                     on_tab_selected=create_callback(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
                                 />
-                                //<CrudCreateView<T>
-                                //    parent_id={self.parent_id.clone()}
-                                //    children={ctx.props().children.clone()}
-                                //    custom_create_fields={self.static_config.custom_create_fields.clone()}
-                                //    custom_update_fields={self.static_config.custom_update_fields.clone()}
-                                // />
                             }
                             .into_view(cx)
                         }
