@@ -7,7 +7,7 @@ use proc_macro2::{Ident, Span};
 use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
 use serde::Deserialize;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput, TypeTuple};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
 // TODO: Merge FieldValue into Field, only use "field" attribute!
 
