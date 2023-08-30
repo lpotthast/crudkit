@@ -33,23 +33,23 @@ pub enum Then {
     OpenCreateView,
 }
 
-fn default_create_model<T: CrudMainTrait + 'static>() -> T::CreateModel {
-    let entity: T::CreateModel = Default::default();
-    // TODO: implement
-    //if let Some(nested) = &ctx.props().config.nested {
-    //    if let Some(parent_id) = &ctx.props().parent_id {
-    //        let (_field_name, value) = parent_id
-    //            .0
-    //            .iter()
-    //            .find(|(field_name, _value)| field_name == nested.parent_field.as_str())
-    //            .expect("related parent field must be part of the parents id!");
-    //        T::CreateModel::get_field(nested.reference_field.as_str())
-    //            .set_value(&mut entity, value.clone().into());
-    //        info!("successfully set parent id to reference field");
-    //    } else {
-    //        error!("CrudInstance is configured to be a nested instance but no parent id was passed down!");
-    //    }
-    //}
+// TODO: Make this a signal? How would we act upon changes?
+fn default_create_model<T: CrudMainTrait + 'static>(ctx: &CrudInstanceContext<T>) -> T::CreateModel {
+    let mut entity: T::CreateModel = Default::default();
+    if let Some(parent) = ctx.parent.get_value() {
+        if let Some(parent_id) = ctx.parent_id.get_untracked() {
+            let (_field_name, value) = parent_id
+                .0
+                .iter()
+                .find(|(field_name, _value)| field_name == parent.referenced_field.as_str())
+                .expect("related parent field must be part of the parents id!");
+            T::CreateModel::get_field(parent.referencing_field.as_str())
+                .set_value(&mut entity, value.clone().into());
+            tracing::info!("successfully set parent id to reference field");
+        } else {
+            tracing::error!("CrudInstance is configured to be a nested instance but no parent id was passed down!");
+        }
+    }
     entity
 }
 
@@ -88,7 +88,7 @@ where
 {
     let instance_ctx = expect_context::<CrudInstanceContext<T>>(cx);
 
-    let default_create_model: T::CreateModel = default_create_model::<T>();
+    let default_create_model: T::CreateModel = default_create_model::<T>(&instance_ctx);
 
     let signals: StoredValue<HashMap<<T::CreateModel as CrudDataTrait>::Field, ReactiveValue>> =
         store_value(cx, {

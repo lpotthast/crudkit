@@ -3,14 +3,15 @@ use std::{borrow::Cow, collections::HashMap, error::Error};
 use crudkit_web::{prelude::*, DateTimeDisplay, JsonValue};
 use leptonic::prelude::*;
 use leptos::*;
+use leptos_icons::BsIcon;
 use time::{
     format_description::well_known::Rfc3339, macros::format_description, PrimitiveDateTime,
 };
 use uuid::Uuid;
 
 use crate::{
+    crud_field_label::CrudFieldLabelOpt,
     crud_instance_config::{DynSelectConfig, SelectConfigTrait},
-    prelude::CrudFieldLabel,
     ReactiveValue,
 };
 
@@ -89,7 +90,9 @@ where
             ReactiveValue::Bool(value) => {
                 view! {cx, <CrudBoolField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
             },
-            ReactiveValue::ValidationStatus(_) => view! {cx, "TODO: Render ReactiveValue::ValidationStatus"}.into_view(cx),
+            ReactiveValue::ValidationStatus(value) => {
+                view! {cx, <CrudValidationStatusField id=id.clone() field_options=field_options field_mode=field_mode value=value/>}.into_view(cx)
+            },
             ReactiveValue::PrimitiveDateTime(value) => {
                 view! {cx, <CrudPrimitiveDateTimeField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view(cx)
             },
@@ -105,7 +108,7 @@ where
                     let custom_field = custom_field.clone();
                     // Note (lukas): Not every custom child requires the entity data. The API and possibly performance would be nicer if `entity` was passed as a signal to the `render` function,
                     // but as the function is declared in the framework-agnostic crudkit-web crate, that change is not trivial...
-                    (move || custom_field.render(&entity.get(), field_mode)).into_view(cx)
+                    (move || custom_field.render(&entity.get(), field_mode, field_options.clone())).into_view(cx)
                 },
                 None => view! {cx,
                     <Alert variant=AlertVariant::Danger title=create_callback(cx, move |_| "Missing custom field declaration!")>
@@ -684,6 +687,37 @@ pub fn CrudBoolField(
 }
 
 #[component]
+pub fn CrudValidationStatusField(
+    cx: Scope,
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<bool>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! {cx,
+            <div>
+                { move || match value.get() {
+                    true => view! {cx, <Icon icon=BsIcon::BsExclamationTriangleFill/> },
+                    false => view! {cx, <Icon icon=BsIcon::BsCheck/> },
+                } }
+            </div>
+        },
+        FieldMode::Readable | FieldMode::Editable => view! {cx,
+            <div class="crud-field">
+                { render_label(cx, field_options.label.clone()) }
+                <div id=id.clone() class="crud-input-field">
+                    { move || match value.get() {
+                        true => view! {cx, <Icon icon=BsIcon::BsExclamationTriangleFill/> },
+                        false => view! {cx, <Icon icon=BsIcon::BsCheck/> },
+                    } }
+                </div>
+            </div>
+        },
+    }
+}
+
+#[component]
 pub fn CrudPrimitiveDateTimeField(
     cx: Scope,
     id: String,
@@ -864,8 +898,7 @@ pub fn CrudOptionalSelectField(
 }
 
 fn render_label(cx: Scope, label: Option<Label>) -> impl IntoView {
-    match label {
-        Some(label) => view! {cx, <CrudFieldLabel label=label.clone() />}.into_view(cx),
-        None => ().into_view(cx),
+    view! {cx,
+        <CrudFieldLabelOpt label=label/>
     }
 }

@@ -72,6 +72,7 @@ pub mod prelude {
     pub use super::crud_create_view::CrudCreateView;
     pub use super::crud_edit_view::CrudEditView;
     pub use super::crud_field_label::CrudFieldLabel;
+    pub use super::crud_field_label::CrudFieldLabelOpt;
     pub use super::crud_field_leptos::CrudField;
     pub use super::crud_fields::CrudFields;
     pub use super::crud_instance::CrudInstance;

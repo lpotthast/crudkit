@@ -27,6 +27,8 @@ js-sys = "0.3.64"
 leptonic = { path = "../../../../leptonic/leptonic" }
 leptos = "0.4.6"
 leptos_icons = { version = "0.0.15", features = [
+    "BsCheck",
+    "BsExclamationTriangleFill",
     "BsPlusCircle",
     "BsArrowRepeat",
     "BsSearch",

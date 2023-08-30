@@ -1,12 +1,12 @@
 use std::fmt::Debug;
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{CrudDataTrait, CrudMainTrait, FieldMode};
+use crate::{CrudDataTrait, CrudMainTrait, FieldMode, FieldOptions};
 
 /// O: Output of the renderer.
 #[derive(Clone)]
 pub struct CustomField<T: CrudDataTrait, O> {
-    pub renderer: Arc<dyn Fn(&T, FieldMode) -> O>,
+    pub renderer: Arc<dyn Fn(&T, FieldMode, FieldOptions) -> O>,
 }
 
 impl<T: CrudDataTrait, O> Debug for CustomField<T, O> {
@@ -22,8 +22,8 @@ impl<T: CrudDataTrait, O> PartialEq for CustomField<T, O> {
 }
 
 impl<T: CrudDataTrait, O> CustomField<T, O> {
-    pub fn render(&self, entity: &T, field_mode: FieldMode) -> O {
-        (self.renderer)(entity, field_mode)
+    pub fn render(&self, entity: &T, field_mode: FieldMode, field_options: FieldOptions) -> O {
+        (self.renderer)(entity, field_mode, field_options)
     }
 }
 

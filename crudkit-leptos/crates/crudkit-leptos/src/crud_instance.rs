@@ -1,6 +1,6 @@
 use std::{cell::RefCell, marker::PhantomData};
 
-use crudkit_id::Id;
+use crudkit_id::{Id, SerializableId};
 use crudkit_shared::{DeleteResult, Order};
 use crudkit_web::{prelude::*, TabId};
 use indexmap::IndexMap;
@@ -45,9 +45,18 @@ pub struct CrudInstanceContext<T: CrudMainTrait + 'static> {
     pub order_by: ReadSignal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
     set_order_by: WriteSignal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
 
+    /// Configuration of a parent, if present.
+    pub parent: StoredValue<Option<CrudParentConfig>>,
+
+    /// If a parent is referenced, this may provide the id the parent is currently using.
+    pub parent_id: Signal<Option<SerializableId>>,
+
+    /// If a parent is referenced and that parent currently provides an id,
+    /// this hold a condition restraining the current resource to elements referencing the parent id.
+    pub parent_id_referencing_condition: Signal<Option<crudkit_condition::Condition>>,
+
     /// The base condition applicable when fetching data.
-    pub base_condition: ReadSignal<Option<crudkit_condition::Condition>>,
-    set_base_condition: WriteSignal<Option<crudkit_condition::Condition>>,
+    pub base_condition: Signal<Option<crudkit_condition::Condition>>,
 
     /// Whenever the user requests to delete something, this is the place that information is stored.
     pub deletion_request: ReadSignal<Option<DeletableModel<T::ReadModel, T::UpdateModel>>>,
@@ -229,44 +238,54 @@ where
     let (current_page, set_current_page) = create_signal(cx, config.page.clone());
     let (items_per_page, set_items_per_page) = create_signal(cx, config.items_per_page.clone());
     let (order_by, set_order_by) = create_signal(cx, config.order_by.clone());
-    let (base_condition, set_base_condition) = create_signal(cx, {
-        let user_provided_base_condition = config.base_condition.clone();
-
-        let referencing_parent_id: Option<crudkit_condition::Condition> = parent
-            .map(|parent| {
-                let mgr = expect_context::<CrudInstanceMgrContext>(cx);
-                let parent_state = mgr
-                    .instances
-                    .get()
-                    .get_by_name(parent.name)
-                    .expect("parent to be managed");
-                match parent_state.view.get() {
-                    SerializableCrudView::List => None,
-                    SerializableCrudView::Create => None,
-                    SerializableCrudView::Read(id) => Some(id),
-                    SerializableCrudView::Edit(id) => Some(id),
-                }
-                .map(|id| {
-                    let (_name, value) =
-                        id.0.into_iter()
-                            .find(|(id_field_name, _id_field_value)| {
-                                id_field_name == &parent.referenced_field
-                            })
-                            .expect("referenced field to be an ID field.");
-                    crudkit_condition::Condition::All(vec![
-                        crudkit_condition::ConditionElement::Clause(
-                            crudkit_condition::ConditionClause {
-                                column_name: parent.referencing_field.clone(),
-                                operator: crudkit_condition::Operator::Equal,
-                                value: value.clone().into(),
-                            },
-                        ),
-                    ])
-                })
+    fn get_parent_id(cx: Scope, parent: &CrudParentConfig) -> Option<SerializableId> {
+        let mgr = expect_context::<CrudInstanceMgrContext>(cx);
+        let parent_state = mgr
+            .instances
+            .get()
+            .get_by_name(parent.name)
+            .expect("parent to be managed");
+        match parent_state.view.get() {
+            SerializableCrudView::List => None,
+            SerializableCrudView::Create => None,
+            SerializableCrudView::Read(id) => Some(id),
+            SerializableCrudView::Edit(id) => Some(id),
+        }
+    };
+    let parent = store_value(cx, parent);
+    let parent_id = Signal::derive(cx, move || {
+        parent
+            .get_value()
+            .and_then(|parent| get_parent_id(cx, &parent))
+    });
+    let parent_id_referencing_condition = Signal::derive(cx, move || {
+        parent
+            .get_value()
+            .and_then(|parent| get_parent_id(cx, &parent).map(|id| (parent, id)))
+            .map(|(parent, id)| {
+                let (_name, value) =
+                    id.0.into_iter()
+                        .find(|(id_field_name, _id_field_value)| {
+                            id_field_name == &parent.referenced_field
+                        })
+                        .expect("referenced field to be an ID field.");
+                crudkit_condition::Condition::All(vec![
+                    crudkit_condition::ConditionElement::Clause(
+                        crudkit_condition::ConditionClause {
+                            column_name: parent.referencing_field.clone(),
+                            operator: crudkit_condition::Operator::Equal,
+                            value: value.clone().into(),
+                        },
+                    ),
+                ])
             })
-            .flatten();
-
-        crudkit_condition::merge_conditions(referencing_parent_id, user_provided_base_condition)
+    });
+    let base_condition = config.base_condition.clone();
+    let base_condition = Signal::derive(cx, move || {
+        crudkit_condition::merge_conditions(
+            parent_id_referencing_condition.get(),
+            base_condition.clone(),
+        )
     });
     let (create_elements, set_create_elements) = create_signal(cx, config.create_elements.clone());
     let (update_elements, set_update_elements) = create_signal(cx, config.elements.clone());
@@ -291,8 +310,10 @@ where
             set_items_per_page,
             order_by,
             set_order_by,
+            parent,
+            parent_id,
+            parent_id_referencing_condition,
             base_condition,
-            set_base_condition,
             deletion_request,
             set_deletion_request,
             reload,

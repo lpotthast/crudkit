@@ -9,11 +9,14 @@ use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
 #[derive(Debug, FromField)]
-#[darling(attributes(field, ck_id))]
+#[darling(attributes(ck_field, ck_id))]
 struct MyFieldReceiver {
     ident: Option<syn::Ident>,
 
     ty: syn::Type,
+
+    // TODO: Use this information to automatically fetch referenced data.
+    references: Option<syn::Type>,
 
     /// Determines whether this field is part of the aggregate id.
     // Originates from: crudkit_id
@@ -40,7 +43,7 @@ impl MyFieldReceiver {
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(field, ck_id), supports(struct_any))]
+#[darling(attributes(ck_field, ck_id), supports(struct_any))]
 struct MyInputReceiver {
     ident: syn::Ident,
 
@@ -56,7 +59,7 @@ impl MyInputReceiver {
     }
 }
 
-#[proc_macro_derive(CkField, attributes(field, ck_id))]
+#[proc_macro_derive(CkField, attributes(ck_field, ck_id))]
 #[proc_macro_error]
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
