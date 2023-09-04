@@ -665,7 +665,6 @@ pub fn CrudBoolField(
                 <div id=id.clone() class="crud-input-field">
                     <Toggle
                         state=value
-                        on_toggle=move |_| {}
                         disabled=true
                     />
                 </div>
@@ -677,7 +676,7 @@ pub fn CrudBoolField(
                 <div id=id.clone() class="crud-input-field">
                     <Toggle
                         state=value
-                        on_toggle=move |new| value_changed.call(Ok(Value::Bool(new)))
+                        set_state=create_callback(cx, move |new| value_changed.call(Ok(Value::Bool(new))))
                         disabled=field_options.disabled
                     />
                 </div>
