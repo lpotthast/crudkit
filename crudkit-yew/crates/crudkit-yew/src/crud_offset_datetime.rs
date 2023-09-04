@@ -2,7 +2,10 @@ use time::format_description::well_known::Rfc3339;
 use tracing::info;
 use yew::prelude::*;
 
-use crate::{crud_offset_datetime_time_selector::CrudOffsetDatetimeTimeSelector, crud_offset_datetime_date_selector::CrudOffsetDatetimeDateSelector};
+use crate::{
+    crud_offset_datetime_date_selector::CrudOffsetDatetimeDateSelector,
+    crud_offset_datetime_time_selector::CrudOffsetDatetimeTimeSelector,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Year {
@@ -208,7 +211,7 @@ impl Component for CrudOffsetDatetime {
                     onchange.emit(self.value.clone());
                 }
                 true
-            },
+            }
         }
     }
 

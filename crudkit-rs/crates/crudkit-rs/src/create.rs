@@ -68,9 +68,11 @@ pub async fn create_one<R: CrudResource>(
             String::from(R::TYPE.into()),
             partial_validation_results.clone().into(),
         )]);
-        context.ws_controller.broadcast_json(
-            &CkWsMessage::PartialValidationResult(partial_serializable_validations),
-        );
+        context
+            .ws_controller
+            .broadcast_json(&CkWsMessage::PartialValidationResult(
+                partial_serializable_validations,
+            ));
 
         // NOTE: Nothing must be persisted, as the entity is not yet created!
         return Ok(SaveResult::CriticalValidationErrors);
@@ -137,9 +139,11 @@ pub async fn create_one<R: CrudResource>(
                 s.create = Some(Vec::new());
             });
 
-            context.ws_controller.broadcast_json(
-            &CkWsMessage::PartialValidationResult(partial_serializable_validations),
-        );
+        context
+            .ws_controller
+            .broadcast_json(&CkWsMessage::PartialValidationResult(
+                partial_serializable_validations,
+            ));
 
         // Persist the validation results for later access/use.
         let persistable = into_persistable(partial_validation_results);
@@ -155,7 +159,8 @@ pub async fn create_one<R: CrudResource>(
 
     // Inform all participants that the entity was updated.
     // TODO: Exclude the current user!
-    context.ws_controller
+    context
+        .ws_controller
         .broadcast_json(&CkWsMessage::EntityCreated(EntityCreated {
             aggregate_name: R::TYPE.into().to_owned(),
             entity_id: serializable_id,

@@ -43,7 +43,7 @@ impl std::fmt::Debug for CloseCallback {
 pub enum ToastAutomaticallyClosing {
     No,
     WithDefaultDelay,
-    WithDelay { millis: u32 }
+    WithDelay { millis: u32 },
 }
 
 /// Create a new toast with the `Default`implementation, then overwrite desired fields.

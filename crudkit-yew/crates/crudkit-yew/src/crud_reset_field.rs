@@ -1,7 +1,6 @@
 use yew::prelude::*;
 
-pub enum Msg {
-}
+pub enum Msg {}
 
 #[derive(Properties, PartialEq)]
 pub struct Props {

@@ -102,7 +102,10 @@ pub enum CrudAction<T: CrudMainTrait> {
         name: String,
         icon: Option<Bi>,
         variant: Variant,
-        action: Callback<(Option<T::ActionPayload>, Callback<Result<CrudActionAftermath, CrudActionAftermath>>)>,
+        action: Callback<(
+            Option<T::ActionPayload>,
+            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
+        )>,
         modal: Option<Box<Arc<dyn Fn(ModalGeneration<T>) -> Html>>>,
     },
 }

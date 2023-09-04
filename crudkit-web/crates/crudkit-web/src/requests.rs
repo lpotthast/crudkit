@@ -1,4 +1,7 @@
-use std::{fmt::{Debug, Display}, convert::Infallible};
+use std::{
+    convert::Infallible,
+    fmt::{Debug, Display},
+};
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error as ThisError;

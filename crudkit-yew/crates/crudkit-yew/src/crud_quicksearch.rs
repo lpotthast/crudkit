@@ -109,7 +109,7 @@ impl Component for CrudQuickSearch {
                     event.stop_propagation();
                     false
                 }
-                _ => false
+                _ => false,
             },
             Msg::FilterKeyUp(event) => match event.key().as_str() {
                 "ArrowUp" => {
@@ -204,8 +204,8 @@ impl Component for CrudQuickSearch {
                     }
                     false
                 }
-                _ => false
-            }
+                _ => false,
+            },
             Msg::Select(option) => {
                 ctx.props().onselect.emit(option);
                 ctx.link().send_message(Msg::SetFilter("".to_owned()));

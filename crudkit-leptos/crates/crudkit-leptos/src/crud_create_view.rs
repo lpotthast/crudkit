@@ -34,7 +34,9 @@ pub enum Then {
 }
 
 // TODO: Make this a signal? How would we act upon changes?
-fn default_create_model<T: CrudMainTrait + 'static>(ctx: &CrudInstanceContext<T>) -> T::CreateModel {
+fn default_create_model<T: CrudMainTrait + 'static>(
+    ctx: &CrudInstanceContext<T>,
+) -> T::CreateModel {
     let mut entity: T::CreateModel = Default::default();
     if let Some(parent) = ctx.parent.get_value() {
         if let Some(parent_id) = ctx.parent_id.get_untracked() {

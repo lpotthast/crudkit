@@ -6,8 +6,8 @@ use crudkit_shared::Order;
 use indexmap::IndexMap;
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};
-use tracing::error;
 use std::sync::Arc;
+use tracing::error;
 use utoipa::ToSchema;
 
 #[derive(Debug, ToSchema, Deserialize)]

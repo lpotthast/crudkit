@@ -138,8 +138,10 @@ impl CrudOffsetDatetimeDateSelector {
         let start = dt.replace_day(1).unwrap();
         match start.month() {
             time::Month::January => start
-                    .replace_year(start.year() - 1).unwrap()
-                    .replace_month(time::Month::December).unwrap(),
+                .replace_year(start.year() - 1)
+                .unwrap()
+                .replace_month(time::Month::December)
+                .unwrap(),
             _ => start.replace_month(start.month().previous()).unwrap(),
         }
     }
@@ -149,8 +151,10 @@ impl CrudOffsetDatetimeDateSelector {
         let start = dt.replace_day(1).unwrap();
         match start.month() {
             time::Month::December => start
-                    .replace_year(start.year() + 1).unwrap()
-                    .replace_month(time::Month::January).unwrap(),
+                .replace_year(start.year() + 1)
+                .unwrap()
+                .replace_month(time::Month::January)
+                .unwrap(),
             _ => start.replace_month(start.month().next()).unwrap(),
         }
     }
@@ -168,7 +172,12 @@ impl CrudOffsetDatetimeDateSelector {
         let current_day = now.day();
         let this_day = value.day();
 
-        let first_weekday_index = value.clone().replace_day(1).unwrap().weekday().number_days_from_monday(); // in range [0..6]
+        let first_weekday_index = value
+            .clone()
+            .replace_day(1)
+            .unwrap()
+            .weekday()
+            .number_days_from_monday(); // in range [0..6]
         let number_of_days_in_month = Self::whole_days_in(value.year(), value.month());
         let index_of_last_day_in_month = first_weekday_index + number_of_days_in_month;
 

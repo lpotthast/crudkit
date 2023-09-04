@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, rc::Rc, collections::HashMap};
+use std::{collections::HashMap, marker::PhantomData, rc::Rc};
 
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
@@ -8,8 +8,9 @@ use leptos::*;
 // TODO: Add prelude entry for CrudActionTrait
 use crate::{
     crud_action::CrudActionTrait,
+    crud_instance_config::DynSelectConfig,
     crud_list_view::CrudListViewContext,
-    prelude::{CrudTableBody, CrudTableFooter, CrudTableHeader}, crud_instance_config::DynSelectConfig,
+    prelude::{CrudTableBody, CrudTableFooter, CrudTableHeader},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,7 +29,9 @@ pub fn CrudTable<T>(
     #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
     #[prop(into)] data: Signal<Result<Rc<Vec<T::ReadModel>>, NoDataAvailable>>,
     #[prop(into)] custom_fields: Signal<CustomFields<T::ReadModel, leptos::View>>,
-    #[prop(into)] field_config: Signal<HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>>,
+    #[prop(into)] field_config: Signal<
+        HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>,
+    >,
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
