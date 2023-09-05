@@ -6,13 +6,12 @@ use crudkit_web::{
 use leptonic::prelude::*;
 use leptos::*;
 
-use crate::{crud_field_leptos::CrudField, crud_instance_config::DynSelectConfig, ReactiveValue};
+use crate::{crud_field::CrudField, crud_instance_config::DynSelectConfig, ReactiveValue};
 
 // TODO: Propagate tab selection...
 
 #[component]
 pub fn CrudFields<T>(
-    cx: Scope,
     // children: ChildrenRenderer<Item>,
     custom_fields: Signal<CustomFields<T, leptos::View>>,
     field_config: Signal<HashMap<T::Field, DynSelectConfig>>,
@@ -37,7 +36,7 @@ where
                 match elem {
                     Elem::Enclosing(enclosing) => {
                         match enclosing {
-                            Enclosing::None(group) => view! {cx,
+                            Enclosing::None(group) => view! {
                                 <CrudFields
                                     custom_fields=custom_fields
                                     field_config=field_config
@@ -51,8 +50,8 @@ where
                                     on_tab_selection=on_tab_selection
                                     entity=entity
                                 />
-                            }.into_view(cx),
-                            Enclosing::Tabs(tabs) => view! {cx,
+                            }.into_view(),
+                            Enclosing::Tabs(tabs) => view! {
                                 <Tabs
                                     //active_tab={ctx.props().active_tab.clone()}
                                     //on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
@@ -60,11 +59,11 @@ where
                                     { tabs.into_iter().map(|tab| {
                                         let id = tab.id.clone();
                                         let signals = signals.clone();
-                                        view! {cx,
+                                        view! {
                                             <Tab
                                                 name=tab.id
-                                                label=tab.label.name.clone().into_view(cx)
-                                                on_show=create_callback(cx, move |()| { on_tab_selection.call(id.clone()) })
+                                                label=tab.label.name.clone().into_view()
+                                                on_show=create_callback( move |()| { on_tab_selection.call(id.clone()) })
                                             >
                                                 <CrudFields
                                                     custom_fields=custom_fields
@@ -81,10 +80,10 @@ where
                                                 />
                                             </Tab>
                                         }
-                                    }).collect_view(cx) }
+                                    }).collect_view() }
                                 </Tabs>
-                            }.into_view(cx),
-                            Enclosing::Card(group) => view! {cx,
+                            }.into_view(),
+                            Enclosing::Card(group) => view! {
                                 <div class={"crud-card"}> // TODO: Use leptonic card
                                     <CrudFields
                                         custom_fields=custom_fields
@@ -100,11 +99,11 @@ where
                                         entity=entity
                                     />
                                 </div>
-                            }.into_view(cx),
+                            }.into_view(),
                         }
                     }
                     Elem::Field((field, field_options)) => {
-                        view!{cx,
+                        view!{
                             <CrudField
                                 custom_fields=custom_fields
                                 field_config=field_config
@@ -117,14 +116,14 @@ where
                                 value_changed=value_changed
                                 entity=entity
                             />
-                        }.into_view(cx)
+                        }.into_view()
                     },
-                    Elem::Separator => view! {cx,
+                    Elem::Separator => view! {
                         <Separator />
                     }
-                    .into_view(cx),
+                    .into_view(),
                 }
             })
-            .collect_view(cx)
+            .collect_view()
     }
 }

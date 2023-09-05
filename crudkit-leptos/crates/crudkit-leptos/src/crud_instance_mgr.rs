@@ -53,15 +53,11 @@ impl CrudInstanceMgrContext {
 
 /// Manages instances in a dynamic way. Must be rendered before any instance is rendered!
 #[component]
-pub fn CrudInstanceMgr(cx: Scope, children: Children) -> impl IntoView {
-    let (instances, set_instances) = create_signal(cx, InstanceStates::default());
-    provide_context(
-        cx,
-        CrudInstanceMgrContext {
-            instances,
-            set_instances,
-        },
-    );
-
-    children(cx)
+pub fn CrudInstanceMgr(children: Children) -> impl IntoView {
+    let (instances, set_instances) = create_signal(InstanceStates::default());
+    provide_context(CrudInstanceMgrContext {
+        instances,
+        set_instances,
+    });
+    children()
 }

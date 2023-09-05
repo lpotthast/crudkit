@@ -8,7 +8,7 @@ pub mod crud_create_view;
 pub mod crud_delete_modal;
 pub mod crud_edit_view;
 pub mod crud_field_label;
-pub mod crud_field_leptos;
+pub mod crud_field;
 pub mod crud_fields;
 pub mod crud_instance;
 pub mod crud_instance_config;
@@ -73,7 +73,7 @@ pub mod prelude {
     pub use super::crud_edit_view::CrudEditView;
     pub use super::crud_field_label::CrudFieldLabel;
     pub use super::crud_field_label::CrudFieldLabelOpt;
-    pub use super::crud_field_leptos::CrudField;
+    pub use super::crud_field::CrudField;
     pub use super::crud_fields::CrudFields;
     pub use super::crud_instance::CrudInstance;
     pub use super::crud_instance_config::CreateElements;
@@ -125,53 +125,49 @@ pub enum ReactiveValue {
 }
 
 pub trait IntoReactiveValue {
-    fn into_reactive_value(self, cx: Scope) -> ReactiveValue;
+    fn into_reactive_value(self) -> ReactiveValue;
 }
 
 impl IntoReactiveValue for Value {
-    fn into_reactive_value(self, cx: Scope) -> ReactiveValue {
+    fn into_reactive_value(self) -> ReactiveValue {
         match self {
-            Value::String(value) => ReactiveValue::String(create_rw_signal(cx, value)),
-            Value::Text(value) => ReactiveValue::Text(create_rw_signal(cx, value)),
-            Value::Json(value) => ReactiveValue::Json(create_rw_signal(cx, value)),
-            Value::OptionalJson(value) => ReactiveValue::OptionalJson(create_rw_signal(cx, value)),
-            Value::UuidV4(value) => ReactiveValue::UuidV4(create_rw_signal(cx, value)),
-            Value::UuidV7(value) => ReactiveValue::UuidV7(create_rw_signal(cx, value)),
-            Value::U32(value) => ReactiveValue::U32(create_rw_signal(cx, value)),
-            Value::OptionalU32(value) => ReactiveValue::OptionalU32(create_rw_signal(cx, value)),
-            Value::I32(value) => ReactiveValue::I32(create_rw_signal(cx, value)),
-            Value::OptionalI32(value) => ReactiveValue::OptionalI32(create_rw_signal(cx, value)),
-            Value::I64(value) => ReactiveValue::I64(create_rw_signal(cx, value)),
-            Value::OptionalI64(value) => ReactiveValue::OptionalI64(create_rw_signal(cx, value)),
-            Value::F32(value) => ReactiveValue::F32(create_rw_signal(cx, value)),
-            Value::Bool(value) => ReactiveValue::Bool(create_rw_signal(cx, value)),
+            Value::String(value) => ReactiveValue::String(create_rw_signal(value)),
+            Value::Text(value) => ReactiveValue::Text(create_rw_signal(value)),
+            Value::Json(value) => ReactiveValue::Json(create_rw_signal(value)),
+            Value::OptionalJson(value) => ReactiveValue::OptionalJson(create_rw_signal(value)),
+            Value::UuidV4(value) => ReactiveValue::UuidV4(create_rw_signal(value)),
+            Value::UuidV7(value) => ReactiveValue::UuidV7(create_rw_signal(value)),
+            Value::U32(value) => ReactiveValue::U32(create_rw_signal(value)),
+            Value::OptionalU32(value) => ReactiveValue::OptionalU32(create_rw_signal(value)),
+            Value::I32(value) => ReactiveValue::I32(create_rw_signal(value)),
+            Value::OptionalI32(value) => ReactiveValue::OptionalI32(create_rw_signal(value)),
+            Value::I64(value) => ReactiveValue::I64(create_rw_signal(value)),
+            Value::OptionalI64(value) => ReactiveValue::OptionalI64(create_rw_signal(value)),
+            Value::F32(value) => ReactiveValue::F32(create_rw_signal(value)),
+            Value::Bool(value) => ReactiveValue::Bool(create_rw_signal(value)),
             Value::ValidationStatus(value) => {
-                ReactiveValue::ValidationStatus(create_rw_signal(cx, value))
+                ReactiveValue::ValidationStatus(create_rw_signal(value))
             }
             Value::PrimitiveDateTime(value) => {
-                ReactiveValue::PrimitiveDateTime(create_rw_signal(cx, value))
+                ReactiveValue::PrimitiveDateTime(create_rw_signal(value))
             }
-            Value::OffsetDateTime(value) => {
-                ReactiveValue::OffsetDateTime(create_rw_signal(cx, value))
-            }
+            Value::OffsetDateTime(value) => ReactiveValue::OffsetDateTime(create_rw_signal(value)),
             Value::OptionalPrimitiveDateTime(value) => {
-                ReactiveValue::OptionalPrimitiveDateTime(create_rw_signal(cx, value))
+                ReactiveValue::OptionalPrimitiveDateTime(create_rw_signal(value))
             }
             Value::OptionalOffsetDateTime(value) => {
-                ReactiveValue::OptionalOffsetDateTime(create_rw_signal(cx, value))
+                ReactiveValue::OptionalOffsetDateTime(create_rw_signal(value))
             }
             Value::OneToOneRelation(value) => {
-                ReactiveValue::OneToOneRelation(create_rw_signal(cx, value))
+                ReactiveValue::OneToOneRelation(create_rw_signal(value))
             }
-            Value::Reference(value) => ReactiveValue::Reference(create_rw_signal(cx, value)),
-            Value::Custom(value) => ReactiveValue::Custom(create_rw_signal(cx, value)),
-            Value::Select(value) => ReactiveValue::Select(create_rw_signal(cx, value)),
-            Value::Multiselect(value) => ReactiveValue::Multiselect(create_rw_signal(cx, value)),
-            Value::OptionalSelect(value) => {
-                ReactiveValue::OptionalSelect(create_rw_signal(cx, value))
-            }
+            Value::Reference(value) => ReactiveValue::Reference(create_rw_signal(value)),
+            Value::Custom(value) => ReactiveValue::Custom(create_rw_signal(value)),
+            Value::Select(value) => ReactiveValue::Select(create_rw_signal(value)),
+            Value::Multiselect(value) => ReactiveValue::Multiselect(create_rw_signal(value)),
+            Value::OptionalSelect(value) => ReactiveValue::OptionalSelect(create_rw_signal(value)),
             Value::OptionalMultiselect(value) => {
-                ReactiveValue::OptionalMultiselect(create_rw_signal(cx, value))
+                ReactiveValue::OptionalMultiselect(create_rw_signal(value))
             }
         }
     }

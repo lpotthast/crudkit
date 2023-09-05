@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crudkit_condition::{Condition, ConditionClause, ConditionElement};
 use tracing::warn;
-use yew::{html::Scope, prelude::*};
+use yew::{html:: prelude::*};
 use yewdux::prelude::Dispatch;
 
 use crate::{crud_instance::CreateOrUpdateField, crud_select::Selection, prelude::*, stores};
@@ -34,7 +34,7 @@ pub struct CrudRelatedField<P: 'static + CrudMainTrait, T: 'static + CrudMainTra
     _parent_instance_links_dispatch: Dispatch<stores::instance_links::InstanceLinksStore<P>>,
     _instance_views_dispatch: Dispatch<stores::instance_views::InstanceViewsStore>,
 
-    parent: Option<Scope<CrudInstance<P>>>,
+    parent: Option<<CrudInstance<P>>>,
     current_field_value: Option<Value>,
     data: Option<Result<Vec<T::ReadModel>, RequestError>>,
     selected: Selection<T::ReadModel>,

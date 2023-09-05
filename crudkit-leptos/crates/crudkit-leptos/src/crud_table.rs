@@ -22,7 +22,6 @@ pub enum NoDataAvailable {
 
 #[component]
 pub fn CrudTable<T>(
-    cx: Scope,
     _phantom: PhantomData<T>,
     #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
@@ -40,9 +39,9 @@ pub fn CrudTable<T>(
 where
     T: CrudMainTrait + 'static,
 {
-    let list_ctx: CrudListViewContext<T> = expect_context::<CrudListViewContext<T>>(cx);
+    let list_ctx = expect_context::<CrudListViewContext<T>>();
 
-    let with_actions = Signal::derive(cx, move || {
+    let with_actions = Signal::derive(move || {
         !additional_item_actions.get().is_empty()
             || read_allowed.get()
             || edit_allowed.get()
@@ -50,7 +49,7 @@ where
     });
 
     // TODO: Extract to leptonic
-    view! {cx,
+    view! {
         <div class="crud-table-wrapper">
             <table class="crud-table crud-table-bordered crud-table-hoverable">
                 <CrudTableHeader
@@ -72,7 +71,7 @@ where
                     read_allowed=read_allowed
                     edit_allowed=edit_allowed
                     delete_allowed=delete_allowed
-                    additional_item_actions=Signal::derive(cx, move || vec![])
+                    additional_item_actions=Signal::derive( move || vec![])
                 />
 
                 <CrudTableFooter />

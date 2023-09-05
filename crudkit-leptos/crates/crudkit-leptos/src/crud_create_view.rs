@@ -63,7 +63,6 @@ fn default_create_model<T: CrudMainTrait + 'static>(
 /// This component decides on its own, depending on the instance configuration, which fields to display.
 #[component]
 pub fn CrudCreateView<T>(
-    cx: Scope,
     _phantom: PhantomData<T>,
     #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
@@ -88,16 +87,16 @@ pub fn CrudCreateView<T>(
 where
     T: CrudMainTrait + 'static,
 {
-    let instance_ctx = expect_context::<CrudInstanceContext<T>>(cx);
+    let instance_ctx = expect_context::<CrudInstanceContext<T>>();
 
     let default_create_model: T::CreateModel = default_create_model::<T>(&instance_ctx);
 
     let signals: StoredValue<HashMap<<T::CreateModel as CrudDataTrait>::Field, ReactiveValue>> =
-        store_value(cx, {
+        store_value({
             let mut map = HashMap::new();
             for field in T::CreateModel::get_all_fields() {
                 let initial = field.get_value(&default_create_model);
-                map.insert(field, initial.into_reactive_value(cx));
+                map.insert(field, initial.into_reactive_value());
             }
             map
         });
@@ -105,55 +104,50 @@ where
     // The CreateModel enforces a `Default` value! We cannot deserialize a loaded model, so we have to create one from scratch with which the UI can be initialized.
     // We therefore do not have to deal with None states in the create case, compared to the edit view.
     // All modifications made through the UI are stored in this signal.
-    let (input, set_input) = create_signal::<T::CreateModel>(cx, default_create_model.clone());
+    let (input, set_input) = create_signal::<T::CreateModel>(default_create_model.clone());
 
-    let input_changed = Signal::derive(cx, move || input.get() != default_create_model);
+    let input_changed = Signal::derive(move || input.get() != default_create_model);
 
     // The state of the `input` signal should be considered to be erroneous if at least one field is contained in this error list.
-    let (input_errors, set_input_errors) = create_signal(
-        cx,
-        HashMap::<<T::CreateModel as CrudDataTrait>::Field, String>::new(),
-    );
+    let (input_errors, set_input_errors) =
+        create_signal(HashMap::<<T::CreateModel as CrudDataTrait>::Field, String>::new());
 
-    let (user_wants_to_leave, set_user_wants_to_leave) = create_signal(cx, false);
-    let (show_leave_modal, set_show_leave_modal) = create_signal(cx, false);
+    let (user_wants_to_leave, set_user_wants_to_leave) = create_signal(false);
+    let (show_leave_modal, set_show_leave_modal) = create_signal(false);
 
     let force_leave = move || instance_ctx.list();
     let request_leave = move || set_user_wants_to_leave.set(true);
 
-    create_effect(cx, move |_prev| {
-        match (user_wants_to_leave.get(), input_changed.get()) {
+    create_effect(
+        move |_prev| match (user_wants_to_leave.get(), input_changed.get()) {
             (true, true) => set_show_leave_modal.set(true),
             (true, false) => force_leave(),
             (false, _) => {}
-        }
-    });
-
-    let save_action = create_action(
-        cx,
-        move |(create_model, and_then): &(T::CreateModel, Then)| {
-            let create_model: <T as CrudMainTrait>::CreateModel = create_model.clone();
-            let and_then = and_then.clone();
-            async move {
-                (
-                    data_provider
-                        .get() // TODO: This does not track!!
-                        .create_one_from_create_model(CreateOne {
-                            entity: create_model,
-                        })
-                        .await,
-                    and_then,
-                )
-            }
         },
     );
 
-    let save_disabled = Signal::derive(cx, move || {
+    let save_action = create_action(move |(create_model, and_then): &(T::CreateModel, Then)| {
+        let create_model: <T as CrudMainTrait>::CreateModel = create_model.clone();
+        let and_then = and_then.clone();
+        async move {
+            (
+                data_provider
+                    .get() // TODO: This does not track!!
+                    .create_one_from_create_model(CreateOne {
+                        entity: create_model,
+                    })
+                    .await,
+                and_then,
+            )
+        }
+    });
+
+    let save_disabled = Signal::derive(move || {
         save_action.pending().get() // Note (lukas): We deliberately ignore the input_changed state here, as the default input should always be saveable!
     });
 
     let save_action_value = save_action.value();
-    create_effect(cx, move |_prev| {
+    create_effect(move |_prev| {
         if let Some((result, and_then)) = save_action_value.get() {
             match result {
                 Ok(save_result) => match save_result {
@@ -195,7 +189,7 @@ where
     let value_changed = Callback::<(
         <T::CreateModel as CrudDataTrait>::Field,
         Result<Value, String>,
-    )>::new(cx, move |(field, result)| {
+    )>::new(move |(field, result)| {
         tracing::info!(?field, ?result, "value changed");
         match result {
             Ok(value) => {
@@ -215,19 +209,19 @@ where
         }
     });
 
-    view! {cx,
+    view! {
         <Grid spacing=Size::Em(0.6) class="crud-nav">
             <Row>
                 <Col xs=6>
                     <ButtonWrapper>
-                        <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save() variations=view!{cx,
+                        <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save() variations=view!{
                             <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save_and_return()>
                                 "Speichern und zurück"
                             </Button>
                             <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save_and_new()>
                                 "Speichern und neu"
                             </Button>
-                        }.into_view(cx)>
+                        }.into_view()>
                             "Speichern"
                         </Button>
                     </ButtonWrapper>
@@ -244,8 +238,8 @@ where
         </Grid>
 
         { move || match create_elements.get() {
-            CreateElements::None => view! {cx, "Keine Felder definiert." }.into_view(cx),
-            CreateElements::Custom(create_elements) => view! {cx,
+            CreateElements::None => view! { "Keine Felder definiert." }.into_view(),
+            CreateElements::Custom(create_elements) => view! {
                 <CrudFields
                     custom_fields=custom_fields
                     field_config=field_config
@@ -259,16 +253,16 @@ where
                     on_tab_selection=on_tab_selected
                     entity=input.into()
                 />
-            }.into_view(cx),
+            }.into_view(),
         } }
 
         <CrudLeaveModal
             show_when=show_leave_modal
-            on_cancel=create_callback(cx, move |()| {
+            on_cancel=create_callback( move |()| {
                 set_show_leave_modal.set(false);
                 set_user_wants_to_leave.set(false);
             })
-            on_accept=create_callback(cx, move |()| {
+            on_accept=create_callback( move |()| {
                 set_show_leave_modal.set(false);
                 force_leave();
             })

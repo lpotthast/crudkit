@@ -5,22 +5,20 @@ use leptos::*;
 
 #[component]
 pub fn CrudPagination(
-    cx: Scope,
     #[prop(into)] item_count: MaybeSignal<u64>,
     #[prop(into)] current_page: Signal<u64>,
     set_current_page: Callback<u64>,
     #[prop(into, default = 5.into())] items_per_page: MaybeSignal<u64>,
     set_items_per_page: Callback<u64>,
 ) -> impl IntoView {
-    let page_count = Signal::derive(cx, move || {
+    let page_count = Signal::derive(move || {
         (item_count.get() as f64 / items_per_page.get() as f64).ceil() as u64
     });
 
-    let page_options = Signal::derive(cx, move || {
-        create_page_options(page_count.get(), current_page.get())
-    });
+    let page_options =
+        Signal::derive(move || create_page_options(page_count.get(), current_page.get()));
 
-    let items_per_page_options = Signal::derive(cx, move || {
+    let items_per_page_options = Signal::derive(move || {
         let items_per_page = items_per_page.get();
 
         let mut default_options = vec![
@@ -43,7 +41,7 @@ pub fn CrudPagination(
         default_options
     });
 
-    let set_items_per_page = create_callback(cx, move |option: ItemsPerPage| {
+    let set_items_per_page = create_callback(move |option: ItemsPerPage| {
         set_items_per_page.call(option.items_per_page);
 
         // We may have to update the current page as well if it would not show any element anymore!
@@ -53,8 +51,8 @@ pub fn CrudPagination(
         }
     });
 
-    view! {cx,
-        <Show when=move || { item_count.get() > 0 } fallback=|_| ()>
+    view! {
+        <Show when=move || { item_count.get() > 0 } fallback=|| ()>
             <Grid spacing=Size::Em(0.6) class="crud-pagination">
                 <Row>
                     <Col xs=6 h_align=ColAlign::Start>
@@ -64,9 +62,9 @@ pub fn CrudPagination(
                             </div>
                             <Select
                                 options=items_per_page_options
-                                search_text_provider=create_callback(cx, move |o: ItemsPerPage| o.to_string())
-                                render_option=create_callback(cx, move |(cx, option)| format!("{option}").into_view(cx))
-                                selected=Signal::derive(cx, move || ItemsPerPage::some(items_per_page.get()))
+                                search_text_provider=create_callback( move |o: ItemsPerPage| o.to_string())
+                                render_option=create_callback( move |o: ItemsPerPage| o.to_string())
+                                selected=Signal::derive( move || ItemsPerPage::some(items_per_page.get()))
                                 set_selected=set_items_per_page
                             />
                         </div>
@@ -78,7 +76,7 @@ pub fn CrudPagination(
                                 move || {
                                     let page_options = page_options.get();
                                     page_options.options.into_iter().map(|page_number| {
-                                        view! {cx,
+                                        view! {
                                             <Button
                                                 variant=ButtonVariant::Filled
                                                 color=ButtonColor::Secondary
@@ -94,7 +92,7 @@ pub fn CrudPagination(
                                                 } }
                                             </Button>
                                         }
-                                    }).collect_view(cx)
+                                    }).collect_view()
                                 }
                             }
                         </ButtonGroup>

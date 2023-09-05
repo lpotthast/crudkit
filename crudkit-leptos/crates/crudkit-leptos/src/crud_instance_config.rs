@@ -6,7 +6,7 @@ use crudkit_web::prelude::*;
 use dyn_clone::DynClone;
 use indexmap::{indexmap, IndexMap};
 use leptonic::prelude::*;
-use leptos::{Scope, View, *};
+use leptos::{View, *};
 use serde::{Deserialize, Serialize};
 
 use crate::crud_action::{CrudAction, CrudEntityAction};
@@ -44,13 +44,13 @@ pub struct CrudParentConfig {
 pub trait SelectConfigTrait: Debug + DynClone {
     fn render_select(
         &self,
-        cx: Scope,
+
         selected: leptos::Signal<Box<dyn CrudSelectableTrait>>,
         set_selected: SimpleCallback<Box<dyn CrudSelectableTrait>>,
     ) -> View;
     fn render_optional_select(
         &self,
-        cx: Scope,
+
         selected: leptos::Signal<Option<Box<dyn CrudSelectableTrait>>>,
         set_selected: SimpleCallback<Option<Box<dyn CrudSelectableTrait>>>,
     ) -> View;
@@ -76,14 +76,13 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static>
 {
     pub fn provide(
         &self,
-        cx: Scope,
     ) -> MaybeSignal<Option<Result<Vec<O>, Rc<dyn std::error::Error + Send + Sync + 'static>>>>
     {
         match self {
             SelectOptionsProvider::Static { options } => Some(Ok(options.clone())).into(),
             SelectOptionsProvider::Dynamic { provider } => {
                 let provider = provider.clone();
-                let load_action = create_action(cx, move |()| {
+                let load_action = create_action(move |()| {
                     let provider = provider.clone();
                     async move { provider.load().await }
                 });
@@ -98,7 +97,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static>
 #[derive(Clone)]
 pub struct SelectConfig<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> {
     pub options_provider: SelectOptionsProvider<O>,
-    pub renderer: Callback<(Scope, O), View>,
+    pub renderer: Callback<O, View>,
 }
 
 impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> Debug
@@ -117,78 +116,77 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
 {
     fn render_select(
         &self,
-        cx: Scope,
+
         selected: Signal<Box<dyn CrudSelectableTrait>>,
         set_selected: SimpleCallback<Box<dyn CrudSelectableTrait>>,
     ) -> View {
-        let options = self.options_provider.provide(cx);
-        let selected = Signal::derive(cx, move || {
-            selected.get().as_any().downcast_ref::<O>().unwrap().clone()
-        });
-        let set_selected = create_callback(cx, move |o: O| set_selected.call(Box::new(o)));
+        let options = self.options_provider.provide();
+        let selected =
+            Signal::derive(move || selected.get().as_any().downcast_ref::<O>().unwrap().clone());
+        let set_selected = create_callback(move |o: O| set_selected.call(Box::new(o)));
         let renderer = self.renderer;
-        view! {cx,
+        view! {
             {move || {
                 let option = options.get();
                 match option {
                     Some(result) => match result {
-                        Ok(options) => view! {cx,
+                        Ok(options) => view! {
                             <Select
                                 options=options
                                 selected=selected
                                 set_selected=set_selected
-                                search_text_provider=create_callback(cx, move |o: O| o.to_string())
+                                search_text_provider=create_callback( move |o: O| o.to_string())
                                 render_option=renderer
                             />
-                        }.into_view(cx),
-                        Err(err) => format!("Could not load options... Err: {err:?}").into_view(cx),
+                        }.into_view(),
+                        Err(err) => format!("Could not load options... Err: {err:?}").into_view(),
                     },
-                    None => "Loading...".into_view(cx),
+                    None => "Loading...".into_view(),
                 }
             }}
         }
-        .into_view(cx)
+        .into_view()
     }
 
     fn render_optional_select(
         &self,
-        cx: Scope,
+
         selected: Signal<Option<Box<dyn CrudSelectableTrait>>>,
         set_selected: SimpleCallback<Option<Box<dyn CrudSelectableTrait>>>,
     ) -> View {
-        let options = self.options_provider.provide(cx);
-        let selected = Signal::derive(cx, move || {
+        let options = self.options_provider.provide();
+        let selected = Signal::derive(move || {
             selected
                 .get()
                 .map(|it| it.as_any().downcast_ref::<O>().unwrap().clone())
         });
-        let set_selected = create_callback(cx, move |o: Option<O>| match o {
+        let set_selected = create_callback(move |o: Option<O>| match o {
             Some(o) => set_selected.call(Some(Box::new(o))),
             None => set_selected.call(None),
         });
         let renderer = self.renderer;
-        view! {cx,
+        view! {
             {move || {
                 let option = options.get();
                 match option {
                     Some(result) => match result {
-                        Ok(options) => view! {cx,
+                        Ok(options) => view! {
                             <OptionalSelect
                                 options=options
                                 selected=selected
                                 set_selected=set_selected
-                                search_text_provider=create_callback(cx, move |o: O| o.to_string())
+                                search_text_provider=create_callback( move |o: O| o.to_string())
                                 render_option=renderer
                                 allow_deselect=true
                             />
-                        }.into_view(cx),
-                        Err(err) => format!("Could not load options... Err: {err:?}").into_view(cx),
+                        }.into_view(),
+                        Err(err) => format!("Could not load options... Err: {err:?}").into_view(),
                     },
-                    None => "Loading...".into_view(cx),
+                    None => "Loading...".into_view(),
                 }
             }}
         }
-        .into_view(cx)
+        .into_view()
     }
 }
 

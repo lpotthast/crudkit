@@ -1,937 +1,912 @@
-use std::marker::PhantomData;
+use std::{borrow::Cow, collections::HashMap, error::Error};
 
-use crate::{prelude::*, crud_instance::Item};
-use crudkit_web::{keyboard_event_target_as, event_target_as, DateTimeDisplay};
-use time::{format_description::well_known::Rfc3339, macros::format_description, UtcOffset};
-use tracing::error;
+use crudkit_web::{prelude::*, DateTimeDisplay, JsonValue};
+use leptonic::prelude::*;
+use leptos::*;
+use leptos_icons::BsIcon;
+use time::{
+    format_description::well_known::Rfc3339, macros::format_description, PrimitiveDateTime,
+};
 use uuid::Uuid;
-use yew::{html::ChildrenRenderer, prelude::*};
-use yew_bootstrap_icons::v1_10_3::Bi;
 
-// TODO: Extract fields to separate components
+use crate::{
+    crud_field_label::CrudFieldLabelOpt,
+    crud_instance_config::{DynSelectConfig, SelectConfigTrait},
+    ReactiveValue,
+};
 
-pub enum Msg {
-    Send(Value),
-    // TODO: Add SendErr variant...?
-    LogInputRetrievalErr(Box<dyn std::error::Error>),
-}
-
-#[derive(Properties, PartialEq)]
-pub struct Props<T: CrudDataTrait> {
-    pub children: ChildrenRenderer<Item>,
-    pub custom_fields: CustomFields<T, yew::Html>,
-    pub api_base_url: String,
-    pub current_view: CrudSimpleView,
-    pub field_type: T::Field,
-    pub field_options: FieldOptions,
-    pub field_mode: FieldMode,
-    // TODO: Must not OWN the complete entity!
-    pub entity: Option<T>,
-    pub value_changed: Callback<(T::Field, Result<Value, String>)>, // how can we handle all possible types? serialization?
-}
-
-pub struct CrudField<T> {
-    phantom_data: PhantomData<T>,
-    entity: Option<T>,
-    id: Uuid,
-}
-
-impl<T: CrudDataTrait> CrudField<T> {
-    fn format_id(&self) -> String {
-        format!("f{}", self.id.to_string())
-    }
-}
-
-impl<T: 'static + CrudDataTrait> Component for CrudField<T> {
-    type Message = Msg;
-    type Properties = Props<T>;
-
-    fn create(ctx: &Context<Self>) -> Self {
-        Self {
-            phantom_data: PhantomData {},
-            entity: ctx.props().entity.clone(),
-            id: Uuid::new_v4(),
+#[component]
+pub fn CrudField<T>(
+    //children: Children,
+    custom_fields: Signal<CustomFields<T, leptos::View>>,
+    field_config: Signal<HashMap<T::Field, DynSelectConfig>>,
+    api_base_url: Signal<String>,
+    current_view: CrudSimpleView,
+    field: T::Field,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    value: ReactiveValue,
+    value_changed: Callback<(T::Field, Result<Value, String>)>, // how can we handle all possible types? serialization? TODO: Only take Value, not Result?; TODO: Use WriteSignal from ReactiveValue?
+    entity: Signal<T>,
+) -> impl IntoView
+where
+    T: CrudDataTrait + 'static,
+{
+    #[inline(never)]
+    fn render_field(
+        value: ReactiveValue,
+        id: String,
+        field_options: FieldOptions,
+        field_mode: FieldMode,
+        field_config: Option<Box<dyn SelectConfigTrait>>,
+        value_changed: SimpleCallback<Result<Value, Box<dyn Error>>>,
+        custom_field_renderer: Box<dyn Fn() -> View>,
+    ) -> impl IntoView {
+        match value {
+            ReactiveValue::String(value) => {
+                view! { <CrudStringField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::Text(value) => {
+                view! { <CrudTextField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::Json(value) => {
+                view! { <CrudJsonField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::OptionalJson(value) => {
+                view! { <CrudOptionalJsonField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::UuidV4(value) => {
+                view! { <CrudUuidV4Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::UuidV7(value) => {
+                view! { <CrudUuidV7Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::U32(value) => {
+                view! { <CrudU32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::OptionalU32(value) => {
+                view! { <CrudOptionalU32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::I32(value) => {
+                view! { <CrudI32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::OptionalI32(value) => {
+                view! { <CrudOptionalI32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::I64(value) => {
+                view! { <CrudI64Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::OptionalI64(value) => {
+                view! { <CrudOptionalI64Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::F32(value) => {
+                view! { <CrudF32Field id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::Bool(value) => {
+                view! { <CrudBoolField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::ValidationStatus(value) => {
+                view! { <CrudValidationStatusField id=id.clone() field_options=field_options field_mode=field_mode value=value/>}.into_view()
+            },
+            ReactiveValue::PrimitiveDateTime(value) => {
+                view! { <CrudPrimitiveDateTimeField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::OffsetDateTime(_) => view! { "TODO: Render ReactiveValue::OffsetDateTime"}.into_view(),
+            ReactiveValue::OptionalPrimitiveDateTime(value) => {
+                view! { <CrudOptionalPrimitiveDateTimeField id=id.clone() field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::OptionalOffsetDateTime(_) => view! { "TODO: Render ReactiveValue::OptionalOffsetDateTime"}.into_view(),
+            ReactiveValue::OneToOneRelation(_) => view! { "TODO: Render ReactiveValue::OneToOneRelation"}.into_view(),
+            ReactiveValue::Reference(_) => view! { "TODO: Render ReactiveValue::NestedTable"}.into_view(),
+            ReactiveValue::Custom(_) => custom_field_renderer(),
+            ReactiveValue::Select(value) => {
+                view! { <CrudSelectField id=id.clone() field_config=field_config field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::Multiselect(_) => view! { "TODO: Render ReactiveValue::Multiselect"}.into_view(),
+            ReactiveValue::OptionalSelect(value) => {
+                view! { <CrudOptionalSelectField id=id.clone() field_config=field_config field_options=field_options field_mode=field_mode value=value value_changed=value_changed/>}.into_view()
+            },
+            ReactiveValue::OptionalMultiselect(_) => view! { "TODO: Render ReactiveValue::OptionalMultiselect"}.into_view(),
         }
     }
 
-    fn changed(&mut self, ctx: &Context<Self>, _old_props: &Self::Properties) -> bool {
-        self.entity = ctx.props().entity.clone();
-        true
-    }
+    move || {
+        let id: String = format!("f{}", Uuid::new_v4().to_string());
 
-    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
-        match msg {
-            Msg::Send(value) => {
-                ctx.props()
-                    .value_changed
-                    .emit((ctx.props().field_type.clone(), Ok(value)));
-                false
-            }
-            Msg::LogInputRetrievalErr(err) => {
-                error!("Could not get input value: {}", err);
-                false
-            }
-        }
-    }
+        let field_clone = field.clone();
+        let field_clone3 = field.clone();
 
-    fn view(&self, ctx: &Context<Self>) -> Html {
-        let options = &ctx.props().field_options;
-        match &self.entity {
-            Some(entity) => html! {
-                match ctx.props().field_type.get_value(entity) {
-                    // Value::Error => html! {
-                    //     "Field is in an error sate. This should not be shown!"
-                    // },
-                    Value::OneToOneRelation(_referenced_id) => match &ctx.props().field_mode {
-                        FieldMode::Display => html! {
-                            <div>{"FieldMode::Display wird von Feldern des Typs OneToOneRelation aktuell nicht unterstützt."}</div>
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                { ctx.props().children.iter().find(|child| {
-                                    match child {
-                                        Item::NestedInstance(_) => false,
-                                        Item::Relation(related_field) => related_field.props.name == ctx.props().field_type.get_name(),
-                                        Item::Select(_) => false,
-                                    }
-                                }).map_or(html! { "foo" }, |it| { let html: Html = it.into(); html }) }
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                { ctx.props().children.iter().find(|child| {
-                                    match child {
-                                        Item::NestedInstance(_) => false,
-                                        Item::Relation(related_field) => related_field.props.name == ctx.props().field_type.get_name(),
-                                        Item::Select(_) => false,
-                                    }
-                                }).map_or(html! { "foo" }, |it| { let html: Html = it.into(); html }) }
-                            </div>
-                        },
+        let value_changed: SimpleCallback<Result<Value, Box<dyn Error>>> =
+            create_simple_callback(move |result| match result {
+                Ok(new) => value_changed.call((field_clone.clone(), Ok(new))),
+                Err(err) => tracing::error!("Could not get input value: {}", err),
+            });
+
+        let field_config: Option<Box<dyn SelectConfigTrait>> =
+            field_config.with(|map| map.get(&field).cloned());
+
+        let field_options = field_options.clone();
+
+        render_field(
+            value,
+            id,
+            field_options.clone(),
+            field_mode,
+            field_config,
+            value_changed,
+            Box::new(move || {
+                let field_clone3 = field_clone3.clone();
+                let field_options = field_options.clone();
+                custom_fields.with(|fields| match fields.get(&field_clone3) {
+                    Some(custom_field) => {
+                        let custom_field = custom_field.clone();
+                        // Note (lukas): Not every custom child requires the entity data. The API and possibly performance would be nicer if `entity` was passed as a signal to the `render` function,
+                        // but as the function is declared in the framework-agnostic crudkit-web crate, that change is not trivial...
+                        (move || custom_field.render(&entity.get(), field_mode, field_options.clone())).into_view()
                     },
-                    Value::NestedTable(_referenced_id) => {
-                        match ctx.props().current_view {
-                            CrudSimpleView::List => html! {
-                                <div>{"Felder des Typs NestedTable können aktuell nicht in der Listenansicht dargestellt werden."}</div>
-                            },
-                            CrudSimpleView::Create => html! {
-                                <>
-                                    if let Some(label) = &options.label {
-                                        <CrudFieldLabel label={label.clone()} />
-                                    }
-                                    <div>{"Diese Informationen können erst bearbeitet werden, nachdem der Eintrag gespeichert wurde."}</div>
-                                </>
-                            },
-                            CrudSimpleView::Read | CrudSimpleView::Edit => match &ctx.props().field_mode {
-                                FieldMode::Display => html! {
-                                    <div>{"FieldMode::Display wird von Feldern des Typs NestedTable aktuell nicht unterstützt."}</div>
-                                },
-                                FieldMode::Readable => html! {
-                                    <div class="crud-field">
-                                        if let Some(label) = &options.label {
-                                            <CrudFieldLabel label={label.clone()} />
-                                        }
-                                        { ctx.props().children.iter().filter(|child| {
-                                            match child {
-                                                Item::NestedInstance(nested_instance) => nested_instance.props.name == ctx.props().field_type.get_name(),
-                                                Item::Relation(_) => false,
-                                                Item::Select(_) => false,
-                                            }
-                                        }).collect::<Html>() }
-                                    </div>
-                                },
-                                FieldMode::Editable => html! {
-                                    <div class="crud-field">
-                                        if let Some(label) = &options.label {
-                                            <CrudFieldLabel label={label.clone()} />
-                                        }
-                                        { ctx.props().children.iter().filter(|child| {
-                                            match child {
-                                                Item::NestedInstance(nested_instance) => nested_instance.props.name == ctx.props().field_type.get_name(),
-                                                Item::Relation(_) => false,
-                                                Item::Select(_) => false,
-                                            }
-                                        }).collect::<Html>() }
-                                    </div>
-                                },
-                            },
-                        }
-                    },
-                    Value::Custom(_) => { match ctx.props().custom_fields
-                        .get(&ctx.props().field_type) {
-                            Some(custom_field) => custom_field.render(entity, ctx.props().field_mode),
-                            None => html! {
-                                <CrudAlert variant={crate::crud_alert::Variant::Danger}>
-                                    { format!("The custom field '{:?}' should have been displayed here, but no renderer for that field was found in the `custom_*_fields` section of the static instance config. You might have forgotten to set the required HashMap entry.", &ctx.props().field_type)}
-                                </CrudAlert>
+                    None => view! {
+                        <Alert variant=AlertVariant::Danger title=create_callback( move |_| "Missing custom field declaration!")>
+                            { format!("The custom field '{:?}' should have been displayed here, but no renderer for that field was found in the `custom_*_fields` section of the static instance config. You might have forgotten to set the required HashMap entry.",
+                             &field_clone3)}
+                        </Alert>
+                    }.into_view(),
+                })
+            }),
+        )
+    }
+}
+
+#[component]
+pub fn CrudStringField(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<String>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! {
+            <div>{ move || value.get() }</div>
+        },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <TextInput
+                    id=id.clone()
+                    class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    disabled=true
+                    get=value
+                />
+            </div>
+        },
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <TextInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=value
+                    set=create_callback( move |new| value_changed.call(Ok(Value::String(new))))
+                />
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudTextField(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<String>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! {
+            <div>{ move || value.get() }</div>
+        },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <TiptapEditor
+                    id=id.clone()
+                    class="crud-input-field"
+                    value=value
+                    disabled=true
+                />
+            </div>
+        },
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <TiptapEditor
+                    id=id.clone()
+                    class="crud-input-field"
+                    value=value
+                    set_value=create_callback( move |new| value_changed.call(Ok(Value::Text(match new {
+                        TiptapContent::Html(content) => content,
+                        TiptapContent::Json(content) => content,
+                    }))))
+                    disabled=field_options.disabled
+                />
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudJsonField(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<JsonValue>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! {
+            <div>{ move || value.get().get_string_representation().to_owned() }</div>
+        },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                // TODO: Implement a proper Json editor
+                <TiptapEditor
+                    id=id.clone()
+                    class="crud-input-field"
+                    value=Signal::derive( move || value.get().get_string_representation().to_owned())
+                    disabled=true
+                />
+            </div>
+        },
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                // TODO: Implement a proper Json editor
+                <TiptapEditor
+                    id=id.clone()
+                    class="crud-input-field"
+                    value=Signal::derive( move || value.get().get_string_representation().to_owned())
+                    set_value=create_callback( move |new| {
+                        value_changed.call(
+                            match new {
+                                TiptapContent::Html(content) => serde_json::from_str(&content),
+                                TiptapContent::Json(content) => serde_json::from_str(&content),
                             }
+                            .map(|json_value| Value::Json(JsonValue::new(json_value)))
+                            .map_err(|err| Box::new(err) as Box<dyn Error>)
+                        );
+                    })
+                    disabled=field_options.disabled
+                />
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudOptionalJsonField(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<JsonValue>>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! {
+            <div>{ move || value.get().as_ref().map(|it| Cow::Owned(it.get_string_representation().to_owned())).unwrap_or(Cow::Borrowed("")) }</div>
+        },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                "TODO: Implement TipTap editor or Json editor"
+                // <CrudTipTapEditor
+                //     api_base_url={ctx.props().api_base_url.clone()}
+                //     id={self.format_id()}
+                //     class={"crud-input-field"}
+                //     value={value.as_ref().map(|it| it.get_string_representation().to_owned()).unwrap_or_default()}
+                //     disabled={true}
+                // />
+            </div>
+        },
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                "TODO: Implement TipTap editor or Json editor"
+                // <CrudTipTapEditor
+                //     api_base_url={ctx.props().api_base_url.clone()}
+                //     id={self.format_id()}
+                //     class={"crud-input-field"}
+                //     value={value.as_ref().map(|it| it.get_string_representation().to_owned()).unwrap_or_default()}
+                //     onchange={ctx.link().callback(|input| Msg::Send(Value::Text(input)))}
+                //     disabled={options.disabled}
+                // />
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudUuidV4Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Uuid>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! {
+            <div>{ move || value.get().to_string() }</div>
+        },
+        // Never editable, TODO: why though? we could allow editing uuids if we can guarantee their validity.
+        FieldMode::Readable | FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <TextInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=true
+                    get=MaybeSignal::derive( move || { value.get().to_string() })
+                />
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudUuidV7Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Uuid>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! {
+            <div>{ move || value.get().to_string() }</div>
+        },
+        // Never editable, TODO: why though? we could allow editing uuids if we can guarantee their validity.
+        FieldMode::Readable | FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <TextInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=true
+                    get=MaybeSignal::derive( move || { value.get().to_string() })
+                />
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudU32Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<u32>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! {
+            <div>{ move || value.get() }</div>
+        },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    disabled=true
+                    get=MaybeSignal::derive( move || value.get() as f64)
+                />
+            </div>
+        },
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=MaybeSignal::derive( move || value.get() as f64)
+                    set=create_callback( move |new: f64| value_changed.call(Ok(Value::U32(new as u32))))
+                />
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudOptionalU32Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<u32>>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => { move || match value.get() {
+            Some(value) => view! {
+                <div>{ value }</div>
+            },
+            None => view! {
+                <div>"-"</div>
+            },
+        }}.into_view(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    disabled=true
+                    get=MaybeSignal::derive( move || value.get().unwrap_or_default() as f64)
+                />
+            </div>
+        }.into_view(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=MaybeSignal::derive( move || value.get().unwrap_or_default() as f64)
+                    set=create_callback( move |new: f64| value_changed.call(Ok(Value::OptionalU32(Some(new as u32)))))
+                />
+            </div>
+        }.into_view(),
+    }
+}
+
+#[component]
+pub fn CrudI32Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<i32>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! {
+            <div>{ move || value.get() }</div>
+        },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    disabled=true
+                    get=MaybeSignal::derive( move || value.get() as f64)
+                />
+            </div>
+        },
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=MaybeSignal::derive( move || value.get() as f64)
+                    set=create_callback( move |new: f64| value_changed.call(Ok(Value::I32(new as i32))))
+                />
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudOptionalI32Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<i32>>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => { move || match value.get() {
+            Some(value) => view! {
+                <div>{ value }</div>
+            },
+            None => view! {
+                <div>"-"</div>
+            },
+        }}.into_view(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    disabled=true
+                    get=MaybeSignal::derive( move || value.get().unwrap_or_default() as f64)
+                />
+            </div>
+        }.into_view(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=MaybeSignal::derive( move || value.get().unwrap_or_default() as f64)
+                    set=create_callback( move |new: f64| value_changed.call(Ok(Value::OptionalI32(Some(new as i32)))))
+                />
+            </div>
+        }.into_view(),
+    }
+}
+
+#[component]
+pub fn CrudI64Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<i64>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! {
+            <div>{ move || value.get() }</div>
+        },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    disabled=true
+                    get=MaybeSignal::derive( move || value.get() as f64)
+                />
+            </div>
+        },
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=MaybeSignal::derive( move || value.get() as f64)
+                    set=create_callback( move |new: f64| value_changed.call(Ok(Value::I64(new as i64))))
+                />
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudOptionalI64Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<i64>>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => { move || match value.get() {
+            Some(value) => view! {
+                <div>{ value }</div>
+            },
+            None => view! {
+                <div>"-"</div>
+            },
+        }}.into_view(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    disabled=true
+                    get=MaybeSignal::derive( move || value.get().unwrap_or_default() as f64)
+                />
+            </div>
+        }.into_view(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=MaybeSignal::derive( move || value.get().unwrap_or_default() as f64)
+                    set=create_callback( move |new: f64| value_changed.call(Ok(Value::OptionalI64(Some(new as i64)))))
+                />
+            </div>
+        }.into_view(),
+    }
+}
+
+#[component]
+pub fn CrudF32Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<f32>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! {
+            <div>{ move || value.get() }</div>
+        },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    disabled=true
+                    get=MaybeSignal::derive( move || value.get() as f64)
+                />
+            </div>
+        },
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=MaybeSignal::derive( move || value.get() as f64)
+                    set=create_callback( move |new: f64| value_changed.call(Ok(Value::F32(new as f32))))
+                />
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudBoolField(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<bool>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! {
+            <div>{ move || value.get() }</div>
+        },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <div id=id.clone() class="crud-input-field">
+                    <Toggle
+                        state=value
+                        disabled=true
+                    />
+                </div>
+            </div>
+        },
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <div id=id.clone() class="crud-input-field">
+                    <Toggle
+                        state=value
+                        set_state=create_callback( move |new| value_changed.call(Ok(Value::Bool(new))))
+                        disabled=field_options.disabled
+                    />
+                </div>
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudValidationStatusField(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<bool>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! {
+            <div>
+                { move || match value.get() {
+                    true => view! { <Icon icon=BsIcon::BsExclamationTriangleFill/> },
+                    false => view! { <Icon icon=BsIcon::BsCheck/> },
+                } }
+            </div>
+        },
+        FieldMode::Readable | FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <div id=id.clone() class="crud-input-field">
+                    { move || match value.get() {
+                        true => view! { <Icon icon=BsIcon::BsExclamationTriangleFill/> },
+                        false => view! { <Icon icon=BsIcon::BsCheck/> },
+                    } }
+                </div>
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudPrimitiveDateTimeField(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<PrimitiveDateTime>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => match field_options.date_time_display {
+            DateTimeDisplay::IsoUtc => view! {
+                <div>{ move || value.get().format(&Rfc3339).unwrap() }</div>
+            },
+            // TODO: Use icu4x formatting using the current users locale!
+            DateTimeDisplay::LocalizedLocal => view! {
+                <div>{ move || value.get().format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap() }</div>
+            },
+        },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <div id=id.clone() class="crud-input-field">
+                    <DateTimeInput
+                        id=id.clone()
+                        get=MaybeSignal::derive( move || Some(value.get().assume_utc()))
+                        set=move |_v| {}
+                        disabled=true
+                    />
+                </div>
+            </div>
+        },
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                <div id=id.clone() class="crud-input-field">
+                    <DateTimeInput
+                        id=id.clone()
+                        get=MaybeSignal::derive( move || Some(value.get().assume_utc()))
+                        set=move |v| match v {
+                            // TODO: We previously did this... `Value::OffsetDateTime(datetime.expect("Expected OffsetDateTime to not be None!"))`
+                            Some(v) => value_changed.call(Ok(Value::PrimitiveDateTime(PrimitiveDateTime::new(v.date(), v.time())))),
+                            None => {},
                         }
-                    },
-                    Value::String(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => html! {
-                            <div>{value}</div>
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"text"}
-                                    value={value}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"text"}
-                                    value={value}
-                                    onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => Msg::Send(Value::String(input.value())),
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => Msg::Send(Value::String(input.value())),
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::Text(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => html! {
-                            <div>{value}</div>
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudTipTapEditor
-                                    api_base_url={ctx.props().api_base_url.clone()}
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    value={value}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudTipTapEditor
-                                    api_base_url={ctx.props().api_base_url.clone()}
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    value={value}
-                                    onchange={ctx.link().callback(|input| Msg::Send(Value::String(input)))}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::Json(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => html! {
-                            <div>{value.get_string_representation()}</div>
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudTipTapEditor
-                                    api_base_url={ctx.props().api_base_url.clone()}
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    value={value.get_string_representation().to_owned()}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudTipTapEditor
-                                    api_base_url={ctx.props().api_base_url.clone()}
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    value={value.get_string_representation().to_owned()}
-                                    onchange={ctx.link().callback(|input| Msg::Send(Value::String(input)))}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    // TODO: Find better way to handle `None` variant!
-                    Value::OptionalJson(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => html! {
-                            <div>{value.as_ref().map(|it| it.get_string_representation()).unwrap_or("")}</div>
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudTipTapEditor
-                                    api_base_url={ctx.props().api_base_url.clone()}
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    value={value.as_ref().map(|it| it.get_string_representation().to_owned()).unwrap_or_default()}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudTipTapEditor
-                                    api_base_url={ctx.props().api_base_url.clone()}
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    value={value.as_ref().map(|it| it.get_string_representation().to_owned()).unwrap_or_default()}
-                                    onchange={ctx.link().callback(|input| Msg::Send(Value::String(input)))}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::UuidV4(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => html! {
-                            <div>{value.to_string()}</div>
-                        },
-                        // Never editable
-                        FieldMode::Readable | FieldMode::Editable  => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"text"}
-                                    value={value.to_string()}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::UuidV7(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => html! {
-                            <div>{value.to_string()}</div>
-                        },
-                        // Never editable
-                        FieldMode::Readable | FieldMode::Editable  => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"text"}
-                                    value={value.to_string()}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::U32(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => html! {
-                            <div>{format!("{}", value)}</div>
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", value)}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", value)}
-                                    onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<u32>() {
-                                            Ok(u32) => Msg::Send(Value::U32(u32)),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<u32>() {
-                                            Ok(u32) => Msg::Send(Value::U32(u32)),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::OptionalU32(optional_u32) => match &ctx.props().field_mode {
-                        FieldMode::Display => match optional_u32 {
-                            Some(u32) => html! { <div>{format!("{}", u32)}</div> },
-                            None => html! { "-" },
-                        },
-                        // TODO: Use nullable input field!
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", optional_u32.unwrap_or_default())}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        // TODO: Use nullable input field!
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", optional_u32.unwrap_or_default())}
-                                    onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<u32>() {
-                                            Ok(u32) => Msg::Send(Value::OptionalU32(Some(u32))),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<u32>() {
-                                            Ok(u32) => Msg::Send(Value::OptionalU32(Some(u32))),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::I32(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => html! {
-                            <div>{format!("{}", value)}</div>
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", value)}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", value)}
-                                    onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<i32>() {
-                                            Ok(i32) => Msg::Send(Value::I32(i32)),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<i32>() {
-                                            Ok(i32) => Msg::Send(Value::I32(i32)),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::I64(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => html! {
-                            <div>{format!("{}", value)}</div>
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", value)}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", value)}
-                                    onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<i64>() {
-                                            Ok(i64) => Msg::Send(Value::I64(i64)),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<i64>() {
-                                            Ok(i64) => Msg::Send(Value::I64(i64)),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::OptionalI32(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => match value {
-                            Some(value) => html! { <div>{format!("{}", value)}</div> },
-                            None => html! { "-" },
-                        },
-                        // TODO: Use nullable input field!
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", value.unwrap_or_default())}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        // TODO: Use nullable input field!
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", value.unwrap_or_default())}
-                                    onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<i32>() {
-                                            Ok(i32) => Msg::Send(Value::OptionalI32(Some(i32))),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<i32>() {
-                                            Ok(i32) => Msg::Send(Value::OptionalI32(Some(i32))),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::OptionalI64(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => match value {
-                            Some(value) => html! { <div>{format!("{}", value)}</div> },
-                            None => html! { "-" },
-                        },
-                        // TODO: Use nullable input field!
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", value.unwrap_or_default())}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        // TODO: Use nullable input field!
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", value.unwrap_or_default())}
-                                    onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<i64>() {
-                                            Ok(i64) => Msg::Send(Value::OptionalI64(Some(i64))),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<i64>() {
-                                            Ok(i64) => Msg::Send(Value::OptionalI64(Some(i64))),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::F32(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => html! {
-                            <div>{format!("{}", value)}</div>
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", value)}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <input
-                                    id={self.format_id()}
-                                    class={"crud-input-field"}
-                                    type={"number"}
-                                    value={format!("{}", value)}
-                                    onkeyup={ctx.link().callback(|event| match keyboard_event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<f32>() {
-                                            Ok(value) => Msg::Send(Value::F32(value)),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    onchange={ctx.link().callback(|event| match event_target_as::<web_sys::HtmlInputElement>(event) {
-                                        Ok(input) => match input.value().parse::<f32>() {
-                                            Ok(value) => Msg::Send(Value::F32(value)),
-                                            Err(err) =>Msg::LogInputRetrievalErr(err.into()),
-                                        }
-                                        Err(err) => Msg::LogInputRetrievalErr(err.into())
-                                    })}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::Bool(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => html! {
-                            <div>{format!("{}", value)}</div>
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <div id={self.format_id()} class={"crud-input-field"}>
-                                    <CrudToggle
-                                        state={value}
-                                        disabled={true}
-                                    />
-                                </div>
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <div id={self.format_id()} class={"crud-input-field"}>
-                                    <CrudToggle
-                                        state={value}
-                                        on_toggle={ctx.link().callback(|value| Msg::Send(Value::Bool(value)))}
-                                        disabled={true}
-                                    />
-                                </div>
-                            </div>
-                        },
-                    },
-                    Value::ValidationStatus(value) => match &ctx.props().field_mode {
-                        FieldMode::Display => match value {
-                            true => html! {
-                                <CrudIcon variant={Bi::ExclamationTriangleFill} color={"#ffbd00"}/>
-                            },
-                            false => html! {
-                                <CrudIcon variant={Bi::CheckLg}  color={"#469a46"}/>
-                            },
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { "Only displayable..." }
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { "Only displayable..." }
-                            </div>
-                        },
-                    },
-                    Value::PrimitiveDateTime(primitive_date_time) => match &ctx.props().field_mode {
-                        FieldMode::Display => match options.date_time_display {
-                            DateTimeDisplay::IsoUtc => html! {
-                                <div>{primitive_date_time.format(&Rfc3339).unwrap()}</div>
-                            },
-                            // TODO: Use icu4x formatting using the current users locale!
-                            DateTimeDisplay::LocalizedLocal => html! {
-                                <div>{primitive_date_time.format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap()}</div>
-                            },
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudOffsetDatetime
-                                    id={self.format_id()}
-                                    value={primitive_date_time.clone().assume_utc()}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudOffsetDatetime
-                                    id={self.format_id()}
-                                    value={primitive_date_time.clone().assume_utc()}
-                                    onchange={ctx.link().callback(|datetime: Option<time::OffsetDateTime>| Msg::Send(Value::OffsetDateTime(datetime.expect("Expected OffsetDateTime to not be None!"))))}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::OffsetDateTime(offset_date_time) => match &ctx.props().field_mode {
-                        FieldMode::Display => match options.date_time_display {
-                            DateTimeDisplay::IsoUtc => html! {
-                                <div>{offset_date_time.format(&Rfc3339).unwrap()}</div>
-                            },
-                            // TODO: Use icu4x formatting using the current users locale!
-                            DateTimeDisplay::LocalizedLocal => html! {
-                                <div>{offset_date_time.to_offset(UtcOffset::current_local_offset().unwrap()).format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap()}</div>
-                            },
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudOffsetDatetime
-                                    id={self.format_id()}
-                                    value={offset_date_time.clone()}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudOffsetDatetime
-                                    id={self.format_id()}
-                                    value={offset_date_time.clone()}
-                                    onchange={ctx.link().callback(|datetime: Option<time::OffsetDateTime>| Msg::Send(Value::OffsetDateTime(datetime.expect("Expected OffsetDateTime to not be None!"))))}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::OptionalPrimitiveDateTime(optional_primitive_date_time) => match &ctx.props().field_mode {
-                        FieldMode::Display => match options.date_time_display {
-                            DateTimeDisplay::IsoUtc => match optional_primitive_date_time {
-                                Some(date_time) => html! {
-                                    <div>{date_time.format(&Rfc3339).unwrap()}</div>
-                                },
-                                None => html! {
-                                    <div>{""}</div>
-                                },
-                            },
-                            DateTimeDisplay::LocalizedLocal => match optional_primitive_date_time {
-                                // TODO: Use icu4x formatting using the current users locale!
-                                Some(date_time) => html! {
-                                    <div>{date_time.format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap()}</div>
-                                },
-                                None => html! {
-                                    <div>{""}</div>
-                                },
-                            },
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudOffsetDatetime
-                                    id={self.format_id()}
-                                    value={optional_primitive_date_time.clone().map(|it| it.assume_utc())}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudOffsetDatetime
-                                    id={self.format_id()}
-                                    value={optional_primitive_date_time.clone().map(|it| it.assume_utc())}
-                                    onchange={ctx.link().callback(|datetime: Option<time::OffsetDateTime>| Msg::Send(Value::OptionalOffsetDateTime(datetime)))}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::OptionalOffsetDateTime(optional_offset_date_time) => match &ctx.props().field_mode {
-                        FieldMode::Display => match options.date_time_display {
-                            DateTimeDisplay::IsoUtc => match optional_offset_date_time {
-                                Some(date_time) => html! {
-                                    <div>{date_time.format(&Rfc3339).unwrap()}</div>
-                                },
-                                None => html! {
-                                    <div>{""}</div>
-                                },
-                            },
-                            DateTimeDisplay::LocalizedLocal => match optional_offset_date_time {
-                                // TODO: Use icu4x formatting using the current users locale!
-                                Some(date_time) => html! {
-                                    <div>{date_time.to_offset(UtcOffset::current_local_offset().unwrap()).format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap()}</div>
-                                },
-                                None => html! {
-                                    <div>{""}</div>
-                                },
-                            },
-                        },
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudOffsetDatetime
-                                    id={self.format_id()}
-                                    value={optional_offset_date_time.clone()}
-                                    disabled={true}
-                                />
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                <CrudOffsetDatetime
-                                    id={self.format_id()}
-                                    value={optional_offset_date_time.clone()}
-                                    onchange={ctx.link().callback(|datetime: Option<time::OffsetDateTime>| Msg::Send(Value::OptionalOffsetDateTime(datetime)))}
-                                    disabled={options.disabled}
-                                />
-                            </div>
-                        },
-                    },
-                    Value::Select(selected) => match &ctx.props().field_mode {
-                        FieldMode::Display => html!{format!("{:?}", selected)},
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                { render_select_child(&ctx) }
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                { render_select_child(&ctx) }
-                            </div>
-                        },
-                    },
-                    Value::Multiselect(selected) => match &ctx.props().field_mode {
-                        FieldMode::Display => selected.into_iter()
-                            .map(|value| html!{
-                                format!("{:?}, ", value)
-                            }).collect::<Html>(),
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                { render_select_child(&ctx) }
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                { render_select_child(&ctx) }
-                            </div>
-                        },
-                    },
-                    Value::OptionalSelect(selected) => match &ctx.props().field_mode {
-                        FieldMode::Display => html!{format!("{:?}", selected)},
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                { render_select_child(&ctx) }
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                { render_select_child(&ctx) }
-                            </div>
-                        },
-                    },
-                    Value::OptionalMultiselect(selected) => match &ctx.props().field_mode {
-                        FieldMode::Display => selected.into_iter()
-                            .map(|value| html!{
-                                format!("{:?}, ", value)
-                            }).collect::<Html>(),
-                        FieldMode::Readable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                { render_select_child(&ctx) }
-                            </div>
-                        },
-                        FieldMode::Editable => html! {
-                            <div class="crud-field">
-                                { render_label(&options) }
-                                { render_select_child(&ctx) }
-                            </div>
-                        },
-                    },
-                }
-            },
-            None => html! {
-                <div>{"tbd: placeholder div"}</div>
-            },
-        }
+                        disabled=field_options.disabled
+                    />
+                </div>
+            </div>
+        },
     }
 }
 
-fn render_label(options: &FieldOptions) -> Html {
-    html! {
-        if let Some(label) = &options.label {
-            <CrudFieldLabel label={label.clone()} />
-        }
+#[component]
+pub fn CrudOptionalPrimitiveDateTimeField(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<PrimitiveDateTime>>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => match field_options.date_time_display {
+            DateTimeDisplay::IsoUtc => {move || match value.get() {
+                Some(date_time) => view! {
+                    <div>{date_time.format(&Rfc3339).unwrap()}</div>
+                },
+                None => view! {
+                    <div>""</div>
+                },
+            }}.into_view(),
+            DateTimeDisplay::LocalizedLocal => {move || match value.get() {
+                // TODO: Use icu4x formatting using the current users locale!
+                Some(date_time) => view! {
+                    <div>{date_time.format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap()}</div>
+                },
+                None => view! {
+                    <div>""</div>
+                },
+            }}.into_view(),
+        },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                "TODO: DataTime input field"
+                //<DateTime
+                //    id=id.clone()
+                //    ty=InputType::Number
+                //    class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
+                //    disabled=true
+                //    get=format!("{value}")
+                //    set=move |_| {}
+                // />
+            </div>
+        }.into_view(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                "TODO: DataTime input field"
+                { render_label( field_options.label.clone()) }
+                //<CrudOffsetDatetime
+                //    id={self.format_id()}
+                //    value={optional_primitive_date_time.clone().map(|it| it.assume_utc())}
+                //    onchange={ctx.link().callback(|datetime: Option<time::OffsetDateTime>| Msg::Send(Value::OptionalOffsetDateTime(datetime)))}
+                //    disabled={options.disabled}
+                // />
+            </div>
+        }.into_view(),
     }
 }
 
-fn render_select_child<T: CrudDataTrait + 'static>(ctx: &Context<CrudField<T>>) -> Html {
-    ctx.props().children.iter().find(|child| {
-        match child {
-            Item::NestedInstance(_) => false,
-            Item::Relation(_) => false,
-            Item::Select(select) => select.props.name == ctx.props().field_type.get_name(),
+#[component]
+pub fn CrudSelectField(
+    id: String,
+    field_config: Option<Box<dyn SelectConfigTrait>>,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Box<dyn CrudSelectableTrait>>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => { move || format!("{:?}", value.get()) }.into_view(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                { match field_config {
+                    None => view!{ <Alert variant=AlertVariant::Danger title=create_callback( |_cx| "Config error")>"Missing a field_config entry for this field."</Alert>}.into_view(),
+                    Some(field_config) => field_config.render_select( value, create_simple_callback(move |o| value_changed.call(Ok(Value::Select(o))))),
+                } }
+            </div>
         }
-    }).map_or(html! {
-        <CrudAlert variant={crate::crud_alert::Variant::Danger}>
-            {"Could not find required 'Select' child. Help: You might be missing the <CrudSelectField> in your instance markup."}
-        </CrudAlert>
-    }, |it| it.into() )
+        .into_view(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                { match field_config {
+                    None => view!{ <Alert variant=AlertVariant::Danger title=create_callback( |_cx| "Config error")>"Missing a field_config entry for this field."</Alert>}.into_view(),
+                    Some(field_config) => field_config.render_select( value, create_simple_callback(move |o| value_changed.call(Ok(Value::Select(o))))),
+                } }
+            </div>
+        }
+        .into_view(),
+    }
+}
+
+#[component]
+pub fn CrudOptionalSelectField(
+    id: String,
+    field_config: Option<Box<dyn SelectConfigTrait>>,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<Box<dyn CrudSelectableTrait>>>,
+    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => { move || format!("{:?}", value.get()) }.into_view(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                { match field_config {
+                    None => view!{ <Alert variant=AlertVariant::Danger title=create_callback( |_cx| "Config error")>"Missing a field_config entry for this field."</Alert>}.into_view(),
+                    Some(field_config) => field_config.render_optional_select( value, create_simple_callback(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
+                } }
+            </div>
+        }
+        .into_view(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                { render_label( field_options.label.clone()) }
+                { match field_config {
+                    None => view!{ <Alert variant=AlertVariant::Danger title=create_callback( |_cx| "Config error")>"Missing a field_config entry for this field."</Alert>}.into_view(),
+                    Some(field_config) => field_config.render_optional_select( value, create_simple_callback(move |o| value_changed.call(Ok(Value::OptionalSelect(o))))),
+                } }
+            </div>
+        }
+        .into_view(),
+    }
+}
+
+fn render_label(label: Option<Label>) -> impl IntoView {
+    view! {
+        <CrudFieldLabelOpt label=label/>
+    }
 }

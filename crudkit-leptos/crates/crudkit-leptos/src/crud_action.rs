@@ -41,7 +41,7 @@ pub enum CrudEntityAction<T: CrudMainTrait + 'static> {
             Option<T::ActionPayload>,
             Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
-        modal: Option<Callback<(leptos::Scope, EntityModalGeneration<T>), leptos::View>>,
+        modal: Option<Callback<EntityModalGeneration<T>, leptos::View>>,
     },
 }
 
@@ -121,7 +121,7 @@ pub enum CrudAction<T: CrudMainTrait + 'static> {
             Option<T::ActionPayload>,
             Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
-        modal: Option<Callback<(leptos::Scope, ModalGeneration<T>), leptos::View>>,
+        modal: Option<Callback<ModalGeneration<T>, leptos::View>>,
     },
 }
 

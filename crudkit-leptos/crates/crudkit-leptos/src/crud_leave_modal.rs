@@ -3,13 +3,12 @@ use leptos::*;
 
 #[component]
 pub fn CrudLeaveModal(
-    cx: Scope,
     #[prop(into)] show_when: Signal<bool>,
     on_cancel: Callback<()>,
     on_accept: Callback<()>,
 ) -> impl IntoView {
-    let g_keyboard_event: GlobalKeyboardEvent = expect_context::<GlobalKeyboardEvent>(cx);
-    create_effect(cx, move |_old| {
+    let g_keyboard_event: GlobalKeyboardEvent = expect_context::<GlobalKeyboardEvent>();
+    create_effect(move |_old| {
         if let Some(e) = g_keyboard_event.read_signal.get() {
             if show_when.get_untracked() && e.key().as_str() == "Escape" {
                 on_cancel.call(());
@@ -17,7 +16,7 @@ pub fn CrudLeaveModal(
         }
     });
 
-    view! {cx,
+    view! {
         <ModalFn show_when=show_when>
             <ModalHeader>
                 <ModalTitle>

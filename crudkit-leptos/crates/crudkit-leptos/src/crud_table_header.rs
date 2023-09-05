@@ -10,7 +10,6 @@ use crate::{crud_instance::CrudInstanceContext, crud_list_view::CrudListViewCont
 
 #[component]
 pub fn CrudTableHeader<T>(
-    cx: Scope,
     _phantom: PhantomData<T>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
     #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
@@ -24,31 +23,33 @@ pub fn CrudTableHeader<T>(
 where
     T: CrudMainTrait + 'static,
 {
+    let instance_ctx = expect_context::<CrudInstanceContext<T>>();
+    let list_ctx = expect_context::<CrudListViewContext<T>>();
+
     let update_order_of_field = move |field: <T::ReadModel as CrudDataTrait>::Field| {
-        expect_context::<CrudInstanceContext<T>>(cx)
-            .oder_by(field, OrderByUpdateOptions { append: false })
+        instance_ctx.oder_by(field, OrderByUpdateOptions { append: false })
     };
 
-    view! {cx,
+    view! {
         <thead class="crud-table-header">
             <tr>
-                { move || with_select_column.get().then(|| view! {cx,
+                { move || with_select_column.get().then(|| view! {
                     <th class="select fit-content">
-                        <Checkbox checked=all_selected on_toggle=move || { expect_context::<CrudListViewContext<T>>(cx).toggle_select_all() } />
+                        <Checkbox checked=all_selected on_toggle=move || { list_ctx.toggle_select_all() } />
                     </th>
                 }) }
 
                 <For
                     each=move || headers.get()
                     key=|(field, _options)| field.get_name()
-                    view=move |cx, (field, options)| {
+                    view=move | (field, options)| {
                         move || {
                             let field_clone = field.clone();
                             let order_by = order_by.get();
                             let order = order_by.get(&field);
                             tracing::debug!(?field, ?order, "render header");
 
-                            view! { cx,
+                            view! {
                                 <th
                                     class="crud-column-header"
                                     class:crud-column-ordered=order.is_some()
@@ -74,7 +75,7 @@ where
                     }
                 />
 
-                { move || with_actions.get().then(|| view! {cx,
+                { move || with_actions.get().then(|| view! {
                     <th class="actions fit-content">
                         "Aktionen"
                     </th>

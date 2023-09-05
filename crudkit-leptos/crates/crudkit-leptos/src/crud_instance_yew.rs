@@ -169,7 +169,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         on_item_count_selected={ctx.link().callback(Msg::ItemCountSelected)}
                                         on_entity_action={ctx.link().callback(Msg::EntityAction)}
                                         on_global_action={ctx.link().callback(Msg::GlobalAction)}
-                                        on_link={ctx.link().callback(|link: Option<Scope<CrudListView<T>>>|
+                                        on_link={ctx.link().callback(|link: Option<<CrudListView<T>>>|
                                             Msg::ViewLinked(link.map(|link| ViewLink::List(link))))}
                                     />
                                 }
@@ -189,7 +189,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         on_entity_creation_aborted={ctx.link().callback(Msg::EntityCreationAborted)}
                                         on_entity_not_created_critical_errors={ctx.link().callback(|_| Msg::EntityNotCreatedDueToCriticalErrors)}
                                         on_entity_creation_failed={ctx.link().callback(Msg::EntityCreationFailed)}
-                                        on_link={ctx.link().callback(|link: Option<Scope<CrudCreateView<T>>>|
+                                        on_link={ctx.link().callback(|link: Option<<CrudCreateView<T>>>|
                                             Msg::ViewLinked(link.map(|link| ViewLink::Create(link))))}
                                         on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
                                     />
@@ -226,7 +226,7 @@ impl<T: 'static + CrudMainTrait> CrudInstance<T> {
                                         on_list={ctx.link().callback(|_| Msg::List)}
                                         on_create={ctx.link().callback(|_| Msg::Create)}
                                         on_delete={ctx.link().callback(|entity| Msg::Delete(DeletableModel::Update(entity)))}
-                                        on_link={ctx.link().callback(|link: Option<Scope<CrudEditView<T>>>|
+                                        on_link={ctx.link().callback(|link: Option<<CrudEditView<T>>>|
                                             Msg::ViewLinked(link.map(|link| ViewLink::Edit(link))))}
                                         on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
                                         on_entity_action={ctx.link().callback(Msg::CustomEntityAction)}

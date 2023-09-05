@@ -6,7 +6,6 @@ use leptos::*;
 
 #[component]
 pub fn CrudDeleteModal<T>(
-    cx: Scope,
     _phantom: PhantomData<T>,
     // Modal is shown when this Signal contains a Some value.
     #[prop(into)] entity: Signal<Option<DeletableModel<T::ReadModel, T::UpdateModel>>>, // TODO: Do not take Option
@@ -16,10 +15,10 @@ pub fn CrudDeleteModal<T>(
 where
     T: CrudMainTrait + 'static,
 {
-    let show_when = Signal::derive(cx, move || entity.get().is_some());
+    let show_when = Signal::derive(move || entity.get().is_some());
 
-    let g_keyboard_event: GlobalKeyboardEvent = expect_context::<GlobalKeyboardEvent>(cx);
-    create_effect(cx, move |_old| {
+    let g_keyboard_event: GlobalKeyboardEvent = expect_context::<GlobalKeyboardEvent>();
+    create_effect(move |_old| {
         if let Some(e) = g_keyboard_event.read_signal.get() {
             if show_when.get_untracked() && e.key().as_str() == "Escape" {
                 on_cancel.call(());
@@ -27,7 +26,7 @@ where
         }
     });
 
-    view! {cx,
+    view! {
         <ModalFn show_when=show_when>
             <ModalHeader>
                 <ModalTitle>

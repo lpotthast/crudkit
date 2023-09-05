@@ -29,7 +29,6 @@ struct EntityReq<T: CrudMainTrait + 'static> {
 
 #[component]
 pub fn CrudReadView<T>(
-    cx: Scope,
     _phantom: PhantomData<T>,
     #[prop(into)] api_base_url: Signal<String>,
     /// The ID of the entity being edited.
@@ -48,10 +47,9 @@ pub fn CrudReadView<T>(
 where
     T: CrudMainTrait + 'static,
 {
-    let instance_ctx = expect_context::<CrudInstanceContext<T>>(cx);
+    let instance_ctx = expect_context::<CrudInstanceContext<T>>();
 
     let entity_resource = create_local_resource(
-        cx,
         move || {
             tracing::debug!("entity_req");
             let id = id.get();
@@ -82,18 +80,17 @@ where
     // Stores the current state of the entity or an error, if no entity could be fetched.
     // Until the initial fetch request is completed, this is in the `Err(NoDataAvailable::NotYetLoaded` state!
     let (entity, set_entity) = create_signal(
-        cx,
         Result::<ReadSignal<T::UpdateModel>, NoDataAvailable>::Err(NoDataAvailable::NotYetLoaded),
     );
 
     // TODO: Read and Edit view have some things in common, like loading the current entity and creating the signals map. Can this be simplified or extracted?
     let (signals, set_sig) = create_signal::<
         StoredValue<HashMap<<T::UpdateModel as CrudDataTrait>::Field, ReactiveValue>>,
-    >(cx, store_value(cx, HashMap::new()));
+    >(store_value(HashMap::new()));
 
     // Update the `entity` signal whenever we fetched a new version of the edited entity.
-    create_effect(cx, move |_prev| {
-        set_entity.set(match entity_resource.read(cx) {
+    create_effect(move |_prev| {
+        set_entity.set(match entity_resource.get() {
             Some(result) => {
                 tracing::info!("loaded entity data");
                 match result {
@@ -106,12 +103,12 @@ where
                                 let mut map = HashMap::new();
                                 for field in T::UpdateModel::get_all_fields() {
                                     let initial = field.get_value(&update_model);
-                                    map.insert(field, initial.into_reactive_value(cx));
+                                    map.insert(field, initial.into_reactive_value());
                                 }
-                                store_value(cx, map)
+                                store_value(map)
                             });
 
-                            Ok(create_rw_signal(cx, update_model).read_only())
+                            Ok(create_rw_signal(update_model).read_only())
                         }
                         None => Err(NoDataAvailable::RequestReturnedNoData(format!(
                             "Eintrag existiert nicht."
@@ -124,10 +121,10 @@ where
         })
     });
 
-    let value_changed = create_callback(cx, move |_| {});
+    let value_changed = create_callback(move |_| {});
 
-    let action_ctx = CrudActionContext::<T>::new(cx);
-    let maybe_entity = Signal::derive(cx, move || {
+    let action_ctx = CrudActionContext::<T>::new();
+    let maybe_entity = Signal::derive(move || {
         if let Ok(entity) = entity.get() {
             Some(entity.get())
         } else {
@@ -135,11 +132,11 @@ where
         }
     });
 
-    view! {cx,
+    view! {
         { move || match (entity.get(), signals.get()) {
-            (Ok(entity), signals) => view! {cx,
+            (Ok(entity), signals) => view! {
                 { move || {
-                    view! {cx,
+                    view! {
                         <Grid spacing=Size::Em(0.6) class="crud-nav">
                             <Row>
                                 <Col xs=6 h_align=ColAlign::Start>
@@ -170,8 +167,8 @@ where
                     on_tab_selection=on_tab_selected
                     entity=entity.into()
                 />
-            }.into_view(cx),
-            (Err(no_data), _) => view! {cx,
+            }.into_view(),
+            (Err(no_data), _) => view! {
                 <Grid spacing=Size::Em(0.6) class="crud-nav">
                     <Row>
                         <Col h_align=ColAlign::End>
@@ -186,7 +183,7 @@ where
                 <div>
                     {format!("Daten nicht verfügbar: {:?}", no_data)}
                 </div>
-            }.into_view(cx),
+            }.into_view(),
         } }
     }
 }

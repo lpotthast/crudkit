@@ -22,12 +22,12 @@ pub struct CrudActionContext<T: CrudMainTrait + 'static> {
 impl<T: CrudMainTrait> Copy for CrudActionContext<T> {}
 
 impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
-    pub fn new(cx: Scope) -> Self {
+    pub fn new() -> Self {
         // Stores the actions for which execution was requested by the user.
-        let (actions_requested, set_actions_requested) = create_signal(cx, Vec::<ActionId>::new());
+        let (actions_requested, set_actions_requested) = create_signal(Vec::<ActionId>::new());
 
         // Stores the actions which are currently executing. This allows us to not let a user execute an action while it is already executing.
-        let (actions_executing, set_actions_executing) = create_signal(cx, Vec::<ActionId>::new());
+        let (actions_executing, set_actions_executing) = create_signal(Vec::<ActionId>::new());
 
         Self {
             phantom: PhantomData::<T>::default(),
@@ -51,12 +51,10 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             .any(|it| it == &action_id)
     }
 
-    pub fn _is_action_requested_signal(&self, cx: Scope) -> impl Fn(ActionId) -> Signal<bool> {
+    pub fn _is_action_requested_signal(&self) -> impl Fn(ActionId) -> Signal<bool> {
         let actions_requested = self.actions_requested.clone();
         move |action_id: ActionId| {
-            Signal::derive(cx, move || {
-                actions_requested.get().iter().any(|it| it == &action_id)
-            })
+            Signal::derive(move || actions_requested.get().iter().any(|it| it == &action_id))
         }
     }
 
@@ -76,13 +74,13 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
 
     pub fn trigger_action(
         &self,
-        cx: Scope,
         action_id: ActionId,
         action_payload: Option<T::ActionPayload>,
         action: Callback<(
             Option<T::ActionPayload>,
             Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
+        instance_ctx: CrudInstanceContext<T>,
     ) {
         tracing::debug!(action_id, ?action_payload, "trigger_action");
 
@@ -99,7 +97,7 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             .update(|actions| actions.push(action_id));
 
         let this = self.clone();
-        let finish_handler = create_callback(cx, move |outcome| {
+        let finish_handler = create_callback(move |outcome| {
             tracing::debug!(?outcome, "action finished");
 
             // Regardless of the outcome, the action is now finished.
@@ -112,7 +110,7 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
 
             // TODO: Can we take a handler function as input to this new() fn?
             // We might have to act in a way that this list view can not comprehend and therefore let the instance handle the outcome.
-            expect_context::<CrudInstanceContext<T>>(cx).handle_action_outcome(cx, outcome);
+            instance_ctx.handle_action_outcome(outcome);
         });
 
         action.call((action_payload, finish_handler));
@@ -120,7 +118,6 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
 
     pub fn trigger_entity_action(
         &self,
-        cx: Scope,
         action_id: ActionId,
         entity: T::UpdateModel,
         action_payload: Option<T::ActionPayload>,
@@ -129,6 +126,7 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             Option<T::ActionPayload>,
             Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
+        instance_ctx: CrudInstanceContext<T>,
     ) {
         tracing::debug!(action_id, ?action_payload, "trigger_action");
 
@@ -145,7 +143,7 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             .update(|actions| actions.push(action_id));
 
         let this = self.clone();
-        let finish_handler = create_callback(cx, move |outcome| {
+        let finish_handler = create_callback(move |outcome| {
             tracing::debug!(?outcome, "action finished");
 
             // Regardless of the outcome, the action is now finished.
@@ -158,7 +156,7 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
 
             // TODO: Can we take a handler function as input to this new() fn?
             // We might have to act in a way that this list view can not comprehend and therefore let the instance handle the outcome.
-            expect_context::<CrudInstanceContext<T>>(cx).handle_action_outcome(cx, outcome);
+            instance_ctx.handle_action_outcome(outcome);
         });
 
         action.call((entity, action_payload, finish_handler));

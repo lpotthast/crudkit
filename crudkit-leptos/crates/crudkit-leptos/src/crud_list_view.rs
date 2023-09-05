@@ -46,6 +46,8 @@ pub struct CrudListViewContext<T: CrudMainTrait + 'static> {
     pub all_selected: Signal<bool>,
 }
 
+impl<T: CrudMainTrait + 'static> Copy for CrudListViewContext<T> {}
+
 impl<T: CrudMainTrait + 'static> CrudListViewContext<T> {
     pub fn toggle_select_all(&self) {
         if let Ok(data) = self.data.get() {
@@ -101,7 +103,6 @@ impl<T: CrudMainTrait + 'static> CrudListViewContext<T> {
 
 #[component]
 pub fn CrudListView<T>(
-    cx: Scope,
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
     #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
@@ -115,15 +116,15 @@ pub fn CrudListView<T>(
 where
     T: CrudMainTrait + 'static,
 {
-    let instance_ctx = expect_context::<CrudInstanceContext<T>>(cx);
+    let instance_ctx = expect_context::<CrudInstanceContext<T>>();
 
-    let (filter, set_filter) = create_signal(cx, Option::<String>::None);
+    let (filter, set_filter) = create_signal(Option::<String>::None);
 
-    let read_allowed = Signal::derive(cx, move || true);
-    let edit_allowed = Signal::derive(cx, move || true);
-    let delete_allowed = Signal::derive(cx, move || true);
+    let read_allowed = Signal::derive(move || true);
+    let edit_allowed = Signal::derive(move || true);
+    let delete_allowed = Signal::derive(move || true);
 
-    let headers = create_memo(cx, move |_prev| {
+    let headers = create_memo(move |_prev| {
         tracing::debug!("headers");
         headers
             .get()
@@ -134,7 +135,6 @@ where
 
     // TODO: Investigate: After a fresh page load, the first change to one of the signals (items_per_page, ...) triggers an unexpected reload. source is not re-run.
     let page_resource = create_local_resource(
-        cx,
         move || {
             let req = PageReq {
                 reload: instance_ctx.reload.get(),
@@ -160,7 +160,7 @@ where
         },
     );
 
-    let page = create_memo(cx, move |_prev| match page_resource.read(cx) {
+    let page = create_memo(move |_prev| match page_resource.get() {
         Some(result) => {
             tracing::debug!("loaded list data");
             match result {
@@ -172,7 +172,6 @@ where
     });
 
     let count_resource = create_local_resource(
-        cx,
         move || {
             tracing::debug!("count_req");
             CountReq {
@@ -190,40 +189,37 @@ where
         },
     );
 
-    let count = Signal::derive(cx, move || count_resource.read(cx));
+    let count = Signal::derive(move || count_resource.get());
 
-    let (selected, set_selected) = create_signal(cx, Rc::new(Vec::<T::ReadModel>::new()));
+    let (selected, set_selected) = create_signal(Rc::new(Vec::<T::ReadModel>::new()));
 
-    provide_context(
-        cx,
-        CrudListViewContext::<T> {
-            data: page,
-            has_data: Signal::derive(cx, move || {
-                let data = page.get();
-                data.is_ok() && data.as_ref().unwrap().len() > 0
-            }),
-            selected,
-            set_selected,
-            all_selected: Signal::derive(cx, move || {
-                let data = page.get();
-                let selected = selected.get();
-                data.is_ok() // TODO: Performance, memo?
+    provide_context(CrudListViewContext::<T> {
+        data: page,
+        has_data: Signal::derive(move || {
+            let data = page.get();
+            data.is_ok() && data.as_ref().unwrap().len() > 0
+        }),
+        selected,
+        set_selected,
+        all_selected: Signal::derive(move || {
+            let data = page.get();
+            let selected = selected.get();
+            data.is_ok() // TODO: Performance, memo?
                     && selected.len() == data.as_ref().unwrap().len()
                     && data.as_ref().unwrap().len() > 0
-            }),
-        },
-    );
+        }),
+    });
 
     let toggle_filter = move |e| {};
 
-    let action_ctx = CrudActionContext::<T>::new(cx);
+    let action_ctx = CrudActionContext::<T>::new();
 
-    let action_row = view! {cx,
+    let action_row = view! {
         <Grid spacing=Size::Em(0.6) class="crud-nav">
             <Row>
                 <Col xs=6>
                     <ButtonWrapper>
-                        <Button color=ButtonColor::Success on_click=move |_| { expect_context::<CrudInstanceContext<T>>(cx).create() }>
+                        <Button color=ButtonColor::Success on_click=move |_| { instance_ctx.create() }>
                             <Icon icon=BsIcon::BsPlusCircle/>
                             <span style="text-decoration: underline">"N"</span> "eu"
                         </Button>
@@ -233,37 +229,37 @@ where
                             key=|action| match action {
                                 CrudAction::Custom {id, name: _, icon: _, button_color: _, action: _, modal: _} => *id,
                             }
-                            view=move |cx, action| match action {
+                            view=move | action| match action {
                                 CrudAction::Custom {id, name, icon, button_color, action, modal} => {
                                     if let Some(modal_generator) = modal {
-                                        view! {cx,
+                                        view! {
                                             <Button
                                                 color=button_color
-                                                disabled=Signal::derive(cx, move || action_ctx.is_action_executing(id))
+                                                disabled=Signal::derive( move || action_ctx.is_action_executing(id))
                                                 on_click=move |_| action_ctx.request_action(id)
                                             >
-                                                { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
+                                                { icon.map(|icon| view! { <Icon icon=icon/>}) }
                                                 { name.clone() }
                                             </Button>
                                             {
-                                                modal_generator.call((cx, ModalGeneration {
-                                                    show_when: Signal::derive(cx, move || action_ctx.is_action_requested(id)),
-                                                    cancel: create_callback(cx, move |_| action_ctx.cancel_action(id)),
-                                                    execute: create_callback(cx, move |action_payload| action_ctx.trigger_action(cx, id, action_payload, action)),
-                                                }))
+                                                modal_generator.call(ModalGeneration {
+                                                    show_when: Signal::derive( move || action_ctx.is_action_requested(id)),
+                                                    cancel: create_callback( move |_| action_ctx.cancel_action(id)),
+                                                    execute: create_callback( move |action_payload| action_ctx.trigger_action(id, action_payload, action, instance_ctx)),
+                                                })
                                             }
-                                        }.into_view(cx)
+                                        }.into_view()
                                     } else {
-                                        view! {cx,
+                                        view! {
                                             <Button
                                                 color=button_color
-                                                disabled=Signal::derive(cx, move || action_ctx.is_action_executing(id))
-                                                on_click=move |_| action_ctx.trigger_action(cx, id, None, action)
+                                                disabled=Signal::derive( move || action_ctx.is_action_executing(id))
+                                                on_click=move |_| action_ctx.trigger_action(id, None, action, instance_ctx)
                                             >
-                                                { icon.map(|icon| view! {cx, <Icon icon=icon/>}) }
+                                                { icon.map(|icon| view! { <Icon icon=icon/>}) }
                                                 { name.clone() }
                                             </Button>
-                                        }.into_view(cx)
+                                        }.into_view()
                                     }
                                 }
                             }
@@ -272,14 +268,14 @@ where
                 </Col>
                 <Col xs=6 h_align=ColAlign::End>
                     <ButtonWrapper>
-                        <Button color=ButtonColor::Secondary on_click=move |_| { expect_context::<CrudInstanceContext<T>>(cx).reset() }>
+                        <Button color=ButtonColor::Secondary on_click=move |_| { instance_ctx.reset() }>
                             <Icon icon=BsIcon::BsArrowRepeat/>
                             "Reset"
                         </Button>
                         <Button color=ButtonColor::Primary disabled=true on_click=toggle_filter>
                             <Icon icon=BsIcon::BsSearch/>
                             "Filter"
-                            { move || filter.get().map(|_filter| view! {cx,
+                            { move || filter.get().map(|_filter| view! {
                                 <div style="font-size: 0.5em; font-weight: bold; margin-left: 0.3em;">
                                     "aktiv"
                                 </div>
@@ -293,7 +289,7 @@ where
 
     let multiselect_info = move || match selected.get().len() {
         0 => None,
-        num_selected => Some(view! {cx,
+        num_selected => Some(view! {
             <div class="multiselect-actions">
                 <div>
                     { num_selected } " selected"
@@ -302,7 +298,7 @@ where
         }),
     };
 
-    view! {cx,
+    view! {
         { action_row }
 
         <CrudTable
@@ -316,7 +312,7 @@ where
             read_allowed=read_allowed
             edit_allowed=edit_allowed
             delete_allowed=delete_allowed
-            additional_item_actions=Signal::derive(cx, move || vec![])
+            additional_item_actions=Signal::derive( move || vec![])
         />
 
         { multiselect_info }
@@ -325,28 +321,28 @@ where
         { move || match count.get() {
             Some(result) => match result {
                 Ok(count) => Some(
-                    view! {cx,
+                    view! {
                         <CrudPagination
                             item_count=count
                             items_per_page=instance_ctx.items_per_page
                             current_page=instance_ctx.current_page
-                            set_current_page=create_callback(cx, move |page_number| {
-                                expect_context::<CrudInstanceContext<T>>(cx).set_page(page_number)
+                            set_current_page=create_callback( move |page_number| {
+                                instance_ctx.set_page(page_number)
                             })
-                            set_items_per_page=create_callback(cx, move |item_count| {
-                                expect_context::<CrudInstanceContext<T>>(cx).set_items_per_page(item_count)
+                            set_items_per_page=create_callback( move |item_count| {
+                                instance_ctx.set_items_per_page(item_count)
                             })
                         />
                     }
-                    .into_view(cx),
+                    .into_view(),
                 ),
                 Err(reason) => Some(
-                    view! {cx,
+                    view! {
                         <div>
                             {format!("Keine Daten verfügbar: {reason:?}") }
                         </div>
                     }
-                    .into_view(cx),
+                    .into_view(),
                 ),
             },
             None => None,

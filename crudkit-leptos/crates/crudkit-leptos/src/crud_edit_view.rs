@@ -49,7 +49,6 @@ pub enum Then {
 
 #[component]
 pub fn CrudEditView<T>(
-    cx: Scope,
     _phantom: PhantomData<T>,
     #[prop(into)] api_base_url: Signal<String>,
     /// The ID of the entity being edited.
@@ -73,16 +72,15 @@ pub fn CrudEditView<T>(
 where
     T: CrudMainTrait + 'static,
 {
-    let instance_ctx = expect_context::<CrudInstanceContext<T>>(cx);
+    let instance_ctx = expect_context::<CrudInstanceContext<T>>();
 
     // The input is `None`, if the `entity` was not yet loaded. After the entity is loaded for the first time,
     // the this signal becomes a copy of the current (loaded) entity state.
     // We cannot use a `Default` value. The UpdateModel type may contain fields for which no default is available.
     // All modifications made through the UI are stored in this signal.
-    let (input, set_input) = create_signal(cx, Option::<T::UpdateModel>::None);
+    let (input, set_input) = create_signal(Option::<T::UpdateModel>::None);
 
     let entity_resource = create_local_resource(
-        cx,
         move || {
             tracing::debug!("entity_req");
             let id = id.get();
@@ -112,18 +110,17 @@ where
 
     // Stores the current state of the entity or an error, if no entity could be fetched.
     // Until the initial fetch request is completed, this is in the `Err(NoDataAvailable::NotYetLoaded` state!
-    let (entity, set_entity) = create_signal(
-        cx,
-        Result::<T::UpdateModel, NoDataAvailable>::Err(NoDataAvailable::NotYetLoaded),
-    );
+    let (entity, set_entity) = create_signal(Result::<T::UpdateModel, NoDataAvailable>::Err(
+        NoDataAvailable::NotYetLoaded,
+    ));
 
     let (signals, set_sig) = create_signal::<
         StoredValue<HashMap<<T::UpdateModel as CrudDataTrait>::Field, ReactiveValue>>,
-    >(cx, store_value(cx, HashMap::new()));
+    >(store_value(HashMap::new()));
 
     // Update the `entity` signal whenever we fetched a new version of the edited entity.
-    create_effect(cx, move |_prev| {
-        set_entity.set(match entity_resource.read(cx) {
+    create_effect(move |_prev| {
+        set_entity.set(match entity_resource.get() {
             Some(result) => {
                 tracing::info!("loaded entity data");
                 match result {
@@ -135,9 +132,9 @@ where
                                 let mut map = HashMap::new();
                                 for field in T::UpdateModel::get_all_fields() {
                                     let initial = field.get_value(&update_model);
-                                    map.insert(field, initial.into_reactive_value(cx));
+                                    map.insert(field, initial.into_reactive_value());
                                 }
-                                store_value(cx, map)
+                                store_value(map)
                             });
 
                             // Copying the loaded entity data to be our current final input.
@@ -156,33 +153,31 @@ where
         })
     });
 
-    let input_changed = Signal::derive(cx, move || match (input.get(), entity.get()) {
+    let input_changed = Signal::derive(move || match (input.get(), entity.get()) {
         (Some(input), Ok(entity)) => input != entity,
         _ => false,
     });
 
     // The state of the `input` signal should be considered to be erroneous if at least one field is contained in this error list.
-    let (input_errors, set_input_errors) = create_signal(
-        cx,
-        HashMap::<<T::UpdateModel as CrudDataTrait>::Field, String>::new(),
-    );
+    let (input_errors, set_input_errors) =
+        create_signal(HashMap::<<T::UpdateModel as CrudDataTrait>::Field, String>::new());
 
-    let (user_wants_to_leave, set_user_wants_to_leave) = create_signal(cx, false);
-    let (show_leave_modal, set_show_leave_modal) = create_signal(cx, false);
+    let (user_wants_to_leave, set_user_wants_to_leave) = create_signal(false);
+    let (show_leave_modal, set_show_leave_modal) = create_signal(false);
 
     let force_leave = move || on_list_view.call(());
     let request_leave = move || set_user_wants_to_leave.set(true);
 
-    create_effect(cx, move |_prev| {
-        match (user_wants_to_leave.get(), input_changed.get()) {
+    create_effect(
+        move |_prev| match (user_wants_to_leave.get(), input_changed.get()) {
             (true, true) => set_show_leave_modal.set(true),
             (true, false) => force_leave(),
             (false, _) => {}
-        }
-    });
+        },
+    );
 
     let save_action =
-        create_action(cx, move |(entity, and_then): &(T::UpdateModel, Then)| {
+        create_action(move |(entity, and_then): &(T::UpdateModel, Then)| {
             let entity: <T as CrudMainTrait>::UpdateModel = entity.clone();
             let and_then = and_then.clone();
             async move {
@@ -209,16 +204,13 @@ where
             }
         });
 
-    let save_disabled = Signal::derive(cx, move || {
-        save_action.pending().get() || !input_changed.get()
-    });
+    let save_disabled = Signal::derive(move || save_action.pending().get() || !input_changed.get());
 
-    let delete_disabled = Signal::derive(cx, move || {
-        save_action.pending().get() || input.get().is_none()
-    });
+    let delete_disabled =
+        Signal::derive(move || save_action.pending().get() || input.get().is_none());
 
     let save_action_value = save_action.value();
-    create_effect(cx, move |_prev| {
+    create_effect(move |_prev| {
         if let Some((result, and_then)) = save_action_value.get() {
             match result {
                 Ok(save_result) => match save_result {
@@ -265,12 +257,12 @@ where
         ));
     };
 
-    let action_ctx = CrudActionContext::<T>::new(cx);
+    let action_ctx = CrudActionContext::<T>::new();
 
     let value_changed = Callback::<(
         <T::UpdateModel as CrudDataTrait>::Field,
         Result<Value, String>,
-    )>::new(cx, move |(field, result)| {
+    )>::new(move |(field, result)| {
         tracing::info!(?field, ?result, "value changed");
         match result {
             Ok(value) => {
@@ -295,25 +287,25 @@ where
         }
     });
 
-    let expect_input = Signal::derive(cx, move || input.get().expect("input"));
+    let expect_input = Signal::derive(move || input.get().expect("input"));
 
-    view! {cx,
+    view! {
         { move || match (entity.get(), signals.get()) {
-            (Ok(_entity), signals) => view! {cx,
+            (Ok(_entity), signals) => view! {
                 { move || {
-                    view! {cx,
+                    view! {
                         <Grid spacing=Size::Em(0.6) class="crud-nav">
                             <Row>
                                 <Col xs=6>
                                     <ButtonWrapper>
-                                        <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save() variations=view!{cx,
+                                        <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save() variations=view!{
                                             <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save_and_return()>
                                                 "Speichern und zurück"
                                             </Button>
                                             <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save_and_new()>
                                                 "Speichern und neu"
                                             </Button>
-                                        }.into_view(cx)>
+                                        }.into_view()>
                                             "Speichern"
                                         </Button>
                                         <Button color=ButtonColor::Danger disabled=delete_disabled on_click=move |_| trigger_delete()>
@@ -349,8 +341,8 @@ where
                     on_tab_selection=on_tab_selected
                     entity=expect_input
                 />
-            }.into_view(cx),
-            (Err(no_data), _) => view! {cx,
+            }.into_view(),
+            (Err(no_data), _) => view! {
                 <Grid spacing=Size::Em(0.6) class="crud-nav">
                     <Row>
                         <Col h_align=ColAlign::End>
@@ -363,16 +355,16 @@ where
                     </Row>
                 </Grid>
                 <NoDataAvailable no_data />
-            }.into_view(cx),
+            }.into_view(),
         } }
 
         <CrudLeaveModal
             show_when=show_leave_modal
-            on_cancel=create_callback(cx, move |()| {
+            on_cancel=create_callback( move |()| {
                 set_show_leave_modal.set(false);
                 set_user_wants_to_leave.set(false);
             })
-            on_accept=create_callback(cx, move |()| {
+            on_accept=create_callback( move |()| {
                 set_show_leave_modal.set(false);
                 force_leave();
             })
@@ -381,8 +373,8 @@ where
 }
 
 #[component]
-fn NoDataAvailable(cx: Scope, no_data: NoDataAvailable) -> impl IntoView {
-    view! {cx,
+fn NoDataAvailable(no_data: NoDataAvailable) -> impl IntoView {
+    view! {
         <div>
             {format!("Daten nicht verfügbar: {:?}", no_data)}
         </div>

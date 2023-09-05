@@ -139,12 +139,8 @@ impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
         self.set_deletion_request.set(Some(entity));
     }
 
-    // TODO: Other functions do not take a Scope. Should the instance provide its scope to store it in this context? Would allow everyone to have access.
-    pub fn handle_action_outcome(
-        &self,
-        cx: Scope,
-        outcome: Result<CrudActionAftermath, CrudActionAftermath>,
-    ) {
+    // TODO: Other functions do not take a . Should the instance provide its  to store it in this context? Would allow everyone to have access.
+    pub fn handle_action_outcome(&self, outcome: Result<CrudActionAftermath, CrudActionAftermath>) {
         tracing::info!(?outcome, "handling action outcome");
 
         let CrudActionAftermath {
@@ -156,7 +152,7 @@ impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
         };
 
         if let Some(toast) = show_toast {
-            expect_context::<Toasts>(cx).push(toast);
+            expect_context::<Toasts>().push(toast);
         }
 
         if reload_data {
@@ -185,8 +181,6 @@ impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
 
 #[component]
 pub fn CrudInstance<T>(
-    cx: Scope,
-
     // TODO: Analyze children once on creation and on prop changes. Pass generated data-structure to children!
     // TODO: Only allow easy-to-parse structure:
     /*
@@ -220,12 +214,12 @@ pub fn CrudInstance<T>(
 where
     T: CrudMainTrait + 'static,
 {
-    let (api_base_url, set_api_base_url) = create_signal(cx, config.api_base_url.clone());
-    let (view, set_view) = create_signal(cx, config.view.clone());
+    let (api_base_url, set_api_base_url) = create_signal(config.api_base_url.clone());
+    let (view, set_view) = create_signal(config.view.clone());
     // TODO: As memo?
-    let serializable_view = Signal::<SerializableCrudView>::derive(cx, move || view.get().into());
+    let serializable_view = Signal::<SerializableCrudView>::derive(move || view.get().into());
 
-    let mgr = expect_context::<CrudInstanceMgrContext>(cx);
+    let mgr = expect_context::<CrudInstanceMgrContext>();
     mgr.register(
         name,
         InstanceState {
@@ -234,12 +228,14 @@ where
         },
     );
 
-    let (headers, set_headers) = create_signal(cx, config.headers.clone());
-    let (current_page, set_current_page) = create_signal(cx, config.page.clone());
-    let (items_per_page, set_items_per_page) = create_signal(cx, config.items_per_page.clone());
-    let (order_by, set_order_by) = create_signal(cx, config.order_by.clone());
-    fn get_parent_id(cx: Scope, parent: &CrudParentConfig) -> Option<SerializableId> {
-        let mgr = expect_context::<CrudInstanceMgrContext>(cx);
+    let (headers, set_headers) = create_signal(config.headers.clone());
+    let (current_page, set_current_page) = create_signal(config.page.clone());
+    let (items_per_page, set_items_per_page) = create_signal(config.items_per_page.clone());
+    let (order_by, set_order_by) = create_signal(config.order_by.clone());
+    fn get_parent_id(
+        parent: &CrudParentConfig,
+        mgr: CrudInstanceMgrContext,
+    ) -> Option<SerializableId> {
         let parent_state = mgr
             .instances
             .get()
@@ -252,16 +248,16 @@ where
             SerializableCrudView::Edit(id) => Some(id),
         }
     };
-    let parent = store_value(cx, parent);
-    let parent_id = Signal::derive(cx, move || {
+    let parent = store_value(parent);
+    let parent_id = Signal::derive(move || {
         parent
             .get_value()
-            .and_then(|parent| get_parent_id(cx, &parent))
+            .and_then(|parent| get_parent_id(&parent, mgr))
     });
-    let parent_id_referencing_condition = Signal::derive(cx, move || {
+    let parent_id_referencing_condition = Signal::derive(move || {
         parent
             .get_value()
-            .and_then(|parent| get_parent_id(cx, &parent).map(|id| (parent, id)))
+            .and_then(|parent| get_parent_id(&parent, mgr).map(|id| (parent, id)))
             .map(|(parent, id)| {
                 let (_name, value) =
                     id.0.into_iter()
@@ -281,73 +277,66 @@ where
             })
     });
     let base_condition = config.base_condition.clone();
-    let base_condition = Signal::derive(cx, move || {
+    let base_condition = Signal::derive(move || {
         crudkit_condition::merge_conditions(
             parent_id_referencing_condition.get(),
             base_condition.clone(),
         )
     });
-    let (create_elements, set_create_elements) = create_signal(cx, config.create_elements.clone());
-    let (update_elements, set_update_elements) = create_signal(cx, config.elements.clone());
-    let (deletion_request, set_deletion_request) = create_signal(cx, None);
-    let (reload, set_reload) = create_signal(cx, Uuid::new_v4());
+    let (create_elements, set_create_elements) = create_signal(config.create_elements.clone());
+    let (update_elements, set_update_elements) = create_signal(config.elements.clone());
+    let (deletion_request, set_deletion_request) = create_signal(None);
+    let (reload, set_reload) = create_signal(Uuid::new_v4());
 
-    let default_config = store_value(cx, config);
+    let default_config = store_value(config);
 
-    let data_provider = create_memo(cx, move |_| {
-        CrudRestDataProvider::<T>::new(api_base_url.get())
-    });
+    let data_provider = create_memo(move |_| CrudRestDataProvider::<T>::new(api_base_url.get()));
 
-    provide_context(
-        cx,
-        CrudInstanceContext::<T> {
-            default_config,
-            view,
-            set_view,
-            current_page,
-            set_current_page,
-            items_per_page,
-            set_items_per_page,
-            order_by,
-            set_order_by,
-            parent,
-            parent_id,
-            parent_id_referencing_condition,
-            base_condition,
-            deletion_request,
-            set_deletion_request,
-            reload,
-            set_reload,
-        },
-    );
+    // ctx is copy. But is it efficient? Do we want to put this into a stored value instead?
+    let ctx = CrudInstanceContext::<T> {
+        default_config,
+        view,
+        set_view,
+        current_page,
+        set_current_page,
+        items_per_page,
+        set_items_per_page,
+        order_by,
+        set_order_by,
+        parent,
+        parent_id,
+        parent_id_referencing_condition,
+        base_condition,
+        deletion_request,
+        set_deletion_request,
+        reload,
+        set_reload,
+    };
+    provide_context(ctx);
 
-    let custom_read_fields = Signal::derive(cx, move || static_config.custom_read_fields.clone());
-    let custom_create_fields =
-        Signal::derive(cx, move || static_config.custom_create_fields.clone());
-    let custom_update_fields =
-        Signal::derive(cx, move || static_config.custom_update_fields.clone());
+    let custom_read_fields = Signal::derive(move || static_config.custom_read_fields.clone());
+    let custom_create_fields = Signal::derive(move || static_config.custom_create_fields.clone());
+    let custom_update_fields = Signal::derive(move || static_config.custom_update_fields.clone());
 
     let create_field_config =
-        Signal::derive(cx, move || static_config.create_field_select_config.clone());
-    let read_field_config =
-        Signal::derive(cx, move || static_config.read_field_select_config.clone());
+        Signal::derive(move || static_config.create_field_select_config.clone());
+    let read_field_config = Signal::derive(move || static_config.read_field_select_config.clone());
     let update_field_config =
-        Signal::derive(cx, move || static_config.update_field_select_config.clone());
+        Signal::derive(move || static_config.update_field_select_config.clone());
 
-    let actions = Signal::derive(cx, move || static_config.actions.clone());
-    let entity_actions = Signal::derive(cx, move || static_config.entity_actions.clone());
+    let actions = Signal::derive(move || static_config.actions.clone());
+    let entity_actions = Signal::derive(move || static_config.entity_actions.clone());
 
-    let on_cancel_delete = create_callback(cx, move |()| {
+    let on_cancel_delete = create_callback(move |()| {
         tracing::info!("Removing delete request");
         set_deletion_request.set(None);
     });
 
     // TODO: Always open the list view after a successful delete.
     let on_accept_delete = create_callback(
-        cx,
         move |entity: DeletableModel<T::ReadModel, T::UpdateModel>| {
             // TODO: A create_action_once could save us a clone...
-            let action = create_action(cx, move |_data: &()| {
+            let action = create_action(move |_data: &()| {
                 let id = match &entity {
                     DeletableModel::Read(entity) => entity.get_id().into_serializable_id(),
                     DeletableModel::Update(entity) => entity.get_id().into_serializable_id(),
@@ -362,24 +351,24 @@ where
             action.dispatch(());
 
             let value = action.value();
-            create_effect(cx, move |_prev| {
+            create_effect(move |_prev| {
                 if let Some(result) = value.get() {
                     // The delete operation was performed and must therefore no longer be requested.
                     set_deletion_request.set(None);
 
                     // No matter where the user deleted an entity, the list view should be shown afterwards.
-                    expect_context::<CrudInstanceContext<T>>(cx).list();
+                    ctx.list();
 
                     // The user must be notified how the delete operation went.
                     match result {
                         Ok(delete_result) => {
                             match delete_result {
                                 DeleteResult::Deleted(num) => {
-                                    expect_context::<Toasts>(cx).push(Toast {
+                                    expect_context::<Toasts>().push(Toast {
                                         id: Uuid::new_v4(),
                                         created_at: OffsetDateTime::now_utc(),
                                         variant: ToastVariant::Success,
-                                        header: "Löschen".into_view(cx),
+                                        header: "Löschen".into_view(),
                                         body: format!(
                                             "{num} {} erfolgreich gelöscht.",
                                             match num {
@@ -387,45 +376,44 @@ where
                                                 _ => "Einträge",
                                             }
                                         )
-                                        .into_view(cx),
+                                        .into_view(),
                                         timeout: ToastTimeout::DefaultDelay,
                                     })
                                 }
 
-                                DeleteResult::Aborted { reason } => expect_context::<Toasts>(cx)
+                                DeleteResult::Aborted { reason } => expect_context::<Toasts>()
                                     .push(Toast {
                                         id: Uuid::new_v4(),
                                         created_at: OffsetDateTime::now_utc(),
                                         variant: ToastVariant::Warn,
-                                        header: "Delete".into_view(cx),
+                                        header: "Delete".into_view(),
                                         body: format!("Löschvorgang abgebrochen. Grund: {reason}")
-                                            .into_view(cx),
+                                            .into_view(),
                                         timeout: ToastTimeout::DefaultDelay,
                                     }),
                                 DeleteResult::CriticalValidationErrors => {
-                                    expect_context::<Toasts>(cx).push(Toast {
+                                    expect_context::<Toasts>().push(Toast {
                                         id: Uuid::new_v4(),
                                         created_at: OffsetDateTime::now_utc(),
                                         variant: ToastVariant::Error,
-                                        header: "Delete".into_view(cx),
-                                        body: format!("{delete_result:#?}").into_view(cx),
+                                        header: "Delete".into_view(),
+                                        body: format!("{delete_result:#?}").into_view(),
                                         timeout: ToastTimeout::DefaultDelay,
                                     })
                                 }
                             }
-                            expect_context::<CrudInstanceContext<T>>(cx).reload()
+                            ctx.reload()
                         }
                         Err(err) => {
-                            expect_context::<Toasts>(cx).push(Toast {
+                            expect_context::<Toasts>().push(Toast {
                                 id: Uuid::new_v4(),
                                 created_at: OffsetDateTime::now_utc(),
                                 variant: ToastVariant::Error,
-                                header: "Delete".into_view(cx),
-                                body: format!("Konnte Eintrag nicht Löschen: {err:#?}")
-                                    .into_view(cx),
+                                header: "Delete".into_view(),
+                                body: format!("Konnte Eintrag nicht Löschen: {err:#?}").into_view(),
                                 timeout: ToastTimeout::DefaultDelay,
                             });
-                            expect_context::<CrudInstanceContext<T>>(cx).reload()
+                            ctx.reload()
                         }
                     }
                 }
@@ -433,13 +421,13 @@ where
         },
     );
 
-    let content = move |cx, view: crudkit_web::CrudView<T::ReadModelId, T::UpdateModelId>| {
-        view! {cx,
+    let content = move |view: crudkit_web::CrudView<T::ReadModelId, T::UpdateModelId>| {
+        view! {
             <div class="crud-instance">
                 <div class="body">
                     { match view {
                         CrudView::List => {
-                            view! {cx,
+                            view! {
                                 <CrudListView
                                     api_base_url=api_base_url
                                     data_provider=data_provider
@@ -450,10 +438,10 @@ where
                                     actions=actions
                                 />
                             }
-                            .into_view(cx)
+                            .into_view()
                         }
                         CrudView::Create => {
-                            view! {cx,
+                            view! {
                                 <CrudCreateView
                                     _phantom={ PhantomData::<T>::default() }
                                     api_base_url=api_base_url
@@ -461,53 +449,53 @@ where
                                     create_elements=create_elements
                                     custom_fields=custom_create_fields
                                     field_config=create_field_config
-                                    on_edit_view=create_callback(cx, move |id| expect_context::<CrudInstanceContext<T>>(cx).edit(id))
-                                    on_list_view=create_callback(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
-                                    on_create_view=create_callback(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).create())
-                                    on_entity_created=create_callback(cx, move |saved| {})
-                                    on_entity_creation_aborted=create_callback(cx, move |reason| {})
-                                    on_entity_not_created_critical_errors=create_callback(cx, move |()| {})
-                                    on_entity_creation_failed=create_callback(cx, move |request_error| {})
-                                    on_tab_selected=create_callback(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
+                                    on_edit_view=create_callback( move |id| ctx.edit(id))
+                                    on_list_view=create_callback( move |()| ctx.list())
+                                    on_create_view=create_callback( move |()| ctx.create())
+                                    on_entity_created=create_callback( move |saved| {})
+                                    on_entity_creation_aborted=create_callback( move |reason| {})
+                                    on_entity_not_created_critical_errors=create_callback( move |()| {})
+                                    on_entity_creation_failed=create_callback( move |request_error| {})
+                                    on_tab_selected=create_callback( move |tab_id| ctx.tab_selected(tab_id))
                                 />
                             }
-                            .into_view(cx)
+                            .into_view()
                         }
                         CrudView::Read(id) => {
-                            view! {cx,
+                            view! {
                                 <CrudReadView
                                     _phantom={ PhantomData::<T>::default() }
                                     api_base_url=api_base_url
-                                    id=Signal::derive(cx, move || id.clone()) // TODO: This cant be good...
+                                    id=Signal::derive( move || id.clone()) // TODO: This cant be good...
                                     data_provider=data_provider
                                     actions=entity_actions
                                     elements=update_elements
                                     custom_fields=custom_update_fields
                                     field_config=update_field_config
-                                    on_list_view=create_callback(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
-                                    on_tab_selected=create_callback(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
+                                    on_list_view=create_callback( move |()| ctx.list())
+                                    on_tab_selected=create_callback( move |tab_id| ctx.tab_selected(tab_id))
                                 />
                             }
-                            .into_view(cx)
+                            .into_view()
                         }
                         CrudView::Edit(id) => {
-                            view! {cx,
+                            view! {
                                 <CrudEditView
                                     _phantom={ PhantomData::<T>::default() }
                                     api_base_url=api_base_url
-                                    id=Signal::derive(cx, move || id.clone()) // TODO: This cant be good...
+                                    id=Signal::derive( move || id.clone()) // TODO: This cant be good...
                                     data_provider=data_provider
                                     actions=entity_actions
                                     elements=update_elements
                                     custom_fields=custom_update_fields
                                     field_config=update_field_config
-                                    on_list_view=create_callback(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).list())
-                                    on_create_view=create_callback(cx, move |()| expect_context::<CrudInstanceContext<T>>(cx).create())
-                                    on_entity_updated=create_callback(cx, move |saved| {})
-                                    on_entity_update_aborted=create_callback(cx, move |reason| {})
-                                    on_entity_not_updated_critical_errors=create_callback(cx, move |()| {})
-                                    on_entity_update_failed=create_callback(cx, move |request_error| {})
-                                    on_tab_selected=create_callback(cx, move |tab_id| expect_context::<CrudInstanceContext<T>>(cx).tab_selected(tab_id))
+                                    on_list_view=create_callback( move |()| ctx.list())
+                                    on_create_view=create_callback( move |()| ctx.create())
+                                    on_entity_updated=create_callback( move |saved| {})
+                                    on_entity_update_aborted=create_callback( move |reason| {})
+                                    on_entity_not_updated_critical_errors=create_callback( move |()| {})
+                                    on_entity_update_failed=create_callback( move |request_error| {})
+                                    on_tab_selected=create_callback( move |tab_id| ctx.tab_selected(tab_id))
                                 />
                                 //<CrudEditView<T>
                                 //    data_provider={self.data_provider.clone()}
@@ -524,13 +512,13 @@ where
                                 //    on_list={ctx.link().callback(|_| Msg::List)}
                                 //    on_create={ctx.link().callback(|_| Msg::Create)}
                                 //    on_delete={ctx.link().callback(|entity| Msg::Delete(DeletableModel::Update(entity)))}
-                                //    on_link={ctx.link().callback(|link: Option<Scope<CrudEditView<T>>>|
+                                //    on_link={ctx.link().callback(|link: Option<<CrudEditView<T>>>|
                                 //        Msg::ViewLinked(link.map(|link| ViewLink::Edit(link))))}
                                 //    on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
                                 //    on_entity_action={ctx.link().callback(Msg::CustomEntityAction)}
                                 // />
                             }
-                            .into_view(cx)
+                            .into_view()
                         }
                     } }
 
@@ -545,24 +533,27 @@ where
         }
     };
 
-    let child_scope = RefCell::new(Option::<Scope>::None);
-    let router = move || {
-        // Whenever the "view" changes, the new view must be rendered in a new scope.
-        let view: CrudView<<T as CrudMainTrait>::ReadModelId, <T as CrudMainTrait>::UpdateModelId> =
-            view.get();
+    //let child_ = RefCell::new(Option::None);
+    //let router = move || {
+    //    // Whenever the "view" changes, the new view must be rendered in a new .
+    //    let view: CrudView<<T as CrudMainTrait>::ReadModelId, <T as CrudMainTrait>::UpdateModelId> =
+    //        view.get();
+    //
+    //    as_child_of_current_owner(f)
+    //    let (view, _) = cx.run_child_(|| {
+    //        // TODO: The Show component does this differently
+    //        let prev_cx = std::mem::replace(&mut *child_.borrow_mut(), Some());
+    //        if let Some(prev_cx) = prev_cx {
+    //            prev_cx.dispose();
+    //        }
+    //
+    //        content(view).into_view()
+    //    });
+    //
+    //    view
+    //};
 
-        let (view, _) = cx.run_child_scope(|cx| {
-            // TODO: The Show component does this differently
-            let prev_cx = std::mem::replace(&mut *child_scope.borrow_mut(), Some(cx));
-            if let Some(prev_cx) = prev_cx {
-                prev_cx.dispose();
-            }
+    //router
 
-            content(cx, view).into_view(cx)
-        });
-
-        view
-    };
-
-    router
+    move || content(view.get())
 }

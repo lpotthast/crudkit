@@ -1,8 +1,8 @@
 use leptos::*;
 
 #[component]
-pub fn CrudTableFooter(cx: Scope) -> impl IntoView {
-    view! {cx,
+pub fn CrudTableFooter() -> impl IntoView {
+    view! {
         <tfoot class="crud-table-footer">
         </tfoot>
     }
