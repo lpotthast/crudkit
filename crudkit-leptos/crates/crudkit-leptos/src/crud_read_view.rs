@@ -182,7 +182,6 @@ where
             }
             (Err(no_data), _) => {
                 view! {
-                    // active_tab={ctx.props().config.active_tab.clone()}
                     <Grid spacing=Size::Em(0.6) class="crud-nav">
                         <Row>
                             <Col h_align=ColAlign::End>

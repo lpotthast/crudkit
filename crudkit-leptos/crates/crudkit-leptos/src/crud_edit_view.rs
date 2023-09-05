@@ -366,12 +366,10 @@ where
                         on_tab_selection=on_tab_selected
                         entity=expect_input
                     />
-                }
-                    .into_view()
+                }.into_view()
             }
             (Err(no_data), _) => {
                 view! {
-                    // active_tab={ctx.props().config.active_tab.clone()}
                     <Grid spacing=Size::Em(0.6) class="crud-nav">
                         <Row>
                             <Col h_align=ColAlign::End>
@@ -385,8 +383,7 @@ where
                         </Row>
                     </Grid>
                     <NoDataAvailable no_data/>
-                }
-                    .into_view()
+                }.into_view()
             }
         }}
 

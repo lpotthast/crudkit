@@ -213,10 +213,7 @@ where
                         NoDataAvailable::NotYetLoaded => {
                             view! {
                                 <tr>
-                                    <td colspan="100%">
-                                        // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-                                        " "
-                                    </td>
+                                    <td colspan="100%">" "</td>
                                 </tr>
                             }
                                 .into_view()
