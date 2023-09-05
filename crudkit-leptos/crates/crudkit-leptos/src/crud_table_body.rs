@@ -223,14 +223,6 @@ where
                         }
                         NoDataAvailable::RequestFailed(reason) => {
                             view! {
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
                                 <tr>
                                     <td colspan="100%">{format!("No data available: {reason:?}")}</td>
                                 </tr>
@@ -239,26 +231,6 @@ where
                         }
                         NoDataAvailable::RequestReturnedNoData(reason) => {
                             view! {
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
-                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-
                                 <tr>
                                     <td colspan="100%">{format!("No data available: {reason:?}")}</td>
                                 </tr>
