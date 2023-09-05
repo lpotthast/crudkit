@@ -19,15 +19,12 @@ pub fn CrudLeaveModal(
     view! {
         <ModalFn show_when=show_when>
             <ModalHeader>
-                <ModalTitle>
-                    "Ungespeicherte Änderungen"
-                </ModalTitle>
+                <ModalTitle>"Ungespeicherte Änderungen"</ModalTitle>
             </ModalHeader>
 
             <ModalBody style="text-align: center;">
-                "Du hast deine Änderungen noch nicht gespeichert."<br />
-                "Möchtest du den Bereich wirklich verlassen?"<br />
-                "Ungespeicherte Änderungen gehen verloren!"
+                "Du hast deine Änderungen noch nicht gespeichert." <br/> "Möchtest du den Bereich wirklich verlassen?"
+                <br/> "Ungespeicherte Änderungen gehen verloren!"
             </ModalBody>
 
             <ModalFooter>
@@ -35,16 +32,24 @@ pub fn CrudLeaveModal(
                     <Row>
                         <Col h_align=ColAlign::End>
                             <ButtonWrapper>
-                                <Button color=ButtonColor::Secondary on_click=move |_| {
-                                    tracing::info!("cancel");
-                                    on_cancel.call(());
-                                }>
+                                <Button
+                                    color=ButtonColor::Secondary
+                                    on_click=move |_| {
+                                        tracing::info!("cancel");
+                                        on_cancel.call(());
+                                    }
+                                >
+
                                     "Zurück"
                                 </Button>
-                                <Button color=ButtonColor::Warn on_click=move |_| {
-                                    tracing::info!("leave");
-                                    on_accept.call(());
-                                }>
+                                <Button
+                                    color=ButtonColor::Warn
+                                    on_click=move |_| {
+                                        tracing::info!("leave");
+                                        on_accept.call(());
+                                    }
+                                >
+
                                     "Verlassen"
                                 </Button>
                             </ButtonWrapper>

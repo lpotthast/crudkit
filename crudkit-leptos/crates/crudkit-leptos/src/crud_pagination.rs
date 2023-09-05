@@ -57,14 +57,14 @@ pub fn CrudPagination(
                 <Row>
                     <Col xs=6 h_align=ColAlign::Start>
                         <div class="items-per-page-selector">
-                            <div class="label">
-                                "Einträge pro Seite"
-                            </div>
+                            <div class="label">"Einträge pro Seite"</div>
                             <Select
                                 options=items_per_page_options
-                                search_text_provider=create_callback( move |o: ItemsPerPage| o.to_string())
-                                render_option=create_callback( move |o: ItemsPerPage| o.to_string())
-                                selected=Signal::derive( move || ItemsPerPage::some(items_per_page.get()))
+                                search_text_provider=create_callback(move |o: ItemsPerPage| { o.to_string() })
+
+                                render_option=create_callback(move |o: ItemsPerPage| o.to_string())
+                                selected=Signal::derive(move || ItemsPerPage::some(items_per_page.get()))
+
                                 set_selected=set_items_per_page
                             />
                         </div>
@@ -72,29 +72,41 @@ pub fn CrudPagination(
 
                     <Col xs=6 h_align=ColAlign::End>
                         <ButtonGroup>
-                            {
-                                move || {
-                                    let page_options = page_options.get();
-                                    page_options.options.into_iter().map(|page_number| {
+
+                            {move || {
+                                let page_options = page_options.get();
+                                page_options
+                                    .options
+                                    .into_iter()
+                                    .map(|page_number| {
                                         view! {
                                             <Button
                                                 variant=ButtonVariant::Filled
                                                 color=ButtonColor::Secondary
                                                 disabled=page_number.is_none()
-                                                active=MaybeSignal::from(page_number == Some(page_options.for_current_page)) // TODO: Use signal::derive instead?
-                                                on_click=move |_| if let Some(number) = page_number {
-                                                    set_current_page.call(number)
+                                                // TODO: Use signal::derive instead?
+                                                active=MaybeSignal::from(
+                                                    page_number == Some(page_options.for_current_page),
+                                                )
+
+                                                on_click=move |_| {
+                                                    if let Some(number) = page_number {
+                                                        set_current_page.call(number)
+                                                    }
                                                 }
                                             >
-                                                { match page_number {
+
+                                                {match page_number {
                                                     Some(page_number) => Cow::Owned(format!("{}", page_number)),
-                                                    None => Cow::Borrowed("\u{2026}"), // The `hellip` character (three dots)
-                                                } }
+                                                    None => Cow::Borrowed("\u{2026}"),
+                                                }}
+
                                             </Button>
                                         }
-                                    }).collect_view()
-                                }
-                            }
+                                    })
+                                    .collect_view()
+                            }}
+
                         </ButtonGroup>
                     </Col>
                 </Row>

@@ -69,38 +69,40 @@ where
         let dummy_value_changed_callback = create_callback(move |_| {});
 
         view! {
-            <tr class="interactable"
-                on:click=move |_e| { instance_ctx.edit(stored_entity.get().into().get_id()) }
-            >
+            <tr class="interactable" on:click=move |_e| { instance_ctx.edit(stored_entity.get().into().get_id()) }>
                 <td class="select fit-content" on:click=move |e| e.stop_propagation()>
-                    <Checkbox
-                        checked=is_selected
-                        on_toggle=toggle_selected
-                    />
+                    <Checkbox checked=is_selected on_toggle=toggle_selected/>
                 </td>
 
                 <For
                     each=move || headers.get()
                     key=|(field, _options)| field.get_name()
-                    view=move | (field, options)| {
-                        // TODO: Is it ok to recreate this reactive value on the fly?
-                        let entity = stored_entity.get(); // TODO: Optimize. Do we still need a StoredEntity?
+                    view=move |(field, options)| {
+                        let entity = stored_entity.get();
                         let reactive_value = {
                             let initial = field.get_value(&entity);
                             initial.into_reactive_value()
                         };
-
                         view! {
+                            // TODO: Is it ok to recreate this reactive value on the fly?
+                            // TODO: Optimize. Do we still need a StoredEntity?
+
                             <td class:fit-content=options.min_width>
                                 <CrudField
-                                    //children={ctx.props().children.clone()} // TODO: make this work
+                                    // children={ctx.props().children.clone()} // TODO: make this work
                                     custom_fields=custom_fields
                                     field_config=field_config
                                     api_base_url=api_base_url
                                     current_view=CrudSimpleView::List
                                     field=field.clone()
-                                    field_options=FieldOptions { disabled: false, label: None, date_time_display: options.date_time_display }
-                                    field_mode=FieldMode::Display // TODO: We could tie the value_changed callback to the field_mode, as it is only required when a value can actually change!
+                                    field_options=FieldOptions {
+                                        disabled: false,
+                                        label: None,
+                                        date_time_display: options.date_time_display,
+                                    }
+
+                                    // TODO: We could tie the value_changed callback to the field_mode, as it is only required when a value can actually change!
+                                    field_mode=FieldMode::Display
                                     value=reactive_value
                                     value_changed=dummy_value_changed_callback
                                     entity=stored_entity.into()
@@ -110,96 +112,163 @@ where
                     }
                 />
 
-                { move || {
-                    with_actions.get().then(|| view! {
-                        <td class="fit-content" on:click=|e| e.stop_propagation()>
-                            <div class="action-icons">
-                                { read_allowed.get().then(|| view! {
-                                    <div class="action-icon" on:click=move |_| read(stored_entity.get())>
-                                        <Icon icon=BsIcon::BsEye/>
-                                    </div>
-                                }) }
-                                { edit_allowed.get().then(|| view! {
-                                    <div class="action-icon" on:click=move |_| edit(stored_entity.get())>
-                                        <Icon icon=BsIcon::BsPencil/>
-                                    </div>
-                                }) }
-                                { delete_allowed.get().then(|| view! {
-                                    <div class="action-icon" on:click=move |_| delete(stored_entity.get())>
-                                        <Icon icon=BsIcon::BsTrash/>
-                                    </div>
-                                }) }
+                {move || {
+                    with_actions
+                        .get()
+                        .then(|| {
+                            view! {
+                                <td class="fit-content" on:click=|e| e.stop_propagation()>
+                                    <div class="action-icons">
+                                        {read_allowed
+                                            .get()
+                                            .then(|| {
+                                                view! {
+                                                    <div
+                                                        class="action-icon"
+                                                        on:click=move |_| read(stored_entity.get())
+                                                    >
+                                                        <Icon icon=BsIcon::BsEye/>
+                                                    </div>
+                                                }
+                                            })}
+                                        {edit_allowed
+                                            .get()
+                                            .then(|| {
+                                                view! {
+                                                    <div
+                                                        class="action-icon"
+                                                        on:click=move |_| edit(stored_entity.get())
+                                                    >
+                                                        <Icon icon=BsIcon::BsPencil/>
+                                                    </div>
+                                                }
+                                            })}
+                                        {delete_allowed
+                                            .get()
+                                            .then(|| {
+                                                view! {
+                                                    <div
+                                                        class="action-icon"
+                                                        on:click=move |_| delete(stored_entity.get())
+                                                    >
+                                                        <Icon icon=BsIcon::BsTrash/>
+                                                    </div>
+                                                }
+                                            })}
+                                        <For
+                                            each=move || additional_item_actions.get()
+                                            key=|entity| entity.get_name()
+                                            view=move |action| {
+                                                let icon = action.get_icon().unwrap_or(BsIcon::BsQuestion.into());
+                                                view! {
+                                                    <div
+                                                        class="action-icon"
+                                                        on:click=move |_| trigger_action(
+                                                            stored_entity.get(),
+                                                            action.clone(),
+                                                        )
+                                                    >
 
-                                <For
-                                    each=move || additional_item_actions.get()
-                                    key=|entity| entity.get_name()
-                                    view=move | action| {
-                                        let icon = action.get_icon().unwrap_or(BsIcon::BsQuestion.into());
-                                        view! {
-                                            <div
-                                                class="action-icon"
-                                                on:click=move |_| trigger_action(stored_entity.get(), action.clone())>
-                                                <Icon icon=icon/>
-                                            </div>
-                                        }
-                                    }
-                                />
-                            </div>
-                        </td>
-                    })
+                                                        <Icon icon=icon/>
+                                                    </div>
+                                                }
+                                            }
+                                        />
+
+                                    </div>
+                                </td>
+                            }
+                        })
                 }}
+
             </tr>
         }
     };
 
     view! {
         <tbody>
-            { move || match data.get() {
-                Ok(data) => match data.len() {
-                    0 => view! {
-                        <tr>
-                            <td colspan="100%" class="no-data">
-                                {"Keine Daten"}
-                            </td>
-                        </tr>
+            {move || match data.get() {
+                Ok(data) => {
+                    match data.len() {
+                        0 => {
+                            view! {
+                                <tr>
+                                    <td colspan="100%" class="no-data">
+                                        {"Keine Daten"}
+                                    </td>
+                                </tr>
+                            }
+                                .into_view()
+                        }
+                        _ => {
+                            view! {
+                                <For each=move || data.as_ref().clone() key=|entity| entity.get_id() view=render_entry/>
+                            }
+                                .into_view()
+                        }
                     }
-                    .into_view(),
-                    _ => view! {
-                        <For
-                            each=move || data.as_ref().clone()
-                            key=|entity| entity.get_id()
-                            view=render_entry
-                        />
+                }
+                Err(no_data) => {
+                    match no_data {
+                        NoDataAvailable::NotYetLoaded => {
+                            view! {
+                                <tr>
+                                    <td colspan="100%">
+                                        // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+                                        " "
+                                    </td>
+                                </tr>
+                            }
+                                .into_view()
+                        }
+                        NoDataAvailable::RequestFailed(reason) => {
+                            view! {
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                <tr>
+                                    <td colspan="100%">{format!("No data available: {reason:?}")}</td>
+                                </tr>
+                            }
+                                .into_view()
+                        }
+                        NoDataAvailable::RequestReturnedNoData(reason) => {
+                            view! {
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
+
+                                <tr>
+                                    <td colspan="100%">{format!("No data available: {reason:?}")}</td>
+                                </tr>
+                            }
+                                .into_view()
+                        }
                     }
-                    .into_view(),
-                },
-                Err(no_data) => match no_data {
-                    NoDataAvailable::NotYetLoaded => view! {
-                        <tr>
-                            <td colspan="100%">
-                                "\u{00a0}" // nbsp, see https://doc.rust-lang.org/std/primitive.char.html
-                            </td>
-                        </tr>
-                    }
-                    .into_view(),
-                    NoDataAvailable::RequestFailed(reason) => view! {
-                        <tr>
-                            <td colspan="100%">
-                                { format!("No data available: {reason:?}") }
-                            </td>
-                        </tr>
-                    }
-                    .into_view(),
-                    NoDataAvailable::RequestReturnedNoData(reason) => view! {
-                        <tr>
-                            <td colspan="100%">
-                                { format!("No data available: {reason:?}") }
-                            </td>
-                        </tr>
-                    }
-                    .into_view(),
-                },
-            } }
+                }
+            }}
+
         </tbody>
     }
 }

@@ -214,14 +214,28 @@ where
             <Row>
                 <Col xs=6>
                     <ButtonWrapper>
-                        <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save() variations=view!{
-                            <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save_and_return()>
-                                "Speichern und zurück"
-                            </Button>
-                            <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save_and_new()>
-                                "Speichern und neu"
-                            </Button>
-                        }.into_view()>
+                        <Button
+                            color=ButtonColor::Primary
+                            disabled=save_disabled
+                            on_click=move |_| trigger_save()
+                            variations=view! {
+                                <Button
+                                    color=ButtonColor::Primary
+                                    disabled=save_disabled
+                                    on_click=move |_| trigger_save_and_return()
+                                >
+                                    "Speichern und zurück"
+                                </Button>
+                                <Button
+                                    color=ButtonColor::Primary
+                                    disabled=save_disabled
+                                    on_click=move |_| trigger_save_and_new()
+                                >
+                                    "Speichern und neu"
+                                </Button>
+                            }
+                                .into_view()
+                        >
                             "Speichern"
                         </Button>
                     </ButtonWrapper>
@@ -230,39 +244,44 @@ where
                 <Col xs=6 h_align=ColAlign::End>
                     <ButtonWrapper>
                         <Button color=ButtonColor::Secondary on_click=move |_| request_leave()>
-                            <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
+                            <span style="text-decoration: underline;">{"L"}</span>
+                            {"istenansicht"}
                         </Button>
                     </ButtonWrapper>
                 </Col>
             </Row>
         </Grid>
 
-        { move || match create_elements.get() {
+        {move || match create_elements.get() {
             CreateElements::None => view! { "Keine Felder definiert." }.into_view(),
-            CreateElements::Custom(create_elements) => view! {
-                <CrudFields
-                    custom_fields=custom_fields
-                    field_config=field_config
-                    api_base_url=api_base_url
-                    elements=create_elements
-                    signals=signals
-                    mode=FieldMode::Editable
-                    current_view=CrudSimpleView::Create
-                    value_changed=value_changed
-                    // active_tab={ctx.props().config.active_tab.clone()}
-                    on_tab_selection=on_tab_selected
-                    entity=input.into()
-                />
-            }.into_view(),
-        } }
+            CreateElements::Custom(create_elements) => {
+                view! {
+                    <CrudFields
+                        custom_fields=custom_fields
+                        field_config=field_config
+                        api_base_url=api_base_url
+                        elements=create_elements
+                        signals=signals
+                        mode=FieldMode::Editable
+                        current_view=CrudSimpleView::Create
+                        value_changed=value_changed
+                        // active_tab={ctx.props().config.active_tab.clone()}
+                        on_tab_selection=on_tab_selected
+                        entity=input.into()
+                    />
+                }
+                    .into_view()
+            }
+        }}
 
         <CrudLeaveModal
             show_when=show_leave_modal
-            on_cancel=create_callback( move |()| {
+            on_cancel=create_callback(move |()| {
                 set_show_leave_modal.set(false);
                 set_user_wants_to_leave.set(false);
             })
-            on_accept=create_callback( move |()| {
+
+            on_accept=create_callback(move |()| {
                 set_show_leave_modal.set(false);
                 force_leave();
             })

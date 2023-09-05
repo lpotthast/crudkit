@@ -129,18 +129,24 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
             {move || {
                 let option = options.get();
                 match option {
-                    Some(result) => match result {
-                        Ok(options) => view! {
-                            <Select
-                                options=options
-                                selected=selected
-                                set_selected=set_selected
-                                search_text_provider=create_callback( move |o: O| o.to_string())
-                                render_option=renderer
-                            />
-                        }.into_view(),
-                        Err(err) => format!("Could not load options... Err: {err:?}").into_view(),
-                    },
+                    Some(result) => {
+                        match result {
+                            Ok(options) => {
+                                view! {
+                                    <Select
+                                        options=options
+                                        selected=selected
+                                        set_selected=set_selected
+                                        search_text_provider=create_callback(move |o: O| { o.to_string() })
+
+                                        render_option=renderer
+                                    />
+                                }
+                                    .into_view()
+                            }
+                            Err(err) => format!("Could not load options... Err: {err:?}").into_view(),
+                        }
+                    }
                     None => "Loading...".into_view(),
                 }
             }}
@@ -169,19 +175,25 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
             {move || {
                 let option = options.get();
                 match option {
-                    Some(result) => match result {
-                        Ok(options) => view! {
-                            <OptionalSelect
-                                options=options
-                                selected=selected
-                                set_selected=set_selected
-                                search_text_provider=create_callback( move |o: O| o.to_string())
-                                render_option=renderer
-                                allow_deselect=true
-                            />
-                        }.into_view(),
-                        Err(err) => format!("Could not load options... Err: {err:?}").into_view(),
-                    },
+                    Some(result) => {
+                        match result {
+                            Ok(options) => {
+                                view! {
+                                    <OptionalSelect
+                                        options=options
+                                        selected=selected
+                                        set_selected=set_selected
+                                        search_text_provider=create_callback(move |o: O| { o.to_string() })
+
+                                        render_option=renderer
+                                        allow_deselect=true
+                                    />
+                                }
+                                    .into_view()
+                            }
+                            Err(err) => format!("Could not load options... Err: {err:?}").into_view(),
+                        }
+                    }
                     None => "Loading...".into_view(),
                 }
             }}

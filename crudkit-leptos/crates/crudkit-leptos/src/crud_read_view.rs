@@ -133,57 +133,78 @@ where
     });
 
     view! {
-        { move || match (entity.get(), signals.get()) {
-            (Ok(entity), signals) => view! {
-                { move || {
-                    view! {
-                        <Grid spacing=Size::Em(0.6) class="crud-nav">
-                            <Row>
-                                <Col xs=6 h_align=ColAlign::Start>
-                                    <CrudActionButtons action_ctx=action_ctx actions=actions input=maybe_entity required_state=States::Read/>
-                                </Col>
-                                <Col xs=6 h_align=ColAlign::End>
-                                    <ButtonWrapper>
-                                        <Button color=ButtonColor::Secondary on_click=move |_| on_list_view.call(())>
-                                            <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
-                                        </Button>
-                                    </ButtonWrapper>
-                                </Col>
-                            </Row>
-                        </Grid>
-                    }
-                } }
+        {move || match (entity.get(), signals.get()) {
+            (Ok(entity), signals) => {
+                view! {
+                    {move || {
+                        view! {
+                            <Grid spacing=Size::Em(0.6) class="crud-nav">
+                                <Row>
+                                    <Col xs=6 h_align=ColAlign::Start>
+                                        <CrudActionButtons
+                                            action_ctx=action_ctx
+                                            actions=actions
+                                            input=maybe_entity
+                                            required_state=States::Read
+                                        />
+                                    </Col>
+                                    <Col xs=6 h_align=ColAlign::End>
+                                        <ButtonWrapper>
+                                            <Button
+                                                color=ButtonColor::Secondary
+                                                on_click=move |_| on_list_view.call(())
+                                            >
+                                                <span style="text-decoration: underline;">{"L"}</span>
+                                                {"istenansicht"}
+                                            </Button>
+                                        </ButtonWrapper>
+                                    </Col>
+                                </Row>
+                            </Grid>
+                        }
+                    }}
 
-                <CrudFields
-                    custom_fields=custom_fields
-                    field_config=field_config
-                    api_base_url=api_base_url
-                    elements=elements
-                    signals=signals
-                    mode=FieldMode::Readable
-                    current_view=CrudSimpleView::Read
-                    value_changed=value_changed
-                    //     active_tab={ctx.props().config.active_tab.clone()}
-                    on_tab_selection=on_tab_selected
-                    entity=entity.into()
-                />
-            }.into_view(),
-            (Err(no_data), _) => view! {
-                <Grid spacing=Size::Em(0.6) class="crud-nav">
-                    <Row>
-                        <Col h_align=ColAlign::End>
-                            <ButtonWrapper>
-                                <Button color=ButtonColor::Secondary on_click=move |_| on_list_view.call(())>
-                                    <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
-                                </Button>
-                            </ButtonWrapper>
-                        </Col>
-                    </Row>
-                </Grid>
-                <div>
-                    {format!("Daten nicht verfügbar: {:?}", no_data)}
-                </div>
-            }.into_view(),
-        } }
+                    <CrudFields
+                        custom_fields=custom_fields
+                        field_config=field_config
+                        api_base_url=api_base_url
+                        elements=elements
+                        signals=signals
+                        mode=FieldMode::Readable
+                        current_view=CrudSimpleView::Read
+                        value_changed=value_changed
+                        // active_tab={ctx.props().config.active_tab.clone()}
+                        on_tab_selection=on_tab_selected
+                        entity=entity.into()
+                    />
+                }
+                    .into_view()
+            }
+            (Err(no_data), _) => {
+                view! {
+                    // active_tab={ctx.props().config.active_tab.clone()}
+
+                    // active_tab={ctx.props().config.active_tab.clone()}
+
+                    // active_tab={ctx.props().config.active_tab.clone()}
+
+                    // active_tab={ctx.props().config.active_tab.clone()}
+                    <Grid spacing=Size::Em(0.6) class="crud-nav">
+                        <Row>
+                            <Col h_align=ColAlign::End>
+                                <ButtonWrapper>
+                                    <Button color=ButtonColor::Secondary on_click=move |_| on_list_view.call(())>
+                                        <span style="text-decoration: underline;">{"L"}</span>
+                                        {"istenansicht"}
+                                    </Button>
+                                </ButtonWrapper>
+                            </Col>
+                        </Row>
+                    </Grid>
+                    <div>{format!("Daten nicht verfügbar: {:?}", no_data)}</div>
+                }
+                    .into_view()
+            }
+        }}
     }
 }

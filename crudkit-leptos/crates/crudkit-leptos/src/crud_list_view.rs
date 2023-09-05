@@ -221,49 +221,64 @@ where
                     <ButtonWrapper>
                         <Button color=ButtonColor::Success on_click=move |_| { instance_ctx.create() }>
                             <Icon icon=BsIcon::BsPlusCircle/>
-                            <span style="text-decoration: underline">"N"</span> "eu"
+                            <span style="text-decoration: underline">"N"</span>
+                            "eu"
                         </Button>
 
                         <For
                             each=move || actions.get()
                             key=|action| match action {
-                                CrudAction::Custom {id, name: _, icon: _, button_color: _, action: _, modal: _} => *id,
+                                CrudAction::Custom { id, name: _, icon: _, button_color: _, action: _, modal: _ } => *id,
                             }
-                            view=move | action| match action {
-                                CrudAction::Custom {id, name, icon, button_color, action, modal} => {
+
+                            view=move |action| match action {
+                                CrudAction::Custom { id, name, icon, button_color, action, modal } => {
                                     if let Some(modal_generator) = modal {
                                         view! {
                                             <Button
                                                 color=button_color
-                                                disabled=Signal::derive( move || action_ctx.is_action_executing(id))
+                                                disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
+
                                                 on_click=move |_| action_ctx.request_action(id)
                                             >
-                                                { icon.map(|icon| view! { <Icon icon=icon/>}) }
-                                                { name.clone() }
+                                                {icon.map(|icon| view! { <Icon icon=icon/> })}
+                                                {name.clone()}
                                             </Button>
-                                            {
-                                                modal_generator.call(ModalGeneration {
-                                                    show_when: Signal::derive( move || action_ctx.is_action_requested(id)),
-                                                    cancel: create_callback( move |_| action_ctx.cancel_action(id)),
-                                                    execute: create_callback( move |action_payload| action_ctx.trigger_action(id, action_payload, action, instance_ctx)),
-                                                })
-                                            }
-                                        }.into_view()
+
+                                            {modal_generator
+                                                .call(ModalGeneration {
+                                                    show_when: Signal::derive(move || {
+                                                        action_ctx.is_action_requested(id)
+                                                    }),
+                                                    cancel: create_callback(move |_| { action_ctx.cancel_action(id) }),
+                                                    execute: create_callback(move |action_payload| {
+                                                        action_ctx
+                                                            .trigger_action(id, action_payload, action, instance_ctx)
+                                                    }),
+                                                })}
+                                        }
+                                            .into_view()
                                     } else {
                                         view! {
                                             <Button
                                                 color=button_color
-                                                disabled=Signal::derive( move || action_ctx.is_action_executing(id))
-                                                on_click=move |_| action_ctx.trigger_action(id, None, action, instance_ctx)
+                                                disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
+
+                                                on_click=move |_| {
+                                                    action_ctx.trigger_action(id, None, action, instance_ctx)
+                                                }
                                             >
-                                                { icon.map(|icon| view! { <Icon icon=icon/>}) }
-                                                { name.clone() }
+
+                                                {icon.map(|icon| view! { <Icon icon=icon/> })}
+                                                {name.clone()}
                                             </Button>
-                                        }.into_view()
+                                        }
+                                            .into_view()
                                     }
                                 }
                             }
                         />
+
                     </ButtonWrapper>
                 </Col>
                 <Col xs=6 h_align=ColAlign::End>
@@ -275,11 +290,18 @@ where
                         <Button color=ButtonColor::Primary disabled=true on_click=toggle_filter>
                             <Icon icon=BsIcon::BsSearch/>
                             "Filter"
-                            { move || filter.get().map(|_filter| view! {
-                                <div style="font-size: 0.5em; font-weight: bold; margin-left: 0.3em;">
-                                    "aktiv"
-                                </div>
-                            }) }
+                            {move || {
+                                filter
+                                    .get()
+                                    .map(|_filter| {
+                                        view! {
+                                            <div style="font-size: 0.5em; font-weight: bold; margin-left: 0.3em;">
+                                                "aktiv"
+                                            </div>
+                                        }
+                                    })
+                            }}
+
                         </Button>
                     </ButtonWrapper>
                 </Col>
@@ -291,18 +313,16 @@ where
         0 => None,
         num_selected => Some(view! {
             <div class="multiselect-actions">
-                <div>
-                    { num_selected } " selected"
-                </div>
+                <div>{num_selected} " selected"</div>
             </div>
         }),
     };
 
     view! {
-        { action_row }
+        {action_row}
 
         <CrudTable
-            _phantom={PhantomData::<T>::default()}
+            _phantom=PhantomData::<T>::default()
             api_base_url=api_base_url
             headers=headers
             order_by=order_by
@@ -312,40 +332,43 @@ where
             read_allowed=read_allowed
             edit_allowed=edit_allowed
             delete_allowed=delete_allowed
-            additional_item_actions=Signal::derive( move || vec![])
+            additional_item_actions=Signal::derive(move || vec![])
         />
 
-        { multiselect_info }
+        {multiselect_info}
 
         // Pagination
-        { move || match count.get() {
-            Some(result) => match result {
-                Ok(count) => Some(
-                    view! {
-                        <CrudPagination
-                            item_count=count
-                            items_per_page=instance_ctx.items_per_page
-                            current_page=instance_ctx.current_page
-                            set_current_page=create_callback( move |page_number| {
-                                instance_ctx.set_page(page_number)
-                            })
-                            set_items_per_page=create_callback( move |item_count| {
-                                instance_ctx.set_items_per_page(item_count)
-                            })
-                        />
+        {move || match count.get() {
+            Some(result) => {
+                match result {
+                    Ok(count) => {
+                        Some(
+                            view! {
+                                <CrudPagination
+                                    item_count=count
+                                    items_per_page=instance_ctx.items_per_page
+                                    current_page=instance_ctx.current_page
+                                    set_current_page=create_callback(move |page_number| {
+                                        instance_ctx.set_page(page_number)
+                                    })
+
+                                    set_items_per_page=create_callback(move |item_count| {
+                                        instance_ctx.set_items_per_page(item_count)
+                                    })
+                                />
+                            }
+                                .into_view(),
+                        )
                     }
-                    .into_view(),
-                ),
-                Err(reason) => Some(
-                    view! {
-                        <div>
-                            {format!("Keine Daten verfügbar: {reason:?}") }
-                        </div>
+                    Err(reason) => {
+                        Some(
+                            view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }
+                                .into_view(),
+                        )
                     }
-                    .into_view(),
-                ),
-            },
+                }
+            }
             None => None,
-        } }
+        }}
     }
 }

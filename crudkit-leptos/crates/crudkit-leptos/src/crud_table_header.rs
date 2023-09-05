@@ -33,53 +33,58 @@ where
     view! {
         <thead class="crud-table-header">
             <tr>
-                { move || with_select_column.get().then(|| view! {
-                    <th class="select fit-content">
-                        <Checkbox checked=all_selected on_toggle=move || { list_ctx.toggle_select_all() } />
-                    </th>
-                }) }
-
+                {move || {
+                    with_select_column
+                        .get()
+                        .then(|| {
+                            view! {
+                                <th class="select fit-content">
+                                    <Checkbox checked=all_selected on_toggle=move || { list_ctx.toggle_select_all() }/>
+                                </th>
+                            }
+                        })
+                }}
                 <For
                     each=move || headers.get()
                     key=|(field, _options)| field.get_name()
-                    view=move | (field, options)| {
+                    view=move |(field, options)| {
                         move || {
                             let field_clone = field.clone();
                             let order_by = order_by.get();
                             let order = order_by.get(&field);
-                            tracing::debug!(?field, ?order, "render header");
-
+                            tracing::debug!(? field, ? order, "render header");
                             view! {
                                 <th
                                     class="crud-column-header"
                                     class:crud-column-ordered=order.is_some()
                                     class:crud-order-by-trigger=options.ordering_allowed
                                     class:min-width=options.min_width
-                                    on:click=move |_| if options.ordering_allowed { update_order_of_field(field_clone.clone()) }
+                                    on:click=move |_| {
+                                        if options.ordering_allowed {
+                                            update_order_of_field(field_clone.clone())
+                                        }
+                                    }
                                 >
-                                    { options.display_name.clone() }
+
+                                    {options.display_name.clone()}
                                     <span class="crud-order-by-sign" class:active=order.is_some()>
-                                        <SafeHtml html={
-                                            match order {
-                                                Some(order) => match order {
+                                        <SafeHtml html=match order {
+                                            Some(order) => {
+                                                match order {
                                                     Order::Asc => "&uarr;",
                                                     Order::Desc => "&darr;",
-                                                },
-                                                None => "&uarr;",
+                                                }
                                             }
-                                        } />
+                                            None => "&uarr;",
+                                        }/>
                                     </span>
                                 </th>
                             }
                         }
                     }
                 />
+                {move || { with_actions.get().then(|| view! { <th class="actions fit-content">"Aktionen"</th> }) }}
 
-                { move || with_actions.get().then(|| view! {
-                    <th class="actions fit-content">
-                        "Aktionen"
-                    </th>
-                }) }
             </tr>
         </thead>
     }

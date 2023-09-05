@@ -425,7 +425,7 @@ where
         view! {
             <div class="crud-instance">
                 <div class="body">
-                    { match view {
+                    {match view {
                         CrudView::List => {
                             view! {
                                 <CrudListView
@@ -438,96 +438,85 @@ where
                                     actions=actions
                                 />
                             }
-                            .into_view()
+                                .into_view()
                         }
                         CrudView::Create => {
                             view! {
                                 <CrudCreateView
-                                    _phantom={ PhantomData::<T>::default() }
+                                    _phantom=PhantomData::<T>::default()
                                     api_base_url=api_base_url
                                     data_provider=data_provider
                                     create_elements=create_elements
                                     custom_fields=custom_create_fields
                                     field_config=create_field_config
-                                    on_edit_view=create_callback( move |id| ctx.edit(id))
-                                    on_list_view=create_callback( move |()| ctx.list())
-                                    on_create_view=create_callback( move |()| ctx.create())
-                                    on_entity_created=create_callback( move |saved| {})
-                                    on_entity_creation_aborted=create_callback( move |reason| {})
-                                    on_entity_not_created_critical_errors=create_callback( move |()| {})
-                                    on_entity_creation_failed=create_callback( move |request_error| {})
-                                    on_tab_selected=create_callback( move |tab_id| ctx.tab_selected(tab_id))
+                                    on_edit_view=create_callback(move |id| ctx.edit(id))
+                                    on_list_view=create_callback(move |()| ctx.list())
+                                    on_create_view=create_callback(move |()| ctx.create())
+                                    on_entity_created=create_callback(move |saved| {})
+                                    on_entity_creation_aborted=create_callback(move |reason| {})
+                                    on_entity_not_created_critical_errors=create_callback(move |()| {})
+                                    on_entity_creation_failed=create_callback(move |request_error| {})
+                                    on_tab_selected=create_callback(move |tab_id| {
+                                        ctx.tab_selected(tab_id)
+                                    })
                                 />
                             }
-                            .into_view()
+                                .into_view()
                         }
                         CrudView::Read(id) => {
                             view! {
                                 <CrudReadView
-                                    _phantom={ PhantomData::<T>::default() }
+                                    _phantom=PhantomData::<T>::default()
                                     api_base_url=api_base_url
-                                    id=Signal::derive( move || id.clone()) // TODO: This cant be good...
+                                    // TODO: This cant be good...
+                                    id=Signal::derive(move || id.clone())
                                     data_provider=data_provider
                                     actions=entity_actions
                                     elements=update_elements
                                     custom_fields=custom_update_fields
                                     field_config=update_field_config
-                                    on_list_view=create_callback( move |()| ctx.list())
-                                    on_tab_selected=create_callback( move |tab_id| ctx.tab_selected(tab_id))
+                                    on_list_view=create_callback(move |()| ctx.list())
+                                    on_tab_selected=create_callback(move |tab_id| {
+                                        ctx.tab_selected(tab_id)
+                                    })
                                 />
                             }
-                            .into_view()
+                                .into_view()
                         }
                         CrudView::Edit(id) => {
                             view! {
+                                // TODO: This cant be good...
+
                                 <CrudEditView
-                                    _phantom={ PhantomData::<T>::default() }
+                                    _phantom=PhantomData::<T>::default()
                                     api_base_url=api_base_url
-                                    id=Signal::derive( move || id.clone()) // TODO: This cant be good...
+                                    // TODO: This cant be good...
+                                    id=Signal::derive(move || id.clone())
                                     data_provider=data_provider
                                     actions=entity_actions
                                     elements=update_elements
                                     custom_fields=custom_update_fields
                                     field_config=update_field_config
-                                    on_list_view=create_callback( move |()| ctx.list())
-                                    on_create_view=create_callback( move |()| ctx.create())
-                                    on_entity_updated=create_callback( move |saved| {})
-                                    on_entity_update_aborted=create_callback( move |reason| {})
-                                    on_entity_not_updated_critical_errors=create_callback( move |()| {})
-                                    on_entity_update_failed=create_callback( move |request_error| {})
-                                    on_tab_selected=create_callback( move |tab_id| ctx.tab_selected(tab_id))
+                                    on_list_view=create_callback(move |()| ctx.list())
+                                    on_create_view=create_callback(move |()| ctx.create())
+                                    on_entity_updated=create_callback(move |saved| {})
+                                    on_entity_update_aborted=create_callback(move |reason| {})
+                                    on_entity_not_updated_critical_errors=create_callback(move |()| {})
+                                    on_entity_update_failed=create_callback(move |request_error| {})
+                                    on_tab_selected=create_callback(move |tab_id| {
+                                        ctx.tab_selected(tab_id)
+                                    })
                                 />
-                                //<CrudEditView<T>
-                                //    data_provider={self.data_provider.clone()}
-                                //    children={ctx.props().children.clone()}
-                                //    custom_fields={self.static_config.custom_update_fields.clone()}
-                                //    config={self.config.clone()}
-                                //    static_config={self.static_config.clone()}
-                                //    id={id.clone()}
-                                //    list_view_available={true}
-                                //    on_entity_updated={ctx.link().callback(Msg::EntityUpdated)}
-                                //    on_entity_update_aborted={ctx.link().callback(Msg::EntityUpdateAborted)}
-                                //    on_entity_not_updated_critical_errors={ctx.link().callback(|_| Msg::EntityNotUpdatedDueToCriticalErrors)}
-                                //    on_entity_update_failed={ctx.link().callback(Msg::EntityUpdateFailed)}
-                                //    on_list={ctx.link().callback(|_| Msg::List)}
-                                //    on_create={ctx.link().callback(|_| Msg::Create)}
-                                //    on_delete={ctx.link().callback(|entity| Msg::Delete(DeletableModel::Update(entity)))}
-                                //    on_link={ctx.link().callback(|link: Option<<CrudEditView<T>>>|
-                                //        Msg::ViewLinked(link.map(|link| ViewLink::Edit(link))))}
-                                //    on_tab_selected={ctx.link().callback(|label| Msg::TabSelected(label))}
-                                //    on_entity_action={ctx.link().callback(Msg::CustomEntityAction)}
-                                // />
                             }
-                            .into_view()
+                                .into_view()
                         }
-                    } }
-
+                    }}
                     <CrudDeleteModal
-                        _phantom={ PhantomData::<T>::default() }
+                        _phantom=PhantomData::<T>::default()
                         entity=deletion_request
                         on_cancel=on_cancel_delete
-                        on_accept=on_accept_delete>
-                    </CrudDeleteModal>
+                        on_accept=on_accept_delete
+                    />
                 </div>
             </div>
         }

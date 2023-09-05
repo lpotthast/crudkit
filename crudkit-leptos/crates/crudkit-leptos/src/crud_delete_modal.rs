@@ -30,37 +30,50 @@ where
         <ModalFn show_when=show_when>
             <ModalHeader>
                 <ModalTitle>
-                    //TODO: Consider using an "EntryVisualizer" of some sort...
-                    { move || entity.get().map(|it| format!("Löschen - {}", match it {
-                        DeletableModel::Read(model) => model.get_id().to_string(),
-                        DeletableModel::Update(model) => model.get_id().to_string(),
-                    })).unwrap_or_default() }
+                    // TODO: Consider using an "EntryVisualizer" of some sort...
+                    {move || {
+                        entity
+                            .get()
+                            .map(|it| {
+                                format!(
+                                    "Löschen - {}", match it { DeletableModel::Read(model) => model.get_id()
+                                    .to_string(), DeletableModel::Update(model) => model.get_id().to_string(), }
+                                )
+                            })
+                            .unwrap_or_default()
+                    }}
+
                 </ModalTitle>
             </ModalHeader>
 
-            <ModalBody>
-                "Bist du dir sicher?"<br />
-                "Dieser Eintrag kann nicht wiederhergestellt werden!"
-            </ModalBody>
+            <ModalBody>"Bist du dir sicher?" <br/> "Dieser Eintrag kann nicht wiederhergestellt werden!"</ModalBody>
 
             <ModalFooter>
                 <Grid spacing=Size::Em(0.6)>
                     <Row>
                         <Col h_align=ColAlign::End>
                             <ButtonWrapper>
-                                <Button color=ButtonColor::Secondary on_click=move |_| {
-                                    tracing::info!("cancel");
-                                    on_cancel.call(())
-                                }>
+                                <Button
+                                    color=ButtonColor::Secondary
+                                    on_click=move |_| {
+                                        tracing::info!("cancel");
+                                        on_cancel.call(())
+                                    }
+                                >
+
                                     "Zurück"
                                 </Button>
-                                <Button color=ButtonColor::Danger on_click=move |_| {
-                                    tracing::info!("cancel");
-                                    match entity.get() {
-                                        Some(model) => on_accept.call(model),
-                                        None => {},
+                                <Button
+                                    color=ButtonColor::Danger
+                                    on_click=move |_| {
+                                        tracing::info!("cancel");
+                                        match entity.get() {
+                                            Some(model) => on_accept.call(model),
+                                            None => {}
+                                        }
                                     }
-                                }>
+                                >
+
                                     "Löschen"
                                 </Button>
                             </ButtonWrapper>

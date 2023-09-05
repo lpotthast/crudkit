@@ -290,81 +290,120 @@ where
     let expect_input = Signal::derive(move || input.get().expect("input"));
 
     view! {
-        { move || match (entity.get(), signals.get()) {
-            (Ok(_entity), signals) => view! {
-                { move || {
-                    view! {
-                        <Grid spacing=Size::Em(0.6) class="crud-nav">
-                            <Row>
-                                <Col xs=6>
-                                    <ButtonWrapper>
-                                        <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save() variations=view!{
-                                            <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save_and_return()>
-                                                "Speichern und zurück"
+        {move || match (entity.get(), signals.get()) {
+            (Ok(_entity), signals) => {
+                view! {
+                    {move || {
+                        view! {
+                            <Grid spacing=Size::Em(0.6) class="crud-nav">
+                                <Row>
+                                    <Col xs=6>
+                                        <ButtonWrapper>
+                                            <Button
+                                                color=ButtonColor::Primary
+                                                disabled=save_disabled
+                                                on_click=move |_| trigger_save()
+                                                variations=view! {
+                                                    <Button
+                                                        color=ButtonColor::Primary
+                                                        disabled=save_disabled
+                                                        on_click=move |_| trigger_save_and_return()
+                                                    >
+                                                        "Speichern und zurück"
+                                                    </Button>
+                                                    <Button
+                                                        color=ButtonColor::Primary
+                                                        disabled=save_disabled
+                                                        on_click=move |_| trigger_save_and_new()
+                                                    >
+                                                        "Speichern und neu"
+                                                    </Button>
+                                                }
+                                                    .into_view()
+                                            >
+                                                "Speichern"
                                             </Button>
-                                            <Button color=ButtonColor::Primary disabled=save_disabled on_click=move |_| trigger_save_and_new()>
-                                                "Speichern und neu"
+                                            <Button
+                                                color=ButtonColor::Danger
+                                                disabled=delete_disabled
+                                                on_click=move |_| trigger_delete()
+                                            >
+                                                "Löschen"
                                             </Button>
-                                        }.into_view()>
-                                            "Speichern"
-                                        </Button>
-                                        <Button color=ButtonColor::Danger disabled=delete_disabled on_click=move |_| trigger_delete()>
-                                            "Löschen"
-                                        </Button>
 
-                                        <CrudActionButtons action_ctx=action_ctx actions=actions input=input required_state=States::Update/>
-                                    </ButtonWrapper>
-                                </Col>
+                                            <CrudActionButtons
+                                                action_ctx=action_ctx
+                                                actions=actions
+                                                input=input
+                                                required_state=States::Update
+                                            />
+                                        </ButtonWrapper>
+                                    </Col>
 
-                                <Col xs=6 h_align=ColAlign::End>
-                                    <ButtonWrapper>
-                                        <Button color=ButtonColor::Secondary on_click=move |_| request_leave()>
-                                            <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
-                                        </Button>
-                                    </ButtonWrapper>
-                                </Col>
-                            </Row>
-                        </Grid>
-                    }
-                } }
+                                    <Col xs=6 h_align=ColAlign::End>
+                                        <ButtonWrapper>
+                                            <Button color=ButtonColor::Secondary on_click=move |_| request_leave()>
+                                                <span style="text-decoration: underline;">{"L"}</span>
+                                                {"istenansicht"}
+                                            </Button>
+                                        </ButtonWrapper>
+                                    </Col>
+                                </Row>
+                            </Grid>
+                        }
+                    }}
 
-                <CrudFields
-                    custom_fields=custom_fields
-                    field_config=field_config
-                    api_base_url=api_base_url
-                    elements=elements
-                    signals=signals
-                    mode=FieldMode::Editable
-                    current_view=CrudSimpleView::Edit
-                    value_changed=value_changed
-                    //     active_tab={ctx.props().config.active_tab.clone()}
-                    on_tab_selection=on_tab_selected
-                    entity=expect_input
-                />
-            }.into_view(),
-            (Err(no_data), _) => view! {
-                <Grid spacing=Size::Em(0.6) class="crud-nav">
-                    <Row>
-                        <Col h_align=ColAlign::End>
-                            <ButtonWrapper>
-                                <Button color=ButtonColor::Secondary on_click=move |_| force_leave()>
-                                    <span style="text-decoration: underline;">{"L"}</span>{"istenansicht"}
-                                </Button>
-                            </ButtonWrapper>
-                        </Col>
-                    </Row>
-                </Grid>
-                <NoDataAvailable no_data />
-            }.into_view(),
-        } }
+                    <CrudFields
+                        custom_fields=custom_fields
+                        field_config=field_config
+                        api_base_url=api_base_url
+                        elements=elements
+                        signals=signals
+                        mode=FieldMode::Editable
+                        current_view=CrudSimpleView::Edit
+                        value_changed=value_changed
+                        // active_tab={ctx.props().config.active_tab.clone()}
+                        on_tab_selection=on_tab_selected
+                        entity=expect_input
+                    />
+                }
+                    .into_view()
+            }
+            (Err(no_data), _) => {
+                view! {
+                    // active_tab={ctx.props().config.active_tab.clone()}
+
+                    // active_tab={ctx.props().config.active_tab.clone()}
+
+                    // active_tab={ctx.props().config.active_tab.clone()}
+
+                    // active_tab={ctx.props().config.active_tab.clone()}
+                    <Grid spacing=Size::Em(0.6) class="crud-nav">
+                        <Row>
+                            <Col h_align=ColAlign::End>
+                                <ButtonWrapper>
+                                    <Button color=ButtonColor::Secondary on_click=move |_| force_leave()>
+                                        <span style="text-decoration: underline;">{"L"}</span>
+                                        {"istenansicht"}
+                                    </Button>
+                                </ButtonWrapper>
+                            </Col>
+                        </Row>
+                    </Grid>
+                    <NoDataAvailable no_data/>
+                }
+                    .into_view()
+            }
+        }}
 
         <CrudLeaveModal
             show_when=show_leave_modal
-            on_cancel=create_callback( move |()| {
+            on_cancel=create_callback(move |()| {
                 set_show_leave_modal.set(false);
                 set_user_wants_to_leave.set(false);
             })
-            on_accept=create_callback( move |()| {
+
+            on_accept=create_callback(move |()| {
                 set_show_leave_modal.set(false);
                 force_leave();
             })
@@ -374,9 +413,5 @@ where
 
 #[component]
 fn NoDataAvailable(no_data: NoDataAvailable) -> impl IntoView {
-    view! {
-        <div>
-            {format!("Daten nicht verfügbar: {:?}", no_data)}
-        </div>
-    }
+    view! { <div>{format!("Daten nicht verfügbar: {:?}", no_data)}</div> }
 }

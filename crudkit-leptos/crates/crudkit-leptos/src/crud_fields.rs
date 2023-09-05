@@ -46,55 +46,60 @@ where
                                     mode=mode.clone()
                                     current_view=current_view.clone()
                                     value_changed=value_changed
-                                    //active_tab={ctx.props().active_tab.clone()}
+                                    // active_tab={ctx.props().active_tab.clone()}
                                     on_tab_selection=on_tab_selection
                                     entity=entity
                                 />
                             }.into_view(),
                             Enclosing::Tabs(tabs) => view! {
-                                <Tabs
-                                    //active_tab={ctx.props().active_tab.clone()}
-                                    //on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
-                                >
-                                    { tabs.into_iter().map(|tab| {
-                                        let id = tab.id.clone();
-                                        let signals = signals.clone();
-                                        view! {
-                                            <Tab
-                                                name=tab.id
-                                                label=tab.label.name.clone().into_view()
-                                                on_show=create_callback( move |()| { on_tab_selection.call(id.clone()) })
-                                            >
-                                                <CrudFields
-                                                    custom_fields=custom_fields
-                                                    field_config=field_config
-                                                    api_base_url=api_base_url
-                                                    elements=tab.group.children.clone()
-                                                    signals=signals.clone()
-                                                    mode=mode.clone()
-                                                    current_view=current_view.clone()
-                                                    value_changed=value_changed
-                                                    //active_tab={ctx.props().active_tab.clone()}
-                                                    on_tab_selection=on_tab_selection
-                                                    entity=entity
-                                                />
-                                            </Tab>
-                                        }
-                                    }).collect_view() }
+                                <Tabs>
+                                    // active_tab={ctx.props().active_tab.clone()}
+                                    // on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
+                                    {tabs
+                                        .into_iter()
+                                        .map(|tab| {
+                                            let id = tab.id.clone();
+                                            let signals = signals.clone();
+                                            view! {
+                                                <Tab
+                                                    name=tab.id
+                                                    label=tab.label.name.clone().into_view()
+                                                    on_show=create_callback(move |()| {
+                                                        on_tab_selection.call(id.clone())
+                                                    })
+                                                >
+
+                                                    <CrudFields
+                                                        custom_fields=custom_fields
+                                                        field_config=field_config
+                                                        api_base_url=api_base_url
+                                                        elements=tab.group.children.clone()
+                                                        signals=signals.clone()
+                                                        mode=mode.clone()
+                                                        current_view=current_view.clone()
+                                                        value_changed=value_changed
+                                                        // active_tab={ctx.props().active_tab.clone()}
+                                                        on_tab_selection=on_tab_selection
+                                                        entity=entity
+                                                    />
+                                                </Tab>
+                                            }
+                                        })
+                                        .collect_view()}
                                 </Tabs>
                             }.into_view(),
                             Enclosing::Card(group) => view! {
-                                <div class={"crud-card"}> // TODO: Use leptonic card
+                                <div class="crud-card">
                                     <CrudFields
                                         custom_fields=custom_fields
                                         field_config=field_config
                                         api_base_url=api_base_url
-                                        elements={group.children.clone()}
+                                        elements=group.children.clone()
                                         signals=signals.clone()
                                         mode=mode.clone()
                                         current_view=current_view.clone()
                                         value_changed=value_changed
-                                        //active_tab={ctx.props().active_tab.clone()}
+                                        // active_tab={ctx.props().active_tab.clone()}
                                         on_tab_selection=on_tab_selection
                                         entity=entity
                                     />
@@ -103,7 +108,7 @@ where
                         }
                     }
                     Elem::Field((field, field_options)) => {
-                        view!{
+                        view! {
                             <CrudField
                                 custom_fields=custom_fields
                                 field_config=field_config
@@ -112,15 +117,17 @@ where
                                 field=field.clone()
                                 field_options=field_options.clone()
                                 field_mode=mode.clone()
-                                value=signals.with_value(|map| *map.get(&field).expect("Signal map to contain signal for field"))
+                                value=signals
+                                    .with_value(|map| {
+                                        *map.get(&field).expect("Signal map to contain signal for field")
+                                    })
+
                                 value_changed=value_changed
                                 entity=entity
                             />
                         }.into_view()
                     },
-                    Elem::Separator => view! {
-                        <Separator />
-                    }
+                    Elem::Separator => view! { <Separator/> }
                     .into_view(),
                 }
             })
