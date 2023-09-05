@@ -1,4 +1,4 @@
-use std::{cell::RefCell, marker::PhantomData};
+use std::marker::PhantomData;
 
 use crudkit_id::{Id, SerializableId};
 use crudkit_shared::{DeleteResult, Order};
@@ -443,7 +443,7 @@ where
                         CrudView::Create => {
                             view! {
                                 <CrudCreateView
-                                    _phantom=PhantomData::<T>::default()
+                                    _phantom={PhantomData::<T>::default()}
                                     api_base_url=api_base_url
                                     data_provider=data_provider
                                     create_elements=create_elements
@@ -466,7 +466,7 @@ where
                         CrudView::Read(id) => {
                             view! {
                                 <CrudReadView
-                                    _phantom=PhantomData::<T>::default()
+                                    _phantom={PhantomData::<T>::default()}
                                     api_base_url=api_base_url
                                     // TODO: This cant be good...
                                     id=Signal::derive(move || id.clone())
@@ -488,7 +488,7 @@ where
                                 // TODO: This cant be good...
 
                                 <CrudEditView
-                                    _phantom=PhantomData::<T>::default()
+                                    _phantom={PhantomData::<T>::default()}
                                     api_base_url=api_base_url
                                     // TODO: This cant be good...
                                     id=Signal::derive(move || id.clone())
@@ -512,7 +512,7 @@ where
                         }
                     }}
                     <CrudDeleteModal
-                        _phantom=PhantomData::<T>::default()
+                        _phantom={PhantomData::<T>::default()}
                         entity=deletion_request
                         on_cancel=on_cancel_delete
                         on_accept=on_accept_delete

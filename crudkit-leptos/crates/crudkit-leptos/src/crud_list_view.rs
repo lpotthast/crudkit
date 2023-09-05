@@ -322,7 +322,7 @@ where
         {action_row}
 
         <CrudTable
-            _phantom=PhantomData::<T>::default()
+            _phantom={PhantomData::<T>::default()}
             api_base_url=api_base_url
             headers=headers
             order_by=order_by
@@ -351,7 +351,6 @@ where
                                     set_current_page=create_callback(move |page_number| {
                                         instance_ctx.set_page(page_number)
                                     })
-
                                     set_items_per_page=create_callback(move |item_count| {
                                         instance_ctx.set_items_per_page(item_count)
                                     })
@@ -362,8 +361,7 @@ where
                     }
                     Err(reason) => {
                         Some(
-                            view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }
-                                .into_view(),
+                            view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }.into_view(),
                         )
                     }
                 }

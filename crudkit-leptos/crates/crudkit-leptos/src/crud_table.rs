@@ -53,7 +53,7 @@ where
         <div class="crud-table-wrapper">
             <table class="crud-table crud-table-bordered crud-table-hoverable">
                 <CrudTableHeader
-                    _phantom=PhantomData::<T>::default()
+                    _phantom={PhantomData::<T>::default()}
                     headers=headers
                     order_by=order_by
                     with_actions=with_actions
@@ -62,7 +62,7 @@ where
                 />
 
                 <CrudTableBody
-                    _phantom=PhantomData::<T>::default()
+                    _phantom={PhantomData::<T>::default()}
                     data=data
                     api_base_url=api_base_url
                     headers=headers
