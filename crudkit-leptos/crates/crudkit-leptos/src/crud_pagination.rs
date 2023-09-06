@@ -7,9 +7,9 @@ use leptos::*;
 pub fn CrudPagination(
     #[prop(into)] item_count: MaybeSignal<u64>,
     #[prop(into)] current_page: Signal<u64>,
-    set_current_page: Callback<u64>,
+    #[prop(into)] set_current_page: Callback<u64>,
     #[prop(into, default = 5.into())] items_per_page: MaybeSignal<u64>,
-    set_items_per_page: Callback<u64>,
+    #[prop(into)] set_items_per_page: Callback<u64>,
 ) -> impl IntoView {
     let page_count = Signal::derive(move || {
         (item_count.get() as f64 / items_per_page.get() as f64).ceil() as u64
@@ -41,7 +41,7 @@ pub fn CrudPagination(
         default_options
     });
 
-    let set_items_per_page = create_callback(move |option: ItemsPerPage| {
+    let set_items_per_page = callback(move |option: ItemsPerPage| {
         set_items_per_page.call(option.items_per_page);
 
         // We may have to update the current page as well if it would not show any element anymore!
@@ -60,11 +60,9 @@ pub fn CrudPagination(
                             <div class="label">"Einträge pro Seite"</div>
                             <Select
                                 options=items_per_page_options
-                                search_text_provider=create_callback(move |o: ItemsPerPage| { o.to_string() })
-
-                                render_option=create_callback(move |o: ItemsPerPage| o.to_string())
+                                search_text_provider=move |o: ItemsPerPage| { o.to_string() }
+                                render_option=move |o: ItemsPerPage| o.to_string()
                                 selected=Signal::derive(move || ItemsPerPage::some(items_per_page.get()))
-
                                 set_selected=set_items_per_page
                             />
                         </div>
@@ -72,7 +70,6 @@ pub fn CrudPagination(
 
                     <Col xs=6 h_align=ColAlign::End>
                         <ButtonGroup>
-
                             {move || {
                                 let page_options = page_options.get();
                                 page_options
@@ -95,18 +92,15 @@ pub fn CrudPagination(
                                                     }
                                                 }
                                             >
-
                                                 {match page_number {
                                                     Some(page_number) => Cow::Owned(format!("{}", page_number)),
                                                     None => Cow::Borrowed("\u{2026}"),
                                                 }}
-
                                             </Button>
                                         }
                                     })
                                     .collect_view()
                             }}
-
                         </ButtonGroup>
                     </Col>
                 </Row>

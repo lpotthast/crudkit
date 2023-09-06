@@ -250,8 +250,8 @@ where
                                                     show_when: Signal::derive(move || {
                                                         action_ctx.is_action_requested(id)
                                                     }),
-                                                    cancel: create_callback(move |_| { action_ctx.cancel_action(id) }),
-                                                    execute: create_callback(move |action_payload| {
+                                                    cancel: callback(move |_| { action_ctx.cancel_action(id) }),
+                                                    execute: callback(move |action_payload| {
                                                         action_ctx
                                                             .trigger_action(id, action_payload, action, instance_ctx)
                                                     }),
@@ -348,15 +348,10 @@ where
                                     item_count=count
                                     items_per_page=instance_ctx.items_per_page
                                     current_page=instance_ctx.current_page
-                                    set_current_page=create_callback(move |page_number| {
-                                        instance_ctx.set_page(page_number)
-                                    })
-                                    set_items_per_page=create_callback(move |item_count| {
-                                        instance_ctx.set_items_per_page(item_count)
-                                    })
+                                    set_current_page=move |page_number| instance_ctx.set_page(page_number)
+                                    set_items_per_page=move |item_count| instance_ctx.set_items_per_page(item_count)
                                 />
-                            }
-                                .into_view(),
+                            }.into_view(),
                         )
                     }
                     Err(reason) => {

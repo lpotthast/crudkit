@@ -263,7 +263,7 @@ where
         let field_clone3 = field.clone();
 
         let value_changed: SimpleCallback<Result<Value, Box<dyn Error>>> =
-            create_simple_callback(move |result| match result {
+            simple_callback(move |result| match result {
                 Ok(new) => value_changed.call((field_clone.clone(), Ok(new))),
                 Err(err) => tracing::error!("Could not get input value: {}", err),
             });
@@ -293,13 +293,11 @@ where
                     None => view! {
                         <Alert
                             variant=AlertVariant::Danger
-                            title=create_callback(move |_| "Missing custom field declaration!")
+                            title=move || "Missing custom field declaration!"
                         >
-                            {format!(
-                                "The custom field '{:?}' should have been displayed here, but no renderer for that field was found in the `custom_*_fields` section of the static instance config. You might have forgotten to set the required HashMap entry.",
-                                & field_clone3
-                            )}
-
+                            "The custom field '"
+                            {format!("{field_clone3:?}")}
+                            "' should have been displayed here, but no renderer for that field was found in the `custom_*_fields` section of the static instance config. You might have forgotten to set the required HashMap entry."
                         </Alert>
                     }.into_view(),
                 })
@@ -338,7 +336,7 @@ pub fn CrudStringField(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=value
-                    set=create_callback(move |new| value_changed.call(Ok(Value::String(new))))
+                    set=move |new| value_changed.call(Ok(Value::String(new)))
                 />
             </div>
         },
@@ -368,20 +366,16 @@ pub fn CrudTextField(
                     id=id.clone()
                     class="crud-input-field"
                     value=value
-                    set_value=create_callback(move |new| {
-                        value_changed
-                            .call(
-                                Ok(
-                                    Value::Text(
-                                        match new {
-                                            TiptapContent::Html(content) => content,
-                                            TiptapContent::Json(content) => content,
-                                        },
-                                    ),
-                                ),
-                            )
-                    })
-
+                    set_value=move |new| {
+                        value_changed.call(
+                            Ok(Value::Text(
+                                match new {
+                                    TiptapContent::Html(content) => content,
+                                    TiptapContent::Json(content) => content,
+                                }
+                            ))
+                        )
+                    }
                     disabled=field_options.disabled
                 />
             </div>
@@ -398,7 +392,9 @@ pub fn CrudJsonField(
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get().get_string_representation().to_owned()}</div> },
+        FieldMode::Display => {
+            view! { <div>{move || value.get().get_string_representation().to_owned()}</div> }
+        }
         FieldMode::Readable => view! {
             <div class="crud-field">
                 // TODO: Implement a proper Json editor
@@ -419,17 +415,16 @@ pub fn CrudJsonField(
                     id=id.clone()
                     class="crud-input-field"
                     value=Signal::derive(move || value.get().get_string_representation().to_owned())
-                    set_value=create_callback(move |new| {
-                        value_changed
-                            .call(
-                                match new {
-                                    TiptapContent::Html(content) => serde_json::from_str(&content),
-                                    TiptapContent::Json(content) => serde_json::from_str(&content),
-                                }
-                                    .map(|json_value| Value::Json(JsonValue::new(json_value)))
-                                    .map_err(|err| Box::new(err) as Box<dyn Error>),
-                            );
-                    })
+                    set_value=move |new| {
+                        value_changed.call(
+                            match new {
+                                TiptapContent::Html(content) => serde_json::from_str(&content),
+                                TiptapContent::Json(content) => serde_json::from_str(&content),
+                            }
+                                .map(|json_value| Value::Json(JsonValue::new(json_value)))
+                                .map_err(|err| Box::new(err) as Box<dyn Error>),
+                        );
+                    }
 
                     disabled=field_options.disabled
                 />
@@ -567,9 +562,8 @@ pub fn CrudU32Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(move || value.get() as f64)
-                    set=create_callback(move |new: f64| { value_changed.call(Ok(Value::U32(new as u32))) })
+                    set=move |new: f64| { value_changed.call(Ok(Value::U32(new as u32))) }
                 />
-
             </div>
         },
     }
@@ -584,10 +578,13 @@ pub fn CrudOptionalU32Field(
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => { move || match value.get() {
-            Some(value) => view! { <div>{value}</div> },
-            None => view! { <div>"-"</div> },
-        }}.into_view(),
+        FieldMode::Display => {
+            move || match value.get() {
+                Some(value) => view! { <div>{value}</div> },
+                None => view! { <div>"-"</div> },
+            }
+        }
+        .into_view(),
         FieldMode::Readable => view! {
             <div class="crud-field">
                 {render_label(field_options.label.clone())}
@@ -599,7 +596,8 @@ pub fn CrudOptionalU32Field(
                     get=MaybeSignal::derive(move || value.get().unwrap_or_default() as f64)
                 />
             </div>
-        }.into_view(),
+        }
+        .into_view(),
         FieldMode::Editable => view! {
             <div class="crud-field">
                 {render_label(field_options.label.clone())}
@@ -608,13 +606,13 @@ pub fn CrudOptionalU32Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(move || value.get().unwrap_or_default() as f64)
-                    set=create_callback(move |new: f64| {
+                    set=move |new: f64| {
                         value_changed.call(Ok(Value::OptionalU32(Some(new as u32))))
-                    })
+                    }
                 />
-
             </div>
-        }.into_view(),
+        }
+        .into_view(),
     }
 }
 
@@ -648,9 +646,8 @@ pub fn CrudI32Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(move || value.get() as f64)
-                    set=create_callback(move |new: f64| { value_changed.call(Ok(Value::I32(new as i32))) })
+                    set=move |new: f64| { value_changed.call(Ok(Value::I32(new as i32))) }
                 />
-
             </div>
         },
     }
@@ -665,10 +662,13 @@ pub fn CrudOptionalI32Field(
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => { move || match value.get() {
-            Some(value) => view! { <div>{value}</div> },
-            None => view! { <div>"-"</div> },
-        }}.into_view(),
+        FieldMode::Display => {
+            move || match value.get() {
+                Some(value) => view! { <div>{value}</div> },
+                None => view! { <div>"-"</div> },
+            }
+        }
+        .into_view(),
         FieldMode::Readable => view! {
             <div class="crud-field">
                 {render_label(field_options.label.clone())}
@@ -680,7 +680,8 @@ pub fn CrudOptionalI32Field(
                     get=MaybeSignal::derive(move || value.get().unwrap_or_default() as f64)
                 />
             </div>
-        }.into_view(),
+        }
+        .into_view(),
         FieldMode::Editable => view! {
             <div class="crud-field">
                 {render_label(field_options.label.clone())}
@@ -689,13 +690,13 @@ pub fn CrudOptionalI32Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(move || value.get().unwrap_or_default() as f64)
-                    set=create_callback(move |new: f64| {
+                    set=move |new: f64| {
                         value_changed.call(Ok(Value::OptionalI32(Some(new as i32))))
-                    })
+                    }
                 />
-
             </div>
-        }.into_view(),
+        }
+        .into_view(),
     }
 }
 
@@ -729,9 +730,8 @@ pub fn CrudI64Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(move || value.get() as f64)
-                    set=create_callback(move |new: f64| { value_changed.call(Ok(Value::I64(new as i64))) })
+                    set=move |new: f64| { value_changed.call(Ok(Value::I64(new as i64))) }
                 />
-
             </div>
         },
     }
@@ -746,10 +746,13 @@ pub fn CrudOptionalI64Field(
     value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => { move || match value.get() {
-            Some(value) => view! { <div>{value}</div> },
-            None => view! { <div>"-"</div> },
-        }}.into_view(),
+        FieldMode::Display => {
+            move || match value.get() {
+                Some(value) => view! { <div>{value}</div> },
+                None => view! { <div>"-"</div> },
+            }
+        }
+        .into_view(),
         FieldMode::Readable => view! {
             <div class="crud-field">
                 {render_label(field_options.label.clone())}
@@ -761,7 +764,8 @@ pub fn CrudOptionalI64Field(
                     get=MaybeSignal::derive(move || value.get().unwrap_or_default() as f64)
                 />
             </div>
-        }.into_view(),
+        }
+        .into_view(),
         FieldMode::Editable => view! {
             <div class="crud-field">
                 {render_label(field_options.label.clone())}
@@ -770,13 +774,13 @@ pub fn CrudOptionalI64Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(move || value.get().unwrap_or_default() as f64)
-                    set=create_callback(move |new: f64| {
+                    set=move |new: f64| {
                         value_changed.call(Ok(Value::OptionalI64(Some(new as i64))))
-                    })
+                    }
                 />
-
             </div>
-        }.into_view(),
+        }
+        .into_view(),
     }
 }
 
@@ -810,9 +814,8 @@ pub fn CrudF32Field(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(move || value.get() as f64)
-                    set=create_callback(move |new: f64| { value_changed.call(Ok(Value::F32(new as f32))) })
+                    set=move |new: f64| { value_changed.call(Ok(Value::F32(new as f32))) }
                 />
-
             </div>
         },
     }
@@ -840,8 +843,7 @@ pub fn CrudBoolField(
                 {render_label(field_options.label.clone())} <div id=id.clone() class="crud-input-field">
                     <Toggle
                         state=value
-                        set_state=create_callback(move |new| { value_changed.call(Ok(Value::Bool(new))) })
-
+                        set_state=move |new| { value_changed.call(Ok(Value::Bool(new))) }
                         disabled=field_options.disabled
                     />
                 </div>
@@ -891,7 +893,9 @@ pub fn CrudPrimitiveDateTimeField(
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => match field_options.date_time_display {
-            DateTimeDisplay::IsoUtc => view! { <div>{move || value.get().format(&Rfc3339).unwrap()}</div> },
+            DateTimeDisplay::IsoUtc => {
+                view! { <div>{move || value.get().format(&Rfc3339).unwrap()}</div> }
+            }
             // TODO: Use icu4x formatting using the current users locale!
             DateTimeDisplay::LocalizedLocal => view! {
                 <div>
@@ -999,7 +1003,7 @@ pub fn CrudSelectField(
                 {match field_config {
                     None => {
                         view! {
-                            <Alert variant=AlertVariant::Danger title=create_callback(|_cx| "Config error")>
+                            <Alert variant=AlertVariant::Danger title=|| "Config error">
                                 "Missing a field_config entry for this field."
                             </Alert>
                         }
@@ -1009,7 +1013,7 @@ pub fn CrudSelectField(
                         field_config
                             .render_select(
                                 value,
-                                create_simple_callback(move |o| { value_changed.call(Ok(Value::Select(o))) }),
+                                simple_callback(move |o| { value_changed.call(Ok(Value::Select(o))) }),
                             )
                     }
                 }}
@@ -1023,7 +1027,7 @@ pub fn CrudSelectField(
                 {match field_config {
                     None => {
                         view! {
-                            <Alert variant=AlertVariant::Danger title=create_callback(|_cx| "Config error")>
+                            <Alert variant=AlertVariant::Danger title=|| "Config error">
                                 "Missing a field_config entry for this field."
                             </Alert>
                         }
@@ -1033,7 +1037,7 @@ pub fn CrudSelectField(
                         field_config
                             .render_select(
                                 value,
-                                create_simple_callback(move |o| { value_changed.call(Ok(Value::Select(o))) }),
+                                simple_callback(move |o| { value_changed.call(Ok(Value::Select(o))) }),
                             )
                     }
                 }}
@@ -1061,7 +1065,7 @@ pub fn CrudOptionalSelectField(
                 {match field_config {
                     None => {
                         view! {
-                            <Alert variant=AlertVariant::Danger title=create_callback(|_cx| "Config error")>
+                            <Alert variant=AlertVariant::Danger title=|| "Config error">
                                 "Missing a field_config entry for this field."
                             </Alert>
                         }
@@ -1071,7 +1075,7 @@ pub fn CrudOptionalSelectField(
                         field_config
                             .render_optional_select(
                                 value,
-                                create_simple_callback(move |o| { value_changed.call(Ok(Value::OptionalSelect(o))) }),
+                                simple_callback(move |o| { value_changed.call(Ok(Value::OptionalSelect(o))) }),
                             )
                     }
                 }}
@@ -1085,7 +1089,7 @@ pub fn CrudOptionalSelectField(
                 {match field_config {
                     None => {
                         view! {
-                            <Alert variant=AlertVariant::Danger title=create_callback(|_cx| "Config error")>
+                            <Alert variant=AlertVariant::Danger title=|| "Config error">
                                 "Missing a field_config entry for this field."
                             </Alert>
                         }
@@ -1095,7 +1099,7 @@ pub fn CrudOptionalSelectField(
                         field_config
                             .render_optional_select(
                                 value,
-                                create_simple_callback(move |o| { value_changed.call(Ok(Value::OptionalSelect(o))) }),
+                                simple_callback(move |o| { value_changed.call(Ok(Value::OptionalSelect(o))) }),
                             )
                     }
                 }}

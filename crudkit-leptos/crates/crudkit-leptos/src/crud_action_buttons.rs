@@ -48,8 +48,8 @@ where
                                         .call(EntityModalGeneration {
                                             show_when: Signal::derive(move || { action_ctx.is_action_requested(id) }),
                                             state: input.into(),
-                                            cancel: create_callback(move |_| { action_ctx.cancel_action(id) }),
-                                            execute: create_callback(move |action_payload| {
+                                            cancel: callback(move |_| { action_ctx.cancel_action(id) }),
+                                            execute: callback(move |action_payload| {
                                                 action_ctx
                                                     .trigger_entity_action(
                                                         id,

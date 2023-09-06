@@ -327,13 +327,13 @@ where
     let actions = Signal::derive(move || static_config.actions.clone());
     let entity_actions = Signal::derive(move || static_config.entity_actions.clone());
 
-    let on_cancel_delete = create_callback(move |()| {
+    let on_cancel_delete = callback(move |()| {
         tracing::info!("Removing delete request");
         set_deletion_request.set(None);
     });
 
     // TODO: Always open the list view after a successful delete.
-    let on_accept_delete = create_callback(
+    let on_accept_delete = callback(
         move |entity: DeletableModel<T::ReadModel, T::UpdateModel>| {
             // TODO: A create_action_once could save us a clone...
             let action = create_action(move |_data: &()| {
@@ -449,14 +449,14 @@ where
                                     create_elements=create_elements
                                     custom_fields=custom_create_fields
                                     field_config=create_field_config
-                                    on_edit_view=create_callback(move |id| ctx.edit(id))
-                                    on_list_view=create_callback(move |()| ctx.list())
-                                    on_create_view=create_callback(move |()| ctx.create())
-                                    on_entity_created=create_callback(move |saved| {})
-                                    on_entity_creation_aborted=create_callback(move |reason| {})
-                                    on_entity_not_created_critical_errors=create_callback(move |()| {})
-                                    on_entity_creation_failed=create_callback(move |request_error| {})
-                                    on_tab_selected=create_callback(move |tab_id| {
+                                    on_edit_view=callback(move |id| ctx.edit(id))
+                                    on_list_view=callback(move |()| ctx.list())
+                                    on_create_view=callback(move |()| ctx.create())
+                                    on_entity_created=callback(move |saved| {})
+                                    on_entity_creation_aborted=callback(move |reason| {})
+                                    on_entity_not_created_critical_errors=callback(move |()| {})
+                                    on_entity_creation_failed=callback(move |request_error| {})
+                                    on_tab_selected=callback(move |tab_id| {
                                         ctx.tab_selected(tab_id)
                                     })
                                 />
@@ -475,8 +475,8 @@ where
                                     elements=update_elements
                                     custom_fields=custom_update_fields
                                     field_config=update_field_config
-                                    on_list_view=create_callback(move |()| ctx.list())
-                                    on_tab_selected=create_callback(move |tab_id| {
+                                    on_list_view=callback(move |()| ctx.list())
+                                    on_tab_selected=callback(move |tab_id| {
                                         ctx.tab_selected(tab_id)
                                     })
                                 />
@@ -497,13 +497,13 @@ where
                                     elements=update_elements
                                     custom_fields=custom_update_fields
                                     field_config=update_field_config
-                                    on_list_view=create_callback(move |()| ctx.list())
-                                    on_create_view=create_callback(move |()| ctx.create())
-                                    on_entity_updated=create_callback(move |saved| {})
-                                    on_entity_update_aborted=create_callback(move |reason| {})
-                                    on_entity_not_updated_critical_errors=create_callback(move |()| {})
-                                    on_entity_update_failed=create_callback(move |request_error| {})
-                                    on_tab_selected=create_callback(move |tab_id| {
+                                    on_list_view=callback(move |()| ctx.list())
+                                    on_create_view=callback(move |()| ctx.create())
+                                    on_entity_updated=callback(move |saved| {})
+                                    on_entity_update_aborted=callback(move |reason| {})
+                                    on_entity_not_updated_critical_errors=callback(move |()| {})
+                                    on_entity_update_failed=callback(move |request_error| {})
+                                    on_tab_selected=callback(move |tab_id| {
                                         ctx.tab_selected(tab_id)
                                     })
                                 />

@@ -121,7 +121,7 @@ where
         })
     });
 
-    let value_changed = create_callback(move |_| {});
+    let value_changed = callback(move |_| {});
 
     let action_ctx = CrudActionContext::<T>::new();
     let maybe_entity = Signal::derive(move || {

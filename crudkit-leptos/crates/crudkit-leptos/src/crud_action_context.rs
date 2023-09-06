@@ -97,7 +97,7 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             .update(|actions| actions.push(action_id));
 
         let this = self.clone();
-        let finish_handler = create_callback(move |outcome| {
+        let finish_handler = callback(move |outcome| {
             tracing::debug!(?outcome, "action finished");
 
             // Regardless of the outcome, the action is now finished.
@@ -143,7 +143,7 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             .update(|actions| actions.push(action_id));
 
         let this = self.clone();
-        let finish_handler = create_callback(move |outcome| {
+        let finish_handler = callback(move |outcome| {
             tracing::debug!(?outcome, "action finished");
 
             // Regardless of the outcome, the action is now finished.

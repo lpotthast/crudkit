@@ -64,11 +64,10 @@ where
                                                 <Tab
                                                     name=tab.id
                                                     label=tab.label.name.clone().into_view()
-                                                    on_show=create_callback(move |()| {
+                                                    on_show=move |()| {
                                                         on_tab_selection.call(id.clone())
-                                                    })
+                                                    }
                                                 >
-
                                                     <CrudFields
                                                         custom_fields=custom_fields
                                                         field_config=field_config

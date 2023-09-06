@@ -44,13 +44,11 @@ pub struct CrudParentConfig {
 pub trait SelectConfigTrait: Debug + DynClone {
     fn render_select(
         &self,
-
         selected: leptos::Signal<Box<dyn CrudSelectableTrait>>,
         set_selected: SimpleCallback<Box<dyn CrudSelectableTrait>>,
     ) -> View;
     fn render_optional_select(
         &self,
-
         selected: leptos::Signal<Option<Box<dyn CrudSelectableTrait>>>,
         set_selected: SimpleCallback<Option<Box<dyn CrudSelectableTrait>>>,
     ) -> View;
@@ -123,7 +121,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
         let options = self.options_provider.provide();
         let selected =
             Signal::derive(move || selected.get().as_any().downcast_ref::<O>().unwrap().clone());
-        let set_selected = create_callback(move |o: O| set_selected.call(Box::new(o)));
+        let set_selected = callback(move |o: O| set_selected.call(Box::new(o)));
         let renderer = self.renderer;
         view! {
             {move || {
@@ -137,7 +135,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
                                         options=options
                                         selected=selected
                                         set_selected=set_selected
-                                        search_text_provider=create_callback(move |o: O| { o.to_string() })
+                                        search_text_provider=callback(move |o: O| { o.to_string() })
 
                                         render_option=renderer
                                     />
@@ -166,7 +164,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
                 .get()
                 .map(|it| it.as_any().downcast_ref::<O>().unwrap().clone())
         });
-        let set_selected = create_callback(move |o: Option<O>| match o {
+        let set_selected = callback(move |o: Option<O>| match o {
             Some(o) => set_selected.call(Some(Box::new(o))),
             None => set_selected.call(None),
         });
@@ -183,7 +181,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
                                         options=options
                                         selected=selected
                                         set_selected=set_selected
-                                        search_text_provider=create_callback(move |o: O| { o.to_string() })
+                                        search_text_provider=callback(move |o: O| { o.to_string() })
 
                                         render_option=renderer
                                         allow_deselect=true

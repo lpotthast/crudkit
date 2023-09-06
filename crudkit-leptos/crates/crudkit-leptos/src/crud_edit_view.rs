@@ -389,15 +389,14 @@ where
 
         <CrudLeaveModal
             show_when=show_leave_modal
-            on_cancel=create_callback(move |()| {
+            on_cancel=move || {
                 set_show_leave_modal.set(false);
                 set_user_wants_to_leave.set(false);
-            })
-
-            on_accept=create_callback(move |()| {
+            }
+            on_accept=move || {
                 set_show_leave_modal.set(false);
                 force_leave();
-            })
+            }
         />
     }
 }

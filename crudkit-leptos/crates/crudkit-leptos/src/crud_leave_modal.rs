@@ -4,8 +4,8 @@ use leptos::*;
 #[component]
 pub fn CrudLeaveModal(
     #[prop(into)] show_when: Signal<bool>,
-    on_cancel: Callback<()>,
-    on_accept: Callback<()>,
+    #[prop(into)] on_cancel: Producer<()>,
+    #[prop(into)] on_accept: Producer<()>,
 ) -> impl IntoView {
     let g_keyboard_event: GlobalKeyboardEvent = expect_context::<GlobalKeyboardEvent>();
     create_effect(move |_old| {

@@ -66,7 +66,7 @@ where
         let trigger_action =
             move |entity: T::ReadModel, action: Rc<Box<dyn CrudActionTrait>>| todo!();
 
-        let dummy_value_changed_callback = create_callback(move |_| {});
+        let dummy_value_changed_callback = callback(move |_| {});
 
         view! {
             <tr class="interactable" on:click=move |_e| { instance_ctx.edit(stored_entity.get().into().get_id()) }>
