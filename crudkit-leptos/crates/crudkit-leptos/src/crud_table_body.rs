@@ -71,7 +71,11 @@ where
         view! {
             <tr class="interactable" on:click=move |_e| { instance_ctx.edit(stored_entity.get().into().get_id()) }>
                 <td class="select fit-content" on:click=move |e| e.stop_propagation()>
-                    <Checkbox checked=is_selected on_toggle=toggle_selected/>
+                    <Checkbox checked=is_selected set_checked=move |checked| {
+                        if checked != is_selected.get_untracked() {
+                            toggle_selected()
+                        }
+                    }/>
                 </td>
 
                 <For

@@ -232,6 +232,7 @@ where
     let (current_page, set_current_page) = create_signal(config.page.clone());
     let (items_per_page, set_items_per_page) = create_signal(config.items_per_page.clone());
     let (order_by, set_order_by) = create_signal(config.order_by.clone());
+
     fn get_parent_id(
         parent: &CrudParentConfig,
         mgr: CrudInstanceMgrContext,
@@ -247,7 +248,8 @@ where
             SerializableCrudView::Read(id) => Some(id),
             SerializableCrudView::Edit(id) => Some(id),
         }
-    };
+    }
+
     let parent = store_value(parent);
     let parent_id = Signal::derive(move || {
         parent

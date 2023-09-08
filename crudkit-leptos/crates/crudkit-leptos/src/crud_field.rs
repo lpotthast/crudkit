@@ -293,7 +293,7 @@ where
                     None => view! {
                         <Alert
                             variant=AlertVariant::Danger
-                            title=move || "Missing custom field declaration!"
+                            title=move || "Missing custom field declaration!".into_view()
                         >
                             "The custom field '"
                             {format!("{field_clone3:?}")}
@@ -924,14 +924,15 @@ pub fn CrudPrimitiveDateTimeField(
                     <DateTimeInput
                         id=id.clone()
                         get=MaybeSignal::derive(move || Some(value.get().assume_utc()))
-                        set=move |v| match v {
-                            Some(v) => {
-                                value_changed
-                                    .call(Ok(Value::PrimitiveDateTime(PrimitiveDateTime::new(v.date(), v.time()))))
+                        set={move |v: Option<time::OffsetDateTime>| {
+                            match v {
+                                Some(v) => {
+                                    value_changed
+                                        .call(Ok(Value::PrimitiveDateTime(PrimitiveDateTime::new(v.date(), v.time()))))
+                                }
+                                None => {}
                             }
-                            None => {}
-                        }
-
+                        }}
                         disabled=field_options.disabled
                     />
                 </div>
@@ -1003,18 +1004,16 @@ pub fn CrudSelectField(
                 {match field_config {
                     None => {
                         view! {
-                            <Alert variant=AlertVariant::Danger title=|| "Config error">
+                            <Alert variant=AlertVariant::Danger title=|| "Config error".into_view()>
                                 "Missing a field_config entry for this field."
                             </Alert>
-                        }
-                            .into_view()
+                        }.into_view()
                     }
                     Some(field_config) => {
-                        field_config
-                            .render_select(
-                                value,
-                                simple_callback(move |o| { value_changed.call(Ok(Value::Select(o))) }),
-                            )
+                        field_config.render_select(
+                            value,
+                            simple_callback(move |o| { value_changed.call(Ok(Value::Select(o))) }),
+                        )
                     }
                 }}
 
@@ -1027,18 +1026,16 @@ pub fn CrudSelectField(
                 {match field_config {
                     None => {
                         view! {
-                            <Alert variant=AlertVariant::Danger title=|| "Config error">
+                            <Alert variant=AlertVariant::Danger title=|| "Config error".into_view()>
                                 "Missing a field_config entry for this field."
                             </Alert>
-                        }
-                            .into_view()
+                        }.into_view()
                     }
                     Some(field_config) => {
-                        field_config
-                            .render_select(
-                                value,
-                                simple_callback(move |o| { value_changed.call(Ok(Value::Select(o))) }),
-                            )
+                        field_config.render_select(
+                            value,
+                            simple_callback(move |o| { value_changed.call(Ok(Value::Select(o))) }),
+                        )
                     }
                 }}
 
@@ -1065,18 +1062,16 @@ pub fn CrudOptionalSelectField(
                 {match field_config {
                     None => {
                         view! {
-                            <Alert variant=AlertVariant::Danger title=|| "Config error">
+                            <Alert variant=AlertVariant::Danger title=|| "Config error".into_view()>
                                 "Missing a field_config entry for this field."
                             </Alert>
-                        }
-                            .into_view()
+                        }.into_view()
                     }
                     Some(field_config) => {
-                        field_config
-                            .render_optional_select(
-                                value,
-                                simple_callback(move |o| { value_changed.call(Ok(Value::OptionalSelect(o))) }),
-                            )
+                        field_config.render_optional_select(
+                            value,
+                            simple_callback(move |o| { value_changed.call(Ok(Value::OptionalSelect(o))) }),
+                        )
                     }
                 }}
 
@@ -1089,18 +1084,16 @@ pub fn CrudOptionalSelectField(
                 {match field_config {
                     None => {
                         view! {
-                            <Alert variant=AlertVariant::Danger title=|| "Config error">
+                            <Alert variant=AlertVariant::Danger title=|| "Config error".into_view()>
                                 "Missing a field_config entry for this field."
                             </Alert>
-                        }
-                            .into_view()
+                        }.into_view()
                     }
                     Some(field_config) => {
-                        field_config
-                            .render_optional_select(
-                                value,
-                                simple_callback(move |o| { value_changed.call(Ok(Value::OptionalSelect(o))) }),
-                            )
+                        field_config.render_optional_select(
+                            value,
+                            simple_callback(move |o| { value_changed.call(Ok(Value::OptionalSelect(o))) }),
+                        )
                     }
                 }}
 

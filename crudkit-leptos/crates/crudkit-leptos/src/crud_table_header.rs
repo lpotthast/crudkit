@@ -39,7 +39,11 @@ where
                         .then(|| {
                             view! {
                                 <th class="select fit-content">
-                                    <Checkbox checked=all_selected on_toggle=move || { list_ctx.toggle_select_all() }/>
+                                    <Checkbox checked=all_selected set_checked=move |checked| {
+                                        if checked != all_selected.get_untracked() {
+                                            list_ctx.toggle_select_all()
+                                        }
+                                    }/>
                                 </th>
                             }
                         })
