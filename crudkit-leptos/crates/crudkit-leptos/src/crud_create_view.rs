@@ -169,7 +169,7 @@ where
                     }
                 },
                 Err(request_error) => {
-                    warn!(
+                    tracing::warn!(
                         "Could not create entity due to RequestError: {}",
                         request_error.to_string()
                     );

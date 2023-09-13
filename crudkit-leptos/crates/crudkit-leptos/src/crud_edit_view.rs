@@ -233,7 +233,7 @@ where
                 },
                 Err(request_error) => {
                     set_entity.set(Err(NoDataAvailable::RequestFailed(request_error.clone())));
-                    warn!(
+                    tracing::warn!(
                         "Could not update entity due to RequestError: {}",
                         request_error.to_string()
                     );
