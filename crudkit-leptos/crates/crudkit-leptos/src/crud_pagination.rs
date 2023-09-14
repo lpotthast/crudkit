@@ -1,7 +1,10 @@
 use std::{borrow::Cow, fmt::Display};
 
 use leptonic::prelude::*;
-use leptos::*;
+use leptos::{
+    leptos_dom::{Callable, Callback, StoredCallback},
+    *,
+};
 
 #[component]
 pub fn CrudPagination(
@@ -41,7 +44,8 @@ pub fn CrudPagination(
         default_options
     });
 
-    let set_items_per_page = callback(move |option: ItemsPerPage| {
+    let set_current_page = StoredCallback::new(set_current_page);
+    let set_items_per_page = StoredCallback::new(Callback::new(move |option: ItemsPerPage| {
         set_items_per_page.call(option.items_per_page);
 
         // We may have to update the current page as well if it would not show any element anymore!
@@ -49,7 +53,7 @@ pub fn CrudPagination(
         if current_page.get_untracked() > new_page_count {
             set_current_page.call(new_page_count);
         }
-    });
+    }));
 
     view! {
         <Show when=move || { item_count.get() > 0 } fallback=|| ()>

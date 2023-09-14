@@ -6,7 +6,7 @@ use crudkit_web::prelude::*;
 use dyn_clone::DynClone;
 use indexmap::{indexmap, IndexMap};
 use leptonic::prelude::*;
-use leptos::{View, *};
+use leptos::{View, *, leptos_dom::{Callback, Callable}};
 use serde::{Deserialize, Serialize};
 
 use crate::crud_action::{CrudAction, CrudEntityAction};
@@ -45,12 +45,12 @@ pub trait SelectConfigTrait: Debug + DynClone {
     fn render_select(
         &self,
         selected: leptos::Signal<Box<dyn CrudSelectableTrait>>,
-        set_selected: SimpleCallback<Box<dyn CrudSelectableTrait>>,
+        set_selected: Callback<Box<dyn CrudSelectableTrait>>,
     ) -> View;
     fn render_optional_select(
         &self,
         selected: leptos::Signal<Option<Box<dyn CrudSelectableTrait>>>,
-        set_selected: SimpleCallback<Option<Box<dyn CrudSelectableTrait>>>,
+        set_selected: Callback<Option<Box<dyn CrudSelectableTrait>>>,
     ) -> View;
 }
 dyn_clone::clone_trait_object!(SelectConfigTrait);
@@ -104,7 +104,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> D
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SelectConfig")
             .field("options", &self.options_provider)
-            .field("renderer", &self.renderer)
+            //.field("renderer", &self.renderer) // TODO: Add back when leptos 0.5.0-rc2 or final is out.
             .finish()
     }
 }
@@ -114,15 +114,14 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
 {
     fn render_select(
         &self,
-
         selected: Signal<Box<dyn CrudSelectableTrait>>,
-        set_selected: SimpleCallback<Box<dyn CrudSelectableTrait>>,
+        set_selected: Callback<Box<dyn CrudSelectableTrait>>,
     ) -> View {
         let options = self.options_provider.provide();
         let selected =
             Signal::derive(move || selected.get().as_any().downcast_ref::<O>().unwrap().clone());
-        let set_selected = callback(move |o: O| set_selected.call(Box::new(o)));
-        let renderer = self.renderer;
+        let set_selected = Callback::new(move |o: O| set_selected.call(Box::new(o)));
+        let renderer = self.renderer.clone();
         view! {
             {move || {
                 let option = options.get();
@@ -134,10 +133,9 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
                                     <Select
                                         options=options
                                         selected=selected
-                                        set_selected=set_selected
-                                        search_text_provider=callback(move |o: O| { o.to_string() })
-
-                                        render_option=renderer
+                                        set_selected=set_selected.clone()
+                                        search_text_provider=move |o: O| { o.to_string() }
+                                        render_option=renderer.clone()
                                     />
                                 }
                                     .into_view()
@@ -154,9 +152,8 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
 
     fn render_optional_select(
         &self,
-
         selected: Signal<Option<Box<dyn CrudSelectableTrait>>>,
-        set_selected: SimpleCallback<Option<Box<dyn CrudSelectableTrait>>>,
+        set_selected: Callback<Option<Box<dyn CrudSelectableTrait>>>,
     ) -> View {
         let options = self.options_provider.provide();
         let selected = Signal::derive(move || {
@@ -164,11 +161,11 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
                 .get()
                 .map(|it| it.as_any().downcast_ref::<O>().unwrap().clone())
         });
-        let set_selected = callback(move |o: Option<O>| match o {
+        let set_selected = Callback::new(move |o: Option<O>| match o {
             Some(o) => set_selected.call(Some(Box::new(o))),
             None => set_selected.call(None),
         });
-        let renderer = self.renderer;
+        let renderer = self.renderer.clone();
         view! {
             {move || {
                 let option = options.get();
@@ -180,10 +177,9 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
                                     <OptionalSelect
                                         options=options
                                         selected=selected
-                                        set_selected=set_selected
-                                        search_text_provider=callback(move |o: O| { o.to_string() })
-
-                                        render_option=renderer
+                                        set_selected=set_selected.clone()
+                                        search_text_provider=move |o: O| { o.to_string() }
+                                        render_option=renderer.clone()
                                         allow_deselect=true
                                     />
                                 }

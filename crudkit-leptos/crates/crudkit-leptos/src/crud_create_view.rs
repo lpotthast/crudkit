@@ -8,7 +8,7 @@ use crudkit_web::{
     TabId, Value,
 };
 use leptonic::prelude::*;
-use leptos::*;
+use leptos::{leptos_dom::{Callback, Callable}, *};
 use uuid::Uuid;
 
 use crate::{
@@ -71,15 +71,15 @@ pub fn CrudCreateView<T>(
     #[prop(into)] field_config: Signal<
         HashMap<<T::CreateModel as CrudDataTrait>::Field, DynSelectConfig>,
     >,
-    on_edit_view: Callback<T::UpdateModelId>,
-    on_list_view: Callback<()>,
-    on_create_view: Callback<()>,
+    #[prop(into)] on_edit_view: Callback<T::UpdateModelId>,
+    #[prop(into)] on_list_view: Callback<()>,
+    #[prop(into)] on_create_view: Callback<()>,
     // TODO: consolidate these into one "on_entity_creation_attempt" with type Result<CreateResult<T::UpdateModel>, SomeErrorType>?
-    on_entity_created: Callback<Saved<T::UpdateModel>>,
-    on_entity_creation_aborted: Callback<String>,
-    on_entity_not_created_critical_errors: Callback<()>,
-    on_entity_creation_failed: Callback<RequestError>,
-    on_tab_selected: Callback<TabId>,
+    #[prop(into)] on_entity_created: Callback<Saved<T::UpdateModel>>,
+    #[prop(into)] on_entity_creation_aborted: Callback<String>,
+    #[prop(into)] on_entity_not_created_critical_errors: Callback<()>,
+    #[prop(into)] on_entity_creation_failed: Callback<RequestError>,
+    #[prop(into)] on_tab_selected: Callback<TabId>,
     // /// Required because when creating the initial CreateModel, we have to set the "parent id" field of that model to the given id.
     // /// TODO: Only a subset of the parent id might be required to for matching. Consider a CreateModel#initialize_with_parent_id(ParentId)...
     // pub parent_id: Option<SerializableId>,
@@ -264,13 +264,12 @@ where
                         signals=signals
                         mode=FieldMode::Editable
                         current_view=CrudSimpleView::Create
-                        value_changed=value_changed
+                        value_changed=value_changed.clone()
                         // active_tab={ctx.props().config.active_tab.clone()}
-                        on_tab_selection=on_tab_selected
+                        on_tab_selection=on_tab_selected.clone()
                         entity=input.into()
                     />
-                }
-                    .into_view()
+                }.into_view()
             }
         }}
 

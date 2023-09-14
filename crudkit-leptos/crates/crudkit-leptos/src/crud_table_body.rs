@@ -5,7 +5,7 @@ use crudkit_web::{
     CrudMainTrait, CrudSimpleView, DeletableModel, FieldMode, FieldOptions, HeaderOptions,
 };
 use leptonic::prelude::*;
-use leptos::*;
+use leptos::{leptos_dom::Callback, *};
 use leptos_icons::BsIcon;
 
 use crate::{
@@ -66,7 +66,7 @@ where
         let trigger_action =
             move |entity: T::ReadModel, action: Rc<Box<dyn CrudActionTrait>>| todo!();
 
-        let dummy_value_changed_callback = callback(move |_| {});
+        let dummy_value_changed_callback = Callback::new(move |_| {});
 
         view! {
             <tr class="interactable" on:click=move |_e| { instance_ctx.edit(stored_entity.get().into().get_id()) }>
@@ -108,7 +108,7 @@ where
                                     // TODO: We could tie the value_changed callback to the field_mode, as it is only required when a value can actually change!
                                     field_mode=FieldMode::Display
                                     value=reactive_value
-                                    value_changed=dummy_value_changed_callback
+                                    value_changed=dummy_value_changed_callback.clone()
                                     entity=stored_entity.into()
                                 />
                             </td>

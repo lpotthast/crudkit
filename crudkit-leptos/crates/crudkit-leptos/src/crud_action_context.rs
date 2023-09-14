@@ -1,8 +1,10 @@
 use std::marker::PhantomData;
 
 use crudkit_web::CrudMainTrait;
-use leptonic::prelude::*;
-use leptos::*;
+use leptos::{
+    leptos_dom::{Callable, Callback},
+    *,
+};
 
 use crate::{crud_action::CrudActionAftermath, crud_instance::CrudInstanceContext};
 
@@ -97,7 +99,7 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             .update(|actions| actions.push(action_id));
 
         let this = self.clone();
-        let finish_handler = callback(move |outcome| {
+        let finish_handler = Callback::new(move |outcome| {
             tracing::debug!(?outcome, "action finished");
 
             // Regardless of the outcome, the action is now finished.
@@ -143,7 +145,7 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             .update(|actions| actions.push(action_id));
 
         let this = self.clone();
-        let finish_handler = callback(move |outcome| {
+        let finish_handler = Callback::new(move |outcome| {
             tracing::debug!(?outcome, "action finished");
 
             // Regardless of the outcome, the action is now finished.

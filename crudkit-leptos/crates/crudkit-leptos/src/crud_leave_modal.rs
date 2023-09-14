@@ -1,5 +1,5 @@
 use leptonic::prelude::*;
-use leptos::*;
+use leptos::{leptos_dom::Callable, *};
 
 #[component]
 pub fn CrudLeaveModal(
@@ -49,7 +49,6 @@ pub fn CrudLeaveModal(
                                         on_accept.call(());
                                     }
                                 >
-
                                     "Verlassen"
                                 </Button>
                             </ButtonWrapper>

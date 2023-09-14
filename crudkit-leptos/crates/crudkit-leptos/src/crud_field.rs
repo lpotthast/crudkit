@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::HashMap, error::Error};
 
 use crudkit_web::{prelude::*, DateTimeDisplay, JsonValue};
 use leptonic::prelude::*;
-use leptos::*;
+use leptos::{*, leptos_dom::{Callback, Callable}};
 use leptos_icons::BsIcon;
 use time::{
     format_description::well_known::Rfc3339, macros::format_description, PrimitiveDateTime,
@@ -39,7 +39,7 @@ where
         field_options: FieldOptions,
         field_mode: FieldMode,
         field_config: Option<Box<dyn SelectConfigTrait>>,
-        value_changed: SimpleCallback<Result<Value, Box<dyn Error>>>,
+        value_changed: Callback<Result<Value, Box<dyn Error>>>,
         custom_field_renderer: Box<dyn Fn() -> View>,
     ) -> impl IntoView {
         match value {
@@ -262,9 +262,10 @@ where
         let field_clone = field.clone();
         let field_clone3 = field.clone();
 
-        let value_changed: SimpleCallback<Result<Value, Box<dyn Error>>> =
-            simple_callback(move |result| match result {
-                Ok(new) => value_changed.call((field_clone.clone(), Ok(new))),
+        let value_changed_clone = value_changed.clone();
+        let value_changed: Callback<Result<Value, Box<dyn Error>>> =
+            Callback::new(move |result| match result {
+                Ok(new) => value_changed_clone.call((field_clone.clone(), Ok(new))),
                 Err(err) => tracing::error!("Could not get input value: {}", err),
             });
 
@@ -312,7 +313,7 @@ pub fn CrudStringField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<String>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> },
@@ -349,7 +350,7 @@ pub fn CrudTextField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<String>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> },
@@ -389,7 +390,7 @@ pub fn CrudJsonField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<JsonValue>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => {
@@ -439,7 +440,7 @@ pub fn CrudOptionalJsonField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<JsonValue>>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! {
@@ -488,7 +489,7 @@ pub fn CrudUuidV4Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Uuid>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get().to_string()}</div> },
@@ -513,7 +514,7 @@ pub fn CrudUuidV7Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Uuid>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get().to_string()}</div> },
@@ -538,7 +539,7 @@ pub fn CrudU32Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<u32>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> },
@@ -575,7 +576,7 @@ pub fn CrudOptionalU32Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<u32>>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => {
@@ -622,7 +623,7 @@ pub fn CrudI32Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<i32>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> },
@@ -659,7 +660,7 @@ pub fn CrudOptionalI32Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<i32>>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => {
@@ -706,7 +707,7 @@ pub fn CrudI64Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<i64>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> },
@@ -743,7 +744,7 @@ pub fn CrudOptionalI64Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<i64>>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => {
@@ -790,7 +791,7 @@ pub fn CrudF32Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<f32>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> },
@@ -827,7 +828,7 @@ pub fn CrudBoolField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<bool>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> },
@@ -889,7 +890,7 @@ pub fn CrudPrimitiveDateTimeField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<PrimitiveDateTime>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => match field_options.date_time_display {
@@ -947,7 +948,7 @@ pub fn CrudOptionalPrimitiveDateTimeField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<PrimitiveDateTime>>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => match field_options.date_time_display {
@@ -994,7 +995,7 @@ pub fn CrudSelectField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Box<dyn CrudSelectableTrait>>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => { move || format!("{:?}", value.get()) }.into_view(),
@@ -1012,7 +1013,7 @@ pub fn CrudSelectField(
                     Some(field_config) => {
                         field_config.render_select(
                             value,
-                            simple_callback(move |o| { value_changed.call(Ok(Value::Select(o))) }),
+                            Callback::new(move |o| { value_changed.call(Ok(Value::Select(o))) }),
                         )
                     }
                 }}
@@ -1034,7 +1035,7 @@ pub fn CrudSelectField(
                     Some(field_config) => {
                         field_config.render_select(
                             value,
-                            simple_callback(move |o| { value_changed.call(Ok(Value::Select(o))) }),
+                            Callback::new(move |o| { value_changed.call(Ok(Value::Select(o))) }),
                         )
                     }
                 }}
@@ -1052,7 +1053,7 @@ pub fn CrudOptionalSelectField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<Box<dyn CrudSelectableTrait>>>,
-    value_changed: SimpleCallback<Result<Value, Box<dyn std::error::Error>>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => { move || format!("{:?}", value.get()) }.into_view(),
@@ -1070,7 +1071,7 @@ pub fn CrudOptionalSelectField(
                     Some(field_config) => {
                         field_config.render_optional_select(
                             value,
-                            simple_callback(move |o| { value_changed.call(Ok(Value::OptionalSelect(o))) }),
+                            Callback::new(move |o| { value_changed.call(Ok(Value::OptionalSelect(o))) }),
                         )
                     }
                 }}
@@ -1092,7 +1093,7 @@ pub fn CrudOptionalSelectField(
                     Some(field_config) => {
                         field_config.render_optional_select(
                             value,
-                            simple_callback(move |o| { value_changed.call(Ok(Value::OptionalSelect(o))) }),
+                            Callback::new(move |o| { value_changed.call(Ok(Value::OptionalSelect(o))) }),
                         )
                     }
                 }}

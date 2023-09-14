@@ -10,7 +10,10 @@ use crudkit_web::{
     FieldMode, TabId, Value,
 };
 use leptonic::prelude::*;
-use leptos::*;
+use leptos::{
+    leptos_dom::{Callable, Callback, StoredCallback},
+    *,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -61,13 +64,13 @@ pub fn CrudEditView<T>(
     #[prop(into)] field_config: Signal<
         HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>,
     >,
-    on_list_view: Callback<()>,
-    on_create_view: Callback<()>,
-    on_entity_updated: Callback<Saved<T::UpdateModel>>,
-    on_entity_update_aborted: Callback<String>,
-    on_entity_not_updated_critical_errors: Callback<()>,
-    on_entity_update_failed: Callback<RequestError>,
-    on_tab_selected: Callback<TabId>,
+    #[prop(into)] on_list_view: Callback<()>,
+    #[prop(into)] on_create_view: Callback<()>,
+    #[prop(into)] on_entity_updated: Callback<Saved<T::UpdateModel>>,
+    #[prop(into)] on_entity_update_aborted: Callback<String>,
+    #[prop(into)] on_entity_not_updated_critical_errors: Callback<()>,
+    #[prop(into)] on_entity_update_failed: Callback<RequestError>,
+    #[prop(into)] on_tab_selected: Callback<TabId>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
@@ -165,13 +168,14 @@ where
     let (user_wants_to_leave, set_user_wants_to_leave) = create_signal(false);
     let (show_leave_modal, set_show_leave_modal) = create_signal(false);
 
-    let force_leave = move || on_list_view.call(());
+    let on_list_view_clone = on_list_view.clone();
+    let force_leave = StoredCallback::new(Callback::new(move |()| on_list_view_clone.call(())));
     let request_leave = move || set_user_wants_to_leave.set(true);
 
     create_effect(
         move |_prev| match (user_wants_to_leave.get(), input_changed.get()) {
             (true, true) => set_show_leave_modal.set(true),
-            (true, false) => force_leave(),
+            (true, false) => force_leave.call(()),
             (false, _) => {}
         },
     );
@@ -361,9 +365,9 @@ where
                         signals=signals
                         mode=FieldMode::Editable
                         current_view=CrudSimpleView::Edit
-                        value_changed=value_changed
+                        value_changed=value_changed.clone()
                         // active_tab={ctx.props().config.active_tab.clone()}
-                        on_tab_selection=on_tab_selected
+                        on_tab_selection=on_tab_selected.clone()
                         entity=expect_input
                     />
                 }.into_view()
@@ -374,7 +378,7 @@ where
                         <Row>
                             <Col h_align=ColAlign::End>
                                 <ButtonWrapper>
-                                    <Button color=ButtonColor::Secondary on_click=move |_| force_leave()>
+                                    <Button color=ButtonColor::Secondary on_click=move |_| force_leave.call(())>
                                         <span style="text-decoration: underline;">{"L"}</span>
                                         {"istenansicht"}
                                     </Button>
@@ -395,7 +399,7 @@ where
             }
             on_accept=move || {
                 set_show_leave_modal.set(false);
-                force_leave();
+                force_leave.call(());
             }
         />
     }

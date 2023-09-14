@@ -7,7 +7,7 @@ use crudkit_web::{
     CrudDataTrait, CrudFieldValueTrait, CrudMainTrait, CrudSimpleView, Elem, FieldMode, TabId,
 };
 use leptonic::prelude::*;
-use leptos::*;
+use leptos::{*, leptos_dom::{Callback, Callable}};
 use uuid::Uuid;
 
 use crate::{
@@ -41,8 +41,8 @@ pub fn CrudReadView<T>(
     #[prop(into)] field_config: Signal<
         HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>,
     >,
-    on_list_view: Callback<()>,
-    on_tab_selected: Callback<TabId>,
+    #[prop(into)] on_list_view: Callback<()>,
+    #[prop(into)] on_tab_selected: Callback<TabId>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
@@ -121,7 +121,7 @@ where
         })
     });
 
-    let value_changed = callback(move |_| {});
+    let value_changed = Callback::new(move |_| {});
 
     let action_ctx = CrudActionContext::<T>::new();
     let maybe_entity = Signal::derive(move || {
@@ -135,8 +135,10 @@ where
     view! {
         {move || match (entity.get(), signals.get()) {
             (Ok(entity), signals) => {
+                let on_list_view = on_list_view.clone();
                 view! {
                     {move || {
+                        let on_list_view = on_list_view.clone();
                         view! {
                             <Grid spacing=Size::Em(0.6) class="crud-nav">
                                 <Row>
@@ -172,15 +174,15 @@ where
                         signals=signals
                         mode=FieldMode::Readable
                         current_view=CrudSimpleView::Read
-                        value_changed=value_changed
+                        value_changed=value_changed.clone()
                         // active_tab={ctx.props().config.active_tab.clone()}
-                        on_tab_selection=on_tab_selected
+                        on_tab_selection=on_tab_selected.clone()
                         entity=entity.into()
                     />
-                }
-                    .into_view()
+                }.into_view()
             }
             (Err(no_data), _) => {
+                let on_list_view = on_list_view.clone();
                 view! {
                     <Grid spacing=Size::Em(0.6) class="crud-nav">
                         <Row>
@@ -195,8 +197,7 @@ where
                         </Row>
                     </Grid>
                     <div>{format!("Daten nicht verfügbar: {:?}", no_data)}</div>
-                }
-                    .into_view()
+                }.into_view()
             }
         }}
     }

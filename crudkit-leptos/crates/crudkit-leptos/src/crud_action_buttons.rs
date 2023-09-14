@@ -1,6 +1,9 @@
 use crudkit_web::CrudMainTrait;
 use leptonic::prelude::*;
-use leptos::*;
+use leptos::{
+    leptos_dom::{Callable, Callback},
+    *,
+};
 
 use crate::{
     crud_action::EntityModalGeneration,
@@ -30,6 +33,7 @@ where
 
             view=move |action| match action {
                 CrudEntityAction::Custom { id, name, icon, button_color, valid_in, action, modal } => {
+                    let action_clone = action.clone();
                     valid_in
                         .contains(&required_state)
                         .then(|| {
@@ -48,14 +52,14 @@ where
                                         .call(EntityModalGeneration {
                                             show_when: Signal::derive(move || { action_ctx.is_action_requested(id) }),
                                             state: input.into(),
-                                            cancel: callback(move |_| { action_ctx.cancel_action(id) }),
-                                            execute: callback(move |action_payload| {
+                                            cancel: Callback::new(move |_| { action_ctx.cancel_action(id) }),
+                                            execute: Callback::new(move |action_payload| {
                                                 action_ctx
                                                     .trigger_entity_action(
                                                         id,
                                                         input.get().unwrap(),
                                                         action_payload,
-                                                        action,
+                                                        action.clone(),
                                                         instance_ctx,
                                                     )
                                             }),
@@ -73,7 +77,7 @@ where
                                                     id,
                                                     input.get().unwrap(),
                                                     None,
-                                                    action,
+                                                    action_clone.clone(),
                                                     instance_ctx,
                                                 )
                                         }

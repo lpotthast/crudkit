@@ -5,7 +5,10 @@ use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
 use leptonic::prelude::*;
-use leptos::*;
+use leptos::{
+    leptos_dom::{Callable, Callback},
+    *,
+};
 use leptos_icons::BsIcon;
 use uuid::Uuid;
 
@@ -238,42 +241,38 @@ where
                                             <Button
                                                 color=button_color
                                                 disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
-
                                                 on_click=move |_| action_ctx.request_action(id)
                                             >
                                                 {icon.map(|icon| view! { <Icon icon=icon/> })}
                                                 {name.clone()}
                                             </Button>
-
-                                            {modal_generator
-                                                .call(ModalGeneration {
+                                            {
+                                                modal_generator.call(ModalGeneration {
                                                     show_when: Signal::derive(move || {
                                                         action_ctx.is_action_requested(id)
                                                     }),
-                                                    cancel: callback(move |_| { action_ctx.cancel_action(id) }),
-                                                    execute: callback(move |action_payload| {
+                                                    cancel: Callback::new(move |_| { action_ctx.cancel_action(id) }),
+                                                    execute: Callback::new(move |action_payload| {
                                                         action_ctx
-                                                            .trigger_action(id, action_payload, action, instance_ctx)
+                                                            .trigger_action(id, action_payload, action.clone(), instance_ctx)
                                                     }),
-                                                })}
-                                        }
-                                            .into_view()
+                                                })
+                                            }
+                                        }.into_view()
                                     } else {
+                                        let action = action.clone();
                                         view! {
                                             <Button
                                                 color=button_color
                                                 disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
-
                                                 on_click=move |_| {
-                                                    action_ctx.trigger_action(id, None, action, instance_ctx)
+                                                    action_ctx.trigger_action(id, None, action.clone(), instance_ctx)
                                                 }
                                             >
-
                                                 {icon.map(|icon| view! { <Icon icon=icon/> })}
                                                 {name.clone()}
                                             </Button>
-                                        }
-                                            .into_view()
+                                        } .into_view()
                                     }
                                 }
                             }

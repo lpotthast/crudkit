@@ -1,6 +1,6 @@
 use std::{fmt::Debug, rc::Rc};
 
-use leptonic::prelude::*;
+use leptos::leptos_dom::Callback;
 use leptos_icons::BsIcon;
 
 use crate::prelude::*;

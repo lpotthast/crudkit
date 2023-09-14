@@ -2,19 +2,25 @@ use std::marker::PhantomData;
 
 use crudkit_web::{CrudIdTrait, CrudMainTrait, DeletableModel};
 use leptonic::prelude::*;
-use leptos::*;
+use leptos::{
+    leptos_dom::{Callable, Callback, StoredCallback},
+    *,
+};
 
 #[component]
 pub fn CrudDeleteModal<T>(
     _phantom: PhantomData<T>,
     // Modal is shown when this Signal contains a Some value.
     #[prop(into)] entity: Signal<Option<DeletableModel<T::ReadModel, T::UpdateModel>>>, // TODO: Do not take Option
-    on_cancel: Callback<()>,
-    on_accept: Callback<DeletableModel<T::ReadModel, T::UpdateModel>>,
+    #[prop(into)] on_cancel: Callback<()>,
+    #[prop(into)] on_accept: Callback<DeletableModel<T::ReadModel, T::UpdateModel>>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
 {
+    let on_cancel = StoredCallback::new(on_cancel);
+    let on_accept = StoredCallback::new(on_accept);
+
     let show_when = Signal::derive(move || entity.get().is_some());
 
     let g_keyboard_event: GlobalKeyboardEvent = expect_context::<GlobalKeyboardEvent>();
@@ -56,24 +62,20 @@ where
                                 <Button
                                     color=ButtonColor::Secondary
                                     on_click=move |_| {
-                                        tracing::info!("cancel");
                                         on_cancel.call(())
                                     }
                                 >
-
                                     "Zurück"
                                 </Button>
                                 <Button
                                     color=ButtonColor::Danger
                                     on_click=move |_| {
-                                        tracing::info!("cancel");
                                         match entity.get() {
                                             Some(model) => on_accept.call(model),
                                             None => {}
                                         }
                                     }
                                 >
-
                                     "Löschen"
                                 </Button>
                             </ButtonWrapper>
