@@ -1,12 +1,13 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
-use std::{collections::HashMap, sync::Arc};
+use std::rc::Rc;
 
 use crate::{CrudDataTrait, CrudMainTrait, FieldMode, FieldOptions};
 
 /// O: Output of the renderer.
 #[derive(Clone)]
 pub struct CustomField<T: CrudDataTrait, O> {
-    pub renderer: Arc<dyn Fn(&T, FieldMode, FieldOptions) -> O>,
+    pub renderer: Rc<dyn Fn(&T, FieldMode, FieldOptions) -> O>,
 }
 
 impl<T: CrudDataTrait, O> Debug for CustomField<T, O> {
