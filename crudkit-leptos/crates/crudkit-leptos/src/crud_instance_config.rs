@@ -6,7 +6,7 @@ use crudkit_web::prelude::*;
 use dyn_clone::DynClone;
 use indexmap::{indexmap, IndexMap};
 use leptonic::prelude::*;
-use leptos::{View, *, leptos_dom::{Callback, Callable}};
+use leptos::{View, *, leptos_dom::{Callback, Callable, StoredCallback}};
 use serde::{Deserialize, Serialize};
 
 use crate::crud_action::{CrudAction, CrudEntityAction};
@@ -95,7 +95,8 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static>
 #[derive(Clone)]
 pub struct SelectConfig<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> {
     pub options_provider: SelectOptionsProvider<O>,
-    pub renderer: Callback<O, View>,
+        // TODO: Make Callback in rc3
+    pub renderer: StoredCallback<O, View>,
 }
 
 impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> Debug
@@ -135,7 +136,8 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
                                         selected=selected
                                         set_selected=set_selected.clone()
                                         search_text_provider=move |o: O| { o.to_string() }
-                                        render_option=renderer.clone()
+                                        // TODO: Replace with: render_option=renderer.clone() in rc3
+                                        render_option=Callback::new(move |inn| renderer.clone().call(inn))
                                     />
                                 }
                                     .into_view()
@@ -165,6 +167,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
             Some(o) => set_selected.call(Some(Box::new(o))),
             None => set_selected.call(None),
         });
+
         let renderer = self.renderer.clone();
         view! {
             {move || {
@@ -179,7 +182,8 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
                                         selected=selected
                                         set_selected=set_selected.clone()
                                         search_text_provider=move |o: O| { o.to_string() }
-                                        render_option=renderer.clone()
+                                        // TODO: Replace with: render_option=renderer.clone() in rc3
+                                        render_option=Callback::new(move |inn| renderer.clone().call(inn))
                                         allow_deselect=true
                                     />
                                 }
