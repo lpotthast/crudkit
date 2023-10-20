@@ -7,10 +7,10 @@ edition = "2021"
 crudkit-id = { path = "../crudkit-id/crates/crudkit-id" }
 crudkit-shared = { path = "../crudkit-shared" }
 
-dyn-clone = "1.0.12"
-serde = { version = "1.0.171", features = ["derive"] }
-serde_json = { version = "1.0.103" }
+dyn-clone = "1.0.14"
+serde = { version = "1.0.189", features = ["derive"] }
+serde_json = { version = "1.0.107" }
 snafu = { version = "0.7.5", features = ["backtrace"] }
-time = { version = "0.3.23", features = ["serde", "serde-well-known"] }
-utoipa = "3.3.0"
-uuid = { version = "1.4.0", features = ["v4", "v7", "serde"] }
+time = { version = "0.3.30", features = ["serde", "serde-well-known"] }
+utoipa = "4.0.0"
+uuid = { version = "1.5.0", features = ["v4", "v7", "serde"] }

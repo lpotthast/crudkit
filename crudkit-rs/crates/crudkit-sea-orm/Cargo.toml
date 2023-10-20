@@ -8,17 +8,17 @@ crudkit-condition = { path = "../../../crudkit-condition" }
 crudkit-rs = { path = "../crudkit-rs" }
 crudkit-shared = { path = "../../../crudkit-shared" }
 
-async-trait = "0.1.71"
-indexmap = { version = "2.0.0", features = ["serde"] }
-sea-orm = { version = "0.12.2", features = [
+async-trait = "0.1.74"
+indexmap = { version = "2.0.2", features = ["serde"] }
+sea-orm = { version = "0.12.4", features = [
     "debug-print",
     "runtime-tokio-rustls",
     "sqlx",
     "sqlx-postgres",
 ] }
-sea-query = { version = "0.30.1" }
-serde = { version = "1.0.171", features = ["derive"] }
+sea-query = { version = "0.30.2" }
+serde = { version = "1.0.189", features = ["derive"] }
 snafu = { version = "0.7.5", features = ["backtrace"] }
-tracing = "0.1.37"
+tracing = "0.1.40"
 utoipa = "3.3.0"
-uuid = { version = "1.4.0", features = ["v4", "v7", "serde"] }
+uuid = { version = "1.5.0", features = ["v4", "v7", "serde"] }
