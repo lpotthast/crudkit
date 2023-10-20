@@ -1,6 +1,6 @@
 use std::{fmt::Debug, rc::Rc};
 
-use leptos::leptos_dom::{Callback, StoredCallback};
+use leptos::*;
 use leptos_icons::BsIcon;
 
 use crate::prelude::*;
@@ -42,7 +42,7 @@ pub enum CrudEntityAction<T: CrudMainTrait + 'static> {
             Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
         // TODO: Replace with Callback in rc3
-        modal: Option<StoredCallback<EntityModalGeneration<T>, leptos::View>>,
+        modal: Option<Callback<EntityModalGeneration<T>, leptos::View>>,
     },
 }
 
@@ -123,7 +123,7 @@ pub enum CrudAction<T: CrudMainTrait + 'static> {
             Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
         // TODO: Replace with Callback in rc3
-        modal: Option<StoredCallback<ModalGeneration<T>, leptos::View>>,
+        modal: Option<Callback<ModalGeneration<T>, leptos::View>>,
     },
 }
 

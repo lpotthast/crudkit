@@ -6,7 +6,7 @@ use crudkit_web::prelude::*;
 use dyn_clone::DynClone;
 use indexmap::{indexmap, IndexMap};
 use leptonic::prelude::*;
-use leptos::{View, *, leptos_dom::{Callback, Callable, StoredCallback}};
+use leptos::{View, *};
 use serde::{Deserialize, Serialize};
 
 use crate::crud_action::{CrudAction, CrudEntityAction};
@@ -96,7 +96,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static>
 pub struct SelectConfig<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> {
     pub options_provider: SelectOptionsProvider<O>,
         // TODO: Make Callback in rc3
-    pub renderer: StoredCallback<O, View>,
+    pub renderer: Callback<O, View>,
 }
 
 impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> Debug

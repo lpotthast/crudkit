@@ -10,10 +10,7 @@ use crudkit_web::{
     FieldMode, TabId, Value,
 };
 use leptonic::prelude::*;
-use leptos::{
-    leptos_dom::{Callable, Callback, StoredCallback},
-    *,
-};
+use leptos::*;
 use uuid::Uuid;
 
 use crate::{
@@ -169,7 +166,7 @@ where
     let (show_leave_modal, set_show_leave_modal) = create_signal(false);
 
     let on_list_view_clone = on_list_view.clone();
-    let force_leave = StoredCallback::new(Callback::new(move |()| on_list_view_clone.call(())));
+    let force_leave = Callback::new(move |()| on_list_view_clone.call(()));
     let request_leave = move || set_user_wants_to_leave.set(true);
 
     create_effect(

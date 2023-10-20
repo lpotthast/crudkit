@@ -1,5 +1,5 @@
 use leptonic::prelude::*;
-use leptos::{leptos_dom::Callable, *};
+use leptos::*;
 
 #[component]
 pub fn CrudLeaveModal(

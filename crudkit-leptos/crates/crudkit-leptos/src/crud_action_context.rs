@@ -1,10 +1,7 @@
 use std::marker::PhantomData;
 
 use crudkit_web::CrudMainTrait;
-use leptos::{
-    leptos_dom::{Callable, Callback},
-    *,
-};
+use leptos::*;
 
 use crate::{crud_action::CrudActionAftermath, crud_instance::CrudInstanceContext};
 

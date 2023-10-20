@@ -8,7 +8,7 @@ use crudkit_web::{
     TabId, Value,
 };
 use leptonic::prelude::*;
-use leptos::{leptos_dom::{Callback, Callable}, *};
+use leptos::*;
 use uuid::Uuid;
 
 use crate::{

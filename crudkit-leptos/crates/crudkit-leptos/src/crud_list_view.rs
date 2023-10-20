@@ -5,10 +5,7 @@ use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
 use leptonic::prelude::*;
-use leptos::{
-    leptos_dom::{Callable, Callback},
-    *,
-};
+use leptos::*;
 use leptos_icons::BsIcon;
 use uuid::Uuid;
 
@@ -233,8 +230,7 @@ where
                             key=|action| match action {
                                 CrudAction::Custom { id, name: _, icon: _, button_color: _, action: _, modal: _ } => *id,
                             }
-
-                            view=move |action| match action {
+                            children=move |action| match action {
                                 CrudAction::Custom { id, name, icon, button_color, action, modal } => {
                                     if let Some(modal_generator) = modal {
                                         view! {

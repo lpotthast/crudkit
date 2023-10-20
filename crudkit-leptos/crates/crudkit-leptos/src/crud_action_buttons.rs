@@ -1,9 +1,6 @@
 use crudkit_web::CrudMainTrait;
 use leptonic::prelude::*;
-use leptos::{
-    leptos_dom::{Callable, Callback},
-    *,
-};
+use leptos::*;
 
 use crate::{
     crud_action::EntityModalGeneration,
@@ -30,8 +27,7 @@ where
                     *id
                 }
             }
-
-            view=move |action| match action {
+            children=move |action| match action {
                 CrudEntityAction::Custom { id, name, icon, button_color, valid_in, action, modal } => {
                     let action_clone = action.clone();
                     valid_in

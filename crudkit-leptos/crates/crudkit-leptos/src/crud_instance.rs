@@ -5,7 +5,7 @@ use crudkit_shared::{DeleteResult, Order};
 use crudkit_web::{prelude::*, TabId};
 use indexmap::IndexMap;
 use leptonic::prelude::*;
-use leptos::{*, leptos_dom::Callback};
+use leptos::*;
 use time::OffsetDateTime;
 use uuid::Uuid;
 

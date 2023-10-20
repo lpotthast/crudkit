@@ -51,7 +51,7 @@ where
                 <For
                     each=move || headers.get()
                     key=|(field, _options)| field.get_name()
-                    view=move |(field, options)| {
+                    children=move |(field, options)| {
                         move || {
                             let field_clone = field.clone();
                             let order_by = order_by.get();

@@ -4,10 +4,7 @@ use crudkit_web::{
     prelude::CustomFields, CrudDataTrait, CrudSimpleView, Elem, Enclosing, FieldMode, TabId, Value,
 };
 use leptonic::prelude::*;
-use leptos::{
-    leptos_dom::{Callable, Callback},
-    *,
-};
+use leptos::*;
 
 use crate::{crud_field::CrudField, crud_instance_config::DynSelectConfig, ReactiveValue};
 

@@ -7,7 +7,7 @@ use crudkit_web::{
     CrudDataTrait, CrudFieldValueTrait, CrudMainTrait, CrudSimpleView, Elem, FieldMode, TabId,
 };
 use leptonic::prelude::*;
-use leptos::{*, leptos_dom::{Callback, Callable}};
+use leptos::*;
 use uuid::Uuid;
 
 use crate::{

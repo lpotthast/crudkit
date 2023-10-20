@@ -5,7 +5,7 @@ use crudkit_web::{
     CrudMainTrait, CrudSimpleView, DeletableModel, FieldMode, FieldOptions, HeaderOptions,
 };
 use leptonic::prelude::*;
-use leptos::{leptos_dom::Callback, *};
+use leptos::*;
 use leptos_icons::BsIcon;
 
 use crate::{
@@ -81,7 +81,7 @@ where
                 <For
                     each=move || headers.get()
                     key=|(field, _options)| field.get_name()
-                    view=move |(field, options)| {
+                    children=move |(field, options)| {
                         let entity = stored_entity.get();
                         let reactive_value = {
                             let initial = field.get_value(&entity);
@@ -162,7 +162,7 @@ where
                                         <For
                                             each=move || additional_item_actions.get()
                                             key=|entity| entity.get_name()
-                                            view=move |action| {
+                                            children=move |action| {
                                                 let icon = action.get_icon().unwrap_or(BsIcon::BsQuestion.into());
                                                 view! {
                                                     <div
@@ -206,9 +206,8 @@ where
                         }
                         _ => {
                             view! {
-                                <For each=move || data.as_ref().clone() key=|entity| entity.get_id() view=render_entry/>
-                            }
-                                .into_view()
+                                <For each=move || data.as_ref().clone() key=|entity| entity.get_id() children=render_entry/>
+                            }.into_view()
                         }
                     }
                 }
@@ -241,7 +240,6 @@ where
                     }
                 }
             }}
-
         </tbody>
     }
 }

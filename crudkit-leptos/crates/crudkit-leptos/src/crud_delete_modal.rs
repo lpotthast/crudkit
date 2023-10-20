@@ -2,10 +2,7 @@ use std::marker::PhantomData;
 
 use crudkit_web::{CrudIdTrait, CrudMainTrait, DeletableModel};
 use leptonic::prelude::*;
-use leptos::{
-    leptos_dom::{Callable, Callback, StoredCallback},
-    *,
-};
+use leptos::*;
 
 #[component]
 pub fn CrudDeleteModal<T>(
@@ -18,9 +15,6 @@ pub fn CrudDeleteModal<T>(
 where
     T: CrudMainTrait + 'static,
 {
-    let on_cancel = StoredCallback::new(on_cancel);
-    let on_accept = StoredCallback::new(on_accept);
-
     let show_when = Signal::derive(move || entity.get().is_some());
 
     let g_keyboard_event: GlobalKeyboardEvent = expect_context::<GlobalKeyboardEvent>();
