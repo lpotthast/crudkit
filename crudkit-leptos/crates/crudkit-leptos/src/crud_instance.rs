@@ -209,6 +209,7 @@ pub fn CrudInstance<T>(
     config: CrudInstanceConfig<T>,
     static_config: CrudStaticInstanceConfig<T>,
     #[prop(optional)] parent: Option<CrudParentConfig>,
+    #[prop(optional)] on_context_created: Option<Callback<CrudInstanceContext<T>>>,
     //pub portal_target: Option<String>,
 ) -> impl IntoView
 where
@@ -315,6 +316,9 @@ where
         set_reload,
     };
     provide_context(ctx);
+    if let Some(on_context_created) = on_context_created {
+        on_context_created.call(ctx)
+    }
 
     let custom_read_fields = Signal::derive(move || static_config.custom_read_fields.clone());
     let custom_create_fields = Signal::derive(move || static_config.custom_create_fields.clone());

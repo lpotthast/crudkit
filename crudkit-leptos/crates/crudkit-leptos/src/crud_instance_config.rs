@@ -105,7 +105,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> D
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SelectConfig")
             .field("options", &self.options_provider)
-            //.field("renderer", &self.renderer) // TODO: Add back when leptos 0.5.0-rc2 or final is out.
+            //.field("renderer", &self.renderer) // TODO: Add back when leptos 0.5.2 or later is out and debug impl is fixed.
             .finish()
     }
 }
@@ -137,7 +137,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
                                         set_selected=set_selected.clone()
                                         search_text_provider=move |o: O| { o.to_string() }
                                         // TODO: Replace with: render_option=renderer.clone() in rc3
-                                        render_option=Callback::new(move |inn| renderer.clone().call(inn))
+                                        render_option=move |inn| { renderer.clone().call(inn) }
                                     />
                                 }
                                     .into_view()
@@ -183,11 +183,10 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static> S
                                         set_selected=set_selected.clone()
                                         search_text_provider=move |o: O| { o.to_string() }
                                         // TODO: Replace with: render_option=renderer.clone() in rc3
-                                        render_option=Callback::new(move |inn| renderer.clone().call(inn))
+                                        render_option=move |inn| { renderer.clone().call(inn) }
                                         allow_deselect=true
                                     />
-                                }
-                                    .into_view()
+                                }.into_view()
                             }
                             Err(err) => format!("Could not load options... Err: {err:?}").into_view(),
                         }
