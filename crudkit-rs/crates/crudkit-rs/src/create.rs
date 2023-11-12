@@ -70,7 +70,7 @@ pub async fn create_one<R: CrudResource>(
         )]);
         context
             .ws_controller
-            .broadcast_json(&CkWsMessage::PartialValidationResult(
+            .broadcast_json(CkWsMessage::PartialValidationResult(
                 partial_serializable_validations,
             ));
 
@@ -141,7 +141,7 @@ pub async fn create_one<R: CrudResource>(
 
         context
             .ws_controller
-            .broadcast_json(&CkWsMessage::PartialValidationResult(
+            .broadcast_json(CkWsMessage::PartialValidationResult(
                 partial_serializable_validations,
             ));
 
@@ -161,7 +161,7 @@ pub async fn create_one<R: CrudResource>(
     // TODO: Exclude the current user!
     context
         .ws_controller
-        .broadcast_json(&CkWsMessage::EntityCreated(EntityCreated {
+        .broadcast_json(CkWsMessage::EntityCreated(EntityCreated {
             aggregate_name: R::TYPE.into().to_owned(),
             entity_id: serializable_id,
             with_validation_errors,

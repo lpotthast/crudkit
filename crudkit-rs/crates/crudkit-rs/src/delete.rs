@@ -104,7 +104,7 @@ pub async fn delete_by_id<R: CrudResource>(
 
         context
             .ws_controller
-            .broadcast_json(&CkWsMessage::PartialValidationResult(
+            .broadcast_json(CkWsMessage::PartialValidationResult(
                 partial_serializable_validations,
             ));
 
@@ -140,7 +140,7 @@ pub async fn delete_by_id<R: CrudResource>(
     // TODO: Exclude the current user!
     context
         .ws_controller
-        .broadcast_json(&CkWsMessage::EntityDeleted(EntityDeleted {
+        .broadcast_json(CkWsMessage::EntityDeleted(EntityDeleted {
             aggregate_name: R::TYPE.into().to_owned(),
             entity_id: serializable_id,
         }));
@@ -200,7 +200,7 @@ pub async fn delete_one<R: CrudResource>(
 
         context
             .ws_controller
-            .broadcast_json(&CkWsMessage::PartialValidationResult(
+            .broadcast_json(CkWsMessage::PartialValidationResult(
                 partial_serializable_validations,
             ));
 
@@ -233,7 +233,7 @@ pub async fn delete_one<R: CrudResource>(
     // TODO: Exclude the current user!
     context
         .ws_controller
-        .broadcast_json(&CkWsMessage::EntityDeleted(EntityDeleted {
+        .broadcast_json(CkWsMessage::EntityDeleted(EntityDeleted {
             aggregate_name: R::TYPE.into().to_owned(),
             entity_id: serializable_id,
         }));
