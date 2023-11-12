@@ -18,17 +18,17 @@ derive-validation-model = { path = "../derive-validation-model" }
 
 async-trait = "0.1.74"
 axum = "0.6.20"
-indexmap = { version = "2.0.2", features = ["serde"] }
+indexmap = { version = "2.1.0", features = ["serde"] }
 paste = "1.0.14"
-sea-orm = { version = "0.12.3", features = [
+sea-orm = { version = "0.12.4", features = [
     "debug-print",
     "runtime-tokio-rustls",
     "sqlx",
     "sqlx-postgres",
 ] }
 sea-query = { version = "0.30.2" }
-serde = { version = "1.0.189", features = ["derive"] }
-serde_json = "1.0.107"
+serde = { version = "1.0.192", features = ["derive"] }
+serde_json = "1.0.108"
 snafu = { version = "0.7.5", features = ["backtrace"] }
 time = { version = "0.3.30", features = ["serde", "serde-well-known"] }
 tracing = "0.1.40"

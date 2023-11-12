@@ -17,33 +17,33 @@ derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
 derive-field = { path = "../../../crudkit-web/crates/derive-field" }
 derive-field-value = { path = "../../../crudkit-web/crates/derive-field-value" }
 
-async-trait = "0.1.71"
+async-trait = "0.1.74"
 derive_more = "0.99.17"
-dyn-clone = "1.0.12"
+dyn-clone = "1.0.16"
 gloo = "0.10.0"
-indexmap = { version = "2.0.0", features = ["serde"] }
-js-sys = "0.3.64"
+indexmap = { version = "2.1.0", features = ["serde"] }
+js-sys = "0.3.65"
 once_cell = "1.18.0"
 parking_lot = "0.12.1"
-reqwest = { version = "0.11.18", default-features = false, features = [
+reqwest = { version = "0.11.22", default-features = false, features = [
     "json",
     "multipart",
 ] }
-serde = { version = "1.0.171", features = ["derive"] }
+serde = { version = "1.0.192", features = ["derive"] }
 serde-wasm-bindgen = "0.5.0"
-serde_json = { version = "1.0.103", features = ["raw_value"] }
-thiserror = "1.0.43"
-time = { version = "0.3.23", features = [
+serde_json = { version = "1.0.108", features = ["raw_value"] }
+thiserror = "1.0.50"
+time = { version = "0.3.30", features = [
     "macros",
     "local-offset",
     "wasm-bindgen",
 ] }
-tracing = "0.1.37"
-urlencoding = "2.1.2"
-uuid = { version = "1.4.0", features = ["js", "v4", "v7", "serde"] }
-wasm-bindgen = "0.2.87"
-wasm-bindgen-futures = "0.4.37"
-web-sys = { version = "0.3.64", features = [
+tracing = "0.1.40"
+urlencoding = "2.1.3"
+uuid = { version = "1.5.0", features = ["js", "v4", "v7", "serde"] }
+wasm-bindgen = "0.2.88"
+wasm-bindgen-futures = "0.4.38"
+web-sys = { version = "0.3.65", features = [
     "Document",
     "Element",
     "HtmlElement",
@@ -56,4 +56,4 @@ web-sys = { version = "0.3.64", features = [
 yew = "0.20.0"
 yew-bootstrap-icons = { git = "https://github.com/lpotthast/yew-bootstrap-icons" }
 yew-tiptap = { git = "https://github.com/lpotthast/yew-tiptap" }
-yewdux = "0.9.3"
+yewdux = "0.9.4"
