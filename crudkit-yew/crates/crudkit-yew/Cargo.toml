@@ -29,7 +29,7 @@ reqwest = { version = "0.11.22", default-features = false, features = [
     "json",
     "multipart",
 ] }
-serde = { version = "1.0.192", features = ["derive"] }
+serde = { version = "1.0.193", features = ["derive"] }
 serde-wasm-bindgen = "0.5.0"
 serde_json = { version = "1.0.108", features = ["raw_value"] }
 thiserror = "1.0.50"

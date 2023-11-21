@@ -34,7 +34,7 @@ leptos_icons = { version = "0.1.0", features = [
     "BsList",
     "BsQuestion",
 ] }
-serde = { version = "1.0.192", features = ["derive"] }
+serde = { version = "1.0.193", features = ["derive"] }
 # TODO: Only required to handle TipTap content. Can we get rid of this?
 serde_json = { version = "1.0.108", features = ["raw_value"] }
 time = { version = "0.3.30", features = [

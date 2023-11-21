@@ -10,15 +10,15 @@ crudkit-shared = { path = "../../../crudkit-shared" }
 
 async-trait = "0.1.74"
 indexmap = { version = "2.1.0", features = ["serde"] }
-sea-orm = { version = "0.12.4", features = [
+sea-orm = { version = "0.12.6", features = [
     "debug-print",
     "runtime-tokio-rustls",
     "sqlx",
     "sqlx-postgres",
 ] }
 sea-query = { version = "0.30.2" }
-serde = { version = "1.0.192", features = ["derive"] }
+serde = { version = "1.0.193", features = ["derive"] }
 snafu = { version = "0.7.5", features = ["backtrace"] }
 tracing = "0.1.40"
-utoipa = "4.0.0"
+utoipa = "4.1.0"
 uuid = { version = "1.6.1", features = ["v4", "v7", "serde"] }

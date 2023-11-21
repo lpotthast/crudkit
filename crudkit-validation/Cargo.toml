@@ -5,4 +5,4 @@ edition = "2021"
 
 [dependencies]
 crudkit-id = { path = "../crudkit-id/crates/crudkit-id" }
-serde = { version = "1.0.192", features = ["derive"] }
+serde = { version = "1.0.193", features = ["derive"] }
