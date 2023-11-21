@@ -17,22 +17,17 @@ derive-crud-selectable = { path = "../derive-crud-selectable" }
 derive-field = { path = "../derive-field" }
 derive-field-value = { path = "../derive-field-value" }
 
-# TODO: check which dependencies can be removed safely.
 async-trait = "0.1.71"
 derive_more = "0.99.17"
 dyn-clone = "1.0.12"
-gloo = "0.10.0"
 indexmap = { version = "2.0.0", features = ["serde"] }
-js-sys = "0.3.64"
-once_cell = "1.18.0"
-parking_lot = "0.12.1"
-reqwest = { version = "0.11.18", default-features = false, features = [
+reqwest = { version = "0.11.22", default-features = false, features = [
     "json",
     "multipart",
 ] }
 serde = { version = "1.0.171", features = ["derive"] }
-serde-wasm-bindgen = "0.5.0"
 serde_json = { version = "1.0.103", features = ["raw_value"] }
+# TODO: Consider replacing this with `snafu`.
 thiserror = "1.0.43"
 time = { version = "0.3.23", features = [
     "macros",
@@ -40,17 +35,4 @@ time = { version = "0.3.23", features = [
     "wasm-bindgen",
 ] }
 tracing = "0.1.37"
-urlencoding = "2.1.2"
-uuid = { version = "1.4.0", features = ["js", "v4", "v7", "serde"] }
-wasm-bindgen = "0.2.87"
-wasm-bindgen-futures = "0.4.37"
-web-sys = { version = "0.3.64", features = [
-    "Document",
-    "Element",
-    "HtmlElement",
-    "HtmlInputElement",
-    "DomTokenList",
-    "Event",
-    "EventTarget",
-    "DomRect",
-] }
+uuid = { version = "1.6.1", features = ["js", "v4", "v7", "serde"] }

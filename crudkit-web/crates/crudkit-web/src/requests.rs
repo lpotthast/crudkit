@@ -8,6 +8,7 @@ use thiserror::Error as ThisError;
 
 use crate::error::ErrorInfo;
 
+// TODO: All our other libraries use `snafu` for error handling. We should probably switch to that and remove the thiserror dependency.
 #[derive(ThisError, Clone, Debug, PartialEq)]
 #[allow(clippy::enum_variant_names)]
 pub enum RequestError {

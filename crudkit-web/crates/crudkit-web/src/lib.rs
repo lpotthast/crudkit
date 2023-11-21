@@ -16,7 +16,6 @@ use std::{
 };
 use time::format_description::well_known::Rfc3339;
 use tracing::warn;
-use wasm_bindgen::JsCast;
 
 pub mod crud_rest_data_provider;
 pub mod custom_field;
@@ -68,11 +67,9 @@ pub mod prelude {
     pub use super::custom_field::CustomReadFields;
     pub use super::custom_field::CustomUpdateFields;
     pub use super::error::ErrorInfo;
-    pub use super::event_target_as;
     pub use super::files::FileResource;
     pub use super::files::ListFileError;
     pub use super::files::ListFilesResponse;
-    pub use super::keyboard_event_target_as;
     pub use super::requests::request;
     pub use super::requests::request_delete;
     pub use super::requests::request_get;
@@ -963,26 +960,4 @@ pub struct Group<T: CrudDataTrait> {
     // serde bound used as described in: https://github.com/serde-rs/serde/issues/1296
     #[serde(bound = "")]
     pub children: Vec<Elem<T>>,
-}
-
-pub fn event_target_as<T: JsCast>(event: web_sys::Event) -> Result<T, String> {
-    event
-        .target()
-        .ok_or_else(|| format!("Unable to obtain target from event: {:?}", event))
-        .and_then(|event_target| {
-            event_target
-                .dyn_into::<T>()
-                .map_err(|err| format!("Unable to cast event_target to T: {:?}", err.to_string()))
-        })
-}
-
-pub fn keyboard_event_target_as<T: JsCast>(event: web_sys::KeyboardEvent) -> Result<T, String> {
-    event
-        .target()
-        .ok_or_else(|| format!("Unable to obtain target from event: {:?}", event))
-        .and_then(|event_target| {
-            event_target
-                .dyn_into::<T>()
-                .map_err(|err| format!("Unable to cast event_target to T: {:?}", err.to_string()))
-        })
 }
