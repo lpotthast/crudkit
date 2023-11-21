@@ -1,5 +1,3 @@
 [build]
 # At last for now, we only support wasm-compiled frontends.
 target = "wasm32-unknown-unknown"
-# The 'uuid_unstable' flag is needed for v7 uuids. See stabilization tracking issue: https://github.com/uuid-rs/uuid/issues/523
-rustflags = ["--cfg", "uuid_unstable"]

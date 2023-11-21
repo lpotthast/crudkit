@@ -8,4 +8,4 @@ dyn-clone = "1.0.16"
 serde = { version = "1.0.192", features = ["derive"] }
 time = { version = "0.3.30", features = ["serde", "serde-well-known"] }
 utoipa = "4.0.0"
-uuid = { version = "1.5.0", features = ["v4", "v7", "serde"] }
+uuid = { version = "1.6.1", features = ["v4", "v7", "serde"] }

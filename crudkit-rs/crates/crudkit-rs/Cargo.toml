@@ -33,4 +33,4 @@ snafu = { version = "0.7.5", features = ["backtrace"] }
 time = { version = "0.3.30", features = ["serde", "serde-well-known"] }
 tracing = "0.1.40"
 utoipa = "4.0.0"
-uuid = { version = "1.5.0", features = ["v4", "v7", "serde"] }
+uuid = { version = "1.6.1", features = ["v4", "v7", "serde"] }
