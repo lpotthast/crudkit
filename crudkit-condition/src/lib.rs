@@ -3,9 +3,6 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crudkit_id::IdValue;
-use crudkit_shared::Value;
-
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
 pub enum Operator {
     #[serde(rename = "=")]
@@ -31,7 +28,10 @@ pub struct ConditionClause {
     pub value: ConditionClauseValue,
 }
 
-// TODO: Drop in favor of "Value" type
+/// Values which might be part of a `ConditionClause`.
+/// You can convert any `crudkit_shared::Value` using `.into`.
+/// You can convert any `crudkit_id::IdValue` using `.into`.
+// TODO: Drop in favor of "crudkit_shared::Value" type??
 #[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
 pub enum ConditionClauseValue {
     String(String),
@@ -53,41 +53,44 @@ pub enum ConditionClauseValue {
 }
 
 // TODO: Use result type instead of panicking!
-impl Into<ConditionClauseValue> for Value {
+impl Into<ConditionClauseValue> for crudkit_shared::Value {
     fn into(self) -> ConditionClauseValue {
         match self {
-            Value::String(value) => ConditionClauseValue::String(value),
-            Value::Json(value) => ConditionClauseValue::Json(value.to_string()),
-            Value::UuidV4(value) => ConditionClauseValue::UuidV4(value),
-            Value::UuidV7(value) => ConditionClauseValue::UuidV7(value),
-            Value::I32(value) => ConditionClauseValue::I32(value),
-            Value::I32Vec(values) => ConditionClauseValue::I32Vec(values),
-            Value::I64(value) => ConditionClauseValue::I64(value),
-            Value::I64Vec(value) => ConditionClauseValue::I64Vec(value),
-            Value::U32(value) => ConditionClauseValue::U32(value),
-            Value::F32(value) => ConditionClauseValue::F32(value),
-            Value::Bool(value) => ConditionClauseValue::Bool(value),
-            //Value::DateTime(value) => ConditionClauseValue::DateTime(value), // TODO: implement
-            Value::PrimitiveDateTime(_value) => panic!("Not implemented...."),
-            Value::OffsetDateTime(_value) => panic!("Not implemented...."),
+            crudkit_shared::Value::String(value) => ConditionClauseValue::String(value),
+            crudkit_shared::Value::Json(value) => ConditionClauseValue::Json(value.to_string()),
+            crudkit_shared::Value::UuidV4(value) => ConditionClauseValue::UuidV4(value),
+            crudkit_shared::Value::UuidV7(value) => ConditionClauseValue::UuidV7(value),
+            crudkit_shared::Value::I32(value) => ConditionClauseValue::I32(value),
+            crudkit_shared::Value::I32Vec(values) => ConditionClauseValue::I32Vec(values),
+            crudkit_shared::Value::I64(value) => ConditionClauseValue::I64(value),
+            crudkit_shared::Value::I64Vec(value) => ConditionClauseValue::I64Vec(value),
+            crudkit_shared::Value::U32(value) => ConditionClauseValue::U32(value),
+            crudkit_shared::Value::U64(value) => ConditionClauseValue::U64(value),
+            crudkit_shared::Value::F32(value) => ConditionClauseValue::F32(value),
+            crudkit_shared::Value::F64(value) => ConditionClauseValue::F64(value),
+            crudkit_shared::Value::Bool(value) => ConditionClauseValue::Bool(value),
+            //crudkit_shared::Value::DateTime(value) => ConditionClauseValue::DateTime(value), // TODO: implement
+            crudkit_shared::Value::PrimitiveDateTime(_value) => panic!("Not implemented...."),
+            crudkit_shared::Value::OffsetDateTime(_value) => panic!("Not implemented...."),
         }
     }
 }
 
 // TODO: Use result type instead of panicking!
-impl Into<ConditionClauseValue> for IdValue {
+impl Into<ConditionClauseValue> for crudkit_id::IdValue {
     fn into(self) -> ConditionClauseValue {
         match self {
-            IdValue::String(value) => ConditionClauseValue::String(value),
-            IdValue::UuidV4(value) => ConditionClauseValue::UuidV4(value),
-            IdValue::UuidV7(value) => ConditionClauseValue::UuidV7(value),
-            IdValue::I32(value) => ConditionClauseValue::I32(value),
-            IdValue::I64(value) => ConditionClauseValue::I64(value),
-            IdValue::U32(value) => ConditionClauseValue::U32(value),
-            IdValue::Bool(value) => ConditionClauseValue::Bool(value),
-            //IdValue::DateTime(value) => ConditionClauseValue::DateTime(value), // TODO: implement
-            IdValue::PrimitiveDateTime(_value) => panic!("Not implemented...."),
-            IdValue::OffsetDateTime(_value) => panic!("Not implemented...."),
+            crudkit_id::IdValue::String(value) => ConditionClauseValue::String(value),
+            crudkit_id::IdValue::UuidV4(value) => ConditionClauseValue::UuidV4(value),
+            crudkit_id::IdValue::UuidV7(value) => ConditionClauseValue::UuidV7(value),
+            crudkit_id::IdValue::I32(value) => ConditionClauseValue::I32(value),
+            crudkit_id::IdValue::I64(value) => ConditionClauseValue::I64(value),
+            crudkit_id::IdValue::U32(value) => ConditionClauseValue::U32(value),
+            crudkit_id::IdValue::U64(value) => ConditionClauseValue::U64(value),
+            crudkit_id::IdValue::Bool(value) => ConditionClauseValue::Bool(value),
+            //crudkit_id::IdValue::DateTime(value) => ConditionClauseValue::DateTime(value), // TODO: implement
+            crudkit_id::IdValue::PrimitiveDateTime(_value) => panic!("Not implemented...."),
+            crudkit_id::IdValue::OffsetDateTime(_value) => panic!("Not implemented...."),
         }
     }
 }
@@ -136,22 +139,21 @@ impl Condition {
     }
 }
 
+// TODO: This always "AND"s them together. Are there places where an "OR" would be equally appropriate?
 pub fn merge_conditions(a: Option<Condition>, b: Option<Condition>) -> Option<Condition> {
-    if a.is_none() && b.is_none() {
-        None
-    } else if a.is_some() && b.is_none() {
-        a
-    } else if a.is_none() && b.is_some() {
-        b
-    } else {
-        let mut combined = Condition::all();
-        combined.push_condition(a.unwrap());
-        combined.push_condition(b.unwrap());
-        if combined.is_empty() {
-            None
-        } else {
-            Some(combined)
-        }
+    match (a, b) {
+        (None, None) => None,
+        (None, Some(b)) => Some(b),
+        (Some(a), None) => Some(a),
+        (Some(a), Some(b)) => {
+            let mut combined = Condition::all();
+            combined.push_condition(a);
+            combined.push_condition(b);
+            match combined.is_empty() {
+                true => None,
+                false => Some(combined),
+            }
+        },
     }
 }
 

@@ -18,7 +18,6 @@ use time::format_description::well_known::Rfc3339;
 use tracing::warn;
 
 pub mod crud_rest_data_provider;
-pub mod custom_field;
 pub mod error;
 pub mod files;
 pub mod requests;
@@ -61,11 +60,6 @@ pub mod prelude {
     pub use super::crud_rest_data_provider::ReadMany;
     pub use super::crud_rest_data_provider::ReadOne;
     pub use super::crud_rest_data_provider::UpdateOne;
-    pub use super::custom_field::CustomCreateFields;
-    pub use super::custom_field::CustomField;
-    pub use super::custom_field::CustomFields;
-    pub use super::custom_field::CustomReadFields;
-    pub use super::custom_field::CustomUpdateFields;
     pub use super::error::ErrorInfo;
     pub use super::files::FileResource;
     pub use super::files::ListFileError;
@@ -295,13 +289,16 @@ pub enum Value {
     OptionalJson(Option<JsonValue>),
     UuidV4(uuid::Uuid), // TODO: Add optional UuidV4 value
     UuidV7(uuid::Uuid), // TODO: Add optional UuidV7 value
-    U32(u32),
-    OptionalU32(Option<u32>),
     I32(i32),
-    OptionalI32(Option<i32>),
     I64(i64),
+    U32(u32),
+    U64(u64),
+    OptionalI32(Option<i32>),
     OptionalI64(Option<i64>),
+    OptionalU32(Option<u32>),
+    OptionalU64(Option<u64>),
     F32(f32),
+    F64(f64),
     Bool(bool),
     // Specialized bool-case, render as a green check mark if false and an orange exclamation mark if true.
     ValidationStatus(bool),
@@ -372,7 +369,9 @@ impl Into<Value> for crudkit_shared::Value {
             crudkit_shared::Value::I64(value) => Value::I64(value),
             crudkit_shared::Value::I64Vec(_values) => todo!("support vector types"),
             crudkit_shared::Value::U32(value) => Value::U32(value),
+            crudkit_shared::Value::U64(value) => Value::U64(value),
             crudkit_shared::Value::F32(value) => Value::F32(value),
+            crudkit_shared::Value::F64(value) => Value::F64(value),
             crudkit_shared::Value::Bool(value) => Value::Bool(value),
             crudkit_shared::Value::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
             crudkit_shared::Value::OffsetDateTime(value) => Value::OffsetDateTime(value),
@@ -389,6 +388,7 @@ impl Into<Value> for crudkit_id::IdValue {
             crudkit_id::IdValue::I32(value) => Value::I32(value),
             crudkit_id::IdValue::I64(value) => Value::I64(value),
             crudkit_id::IdValue::U32(value) => Value::U32(value),
+            crudkit_id::IdValue::U64(value) => Value::U64(value),
             crudkit_id::IdValue::Bool(value) => Value::Bool(value),
             crudkit_id::IdValue::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
             crudkit_id::IdValue::OffsetDateTime(value) => Value::OffsetDateTime(value),
@@ -445,6 +445,12 @@ impl Value {
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
+    pub fn take_u64(self) -> u64 {
+        match self {
+            Self::U64(u64) => u64,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
     pub fn take_u32_or_parse(self) -> u32 {
         match self {
             Self::U32(u32) => u32,
@@ -498,9 +504,26 @@ impl Value {
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
+    pub fn take_optional_u64(self) -> Option<u64> {
+        match self {
+            Self::U64(value) => Some(value),
+            Self::OptionalU64(value) => value,
+            Self::String(value) => value
+                .parse::<u64>()
+                .map_err(|err| warn!("take_optional_u64 could not pase string: {err}"))
+                .ok(),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
     pub fn take_f32(self) -> f32 {
         match self {
-            Self::F32(f32) => f32,
+            Self::F32(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_f64(self) -> f64 {
+        match self {
+            Self::F64(value) => value,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -640,13 +663,10 @@ impl Display for Value {
             },
             Value::UuidV4(value) => f.write_str(&value.to_string()),
             Value::UuidV7(value) => f.write_str(&value.to_string()),
-            Value::U32(value) => f.write_str(&value.to_string()),
-            Value::OptionalU32(value) => match value {
-                Some(value) => f.write_str(&value.to_string()),
-                None => f.write_str("-"),
-            },
             Value::I32(value) => f.write_str(&value.to_string()),
             Value::I64(value) => f.write_str(&value.to_string()),
+            Value::U32(value) => f.write_str(&value.to_string()),
+            Value::U64(value) => f.write_str(&value.to_string()),
             Value::OptionalI32(value) => match value {
                 Some(value) => f.write_str(&value.to_string()),
                 None => f.write_str("-"),
@@ -655,7 +675,16 @@ impl Display for Value {
                 Some(value) => f.write_str(&value.to_string()),
                 None => f.write_str("-"),
             },
+            Value::OptionalU32(value) => match value {
+                Some(value) => f.write_str(&value.to_string()),
+                None => f.write_str("-"),
+            },
+            Value::OptionalU64(value) => match value {
+                Some(value) => f.write_str(&value.to_string()),
+                None => f.write_str("-"),
+            },
             Value::F32(value) => f.write_str(&value.to_string()),
+            Value::F64(value) => f.write_str(&value.to_string()),
             Value::Bool(value) => f.write_str(&value.to_string()),
             Value::ValidationStatus(value) => f.write_str(&value.to_string()),
             Value::PrimitiveDateTime(value) => f.write_str(&value.format(&Rfc3339).unwrap()),
@@ -717,13 +746,16 @@ impl Into<ConditionClauseValue> for Value {
             Value::OptionalJson(value) => todo!(),
             Value::UuidV4(value) => ConditionClauseValue::UuidV4(value),
             Value::UuidV7(value) => ConditionClauseValue::UuidV7(value),
-            Value::U32(value) => ConditionClauseValue::U32(value),
-            Value::OptionalU32(value) => todo!(),
             Value::I32(value) => ConditionClauseValue::I32(value),
             Value::I64(value) => ConditionClauseValue::I64(value),
+            Value::U32(value) => ConditionClauseValue::U32(value),
+            Value::U64(value) => ConditionClauseValue::U64(value),
             Value::OptionalI32(value) => todo!(),
             Value::OptionalI64(value) => todo!(),
+            Value::OptionalU32(value) => todo!(),
+            Value::OptionalU64(value) => todo!(),
             Value::F32(value) => ConditionClauseValue::F32(value),
+            Value::F64(value) => ConditionClauseValue::F64(value),
             Value::Bool(value) => ConditionClauseValue::Bool(value),
             Value::ValidationStatus(value) => todo!(),
             Value::PrimitiveDateTime(value) => todo!(),

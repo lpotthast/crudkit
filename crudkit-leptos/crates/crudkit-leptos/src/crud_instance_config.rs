@@ -9,7 +9,7 @@ use leptonic::prelude::*;
 use leptos::{View, *};
 use serde::{Deserialize, Serialize};
 
-use crate::crud_action::{CrudAction, CrudEntityAction};
+use crate::{crud_action::{CrudAction, CrudEntityAction}, prelude::{CustomCreateFields, CustomReadFields, CustomUpdateFields}};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CrudInstanceConfig<T: CrudMainTrait> {

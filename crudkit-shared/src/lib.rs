@@ -28,6 +28,7 @@ pub enum Order {
     Desc,
 }
 
+/// Values which can be used by crud fields.
 #[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
 pub enum Value {
     String(String),
@@ -35,11 +36,13 @@ pub enum Value {
     UuidV4(uuid::Uuid),
     UuidV7(uuid::Uuid),
     I32(i32),
-    I32Vec(Vec<i32>),
     I64(i64),
-    I64Vec(Vec<i64>),
     U32(u32),
+    U64(u64),
+    I32Vec(Vec<i32>),
+    I64Vec(Vec<i64>),
     F32(f32),
+    F64(f64),
     Bool(bool),
     PrimitiveDateTime(time::PrimitiveDateTime),
     OffsetDateTime(time::OffsetDateTime),

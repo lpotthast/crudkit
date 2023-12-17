@@ -16,7 +16,7 @@ use crate::{
     crud_instance_config::DynSelectConfig,
     crud_pagination::CrudPagination,
     crud_table::NoDataAvailable,
-    prelude::CrudTable,
+    prelude::{CrudTable, CustomReadFields},
 };
 
 #[derive(Debug, Clone, PartialEq)]

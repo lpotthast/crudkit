@@ -1,7 +1,7 @@
 use std::{collections::HashMap, marker::PhantomData, rc::Rc};
 
 use crudkit_web::{
-    prelude::CustomFields, CrudDataTrait, CrudFieldNameTrait, CrudFieldValueTrait, CrudIdTrait,
+    CrudDataTrait, CrudFieldNameTrait, CrudFieldValueTrait, CrudIdTrait,
     CrudMainTrait, CrudSimpleView, DeletableModel, FieldMode, FieldOptions, HeaderOptions,
 };
 use leptonic::prelude::*;
@@ -11,7 +11,7 @@ use leptos_icons::BsIcon;
 use crate::{
     crud_action::CrudActionTrait, crud_field::CrudField, crud_instance::CrudInstanceContext,
     crud_instance_config::DynSelectConfig, crud_list_view::CrudListViewContext,
-    crud_table::NoDataAvailable, IntoReactiveValue,
+    crud_table::NoDataAvailable, IntoReactiveValue, prelude::CustomFields, ReactiveValue,
 };
 
 #[component]
@@ -33,6 +33,19 @@ where
     T: CrudMainTrait + 'static,
 {
     let render_entry = move |entity: T::ReadModel| {
+        // A signal map is required to render custom fields,
+        // as each custom field may want to access values of other fields to determine its redering output or processing!
+        let signals: StoredValue<HashMap<<T::ReadModel as CrudDataTrait>::Field, ReactiveValue>> =
+        store_value({
+            let mut map = HashMap::new();
+            for field in T::ReadModel::get_all_fields() {
+                let initial = field.get_value(&entity);
+                map.insert(field, initial.into_reactive_value());
+            }
+            map
+        });
+
+
         // TODO: Check https://github.com/rust-lang/rfcs/issues/2407, we might be able to remove explicit clones in the future!
         let stored_entity: ReadSignal<<T as CrudMainTrait>::ReadModel> =
             create_rw_signal(entity).read_only(); // TODO: Move signal creation up
@@ -104,9 +117,9 @@ where
                                         label: None,
                                         date_time_display: options.date_time_display,
                                     }
-
                                     // TODO: We could tie the value_changed callback to the field_mode, as it is only required when a value can actually change!
                                     field_mode=FieldMode::Display
+                                    signals=signals
                                     value=reactive_value
                                     value_changed=dummy_value_changed_callback.clone()
                                     entity=stored_entity.into()
@@ -206,7 +219,11 @@ where
                         }
                         _ => {
                             view! {
-                                <For each=move || data.as_ref().clone() key=|entity| entity.get_id() children=render_entry/>
+                                <For
+                                    each=move || data.as_ref().clone()
+                                    key=|entity| entity.get_id()
+                                    children=render_entry
+                                />
                             }.into_view()
                         }
                     }

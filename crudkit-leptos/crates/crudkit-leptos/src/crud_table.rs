@@ -10,7 +10,7 @@ use crate::{
     crud_action::CrudActionTrait,
     crud_instance_config::DynSelectConfig,
     crud_list_view::CrudListViewContext,
-    prelude::{CrudTableBody, CrudTableFooter, CrudTableHeader},
+    prelude::{CrudTableBody, CrudTableFooter, CrudTableHeader, CustomFields},
 };
 
 #[derive(Debug, Clone, PartialEq)]

@@ -1,13 +1,16 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, error::Error};
 use std::fmt::Debug;
 use std::rc::Rc;
 
-use crate::{CrudDataTrait, CrudMainTrait, FieldMode, FieldOptions};
+use crudkit_web::Value;
+use leptos::{Callback, StoredValue};
+
+use crate::{CrudDataTrait, CrudMainTrait, FieldMode, FieldOptions, ReactiveValue};
 
 /// O: Output of the renderer.
 #[derive(Clone)]
-pub struct CustomField<T: CrudDataTrait, O> {
-    pub renderer: Rc<dyn Fn(&T, FieldMode, FieldOptions) -> O>,
+pub struct CustomField<T: CrudDataTrait + 'static, O> {
+    pub renderer: Rc<dyn Fn(&T, StoredValue<HashMap<T::Field, ReactiveValue>>, FieldMode, FieldOptions, ReactiveValue, Callback<Result<Value, Box<dyn Error>>>) -> O>,
 }
 
 impl<T: CrudDataTrait, O> Debug for CustomField<T, O> {
@@ -23,8 +26,8 @@ impl<T: CrudDataTrait, O> PartialEq for CustomField<T, O> {
 }
 
 impl<T: CrudDataTrait, O> CustomField<T, O> {
-    pub fn render(&self, entity: &T, field_mode: FieldMode, field_options: FieldOptions) -> O {
-        (self.renderer)(entity, field_mode, field_options)
+    pub fn render(&self, entity: &T, signals: StoredValue<HashMap<T::Field, ReactiveValue>>, field_mode: FieldMode, field_options: FieldOptions, value: ReactiveValue, value_changed: Callback<Result<Value, Box<dyn Error>>>) -> O {
+        (self.renderer)(entity, signals, field_mode, field_options, value, value_changed)
     }
 }
 

@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::{
     crud_field_label::CrudFieldLabelOpt,
     crud_instance_config::{DynSelectConfig, SelectConfigTrait},
-    ReactiveValue,
+    ReactiveValue, prelude::CustomFields,
 };
 
 #[component]
@@ -25,6 +25,7 @@ pub fn CrudField<T>(
     field: T::Field,
     field_options: FieldOptions,
     field_mode: FieldMode,
+    signals: StoredValue<HashMap<T::Field, ReactiveValue>>,
     value: ReactiveValue,
     value_changed: Callback<(T::Field, Result<Value, String>)>, // how can we handle all possible types? serialization? TODO: Only take Value, not Result?; TODO: Use WriteSignal from ReactiveValue?
     entity: Signal<T>,
@@ -40,219 +41,255 @@ where
         field_mode: FieldMode,
         field_config: Option<Box<dyn SelectConfigTrait>>,
         value_changed: Callback<Result<Value, Box<dyn Error>>>,
-        custom_field_renderer: Box<dyn Fn() -> View>,
+        custom_field_renderer: Option<Box<dyn Fn() -> View>>,
     ) -> impl IntoView {
-        match value {
-            ReactiveValue::String(value) => {
-                view! {
-                    <CrudStringField
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::Text(value) => {
-                view! {
-                    <CrudTextField
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::Json(value) => {
-                view! {
-                    <CrudJsonField
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::OptionalJson(value) => {
-                view! {
-                    <CrudOptionalJsonField
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::UuidV4(value) => {
-                view! {
-                    <CrudUuidV4Field
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::UuidV7(value) => {
-                view! {
-                    <CrudUuidV7Field
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::U32(value) => {
-                view! {
-                    <CrudU32Field
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::OptionalU32(value) => {
-                view! {
-                    <CrudOptionalU32Field
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::I32(value) => {
-                view! {
-                    <CrudI32Field
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::OptionalI32(value) => {
-                view! {
-                    <CrudOptionalI32Field
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::I64(value) => {
-                view! {
-                    <CrudI64Field
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::OptionalI64(value) => {
-                view! {
-                    <CrudOptionalI64Field
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::F32(value) => {
-                view! {
-                    <CrudF32Field
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::Bool(value) => {
-                view! {
-                    <CrudBoolField
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::ValidationStatus(value) => {
-                view! { <CrudValidationStatusField id=id.clone() field_options=field_options field_mode=field_mode value=value/> }.into_view()
-            },
-            ReactiveValue::PrimitiveDateTime(value) => {
-                view! {
-                    <CrudPrimitiveDateTimeField
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::OffsetDateTime(_) => view! { "TODO: Render ReactiveValue::OffsetDateTime" }.into_view(),
-            ReactiveValue::OptionalPrimitiveDateTime(value) => {
-                view! {
-                    <CrudOptionalPrimitiveDateTimeField
-                        id=id.clone()
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::OptionalOffsetDateTime(_) => view! { "TODO: Render ReactiveValue::OptionalOffsetDateTime" }.into_view(),
-            ReactiveValue::OneToOneRelation(_) => view! { "TODO: Render ReactiveValue::OneToOneRelation" }.into_view(),
-            ReactiveValue::Reference(_) => view! { "TODO: Render ReactiveValue::NestedTable" }.into_view(),
-            ReactiveValue::Custom(_) => custom_field_renderer(),
-            ReactiveValue::Select(value) => {
-                view! {
-                    <CrudSelectField
-                        id=id.clone()
-                        field_config=field_config
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::Multiselect(_) => view! { "TODO: Render ReactiveValue::Multiselect" }.into_view(),
-            ReactiveValue::OptionalSelect(value) => {
-                view! {
-                    <CrudOptionalSelectField
-                        id=id.clone()
-                        field_config=field_config
-                        field_options=field_options
-                        field_mode=field_mode
-                        value=value
-                        value_changed=value_changed
-                    />
-                }.into_view()
-            },
-            ReactiveValue::OptionalMultiselect(_) => view! { "TODO: Render ReactiveValue::OptionalMultiselect" }.into_view(),
+        match custom_field_renderer {
+            Some(custom_field_renderer) => custom_field_renderer(),
+            None => match value {
+                ReactiveValue::String(value) => {
+                    view! {
+                        <CrudStringField
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::Text(value) => {
+                    view! {
+                        <CrudTextField
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::Json(value) => {
+                    view! {
+                        <CrudJsonField
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::OptionalJson(value) => {
+                    view! {
+                        <CrudOptionalJsonField
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::UuidV4(value) => {
+                    view! {
+                        <CrudUuidV4Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::UuidV7(value) => {
+                    view! {
+                        <CrudUuidV7Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::I32(value) => {
+                    view! {
+                        <CrudI32Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::I64(value) => {
+                    view! {
+                        <CrudI64Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::U32(value) => {
+                    view! {
+                        <CrudU32Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::U64(value) => {
+                    view! {
+                        <CrudU64Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::OptionalU32(value) => {
+                    view! {
+                        <CrudOptionalU32Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::OptionalU64(value) => {
+                    view! {
+                        <CrudOptionalU64Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::OptionalI32(value) => {
+                    view! {
+                        <CrudOptionalI32Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::OptionalI64(value) => {
+                    view! {
+                        <CrudOptionalI64Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::F32(value) => {
+                    view! {
+                        <CrudF32Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::F64(value) => {
+                    view! {
+                        <CrudF64Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::Bool(value) => {
+                    view! {
+                        <CrudBoolField
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::ValidationStatus(value) => {
+                    view! { <CrudValidationStatusField id=id.clone() field_options=field_options field_mode=field_mode value=value/> }.into_view()
+                },
+                ReactiveValue::PrimitiveDateTime(value) => {
+                    view! {
+                        <CrudPrimitiveDateTimeField
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::OffsetDateTime(_) => view! { "TODO: Render ReactiveValue::OffsetDateTime" }.into_view(),
+                ReactiveValue::OptionalPrimitiveDateTime(value) => {
+                    view! {
+                        <CrudOptionalPrimitiveDateTimeField
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::OptionalOffsetDateTime(_) => view! { "TODO: Render ReactiveValue::OptionalOffsetDateTime" }.into_view(),
+                ReactiveValue::OneToOneRelation(_) => view! { "TODO: Render ReactiveValue::OneToOneRelation" }.into_view(),
+                ReactiveValue::Reference(_) => view! { "TODO: Render ReactiveValue::NestedTable" }.into_view(),
+                ReactiveValue::Custom(_) => panic!("should have had custom field renderer"), // custom_field_renderer(),
+                ReactiveValue::Select(value) => {
+                    view! {
+                        <CrudSelectField
+                            id=id.clone()
+                            field_config=field_config
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::Multiselect(_) => view! { "TODO: Render ReactiveValue::Multiselect" }.into_view(),
+                ReactiveValue::OptionalSelect(value) => {
+                    view! {
+                        <CrudOptionalSelectField
+                            id=id.clone()
+                            field_config=field_config
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::OptionalMultiselect(_) => view! { "TODO: Render ReactiveValue::OptionalMultiselect" }.into_view(),
+            }
         }
     }
 
@@ -272,7 +309,44 @@ where
         let field_config: Option<Box<dyn SelectConfigTrait>> =
             field_config.with(|map| map.get(&field).cloned());
 
-        let field_options = field_options.clone();
+        let field_options_clone = field_options.clone();
+
+
+        let has_custom_renderer = custom_fields.with(|fields| fields.contains_key(&field_clone3));
+        let custom_field_renderer: Option<Box<dyn Fn() -> View>> = match has_custom_renderer {
+            true => {
+                Some(
+                    Box::new(move || {
+                        let field_clone3 = field_clone3.clone();
+                        let field_options = field_options_clone.clone();
+                        custom_fields.with(|fields| match fields.get(&field_clone3) {
+                            Some(custom_field) => {
+                                let custom_field = custom_field.clone();
+                                // Note (lukas): Not every custom child requires the entity data. The API and possibly performance would be nicer if `entity` was passed as a signal to the `render` function,
+                                // but as the function is declared in the framework-agnostic crudkit-web crate, that change is not trivial...
+                                view! {
+                                    { render_label(field_options.label.clone()) }
+                                    <div class="crud-field">
+                                        { move || custom_field.render(&entity.get(), signals, field_mode, field_options.clone(), value, value_changed) }
+                                    </div>
+                                }.into_view()
+                            },
+                            None => view! {
+                                <Alert
+                                    variant=AlertVariant::Danger
+                                    title=move || "Missing custom field declaration!".into_view()
+                                >
+                                    "The custom field '"
+                                    {format!("{field_clone3:?}")}
+                                    "' should have been displayed here, but no renderer for that field was found in the `custom_*_fields` section of the static instance config. You might have forgotten to set the required HashMap entry."
+                                </Alert>
+                            }.into_view(),
+                        })
+                    })
+                )
+            },
+            false => None,
+        };
 
         render_field(
             value,
@@ -281,28 +355,7 @@ where
             field_mode,
             field_config,
             value_changed,
-            Box::new(move || {
-                let field_clone3 = field_clone3.clone();
-                let field_options = field_options.clone();
-                custom_fields.with(|fields| match fields.get(&field_clone3) {
-                    Some(custom_field) => {
-                        let custom_field = custom_field.clone();
-                        // Note (lukas): Not every custom child requires the entity data. The API and possibly performance would be nicer if `entity` was passed as a signal to the `render` function,
-                        // but as the function is declared in the framework-agnostic crudkit-web crate, that change is not trivial...
-                        (move || custom_field.render(&entity.get(), field_mode, field_options.clone())).into_view()
-                    },
-                    None => view! {
-                        <Alert
-                            variant=AlertVariant::Danger
-                            title=move || "Missing custom field declaration!".into_view()
-                        >
-                            "The custom field '"
-                            {format!("{field_clone3:?}")}
-                            "' should have been displayed here, but no renderer for that field was found in the `custom_*_fields` section of the static instance config. You might have forgotten to set the required HashMap entry."
-                        </Alert>
-                    }.into_view(),
-                })
-            }),
+            custom_field_renderer,
         )
     }
 }
@@ -571,6 +624,43 @@ pub fn CrudU32Field(
 }
 
 #[component]
+pub fn CrudU64Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<u64>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! { <div>{move || value.get()}</div> },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    class="crud-input-field"
+                    disabled=true
+                    get=MaybeSignal::derive(move || value.get() as f64)
+                />
+            </div>
+        },
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=MaybeSignal::derive(move || value.get() as f64)
+                    set=move |new: f64| { value_changed.call(Ok(Value::U64(new as u64))) }
+                />
+            </div>
+        },
+    }
+}
+
+#[component]
 pub fn CrudOptionalU32Field(
     id: String,
     field_options: FieldOptions,
@@ -609,6 +699,53 @@ pub fn CrudOptionalU32Field(
                     get=MaybeSignal::derive(move || value.get().unwrap_or_default() as f64)
                     set=move |new: f64| {
                         value_changed.call(Ok(Value::OptionalU32(Some(new as u32))))
+                    }
+                />
+            </div>
+        }
+        .into_view(),
+    }
+}
+
+#[component]
+pub fn CrudOptionalU64Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<u64>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => {
+            move || match value.get() {
+                Some(value) => view! { <div>{value}</div> },
+                None => view! { <div>"-"</div> },
+            }
+        }
+        .into_view(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    class="crud-input-field"
+                    disabled=true
+                    get=MaybeSignal::derive(move || value.get().unwrap_or_default() as f64)
+                />
+            </div>
+        }
+        .into_view(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=MaybeSignal::derive(move || value.get().unwrap_or_default() as f64)
+                    set=move |new: f64| {
+                        value_changed.call(Ok(Value::OptionalU64(Some(new as u64))))
                     }
                 />
             </div>
@@ -816,6 +953,43 @@ pub fn CrudF32Field(
                     disabled=field_options.disabled
                     get=MaybeSignal::derive(move || value.get() as f64)
                     set=move |new: f64| { value_changed.call(Ok(Value::F32(new as f32))) }
+                />
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudF64Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<f64>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! { <div>{move || value.get()}</div> },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    class="crud-input-field"
+                    disabled=true
+                    get=MaybeSignal::derive(move || value.get() as f64)
+                />
+            </div>
+        },
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=MaybeSignal::derive(move || value.get() as f64)
+                    set=move |new: f64| { value_changed.call(Ok(Value::F64(new))) }
                 />
             </div>
         },

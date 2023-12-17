@@ -2,7 +2,7 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use crudkit_shared::{SaveResult, Saved};
 use crudkit_web::{
-    prelude::{CreateOne, CrudRestDataProvider, CustomCreateFields},
+    prelude::{CreateOne, CrudRestDataProvider},
     requests::RequestError,
     CrudDataTrait, CrudFieldValueTrait, CrudIdTrait, CrudMainTrait, CrudSimpleView, FieldMode,
     TabId, Value,
@@ -16,7 +16,7 @@ use crate::{
     crud_instance::CrudInstanceContext,
     crud_instance_config::{CreateElements, DynSelectConfig},
     crud_leave_modal::CrudLeaveModal,
-    IntoReactiveValue, ReactiveValue,
+    IntoReactiveValue, ReactiveValue, prelude::CustomCreateFields,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -264,9 +264,9 @@ where
                         signals=signals
                         mode=FieldMode::Editable
                         current_view=CrudSimpleView::Create
-                        value_changed=value_changed.clone()
+                        value_changed=value_changed
                         // active_tab={ctx.props().config.active_tab.clone()}
-                        on_tab_selection=on_tab_selected.clone()
+                        on_tab_selection=on_tab_selected
                         entity=input.into()
                     />
                 }.into_view()

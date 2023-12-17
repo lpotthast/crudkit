@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
+pub mod custom_field;
 pub mod crud_action;
 pub mod crud_action_buttons;
 pub mod crud_action_context;
@@ -63,6 +64,12 @@ pub mod prelude {
     pub use derive_field::CkField;
     pub use derive_field_value::CkFieldValue;
 
+    pub use super::custom_field::CustomCreateFields;
+    pub use super::custom_field::CustomField;
+    pub use super::custom_field::CustomFields;
+    pub use super::custom_field::CustomReadFields;
+    pub use super::custom_field::CustomUpdateFields;
+
     pub use super::crud_action::CrudAction;
     pub use super::crud_action::CrudActionAftermath;
     pub use super::crud_action::CrudActionTrait;
@@ -91,6 +98,10 @@ pub mod prelude {
     pub use super::crud_table_header::CrudTableHeader;
 }
 
+/// Theoretically, all `Value` types are already defined through crudkit_web::Value.
+/// But we want to have fine-grained reactivity in this library.
+/// Therefore this type exists, mapping each crudkit_web::Value to the same type wrapped inside an `RwSignal`.
+/// This allows to to reactively work with individual fields of an entity, not just the whole entity itself.
 // TODO: Move into own module
 #[derive(Debug, Clone, Copy)]
 pub enum ReactiveValue {
@@ -100,13 +111,16 @@ pub enum ReactiveValue {
     OptionalJson(RwSignal<Option<JsonValue>>),
     UuidV4(RwSignal<uuid::Uuid>), // TODO: Add optional UuidV4 value
     UuidV7(RwSignal<uuid::Uuid>), // TODO: Add optional UuidV7 value
-    U32(RwSignal<u32>),
-    OptionalU32(RwSignal<Option<u32>>),
     I32(RwSignal<i32>),
-    OptionalI32(RwSignal<Option<i32>>),
+    U32(RwSignal<u32>),
     I64(RwSignal<i64>),
+    U64(RwSignal<u64>),
+    OptionalI32(RwSignal<Option<i32>>),
     OptionalI64(RwSignal<Option<i64>>),
+    OptionalU32(RwSignal<Option<u32>>),
+    OptionalU64(RwSignal<Option<u64>>),
     F32(RwSignal<f32>),
+    F64(RwSignal<f64>),
     Bool(RwSignal<bool>),
     // Specialized bool-case, render as a green check mark if false and an orange exclamation mark if true.
     ValidationStatus(RwSignal<bool>),
@@ -137,13 +151,16 @@ impl IntoReactiveValue for Value {
             Value::OptionalJson(value) => ReactiveValue::OptionalJson(create_rw_signal(value)),
             Value::UuidV4(value) => ReactiveValue::UuidV4(create_rw_signal(value)),
             Value::UuidV7(value) => ReactiveValue::UuidV7(create_rw_signal(value)),
-            Value::U32(value) => ReactiveValue::U32(create_rw_signal(value)),
-            Value::OptionalU32(value) => ReactiveValue::OptionalU32(create_rw_signal(value)),
             Value::I32(value) => ReactiveValue::I32(create_rw_signal(value)),
-            Value::OptionalI32(value) => ReactiveValue::OptionalI32(create_rw_signal(value)),
             Value::I64(value) => ReactiveValue::I64(create_rw_signal(value)),
+            Value::U32(value) => ReactiveValue::U32(create_rw_signal(value)),
+            Value::U64(value) => ReactiveValue::U64(create_rw_signal(value)),
+            Value::OptionalI32(value) => ReactiveValue::OptionalI32(create_rw_signal(value)),
             Value::OptionalI64(value) => ReactiveValue::OptionalI64(create_rw_signal(value)),
+            Value::OptionalU32(value) => ReactiveValue::OptionalU32(create_rw_signal(value)),
+            Value::OptionalU64(value) => ReactiveValue::OptionalU64(create_rw_signal(value)),
             Value::F32(value) => ReactiveValue::F32(create_rw_signal(value)),
+            Value::F64(value) => ReactiveValue::F64(create_rw_signal(value)),
             Value::Bool(value) => ReactiveValue::Bool(create_rw_signal(value)),
             Value::ValidationStatus(value) => {
                 ReactiveValue::ValidationStatus(create_rw_signal(value))
@@ -174,6 +191,10 @@ impl IntoReactiveValue for Value {
 }
 
 impl ReactiveValue {
+    /// Allows to to dynamically set a new value based on any given `crudkit_web::Value`.
+    /// Make sure that only appropriate values are passed, as this function
+    /// may *panic* if `Value` is not not of the same* or otherwise compliant variant as this ReactiveValue.
+    /// Uses the `crudkit_web::Value::take_*` functions to get the expected type out of `v` or fail.
     pub fn set(&self, v: Value) {
         match self {
             ReactiveValue::String(sig) => sig.set(v.take_string()),
@@ -182,13 +203,16 @@ impl ReactiveValue {
             ReactiveValue::OptionalJson(sig) => sig.set(v.take_optional_json_value()),
             ReactiveValue::UuidV4(sig) => sig.set(v.take_uuid_v4()),
             ReactiveValue::UuidV7(sig) => sig.set(v.take_uuid_v7()),
-            ReactiveValue::U32(sig) => sig.set(v.take_u32()),
-            ReactiveValue::OptionalU32(sig) => sig.set(v.take_optional_u32()),
             ReactiveValue::I32(sig) => sig.set(v.take_i32()),
-            ReactiveValue::OptionalI32(sig) => sig.set(v.take_optional_i32()),
             ReactiveValue::I64(sig) => sig.set(v.take_i64()),
+            ReactiveValue::U32(sig) => sig.set(v.take_u32()),
+            ReactiveValue::U64(sig) => sig.set(v.take_u64()),
+            ReactiveValue::OptionalU32(sig) => sig.set(v.take_optional_u32()),
+            ReactiveValue::OptionalI32(sig) => sig.set(v.take_optional_i32()),
             ReactiveValue::OptionalI64(sig) => sig.set(v.take_optional_i64()),
+            ReactiveValue::OptionalU64(sig) => sig.set(v.take_optional_u64()),
             ReactiveValue::F32(sig) => sig.set(v.take_f32()),
+            ReactiveValue::F64(sig) => sig.set(v.take_f64()),
             ReactiveValue::Bool(sig) => sig.set(v.take_bool()),
             ReactiveValue::ValidationStatus(sig) => sig.set(v.take_validation_status()),
             ReactiveValue::PrimitiveDateTime(sig) => sig.set(v.take_primitive_date_time()),

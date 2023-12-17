@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use crudkit_web::{
-    prelude::CustomFields, CrudDataTrait, CrudSimpleView, Elem, Enclosing, FieldMode, TabId, Value,
-};
+use crudkit_web::{CrudDataTrait, CrudSimpleView, Elem, Enclosing, FieldMode, TabId, Value};
 use leptonic::prelude::*;
 use leptos::*;
 
-use crate::{crud_field::CrudField, crud_instance_config::DynSelectConfig, ReactiveValue};
+use crate::{
+    crud_field::CrudField, crud_instance_config::DynSelectConfig, prelude::CustomFields,
+    ReactiveValue,
+};
 
 // TODO: Propagate tab selection...
 
@@ -122,6 +123,7 @@ where
                             field=field.clone()
                             field_options=field_options.clone()
                             field_mode=mode.clone()
+                            signals=signals
                             value=signals.with_value(|map| {
                                 *map.get(&field).expect("Signal map to contain signal for field")
                             })

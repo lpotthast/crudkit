@@ -4,7 +4,7 @@ use crudkit_condition::{merge_conditions, Condition, IntoAllEqualCondition};
 use crudkit_id::{Id, IdField};
 use crudkit_shared::{SaveResult, Saved};
 use crudkit_web::{
-    prelude::{CrudRestDataProvider, CustomUpdateFields, ReadOne, UpdateOne},
+    prelude::{CrudRestDataProvider, ReadOne, UpdateOne},
     requests::RequestError,
     CrudDataTrait, CrudFieldValueTrait, CrudMainTrait, CrudSimpleView, DeletableModel, Elem,
     FieldMode, TabId, Value,
@@ -22,7 +22,7 @@ use crate::{
     crud_instance_config::DynSelectConfig,
     crud_leave_modal::CrudLeaveModal,
     crud_table::NoDataAvailable,
-    IntoReactiveValue, ReactiveValue,
+    IntoReactiveValue, ReactiveValue, prelude::CustomUpdateFields,
 };
 
 #[derive(Debug, Clone, PartialEq)]

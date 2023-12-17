@@ -16,6 +16,7 @@ pub enum IdValue {
     I32(i32),
     I64(i64),
     U32(u32),
+    U64(u64),
     Bool(bool),
     PrimitiveDateTime(time::PrimitiveDateTime),
     OffsetDateTime(time::OffsetDateTime),

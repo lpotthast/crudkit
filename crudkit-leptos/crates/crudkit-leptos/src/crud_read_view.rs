@@ -3,7 +3,7 @@ use std::{collections::HashMap, marker::PhantomData};
 use crudkit_condition::{merge_conditions, Condition, IntoAllEqualCondition};
 use crudkit_id::{Id, IdField};
 use crudkit_web::{
-    prelude::{CrudRestDataProvider, CustomUpdateFields, ReadOne},
+    prelude::{CrudRestDataProvider, ReadOne},
     CrudDataTrait, CrudFieldValueTrait, CrudMainTrait, CrudSimpleView, Elem, FieldMode, TabId,
 };
 use leptonic::prelude::*;
@@ -16,7 +16,7 @@ use crate::{
     crud_instance::CrudInstanceContext,
     crud_instance_config::DynSelectConfig,
     crud_table::NoDataAvailable,
-    prelude::{CrudActionContext, CrudEntityAction, States},
+    prelude::{CrudActionContext, CrudEntityAction, States, CustomUpdateFields},
     IntoReactiveValue, ReactiveValue,
 };
 
