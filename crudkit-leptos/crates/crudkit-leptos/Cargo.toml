@@ -21,7 +21,7 @@ dyn-clone = "1.0.16"
 indexmap = { version = "2.1.0", features = ["serde"] }
 # TODO: Add version
 leptonic = { path = "../../../../leptonic/leptonic" }
-leptos = "0.5.2"
+leptos = "0.5.4"
 leptos_icons = { version = "0.1.0", features = [
     "BsCheck",
     "BsExclamationTriangleFill",
@@ -37,7 +37,7 @@ leptos_icons = { version = "0.1.0", features = [
 serde = { version = "1.0.193", features = ["derive"] }
 # TODO: Only required to handle TipTap content. Can we get rid of this?
 serde_json = { version = "1.0.108", features = ["raw_value"] }
-time = { version = "0.3.30", features = [
+time = { version = "0.3.31", features = [
     "macros",
     "local-offset", # TODO: Describe why this feature is required.
     "wasm-bindgen",

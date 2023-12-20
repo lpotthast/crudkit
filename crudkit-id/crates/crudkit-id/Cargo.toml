@@ -6,6 +6,6 @@ edition = "2021"
 [dependencies]
 dyn-clone = "1.0.16"
 serde = { version = "1.0.193", features = ["derive"] }
-time = { version = "0.3.30", features = ["serde", "serde-well-known"] }
+time = { version = "0.3.31", features = ["serde", "serde-well-known"] }
 utoipa = "4.1.0"
 uuid = { version = "1.6.1", features = ["v4", "v7", "serde"] }
