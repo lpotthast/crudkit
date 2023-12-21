@@ -199,6 +199,7 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
             "i32" => "to_i32",
             "i64" => "to_i64",
             "f32" => "to_f32",
+            "f64" => "to_f64",
             "String" => "to_string",
             "serde_json::Value" => "to_json_value",
             "crudkit_shared::UuidV4" => "to_uuid_v4",

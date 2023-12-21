@@ -237,6 +237,16 @@ pub fn to_f32(value: ConditionClauseValue) -> Result<Value, String> {
     }
 }
 
+pub fn to_f64(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::F64(num) => Ok(Value::F64(num)),
+        ConditionClauseValue::String(string) => parse::<f64>(&string).map(Value::F64),
+        _ => Err(format!(
+            "{value:?} can not be converted to an f32. Expected f64 or String."
+        )),
+    }
+}
+
 pub fn to_bool(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
         ConditionClauseValue::Bool(bool) => Ok(Value::Bool(bool)),
