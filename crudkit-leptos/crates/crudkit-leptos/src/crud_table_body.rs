@@ -122,7 +122,6 @@ where
                                     signals=signals
                                     value=reactive_value
                                     value_changed=dummy_value_changed_callback.clone()
-                                    entity=stored_entity.into()
                                 />
                             </td>
                         }
@@ -185,7 +184,6 @@ where
                                                             action.clone(),
                                                         )
                                                     >
-
                                                         <Icon icon=icon/>
                                                     </div>
                                                 }
@@ -214,8 +212,7 @@ where
                                         {"Keine Daten"}
                                     </td>
                                 </tr>
-                            }
-                                .into_view()
+                            }.into_view()
                         }
                         _ => {
                             view! {
@@ -235,24 +232,21 @@ where
                                 <tr>
                                     <td colspan="100%">" "</td>
                                 </tr>
-                            }
-                                .into_view()
+                            }.into_view()
                         }
                         NoDataAvailable::RequestFailed(reason) => {
                             view! {
                                 <tr>
                                     <td colspan="100%">{format!("No data available: {reason:?}")}</td>
                                 </tr>
-                            }
-                                .into_view()
+                            }.into_view()
                         }
                         NoDataAvailable::RequestReturnedNoData(reason) => {
                             view! {
                                 <tr>
                                     <td colspan="100%">{format!("No data available: {reason:?}")}</td>
                                 </tr>
-                            }
-                                .into_view()
+                            }.into_view()
                         }
                     }
                 }

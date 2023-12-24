@@ -13,7 +13,6 @@ use crate::{
 
 #[component]
 pub fn CrudFields<T>(
-    // children: ChildrenRenderer<Item>,
     custom_fields: Signal<CustomFields<T, leptos::View>>,
     field_config: Signal<HashMap<T::Field, DynSelectConfig>>,
     api_base_url: Signal<String>,
@@ -24,7 +23,6 @@ pub fn CrudFields<T>(
     value_changed: Callback<(T::Field, Result<Value, String>)>,
     // active_tab: Option<Label>,
     on_tab_selection: Callback<TabId>,
-    entity: Signal<T>,
 ) -> impl IntoView
 where
     T: CrudDataTrait + 'static,
@@ -34,7 +32,6 @@ where
             .get()
             .into_iter()
             .map(|elem| {
-                let value_changed = value_changed.clone();
                 let on_tab_selection = on_tab_selection.clone();
                 match elem {
                     Elem::Enclosing(enclosing) => {
@@ -45,13 +42,12 @@ where
                                     field_config=field_config
                                     api_base_url=api_base_url
                                     elements=group.children.clone()
-                                    signals=signals.clone()
+                                    signals=signals
                                     mode=mode.clone()
-                                    current_view=current_view.clone()
-                                    value_changed=value_changed.clone()
+                                    current_view=current_view
+                                    value_changed=value_changed
                                     // active_tab={ctx.props().active_tab.clone()}
                                     on_tab_selection=on_tab_selection.clone()
-                                    entity=entity
                                 />
                             }
                             .into_view(),
@@ -62,8 +58,6 @@ where
                                     {
                                         tabs.into_iter().map(move |tab| {
                                             let id = tab.id.clone();
-                                            let signals = signals.clone();
-                                            let value_changed = value_changed.clone();
                                             let on_tab_selection1 = on_tab_selection.clone();
                                             let on_tab_selection2 = on_tab_selection.clone();
                                             view! {
@@ -79,13 +73,12 @@ where
                                                         field_config=field_config
                                                         api_base_url=api_base_url
                                                         elements=tab.group.children.clone()
-                                                        signals=signals.clone()
+                                                        signals=signals
                                                         mode=mode.clone()
-                                                        current_view=current_view.clone()
-                                                        value_changed=value_changed.clone()
+                                                        current_view=current_view
+                                                        value_changed=value_changed
                                                         // active_tab={ctx.props().active_tab.clone()}
                                                         on_tab_selection=on_tab_selection2.clone()
-                                                        entity=entity
                                                     />
                                                 </Tab>
                                             }
@@ -101,13 +94,12 @@ where
                                         field_config=field_config
                                         api_base_url=api_base_url
                                         elements=group.children.clone()
-                                        signals=signals.clone()
+                                        signals=signals
                                         mode=mode.clone()
-                                        current_view=current_view.clone()
-                                        value_changed=value_changed.clone()
+                                        current_view=current_view
+                                        value_changed=value_changed
                                         // active_tab={ctx.props().active_tab.clone()}
                                         on_tab_selection=on_tab_selection.clone()
-                                        entity=entity
                                     />
                                 </div>
                             }
@@ -127,8 +119,7 @@ where
                             value=signals.with_value(|map| {
                                 *map.get(&field).expect("Signal map to contain signal for field")
                             })
-                            value_changed=value_changed.clone()
-                            entity=entity
+                            value_changed=value_changed
                         />
                     }
                     .into_view(),

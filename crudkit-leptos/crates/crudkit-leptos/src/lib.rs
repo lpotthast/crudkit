@@ -1,21 +1,21 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-pub mod custom_field;
 pub mod crud_action;
 pub mod crud_action_buttons;
 pub mod crud_action_context;
 pub mod crud_create_view;
 pub mod crud_delete_modal;
 pub mod crud_edit_view;
-pub mod crud_field_label;
 pub mod crud_field;
+pub mod crud_field_label;
 pub mod crud_fields;
 pub mod crud_instance;
 pub mod crud_instance_config;
 pub mod crud_instance_mgr;
 pub mod crud_leave_modal;
 pub mod crud_list_view;
+pub mod custom_field;
 //pub mod crud_nested_instance;
 pub mod crud_pagination;
 pub mod crud_read_view;
@@ -62,7 +62,12 @@ pub mod prelude {
     pub use derive_crud_selectable::CkSelectable;
     pub use derive_crudkit_id::CkId;
     pub use derive_field::CkField;
+    pub use derive_field_signals::CkFieldSignals;
     pub use derive_field_value::CkFieldValue;
+
+    pub use super::IntoReactiveValue;
+    pub use super::ReactiveValue;
+    pub use super::SignalsTrait;
 
     pub use super::custom_field::CustomCreateFields;
     pub use super::custom_field::CustomField;
@@ -78,9 +83,9 @@ pub mod prelude {
     pub use super::crud_action_context::CrudActionContext;
     pub use super::crud_create_view::CrudCreateView;
     pub use super::crud_edit_view::CrudEditView;
+    pub use super::crud_field::CrudField;
     pub use super::crud_field_label::CrudFieldLabel;
     pub use super::crud_field_label::CrudFieldLabelOpt;
-    pub use super::crud_field::CrudField;
     pub use super::crud_fields::CrudFields;
     pub use super::crud_instance::CrudInstance;
     pub use super::crud_instance_config::CreateElements;
@@ -98,6 +103,15 @@ pub mod prelude {
     pub use super::crud_table_header::CrudTableHeader;
 }
 
+/// Anything that can be created from a HashMap of `ReactiveValue`s.
+pub trait SignalsTrait {
+    type Field;
+
+    // TODO: Could also specify additional into_ fn taking `self`.
+    //fn to_signals(&self) -> std::collections::HashMap<Self::Field, ReactiveValue>;
+    fn from_signals(signals: &std::collections::HashMap<Self::Field, ReactiveValue>) -> Self;
+}
+
 /// Theoretically, all `Value` types are already defined through crudkit_web::Value.
 /// But we want to have fine-grained reactivity in this library.
 /// Therefore this type exists, mapping each crudkit_web::Value to the same type wrapped inside an `RwSignal`.
@@ -105,7 +119,8 @@ pub mod prelude {
 // TODO: Move into own module
 #[derive(Debug, Clone, Copy)]
 pub enum ReactiveValue {
-    String(RwSignal<String>),  // TODO: Add optional string!
+    String(RwSignal<String>),
+    OptionalString(RwSignal<Option<String>>),
     Text(RwSignal<String>),    // TODO: Add optional text!
     Json(RwSignal<JsonValue>), // TODO: Add optional json value
     OptionalJson(RwSignal<Option<JsonValue>>),
@@ -146,6 +161,7 @@ impl IntoReactiveValue for Value {
     fn into_reactive_value(self) -> ReactiveValue {
         match self {
             Value::String(value) => ReactiveValue::String(create_rw_signal(value)),
+            Value::OptionalString(value) => ReactiveValue::OptionalString(create_rw_signal(value)),
             Value::Text(value) => ReactiveValue::Text(create_rw_signal(value)),
             Value::Json(value) => ReactiveValue::Json(create_rw_signal(value)),
             Value::OptionalJson(value) => ReactiveValue::OptionalJson(create_rw_signal(value)),
@@ -198,6 +214,7 @@ impl ReactiveValue {
     pub fn set(&self, v: Value) {
         match self {
             ReactiveValue::String(sig) => sig.set(v.take_string()),
+            ReactiveValue::OptionalString(sig) => sig.set(v.take_optional_string()),
             ReactiveValue::Text(sig) => sig.set(v.take_text()),
             ReactiveValue::Json(sig) => sig.set(v.take_json_value()),
             ReactiveValue::OptionalJson(sig) => sig.set(v.take_optional_json_value()),
@@ -232,6 +249,62 @@ impl ReactiveValue {
             ReactiveValue::OptionalMultiselect(sig) => {
                 sig.set(v.take_optional_multiselect_downcast_to())
             }
+        }
+    }
+
+    pub fn expect_string(self) -> RwSignal<String> {
+        match self {
+            ReactiveValue::String(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: String"),
+        }
+    }
+
+    pub fn expect_optional_string(self) -> RwSignal<Option<String>> {
+        match self {
+            ReactiveValue::OptionalString(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalString"),
+        }
+    }
+
+    pub fn expect_bool(self) -> RwSignal<bool> {
+        match self {
+            ReactiveValue::Bool(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: Bool"),
+        }
+    }
+
+    pub fn expect_i32(self) -> RwSignal<i32> {
+        match self {
+            ReactiveValue::I32(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: I32"),
+        }
+    }
+
+    pub fn expect_i64(self) -> RwSignal<i64> {
+        match self {
+            ReactiveValue::I64(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: I64"),
+        }
+    }
+
+    pub fn expect_optional_i64(self) -> RwSignal<Option<i64>> {
+        match self {
+            ReactiveValue::OptionalI64(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalI64"),
+        }
+    }
+
+    pub fn expect_select(self) -> RwSignal<Box<dyn CrudSelectableTrait>> {
+        match self {
+            ReactiveValue::Select(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: Select"),
+        }
+    }
+
+    pub fn expect_custom(self) -> RwSignal<()> {
+        match self {
+            ReactiveValue::Custom(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: Custom"),
         }
     }
 }

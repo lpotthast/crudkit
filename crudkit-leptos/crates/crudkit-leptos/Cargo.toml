@@ -15,6 +15,7 @@ derive-crud-resource = { path = "../../../crudkit-web/crates/derive-crud-resourc
 derive-crud-selectable = { path = "../../../crudkit-web/crates/derive-crud-selectable" }
 derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
 derive-field = { path = "../../../crudkit-web/crates/derive-field" }
+derive-field-signals = { path = "../derive-field-signals" }
 derive-field-value = { path = "../../../crudkit-web/crates/derive-field-value" }
 
 dyn-clone = "1.0.16"

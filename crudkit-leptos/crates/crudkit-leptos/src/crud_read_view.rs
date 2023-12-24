@@ -177,7 +177,6 @@ where
                         value_changed=value_changed.clone()
                         // active_tab={ctx.props().config.active_tab.clone()}
                         on_tab_selection=on_tab_selected.clone()
-                        entity=entity.into()
                     />
                 }.into_view()
             }

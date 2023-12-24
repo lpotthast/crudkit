@@ -274,7 +274,7 @@ where
                 set_input_errors.update(|errors| {
                     errors.remove(&field);
                 });
-                signals.with(|signals| {
+                signals.with_untracked(|signals| {
                     signals.update_value(|map| {
                         map.get(&field).expect("field must be present").set(value);
                     })
@@ -287,8 +287,6 @@ where
             }
         }
     });
-
-    let expect_input = Signal::derive(move || input.get().expect("input"));
 
     view! {
         {move || match (entity.get(), signals.get()) {
@@ -365,7 +363,6 @@ where
                         value_changed=value_changed.clone()
                         // active_tab={ctx.props().config.active_tab.clone()}
                         on_tab_selection=on_tab_selected.clone()
-                        entity=expect_input
                     />
                 }.into_view()
             }

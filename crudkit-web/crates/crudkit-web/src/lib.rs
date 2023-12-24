@@ -283,7 +283,8 @@ dyn_clone::clone_trait_object!(CrudSelectableTrait);
 // TODO: DEFERRED: Implement Serialize and Deserialize with typetag when wasm is supported in typetag. Comment in "typetag" occurrences.
 #[derive(Debug, Clone)]
 pub enum Value {
-    String(String),  // TODO: Add optional string!
+    String(String),
+    OptionalString(Option<String>),
     Text(String), // TODO: Add optional text!, TODO: Remove this variant altogether and make "text" an optional editing mode for string values!
     Json(JsonValue), // TODO: Add optional json value
     OptionalJson(Option<JsonValue>),
@@ -400,6 +401,12 @@ impl Value {
     pub fn take_string(self) -> String {
         match self {
             Self::String(string) => string,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_string(self) -> Option<String> {
+        match self {
+            Self::OptionalString(string) => string,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -655,6 +662,10 @@ impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::String(value) => f.write_str(value),
+            Value::OptionalString(value) => match value {
+                Some(value) => f.write_str(value),
+                None => f.write_str("-"),
+            },
             Value::Text(value) => f.write_str(value),
             Value::Json(value) => f.write_str(value.get_string_representation()),
             Value::OptionalJson(value) => match value {
@@ -741,6 +752,7 @@ impl Into<ConditionClauseValue> for Value {
         match self {
             // TODO: Complete mapping!!
             Value::String(value) => ConditionClauseValue::String(value),
+            Value::OptionalString(value) => todo!(),
             Value::Text(value) => ConditionClauseValue::String(value),
             Value::Json(value) => ConditionClauseValue::Json(value.into()),
             Value::OptionalJson(value) => todo!(),

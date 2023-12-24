@@ -17,7 +17,6 @@ use crate::{
 
 #[component]
 pub fn CrudField<T>(
-    //children: Children,
     custom_fields: Signal<CustomFields<T, leptos::View>>,
     field_config: Signal<HashMap<T::Field, DynSelectConfig>>,
     api_base_url: Signal<String>,
@@ -28,7 +27,6 @@ pub fn CrudField<T>(
     signals: StoredValue<HashMap<T::Field, ReactiveValue>>,
     value: ReactiveValue,
     value_changed: Callback<(T::Field, Result<Value, String>)>, // how can we handle all possible types? serialization? TODO: Only take Value, not Result?; TODO: Use WriteSignal from ReactiveValue?
-    entity: Signal<T>,
 ) -> impl IntoView
 where
     T: CrudDataTrait + 'static,
@@ -49,6 +47,17 @@ where
                 ReactiveValue::String(value) => {
                     view! {
                         <CrudStringField
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_view()
+                },
+                ReactiveValue::OptionalString(value) => {
+                    view! {
+                        <CrudOptionalStringField
                             id=id.clone()
                             field_options=field_options
                             field_mode=field_mode
@@ -299,10 +308,9 @@ where
         let field_clone = field.clone();
         let field_clone3 = field.clone();
 
-        let value_changed_clone = value_changed.clone();
         let value_changed: Callback<Result<Value, Box<dyn Error>>> =
             Callback::new(move |result| match result {
-                Ok(new) => value_changed_clone.call((field_clone.clone(), Ok(new))),
+                Ok(new) => value_changed.call((field_clone.clone(), Ok(new))),
                 Err(err) => tracing::error!("Could not get input value: {}", err),
             });
 
@@ -310,7 +318,6 @@ where
             field_config.with(|map| map.get(&field).cloned());
 
         let field_options_clone = field_options.clone();
-
 
         let has_custom_renderer = custom_fields.with(|fields| fields.contains_key(&field_clone3));
         let custom_field_renderer: Option<Box<dyn Fn() -> View>> = match has_custom_renderer {
@@ -322,12 +329,10 @@ where
                         custom_fields.with(|fields| match fields.get(&field_clone3) {
                             Some(custom_field) => {
                                 let custom_field = custom_field.clone();
-                                // Note (lukas): Not every custom child requires the entity data. The API and possibly performance would be nicer if `entity` was passed as a signal to the `render` function,
-                                // but as the function is declared in the framework-agnostic crudkit-web crate, that change is not trivial...
                                 view! {
                                     { render_label(field_options.label.clone()) }
                                     <div class="crud-field">
-                                        { move || custom_field.render(&entity.get(), signals, field_mode, field_options.clone(), value, value_changed) }
+                                        { move || custom_field.render(signals, field_mode, field_options.clone(), value, value_changed) }
                                     </div>
                                 }.into_view()
                             },
@@ -390,6 +395,43 @@ pub fn CrudStringField(
                     class="crud-input-field"
                     disabled=field_options.disabled
                     get=value
+                    set=move |new| value_changed.call(Ok(Value::String(new)))
+                />
+            </div>
+        },
+    }
+}
+
+#[component]
+pub fn CrudOptionalStringField(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<String>>,
+    value_changed: Callback<Result<Value, Box<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! { <div>{move || value.get()}</div> },
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <TextInput
+                    id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get().unwrap_or_default())
+                />
+            </div>
+        },
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <TextInput
+                    id=id.clone()
+                    class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get().unwrap_or_default())
                     set=move |new| value_changed.call(Ok(Value::String(new)))
                 />
             </div>

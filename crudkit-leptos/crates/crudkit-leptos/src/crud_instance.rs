@@ -427,128 +427,97 @@ where
         },
     );
 
-    let content = move |view: crudkit_web::CrudView<T::ReadModelId, T::UpdateModelId>| {
-        view! {
-            <div class="crud-instance">
-                <div class="body">
-                    {match view {
-                        CrudView::List => {
-                            view! {
-                                <CrudListView
-                                    api_base_url=api_base_url
-                                    data_provider=data_provider
-                                    headers=headers
-                                    order_by=order_by
-                                    custom_fields=custom_read_fields
-                                    field_config=read_field_config
-                                    actions=actions
-                                />
-                            }
-                                .into_view()
-                        }
-                        CrudView::Create => {
-                            view! {
-                                <CrudCreateView
-                                    _phantom={PhantomData::<T>::default()}
-                                    api_base_url=api_base_url
-                                    data_provider=data_provider
-                                    create_elements=create_elements
-                                    custom_fields=custom_create_fields
-                                    field_config=create_field_config
-                                    on_edit_view=move |id| ctx.edit(id)
-                                    on_list_view=move |()| ctx.list()
-                                    on_create_view=move |()| ctx.create()
-                                    on_entity_created=move |saved| {}
-                                    on_entity_creation_aborted=move |reason| {}
-                                    on_entity_not_created_critical_errors=move |()| {}
-                                    on_entity_creation_failed=move |request_error| {}
-                                    on_tab_selected=move |tab_id| {
-                                        ctx.tab_selected(tab_id)
-                                    }
-                                />
-                            }
-                                .into_view()
-                        }
-                        CrudView::Read(id) => {
-                            view! {
-                                <CrudReadView
-                                    _phantom={PhantomData::<T>::default()}
-                                    api_base_url=api_base_url
-                                    // TODO: This cant be good...
-                                    id=Signal::derive(move || id.clone())
-                                    data_provider=data_provider
-                                    actions=entity_actions
-                                    elements=update_elements
-                                    custom_fields=custom_update_fields
-                                    field_config=update_field_config
-                                    on_list_view=move |()| ctx.list()
-                                    on_tab_selected=move |tab_id| {
-                                        ctx.tab_selected(tab_id)
-                                    }
-                                />
-                            }
-                                .into_view()
-                        }
-                        CrudView::Edit(id) => {
-                            view! {
+    view! {
+        <div class="crud-instance">
+            <div class="body">
+                {move || match view.get() {
+                    CrudView::List => {
+                        view! {
+                            <CrudListView
+                                api_base_url=api_base_url
+                                data_provider=data_provider
+                                headers=headers
+                                order_by=order_by
+                                custom_fields=custom_read_fields
+                                field_config=read_field_config
+                                actions=actions
+                            />
+                        }.into_view()
+                    }
+                    CrudView::Create => {
+                        view! {
+                            <CrudCreateView
+                                _phantom={PhantomData::<T>::default()}
+                                api_base_url=api_base_url
+                                data_provider=data_provider
+                                create_elements=create_elements
+                                custom_fields=custom_create_fields
+                                field_config=create_field_config
+                                on_edit_view=move |id| ctx.edit(id)
+                                on_list_view=move |()| ctx.list()
+                                on_create_view=move |()| ctx.create()
+                                on_entity_created=move |saved| {}
+                                on_entity_creation_aborted=move |reason| {}
+                                on_entity_not_created_critical_errors=move |()| {}
+                                on_entity_creation_failed=move |request_error| {}
+                                on_tab_selected=move |tab_id| {
+                                    ctx.tab_selected(tab_id)
+                                }
+                            />
+                        }.into_view()
+                    }
+                    CrudView::Read(id) => {
+                        view! {
+                            <CrudReadView
+                                _phantom={PhantomData::<T>::default()}
+                                api_base_url=api_base_url
                                 // TODO: This cant be good...
-
-                                <CrudEditView
-                                    _phantom={PhantomData::<T>::default()}
-                                    api_base_url=api_base_url
-                                    // TODO: This cant be good...
-                                    id=Signal::derive(move || id.clone())
-                                    data_provider=data_provider
-                                    actions=entity_actions
-                                    elements=update_elements
-                                    custom_fields=custom_update_fields
-                                    field_config=update_field_config
-                                    on_list_view=move |()| ctx.list()
-                                    on_create_view=move |()| ctx.create()
-                                    on_entity_updated=move |saved| {}
-                                    on_entity_update_aborted=move |reason| {}
-                                    on_entity_not_updated_critical_errors=move |()| {}
-                                    on_entity_update_failed=move |request_error| {}
-                                    on_tab_selected=move |tab_id| {
-                                        ctx.tab_selected(tab_id)
-                                    }
-                                />
-                            }
-                                .into_view()
-                        }
-                    }}
-                    <CrudDeleteModal
-                        _phantom={PhantomData::<T>::default()}
-                        entity=deletion_request
-                        on_cancel=on_cancel_delete.clone()
-                        on_accept=on_accept_delete.clone()
-                    />
-                </div>
+                                id=Signal::derive(move || id.clone())
+                                data_provider=data_provider
+                                actions=entity_actions
+                                elements=update_elements
+                                custom_fields=custom_update_fields
+                                field_config=update_field_config
+                                on_list_view=move |()| ctx.list()
+                                on_tab_selected=move |tab_id| {
+                                    ctx.tab_selected(tab_id)
+                                }
+                            />
+                        }.into_view()
+                    }
+                    CrudView::Edit(id) => {
+                        view! {
+                            // TODO: This cant be good...
+                            <CrudEditView
+                                _phantom={PhantomData::<T>::default()}
+                                api_base_url=api_base_url
+                                // TODO: This cant be good...
+                                id=Signal::derive(move || id.clone())
+                                data_provider=data_provider
+                                actions=entity_actions
+                                elements=update_elements
+                                custom_fields=custom_update_fields
+                                field_config=update_field_config
+                                on_list_view=move |()| ctx.list()
+                                on_create_view=move |()| ctx.create()
+                                on_entity_updated=move |saved| {}
+                                on_entity_update_aborted=move |reason| {}
+                                on_entity_not_updated_critical_errors=move |()| {}
+                                on_entity_update_failed=move |request_error| {}
+                                on_tab_selected=move |tab_id| {
+                                    ctx.tab_selected(tab_id)
+                                }
+                            />
+                        }.into_view()
+                    }
+                }}
+                <CrudDeleteModal
+                    _phantom={PhantomData::<T>::default()}
+                    entity=deletion_request
+                    on_cancel=on_cancel_delete.clone()
+                    on_accept=on_accept_delete.clone()
+                />
             </div>
-        }
-    };
-
-    //let child_ = RefCell::new(Option::None);
-    //let router = move || {
-    //    // Whenever the "view" changes, the new view must be rendered in a new .
-    //    let view: CrudView<<T as CrudMainTrait>::ReadModelId, <T as CrudMainTrait>::UpdateModelId> =
-    //        view.get();
-    //
-    //    as_child_of_current_owner(f)
-    //    let (view, _) = cx.run_child_(|| {
-    //        // TODO: The Show component does this differently
-    //        let prev_cx = std::mem::replace(&mut *child_.borrow_mut(), Some());
-    //        if let Some(prev_cx) = prev_cx {
-    //            prev_cx.dispose();
-    //        }
-    //
-    //        content(view).into_view()
-    //    });
-    //
-    //    view
-    //};
-
-    //router
-
-    move || content(view.get())
+        </div>
+    }
 }

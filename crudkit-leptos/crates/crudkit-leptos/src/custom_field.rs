@@ -10,7 +10,7 @@ use crate::{CrudDataTrait, CrudMainTrait, FieldMode, FieldOptions, ReactiveValue
 /// O: Output of the renderer.
 #[derive(Clone)]
 pub struct CustomField<T: CrudDataTrait + 'static, O> {
-    pub renderer: Rc<dyn Fn(&T, StoredValue<HashMap<T::Field, ReactiveValue>>, FieldMode, FieldOptions, ReactiveValue, Callback<Result<Value, Box<dyn Error>>>) -> O>,
+    pub renderer: Rc<dyn Fn(StoredValue<HashMap<T::Field, ReactiveValue>>, FieldMode, FieldOptions, ReactiveValue, Callback<Result<Value, Box<dyn Error>>>) -> O>,
 }
 
 impl<T: CrudDataTrait, O> Debug for CustomField<T, O> {
@@ -26,8 +26,8 @@ impl<T: CrudDataTrait, O> PartialEq for CustomField<T, O> {
 }
 
 impl<T: CrudDataTrait, O> CustomField<T, O> {
-    pub fn render(&self, entity: &T, signals: StoredValue<HashMap<T::Field, ReactiveValue>>, field_mode: FieldMode, field_options: FieldOptions, value: ReactiveValue, value_changed: Callback<Result<Value, Box<dyn Error>>>) -> O {
-        (self.renderer)(entity, signals, field_mode, field_options, value, value_changed)
+    pub fn render(&self, signals: StoredValue<HashMap<T::Field, ReactiveValue>>, field_mode: FieldMode, field_options: FieldOptions, value: ReactiveValue, value_changed: Callback<Result<Value, Box<dyn Error>>>) -> O {
+        (self.renderer)(signals, field_mode, field_options, value, value_changed)
     }
 }
 

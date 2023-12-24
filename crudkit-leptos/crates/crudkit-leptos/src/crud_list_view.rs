@@ -304,14 +304,14 @@ where
         </Grid>
     };
 
-    let multiselect_info = move || match selected.get().len() {
+    let multiselect_info = move || selected.with(|selected| match selected.len() {
         0 => None,
         num_selected => Some(view! {
             <div class="multiselect-actions">
                 <div>{num_selected} " selected"</div>
             </div>
         }),
-    };
+    });
 
     view! {
         {action_row}
