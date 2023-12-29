@@ -13,25 +13,11 @@ use syn::{parse_macro_input, DeriveInput};
 struct MyFieldReceiver {
     ident: Option<syn::Ident>,
 
-    ty: syn::Type,
-
-    // TODO: Use this information to automatically fetch referenced data.
-    references: Option<syn::Type>,
-
     /// Determines whether this field is part of the aggregate id.
-    // Originates from: crudkit_id
     id: Option<bool>,
 }
 
 impl MyFieldReceiver {
-    fn get_ident(&self) -> Option<&syn::Ident> {
-        self.ident.as_ref()
-    }
-
-    fn get_type(&self) -> &syn::Type {
-        &self.ty
-    }
-
     pub fn is_id(&self) -> bool {
         match (self.id, &self.ident) {
             (None, None) => false,
