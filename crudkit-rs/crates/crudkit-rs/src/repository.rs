@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use indexmap::IndexMap;
 
 use crudkit_condition::Condition;
@@ -6,7 +5,6 @@ use crudkit_shared::Order;
 
 use crate::resource::CrudResource;
 
-#[async_trait]
 pub trait Repository<R: CrudResource> {
     type Error: RepositoryError + Send + Sync + 'static;
 

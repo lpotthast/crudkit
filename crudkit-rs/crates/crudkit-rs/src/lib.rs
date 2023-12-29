@@ -3,7 +3,6 @@
 
 use std::str::FromStr;
 
-use async_trait::async_trait;
 use sea_orm::{ActiveModelTrait, ColumnTrait, ModelTrait};
 use time::format_description::well_known::Rfc3339;
 
@@ -158,7 +157,6 @@ pub trait GetIdFromModel {
     fn get_id(&self) -> Self::Id;
 }
 
-#[async_trait]
 pub trait CreateModelTrait<A: ActiveModelTrait> {
     async fn into_active_model(self) -> A;
 }

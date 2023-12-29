@@ -113,7 +113,6 @@ pub fn store(input: TokenStream) -> TokenStream {
             #(#create_model_fields),*
         }
 
-        #[async_trait::async_trait]
         impl crudkit_rs::CreateModelTrait<ActiveModel> for CreateModel {
             async fn into_active_model(self) -> ActiveModel {
                 ActiveModel {

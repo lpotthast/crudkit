@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use snafu::Snafu;
 use utoipa::ToSchema;
 
@@ -10,7 +9,6 @@ pub enum Abort {
     No,
 }
 
-#[async_trait]
 pub trait CrudLifetime<R: CrudResource> {
     type Error: std::error::Error; // TODO: Only when the "snafu" feature is activated. Otherwise use core or thiserror.
 
@@ -20,40 +18,40 @@ pub trait CrudLifetime<R: CrudResource> {
         create_model: &R::CreateModel,
         active_model: &mut R::ActiveModel,
         context: &R::Context,
-        mut data: R::HookData,
+        data: R::HookData,
     ) -> Result<(Abort, R::HookData), Self::Error>;
 
     async fn after_create(
         create_model: &R::CreateModel,
         model: &R::Model,
         context: &R::Context,
-        mut data: R::HookData,
+        data: R::HookData,
     ) -> Result<R::HookData, Self::Error>;
 
     async fn before_update(
         update_model: &R::UpdateModel,
         active_model: &mut R::ActiveModel,
         context: &R::Context,
-        mut data: R::HookData,
+        data: R::HookData,
     ) -> Result<(Abort, R::HookData), Self::Error>;
 
     async fn after_update(
         update_model: &R::UpdateModel,
         model: &R::Model,
         context: &R::Context,
-        mut data: R::HookData,
+        data: R::HookData,
     ) -> Result<R::HookData, Self::Error>;
 
     async fn before_delete(
         model: &R::Model,
         context: &R::Context,
-        mut data: R::HookData,
+        data: R::HookData,
     ) -> Result<(Abort, R::HookData), Self::Error>;
 
     async fn after_delete(
         model: &R::Model,
         context: &R::Context,
-        mut data: R::HookData,
+        data: R::HookData,
     ) -> Result<R::HookData, Self::Error>;
 }
 
@@ -63,7 +61,6 @@ pub struct NoopLifetimeHooks {}
 #[derive(Debug, Snafu)]
 pub enum NoopError {}
 
-#[async_trait]
 impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
     type Error = NoopError;
 

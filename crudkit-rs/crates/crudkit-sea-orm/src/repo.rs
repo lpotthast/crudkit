@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use indexmap::IndexMap;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, ModelTrait, PaginatorTrait};
 use snafu::{Backtrace, ResultExt, Snafu};
@@ -49,7 +48,6 @@ pub enum SeaOrmRepoError {
 
 impl RepositoryError for SeaOrmRepoError {}
 
-#[async_trait]
 impl<R: CrudResource> Repository<R> for SeaOrmRepo {
     type Error = SeaOrmRepoError;
 
