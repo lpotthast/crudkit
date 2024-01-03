@@ -118,14 +118,14 @@ where
 {
     let instance_ctx = expect_context::<CrudInstanceContext<T>>();
 
-    let (filter, set_filter) = create_signal(Option::<String>::None);
+    let filter_open = create_rw_signal(false);
+    let filter = create_rw_signal(Option::<String>::None);
 
     let read_allowed = Signal::derive(move || true);
     let edit_allowed = Signal::derive(move || true);
     let delete_allowed = Signal::derive(move || true);
 
     let headers = create_memo(move |_prev| {
-        tracing::debug!("headers");
         headers
             .get()
             .iter()
@@ -189,7 +189,8 @@ where
         },
     );
 
-    let count = Signal::derive(move || count_resource.get());
+    let count: Signal<Option<Result<u64, RequestError>>> =
+        Signal::derive(move || count_resource.get());
 
     let (selected, set_selected) = create_signal(Rc::new(Vec::<T::ReadModel>::new()));
 
@@ -210,11 +211,77 @@ where
         }),
     });
 
-    let toggle_filter = move |e| {};
+    let multiselect_info = move || {
+        selected.with(|selected| match selected.len() {
+            0 => None,
+            num_selected => Some(view! {
+                <div class="multiselect-actions">
+                    <div>{num_selected} " selected"</div>
+                </div>
+            }),
+        })
+    };
 
+    view! {
+        <ActionRow actions filter filter_open />
+
+        <CrudTable
+            _phantom={PhantomData::<T>::default()}
+            api_base_url=api_base_url
+            headers=headers
+            order_by=order_by
+            data=page
+            custom_fields=custom_fields
+            field_config=field_config
+            read_allowed=read_allowed
+            edit_allowed=edit_allowed
+            delete_allowed=delete_allowed
+            additional_item_actions=Signal::derive(move || vec![])
+        />
+
+        {multiselect_info}
+
+        // Pagination
+        {move || match count.get() {
+            Some(result) => {
+                match result {
+                    Ok(count) => {
+                        Some(
+                            view! {
+                                <CrudPagination
+                                    item_count=count
+                                    items_per_page=instance_ctx.items_per_page
+                                    current_page=instance_ctx.current_page
+                                    set_current_page=move |page_number| instance_ctx.set_page(page_number)
+                                    set_items_per_page=move |item_count| instance_ctx.set_items_per_page(item_count)
+                                />
+                            }.into_view(),
+                        )
+                    }
+                    Err(reason) => {
+                        Some(
+                            view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }.into_view(),
+                        )
+                    }
+                }
+            }
+            None => None,
+        }}
+    }
+}
+
+#[component]
+fn ActionRow<T>(
+    actions: Signal<Vec<CrudAction<T>>>,
+    filter: RwSignal<Option<String>>,
+    filter_open: RwSignal<bool>,
+) -> impl IntoView
+where
+    T: CrudMainTrait + 'static,
+{
+    let instance_ctx = expect_context::<CrudInstanceContext<T>>();
     let action_ctx = CrudActionContext::<T>::new();
-
-    let action_row = view! {
+    view! {
         <Grid spacing=Size::Em(0.6) class="crud-nav">
             <Row>
                 <Col xs=6>
@@ -268,7 +335,7 @@ where
                                                 {icon.map(|icon| view! { <Icon icon=icon/> })}
                                                 {name.clone()}
                                             </Button>
-                                        } .into_view()
+                                        }.into_view()
                                     }
                                 }
                             }
@@ -282,7 +349,7 @@ where
                             <Icon icon=BsIcon::BsArrowRepeat/>
                             "Reset"
                         </Button>
-                        <Button color=ButtonColor::Primary disabled=true on_click=toggle_filter>
+                        <Button color=ButtonColor::Primary disabled=true on_click=move |_| filter_open.set(!filter_open.get_untracked())>
                             <Icon icon=BsIcon::BsSearch/>
                             "Filter"
                             {move || {
@@ -302,61 +369,5 @@ where
                 </Col>
             </Row>
         </Grid>
-    };
-
-    let multiselect_info = move || selected.with(|selected| match selected.len() {
-        0 => None,
-        num_selected => Some(view! {
-            <div class="multiselect-actions">
-                <div>{num_selected} " selected"</div>
-            </div>
-        }),
-    });
-
-    view! {
-        {action_row}
-
-        <CrudTable
-            _phantom={PhantomData::<T>::default()}
-            api_base_url=api_base_url
-            headers=headers
-            order_by=order_by
-            data=page
-            custom_fields=custom_fields
-            field_config=field_config
-            read_allowed=read_allowed
-            edit_allowed=edit_allowed
-            delete_allowed=delete_allowed
-            additional_item_actions=Signal::derive(move || vec![])
-        />
-
-        {multiselect_info}
-
-        // Pagination
-        {move || match count.get() {
-            Some(result) => {
-                match result {
-                    Ok(count) => {
-                        Some(
-                            view! {
-                                <CrudPagination
-                                    item_count=count
-                                    items_per_page=instance_ctx.items_per_page
-                                    current_page=instance_ctx.current_page
-                                    set_current_page=move |page_number| instance_ctx.set_page(page_number)
-                                    set_items_per_page=move |item_count| instance_ctx.set_items_per_page(item_count)
-                                />
-                            }.into_view(),
-                        )
-                    }
-                    Err(reason) => {
-                        Some(
-                            view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }.into_view(),
-                        )
-                    }
-                }
-            }
-            None => None,
-        }}
     }
 }
