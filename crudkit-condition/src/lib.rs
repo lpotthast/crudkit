@@ -47,6 +47,7 @@ pub enum ConditionClauseValue {
     U64(u64),
     F32(f32),
     F64(f64),
+    U8Vec(Vec<u8>),
     I32Vec(Vec<i32>),
     I64Vec(Vec<i64>),
     //DateTime(time::OffsetDateTime), // TODO: Enable time
@@ -61,8 +62,9 @@ impl Into<ConditionClauseValue> for crudkit_shared::Value {
             crudkit_shared::Value::UuidV4(value) => ConditionClauseValue::UuidV4(value),
             crudkit_shared::Value::UuidV7(value) => ConditionClauseValue::UuidV7(value),
             crudkit_shared::Value::I32(value) => ConditionClauseValue::I32(value),
-            crudkit_shared::Value::I32Vec(values) => ConditionClauseValue::I32Vec(values),
             crudkit_shared::Value::I64(value) => ConditionClauseValue::I64(value),
+            crudkit_shared::Value::U8Vec(values) => ConditionClauseValue::U8Vec(values),
+            crudkit_shared::Value::I32Vec(values) => ConditionClauseValue::I32Vec(values),
             crudkit_shared::Value::I64Vec(value) => ConditionClauseValue::I64Vec(value),
             crudkit_shared::Value::U32(value) => ConditionClauseValue::U32(value),
             crudkit_shared::Value::U64(value) => ConditionClauseValue::U64(value),
@@ -153,7 +155,7 @@ pub fn merge_conditions(a: Option<Condition>, b: Option<Condition>) -> Option<Co
                 true => None,
                 false => Some(combined),
             }
-        },
+        }
     }
 }
 

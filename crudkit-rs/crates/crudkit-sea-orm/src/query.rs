@@ -146,6 +146,10 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
                                 Value::I32(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }
+                                Value::U8Vec(values) => {
+                                    tree =
+                                        add_condition_iterable(tree, col, clause.operator, values)
+                                }
                                 Value::I32Vec(values) => {
                                     tree =
                                         add_condition_iterable(tree, col, clause.operator, values)

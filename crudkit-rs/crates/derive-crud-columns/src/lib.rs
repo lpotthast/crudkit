@@ -195,6 +195,7 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
     let fun_name = match ty {
         syn::Type::Path(path) => match join_path(&path.path).as_str() {
             "bool" => "to_bool",
+            "Vec<u8>" => "to_byte_vec",
             "u32" => "to_u32",
             "i32" => "to_i32",
             "i64" => "to_i64",

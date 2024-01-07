@@ -245,6 +245,15 @@ pub fn to_f64(value: ConditionClauseValue) -> Result<Value, String> {
     }
 }
 
+pub fn to_byte_vec(value: ConditionClauseValue) -> Result<Value, String> {
+    match value {
+        ConditionClauseValue::U8Vec(vec) => Ok(Value::U8Vec(vec)),
+        _ => Err(format!(
+            "{value:?} can not be converted to an U8Vec. Expected U8Vec."
+        )),
+    }
+}
+
 pub fn to_bool(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
         ConditionClauseValue::Bool(bool) => Ok(Value::Bool(bool)),

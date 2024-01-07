@@ -39,6 +39,7 @@ pub enum Value {
     I64(i64),
     U32(u32),
     U64(u64),
+    U8Vec(Vec<u8>),
     I32Vec(Vec<i32>),
     I64Vec(Vec<i64>),
     F32(f32),
