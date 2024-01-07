@@ -47,7 +47,7 @@ pub async fn create_one<R: CrudResource>(
         hook_data,
     )
     .await
-    .expect("before_create to no error");
+    .expect("before_create to not error");
 
     if let Abort::Yes { reason } = abort {
         return Ok(SaveResult::Aborted { reason });
