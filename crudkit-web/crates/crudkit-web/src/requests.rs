@@ -85,9 +85,9 @@ where
     let allow_body = method == reqwest::Method::POST || method == reqwest::Method::PUT;
 
     let mut builder = request_builder(method, url, auth);
-    builder = builder.header("Content-Type", "application/json");
 
     if allow_body {
+        builder = builder.header("Content-Type", "application/json");
         builder = builder.json(&body);
     }
 
@@ -96,7 +96,7 @@ where
     process_json_response(result).await
 }
 
-fn request_builder<U>(
+pub fn request_builder<U>(
     method: reqwest::Method,
     url: U,
     auth: Option<AuthMethod>,
