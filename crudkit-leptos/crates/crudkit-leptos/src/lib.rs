@@ -110,6 +110,8 @@ pub trait SignalsTrait {
     // TODO: Could also specify additional into_ fn taking `self`.
     //fn to_signals(&self) -> std::collections::HashMap<Self::Field, ReactiveValue>;
     fn from_signals(signals: &std::collections::HashMap<Self::Field, ReactiveValue>) -> Self;
+
+    fn from_signals_untracked(signals: &std::collections::HashMap<Self::Field, ReactiveValue>) -> Self;
 }
 
 /// Theoretically, all `Value` types are already defined through crudkit_web::Value.

@@ -138,6 +138,45 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
     });
 
+    let all_fields_from_signals_untracked = input.fields().iter().map(|field| {
+        let name = field.ident.as_ref().expect("Expected named field!");
+        let name = name.to_string();
+        let name_ident = Ident::new(name.as_str(), Span::call_site());
+        let type_name = field_name_as_type_name(&name);
+        let type_ident = Ident::new(type_name.as_str(), Span::call_site());
+        //let expect_fn = Ident::new(format!("expect_{}", &field.ty.to_token_stream()).as_ref(), Span::call_site());
+
+        // An expression that, given a `value`, constructs the necessary data type value to be assigned to the field.
+        let expect_fn = Ident::new(format!("{}", match field.reactive_value_type() {
+            ReactiveValueType::String => "expect_string",
+            ReactiveValueType::OptionalString => "expect_optional_string",
+            ReactiveValueType::I32 => "expect_i32",
+            ReactiveValueType::I64 => "expect_i64",
+            ReactiveValueType::OptionalI64 => "expect_optional_i64",
+            ReactiveValueType::Bool => "expect_bool",
+            ReactiveValueType::Select => "expect_select",
+            ReactiveValueType::Custom => "expect_custom",
+            other => abort!(field.ty.span(), "not implemented"),
+        }).as_ref(), Span::call_site());
+
+        let finalize_val = match field.reactive_value_type() {
+            ReactiveValueType::Select => {
+                let field_ty = field.get_type();
+                quote! { val.as_any().downcast_ref::<#field_ty>().unwrap().clone() }
+            },
+            _ => quote!{ val },
+        };
+
+        quote! {
+            #name_ident: {
+                let rw_sig = signals.get(&#field_name::#type_ident).expect("Fully saturated signals map").#expect_fn();
+                let val = leptos::SignalGetUntracked::get_untracked(&rw_sig);
+                let ret = #finalize_val;
+                ret
+            }
+        }
+    });
+
     quote! {
         impl crudkit_leptos::SignalsTrait for #name {
             type Field = #field_name;
@@ -149,6 +188,12 @@ pub fn store(input: TokenStream) -> TokenStream {
             fn from_signals(signals: &std::collections::HashMap<Self::Field, crudkit_leptos::ReactiveValue>) -> Self {
                 Self {
                     #(#all_fields_from_signals),*
+                }
+            }
+
+            fn from_signals_untracked(signals: &std::collections::HashMap<Self::Field, crudkit_leptos::ReactiveValue>) -> Self {
+                Self {
+                    #(#all_fields_from_signals_untracked),*
                 }
             }
         }
