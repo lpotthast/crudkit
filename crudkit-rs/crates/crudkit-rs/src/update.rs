@@ -12,6 +12,7 @@ use crudkit_websocket::{CkWsMessage, EntityUpdated};
 
 use crate::{
     error::CrudError,
+    lifetime::{Abort, CrudLifetime},
     prelude::*,
     validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
 };
@@ -22,10 +23,10 @@ pub struct UpdateOne<T> {
     pub entity: T,
 }
 
-#[tracing::instrument(level = "info", skip(context, _res_context))]
+#[tracing::instrument(level = "info", skip(context, res_context))]
 pub async fn update_one<R: CrudResource>(
     context: Arc<CrudContext<R>>,
-    _res_context: Arc<R::Context>,
+    res_context: Arc<R::Context>,
     body: UpdateOne<R::UpdateModel>,
 ) -> Result<SaveResult<R::Model>, CrudError> {
     let model = context
@@ -43,9 +44,22 @@ pub async fn update_one<R: CrudResource>(
     // Convert the model into an ActiveModel, allowing mutations.
     let mut active_model: R::ActiveModel = model.into();
 
-    // TODO: beforeUpdate and afterUpdate with context res_context!
+    let update_model = body.entity;
+
+    let hook_data = R::HookData::default();
+
+    // Before update
+    let (abort, hook_data) =
+        R::Lifetime::before_update(&update_model, &mut active_model, &res_context, hook_data)
+            .await
+            .expect("before_update to not error");
+
+    if let Abort::Yes { reason } = abort {
+        return Ok(SaveResult::Aborted { reason });
+    }
+
     // Update the persisted active_model!
-    active_model.update_with(body.entity);
+    active_model.update_with(update_model.clone()); // Clone required becase we later reference the update_model in after_update. Could be optimized away when using NoopLifetimeHooks.
 
     // TODO: Just like model.get_id(), provide an active_model.get_id() implementation...?
     let entity_id = R::CrudColumn::get_id_active(&active_model)
@@ -136,6 +150,11 @@ pub async fn update_one<R: CrudResource>(
             reason: Arc::new(err),
             backtrace: Backtrace::generate(),
         })?;
+
+    // After update
+    let _hook_data = R::Lifetime::after_update(&update_model, &result, &res_context, hook_data)
+        .await
+        .expect("after_update to not error");
 
     // Inform all participants that the entity was updated.
     // TODO: Exclude the current user!
