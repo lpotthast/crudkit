@@ -3,9 +3,10 @@ use crate::{
     lifetime::{Abort, CrudLifetime},
     prelude::*,
     validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
-    GetIdFromModel,
+    GetIdFromModel, RequestContext,
 };
 
+use axum_keycloak_auth::{decode::KeycloakToken, role::Role};
 use crudkit_id::Id;
 use crudkit_shared::{SaveResult, Saved};
 use crudkit_validation::PartialSerializableValidations;
@@ -22,7 +23,8 @@ pub struct CreateOne<T> {
 }
 
 #[tracing::instrument(level = "info", skip(context, res_context))]
-pub async fn create_one<R: CrudResource>(
+pub async fn create_one<R: CrudResource, Ro: Role>(
+    keycloak_token: Option<KeycloakToken<Ro>>,
     context: Arc<CrudContext<R>>,
     res_context: Arc<R::Context>,
     body: CreateOne<R::CreateModel>,
@@ -44,6 +46,9 @@ pub async fn create_one<R: CrudResource>(
         &create_model_clone,
         &mut active_model,
         &res_context,
+        RequestContext {
+            keycloak_uuid: keycloak_token.map(|it| uuid::Uuid::parse_str(&it.subject).unwrap()),
+        },
         hook_data,
     )
     .await

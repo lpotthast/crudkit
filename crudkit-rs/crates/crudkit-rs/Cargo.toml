@@ -18,6 +18,7 @@ derive-validation-model = { path = "../derive-validation-model" }
 
 async-trait = "0.1.74"
 axum = "0.7.0"
+axum-keycloak-auth = { git = "https://github.com/lpotthast/axum-keycloak-auth", branch = "oidc-discovery" }
 indexmap = { version = "2.1.0", features = ["serde"] }
 paste = "1.0.14"
 sea-orm = { version = "0.12.10", features = [

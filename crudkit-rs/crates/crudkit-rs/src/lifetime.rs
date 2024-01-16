@@ -1,7 +1,7 @@
 use snafu::Snafu;
 use utoipa::ToSchema;
 
-use crate::resource::CrudResource;
+use crate::{resource::CrudResource, RequestContext};
 
 #[derive(Debug, ToSchema)]
 pub enum Abort {
@@ -18,6 +18,7 @@ pub trait CrudLifetime<R: CrudResource> {
         create_model: &R::CreateModel,
         active_model: &mut R::ActiveModel,
         context: &R::Context,
+        request: RequestContext,
         data: R::HookData,
     ) -> Result<(Abort, R::HookData), Self::Error>;
 
@@ -68,6 +69,7 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
         _create_model: &<R as CrudResource>::CreateModel,
         _active_model: &mut <R as CrudResource>::ActiveModel,
         _context: &<R as CrudResource>::Context,
+        _request: RequestContext,
         data: <R as CrudResource>::HookData,
     ) -> Result<(Abort, <R as CrudResource>::HookData), Self::Error> {
         Ok((Abort::No, data))

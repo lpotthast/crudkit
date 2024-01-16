@@ -115,6 +115,10 @@ pub mod prelude {
     pub use super::update::UpdateOne;
 }
 
+pub struct RequestContext {
+    pub keycloak_uuid: Option<uuid::Uuid>,
+}
+
 pub trait ValidatorModel<I: Id> {
     fn get_id(&self) -> I;
 

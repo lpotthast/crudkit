@@ -67,7 +67,7 @@ impl IntoResponse for AxumCrudError {
 #[macro_export]
 macro_rules! impl_add_crud_routes {
 
-    ($resource_type:ty, $name:ident) => {
+    ($resource_type:ty, $role_type:ty, $name:ident) => {
         paste::item! {
             pub mod [< axum_ $name _crud_routes >] {
                 use std::sync::Arc;
@@ -79,6 +79,7 @@ macro_rules! impl_add_crud_routes {
                     routing::post,
                     Extension, Json, Router,
                 };
+                use axum_keycloak_auth::decode::KeycloakToken;
                 use sea_orm::JsonValue;
                 use serde_json::json;
 
@@ -139,10 +140,12 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_count(
+                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadCount>,
                 ) -> Response {
-                    let result: Result<u64, AxumCrudError> = crudkit_rs::read::read_count::<$resource_type>(context.clone(), body)
+                    let keycloak_token = keycloak_token.map(|it| it.0);
+                    let result: Result<u64, AxumCrudError> = crudkit_rs::read::read_count::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -168,10 +171,12 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_one(
+                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadOne<$resource_type>>,
                 ) -> Response {
-                    let result: Result<<$resource_type as CrudResource>::ReadViewModel, AxumCrudError> = crudkit_rs::read::read_one::<$resource_type>(context.clone(), body)
+                    let keycloak_token = keycloak_token.map(|it| it.0);
+                    let result: Result<<$resource_type as CrudResource>::ReadViewModel, AxumCrudError> = crudkit_rs::read::read_one::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -197,10 +202,12 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_many(
+                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadMany<$resource_type>>,
                 ) -> Response {
-                    let result: Result<Vec<<$resource_type as CrudResource>::ReadViewModel>, AxumCrudError> = crudkit_rs::read::read_many::<$resource_type>(context.clone(), body)
+                    let keycloak_token = keycloak_token.map(|it| it.0);
+                    let result: Result<Vec<<$resource_type as CrudResource>::ReadViewModel>, AxumCrudError> = crudkit_rs::read::read_many::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -226,11 +233,13 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn create_one(
+                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<CreateOne<<$resource_type as CrudResource>::CreateModel>>,
                 ) -> Response {
-                    let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type>(context.clone(), res_context.clone(), body)
+                    let keycloak_token = keycloak_token.map(|it| it.0);
+                    let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -256,11 +265,13 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn update_one(
+                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<UpdateOne<<$resource_type as CrudResource>::UpdateModel>>,
                 ) -> Response {
-                    let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type>(context.clone(), res_context.clone(), body)
+                    let keycloak_token = keycloak_token.map(|it| it.0);
+                    let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -286,11 +297,13 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_by_id(
+                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<DeleteById>,
                 ) -> Response {
-                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type>(context.clone(), res_context.clone(), body)
+                    let keycloak_token = keycloak_token.map(|it| it.0);
+                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -316,11 +329,13 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_one(
+                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<DeleteOne<$resource_type>>,
                 ) -> Response {
-                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type>(context.clone(), res_context.clone(), body)
+                    let keycloak_token = keycloak_token.map(|it| it.0);
+                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -346,10 +361,12 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_many(
+                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteMany>,
                 ) -> Response {
-                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type>(context.clone(), body)
+                    let keycloak_token = keycloak_token.map(|it| it.0);
+                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {

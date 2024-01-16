@@ -1,3 +1,4 @@
+use axum_keycloak_auth::{role::Role, decode::KeycloakToken};
 use indexmap::IndexMap;
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};
@@ -38,7 +39,8 @@ pub struct DeleteMany {
 }
 
 #[tracing::instrument(level = "info", skip(context, res_context))]
-pub async fn delete_by_id<R: CrudResource>(
+pub async fn delete_by_id<R: CrudResource, Ro: Role>(
+    keycloak_token: Option<KeycloakToken<Ro>>,
     context: Arc<CrudContext<R>>,
     res_context: Arc<R::Context>,
     body: DeleteById,
@@ -149,7 +151,8 @@ pub async fn delete_by_id<R: CrudResource>(
 }
 
 #[tracing::instrument(level = "info", skip(context, res_context))]
-pub async fn delete_one<R: CrudResource>(
+pub async fn delete_one<R: CrudResource, Ro: Role>(
+    keycloak_token: Option<KeycloakToken<Ro>>,
     context: Arc<CrudContext<R>>,
     res_context: Arc<R::Context>,
     body: DeleteOne<R>,
@@ -242,7 +245,8 @@ pub async fn delete_one<R: CrudResource>(
 }
 
 // TODO: IMPLEMENT. Match implementations above. Extract logic, reducing duplication if possible.
-pub async fn delete_many<R: CrudResource>(
+pub async fn delete_many<R: CrudResource, Ro: Role>(
+    _keycloak_token: Option<KeycloakToken<Ro>>,
     _context: Arc<CrudContext<R>>,
     _body: DeleteMany,
 ) -> Result<DeleteResult, CrudError> {

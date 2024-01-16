@@ -136,7 +136,7 @@ where
     }
 }
 
-async fn error_response_to_request_error(response: reqwest::Response) -> RequestError {
+pub async fn error_response_to_request_error(response: reqwest::Response) -> RequestError {
     let status = response.status().as_u16();
     assert!(status != 200);
     match status {

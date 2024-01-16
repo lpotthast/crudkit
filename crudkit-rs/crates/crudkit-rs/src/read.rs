@@ -1,5 +1,6 @@
 use crate::{error::CrudError, prelude::*};
 
+use axum_keycloak_auth::{decode::KeycloakToken, role::Role};
 use crudkit_condition::Condition;
 use crudkit_shared::Order;
 
@@ -35,7 +36,8 @@ pub struct ReadMany<R: CrudResource> {
 }
 
 #[tracing::instrument(level = "info", skip(context))]
-pub async fn read_count<R: CrudResource>(
+pub async fn read_count<R: CrudResource, Ro: Role>(
+    keycloak_token: Option<KeycloakToken<Ro>>,
     context: Arc<CrudContext<R>>,
     body: ReadCount,
 ) -> Result<u64, CrudError> {
@@ -50,7 +52,8 @@ pub async fn read_count<R: CrudResource>(
 }
 
 #[tracing::instrument(level = "info", skip(context))]
-pub async fn read_one<R: CrudResource>(
+pub async fn read_one<R: CrudResource, Ro: Role>(
+    keycloak_token: Option<KeycloakToken<Ro>>,
     context: Arc<CrudContext<R>>,
     body: ReadOne<R>,
 ) -> Result<R::ReadViewModel, CrudError> {
@@ -68,7 +71,8 @@ pub async fn read_one<R: CrudResource>(
 }
 
 #[tracing::instrument(level = "info", skip(context))]
-pub async fn read_many<R: CrudResource>(
+pub async fn read_many<R: CrudResource, Ro: Role>(
+    keycloak_token: Option<KeycloakToken<Ro>>,
     context: Arc<CrudContext<R>>,
     body: ReadMany<R>,
 ) -> Result<Vec<R::ReadViewModel>, CrudError> {

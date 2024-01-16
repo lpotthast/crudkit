@@ -1,3 +1,4 @@
+use axum_keycloak_auth::{role::Role, decode::KeycloakToken};
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};
 use std::{collections::HashMap, sync::Arc};
@@ -24,7 +25,8 @@ pub struct UpdateOne<T> {
 }
 
 #[tracing::instrument(level = "info", skip(context, res_context))]
-pub async fn update_one<R: CrudResource>(
+pub async fn update_one<R: CrudResource, Ro: Role>(
+    keycloak_token: Option<KeycloakToken<Ro>>,
     context: Arc<CrudContext<R>>,
     res_context: Arc<R::Context>,
     body: UpdateOne<R::UpdateModel>,
