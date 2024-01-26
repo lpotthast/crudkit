@@ -17,7 +17,7 @@ pub fn CrudLeaveModal(
     });
 
     view! {
-        <ModalFn show_when=show_when>
+        <Modal show_when=show_when>
             <ModalHeader>
                 <ModalTitle>"Ungespeicherte Änderungen"</ModalTitle>
             </ModalHeader>
@@ -56,6 +56,6 @@ pub fn CrudLeaveModal(
                     </Row>
                 </Grid>
             </ModalFooter>
-        </ModalFn>
+        </Modal>
     }
 }

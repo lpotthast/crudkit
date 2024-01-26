@@ -27,7 +27,7 @@ where
     });
 
     view! {
-        <ModalFn show_when=show_when>
+        <Modal show_when=show_when>
             <ModalHeader>
                 <ModalTitle>
                     // TODO: Consider using an "EntryVisualizer" of some sort...
@@ -77,6 +77,6 @@ where
                     </Row>
                 </Grid>
             </ModalFooter>
-        </ModalFn>
+        </Modal>
     }
 }
