@@ -6,7 +6,6 @@ use crudkit_web::{
 };
 use leptonic::prelude::*;
 use leptos::*;
-use leptos_icons::BsIcon;
 
 use crate::{
     crud_action::CrudActionTrait, crud_field::CrudField, crud_instance::CrudInstanceContext,
@@ -143,7 +142,7 @@ where
                                                         class="action-icon"
                                                         on:click=move |_| read(stored_entity.get())
                                                     >
-                                                        <Icon icon=BsIcon::BsEye/>
+                                                        <Icon icon=icondata::BsEye/>
                                                     </div>
                                                 }
                                             })}
@@ -155,7 +154,7 @@ where
                                                         class="action-icon"
                                                         on:click=move |_| edit(stored_entity.get())
                                                     >
-                                                        <Icon icon=BsIcon::BsPencil/>
+                                                        <Icon icon=icondata::BsPencil/>
                                                     </div>
                                                 }
                                             })}
@@ -167,7 +166,7 @@ where
                                                         class="action-icon"
                                                         on:click=move |_| delete(stored_entity.get())
                                                     >
-                                                        <Icon icon=BsIcon::BsTrash/>
+                                                        <Icon icon=icondata::BsTrash/>
                                                     </div>
                                                 }
                                             })}
@@ -175,7 +174,7 @@ where
                                             each=move || additional_item_actions.get()
                                             key=|entity| entity.get_name()
                                             children=move |action| {
-                                                let icon = action.get_icon().unwrap_or(BsIcon::BsQuestion.into());
+                                                let icon = action.get_icon().unwrap_or(icondata::BsQuestion);
                                                 view! {
                                                     <div
                                                         class="action-icon"

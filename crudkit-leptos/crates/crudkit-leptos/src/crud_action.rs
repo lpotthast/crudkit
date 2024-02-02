@@ -1,7 +1,7 @@
 use std::{fmt::Debug, rc::Rc};
 
+use leptonic::prelude::icondata;
 use leptos::*;
-use leptos_icons::BsIcon;
 
 use crate::prelude::*;
 
@@ -33,7 +33,7 @@ pub enum CrudEntityAction<T: CrudMainTrait + 'static> {
     Custom {
         id: &'static str,
         name: String,
-        icon: Option<leptos_icons::Icon>,
+        icon: Option<icondata::Icon>,
         button_color: leptonic::prelude::ButtonColor,
         valid_in: Vec<States>, // TODO: Use potentially non-allocating type for small const vecs
         action: Callback<(
@@ -116,7 +116,7 @@ pub enum CrudAction<T: CrudMainTrait + 'static> {
     Custom {
         id: &'static str, // TODO: Should this be Cow?
         name: String,
-        icon: Option<leptos_icons::Icon>,
+        icon: Option<icondata::Icon>,
         button_color: leptonic::prelude::ButtonColor,
         action: Callback<(
             Option<T::ActionPayload>,
@@ -188,7 +188,7 @@ pub struct CrudActionAftermath {
 /// Currently not related with the CrudAction enum.
 pub trait CrudActionTrait: Debug {
     fn get_name(&self) -> String;
-    fn get_icon(&self) -> Option<leptos_icons::Icon>;
+    fn get_icon(&self) -> Option<icondata::Icon>;
     fn eq(&self, other: &dyn CrudActionTrait) -> bool;
 }
 
@@ -196,14 +196,14 @@ pub trait CrudActionTrait: Debug {
 #[derive(PartialEq, Debug)]
 pub struct ShowListViewAction {
     name: String,
-    icon: Option<leptos_icons::Icon>,
+    icon: Option<icondata::Icon>,
 }
 
 impl Default for ShowListViewAction {
     fn default() -> Self {
         Self {
             name: "List".to_owned(),
-            icon: Some(BsIcon::BsList.into()),
+            icon: Some(icondata::BsList),
         }
     }
 }
@@ -213,7 +213,7 @@ impl CrudActionTrait for ShowListViewAction {
         self.name.clone()
     }
 
-    fn get_icon(&self) -> Option<leptos_icons::Icon> {
+    fn get_icon(&self) -> Option<icondata::Icon> {
         self.icon
     }
 
@@ -226,14 +226,14 @@ impl CrudActionTrait for ShowListViewAction {
 #[derive(PartialEq, Debug)]
 pub struct ShowReadViewAction {
     name: String,
-    icon: Option<leptos_icons::Icon>,
+    icon: Option<icondata::Icon>,
 }
 
 impl Default for ShowReadViewAction {
     fn default() -> Self {
         Self {
             name: "Read".to_owned(),
-            icon: Some(BsIcon::BsEye.into()),
+            icon: Some(icondata::BsEye),
         }
     }
 }
@@ -243,7 +243,7 @@ impl CrudActionTrait for ShowReadViewAction {
         self.name.clone()
     }
 
-    fn get_icon(&self) -> Option<leptos_icons::Icon> {
+    fn get_icon(&self) -> Option<icondata::Icon> {
         self.icon
     }
 
@@ -256,14 +256,14 @@ impl CrudActionTrait for ShowReadViewAction {
 #[derive(PartialEq, Debug)]
 pub struct ShowEditViewAction {
     name: String,
-    icon: Option<leptos_icons::Icon>,
+    icon: Option<icondata::Icon>,
 }
 
 impl Default for ShowEditViewAction {
     fn default() -> Self {
         Self {
             name: "Edit".to_owned(),
-            icon: Some(BsIcon::BsPencil.into()),
+            icon: Some(icondata::BsPencil),
         }
     }
 }
@@ -273,7 +273,7 @@ impl CrudActionTrait for ShowEditViewAction {
         self.name.clone()
     }
 
-    fn get_icon(&self) -> Option<leptos_icons::Icon> {
+    fn get_icon(&self) -> Option<icondata::Icon> {
         self.icon
     }
 
@@ -286,14 +286,14 @@ impl CrudActionTrait for ShowEditViewAction {
 #[derive(PartialEq, Debug)]
 pub struct DeleteAction {
     name: String,
-    icon: Option<leptos_icons::Icon>,
+    icon: Option<icondata::Icon>,
 }
 
 impl Default for DeleteAction {
     fn default() -> Self {
         Self {
             name: "Delete".to_owned(),
-            icon: Some(BsIcon::BsTrash.into()),
+            icon: Some(icondata::BsTrash),
         }
     }
 }
@@ -303,7 +303,7 @@ impl CrudActionTrait for DeleteAction {
         self.name.clone()
     }
 
-    fn get_icon(&self) -> Option<leptos_icons::Icon> {
+    fn get_icon(&self) -> Option<icondata::Icon> {
         self.icon
     }
 

@@ -3,7 +3,6 @@ use std::{borrow::Cow, collections::HashMap, error::Error};
 use crudkit_web::{prelude::*, DateTimeDisplay, JsonValue};
 use leptonic::prelude::*;
 use leptos::*;
-use leptos_icons::BsIcon;
 use time::{
     format_description::well_known::Rfc3339, macros::format_description, PrimitiveDateTime,
 };
@@ -337,13 +336,13 @@ where
                                 }.into_view()
                             },
                             None => view! {
-                                <Alert
-                                    variant=AlertVariant::Danger
-                                    title=move || "Missing custom field declaration!".into_view()
-                                >
-                                    "The custom field '"
-                                    {format!("{field_clone3:?}")}
-                                    "' should have been displayed here, but no renderer for that field was found in the `custom_*_fields` section of the static instance config. You might have forgotten to set the required HashMap entry."
+                                <Alert variant=AlertVariant::Danger>
+                                    <AlertTitle slot>"Missing custom field declaration!"</AlertTitle>
+                                    <AlertContent slot>
+                                        "The custom field '"
+                                        {format!("{field_clone3:?}")}
+                                        "' should have been displayed here, but no renderer for that field was found in the `custom_*_fields` section of the static instance config. You might have forgotten to set the required HashMap entry."
+                                    </AlertContent>
                                 </Alert>
                             }.into_view(),
                         })
@@ -1080,8 +1079,8 @@ pub fn CrudValidationStatusField(
         FieldMode::Display => view! {
             <div>
                 {move || match value.get() {
-                    true => view! { <Icon icon=BsIcon::BsExclamationTriangleFill/> },
-                    false => view! { <Icon icon=BsIcon::BsCheck/> },
+                    true => view! { <Icon icon=icondata::BsExclamationTriangleFill/> },
+                    false => view! { <Icon icon=icondata::BsCheck/> },
                 }}
 
             </div>
@@ -1090,8 +1089,8 @@ pub fn CrudValidationStatusField(
             <div class="crud-field">
                 {render_label(field_options.label.clone())} <div id=id.clone() class="crud-input-field">
                     {move || match value.get() {
-                        true => view! { <Icon icon=BsIcon::BsExclamationTriangleFill/> },
-                        false => view! { <Icon icon=BsIcon::BsCheck/> },
+                        true => view! { <Icon icon=icondata::BsExclamationTriangleFill/> },
+                        false => view! { <Icon icon=icondata::BsCheck/> },
                     }}
 
                 </div>
@@ -1221,8 +1220,9 @@ pub fn CrudSelectField(
                 {match field_config {
                     None => {
                         view! {
-                            <Alert variant=AlertVariant::Danger title=|| "Config error".into_view()>
-                                "Missing a field_config entry for this field."
+                            <Alert variant=AlertVariant::Danger>
+                                <AlertTitle slot>"Config error"</AlertTitle>
+                                <AlertContent slot>"Missing a field_config entry for this field."</AlertContent>
                             </Alert>
                         }.into_view()
                     }
@@ -1243,8 +1243,9 @@ pub fn CrudSelectField(
                 {match field_config {
                     None => {
                         view! {
-                            <Alert variant=AlertVariant::Danger title=|| "Config error".into_view()>
-                                "Missing a field_config entry for this field."
+                            <Alert variant=AlertVariant::Danger>
+                                <AlertTitle slot>"Config error"</AlertTitle>
+                                <AlertContent slot>"Missing a field_config entry for this field."</AlertContent>
                             </Alert>
                         }.into_view()
                     }
@@ -1279,8 +1280,9 @@ pub fn CrudOptionalSelectField(
                 {match field_config {
                     None => {
                         view! {
-                            <Alert variant=AlertVariant::Danger title=|| "Config error".into_view()>
-                                "Missing a field_config entry for this field."
+                            <Alert variant=AlertVariant::Danger>
+                                <AlertTitle slot>"Config error"</AlertTitle>
+                                <AlertContent slot>"Missing a field_config entry for this field."</AlertContent>
                             </Alert>
                         }.into_view()
                     }
@@ -1301,8 +1303,9 @@ pub fn CrudOptionalSelectField(
                 {match field_config {
                     None => {
                         view! {
-                            <Alert variant=AlertVariant::Danger title=|| "Config error".into_view()>
-                                "Missing a field_config entry for this field."
+                            <Alert variant=AlertVariant::Danger>
+                                <AlertTitle slot>"Config error"</AlertTitle>
+                                <AlertContent slot>"Missing a field_config entry for this field."</AlertContent>
                             </Alert>
                         }.into_view()
                     }

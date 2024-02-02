@@ -6,7 +6,6 @@ use crudkit_web::prelude::*;
 use indexmap::IndexMap;
 use leptonic::prelude::*;
 use leptos::*;
-use leptos_icons::BsIcon;
 use uuid::Uuid;
 
 use crate::{
@@ -287,7 +286,7 @@ where
                 <Col xs=6>
                     <ButtonWrapper>
                         <Button color=ButtonColor::Success on_click=move |_| { instance_ctx.create() }>
-                            <Icon icon=BsIcon::BsPlusCircle/>
+                            <Icon icon=icondata::BsPlusCircle/>
                             <span style="text-decoration: underline">"N"</span>
                             "eu"
                         </Button>
@@ -346,11 +345,11 @@ where
                 <Col xs=6 h_align=ColAlign::End>
                     <ButtonWrapper>
                         <Button color=ButtonColor::Secondary on_click=move |_| { instance_ctx.reset() }>
-                            <Icon icon=BsIcon::BsArrowRepeat/>
+                            <Icon icon=icondata::BsArrowRepeat/>
                             "Reset"
                         </Button>
                         <Button color=ButtonColor::Primary disabled=true on_click=move |_| filter_open.set(!filter_open.get_untracked())>
-                            <Icon icon=BsIcon::BsSearch/>
+                            <Icon icon=icondata::BsSearch/>
                             "Filter"
                             {move || {
                                 filter
