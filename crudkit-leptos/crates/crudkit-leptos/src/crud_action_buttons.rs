@@ -38,7 +38,7 @@ where
                                     <Button
                                         color=button_color
                                         disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
-                                        on_click=move |_| action_ctx.request_action(id)
+                                        on_press=move |_| action_ctx.request_action(id)
                                     >
                                         {icon.map(|icon| view! { <Icon icon=icon/> })}
                                         {name.clone()}
@@ -67,7 +67,7 @@ where
                                     <Button
                                         color=button_color
                                         disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
-                                        on_click=move |_| {
+                                        on_press=move |_| {
                                             action_ctx
                                                 .trigger_entity_action(
                                                     id,

@@ -180,7 +180,7 @@ impl<T: CrudMainTrait> PartialEq for CrudAction<T> {
 
 #[derive(Debug, Clone)]
 pub struct CrudActionAftermath {
-    pub show_toast: Option<leptonic::toast::Toast>,
+    pub show_toast: Option<leptonic::prelude::Toast>,
     pub reload_data: bool,
 }
 

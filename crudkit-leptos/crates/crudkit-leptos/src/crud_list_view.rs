@@ -285,7 +285,7 @@ where
             <Row>
                 <Col xs=6>
                     <ButtonWrapper>
-                        <Button color=ButtonColor::Success on_click=move |_| { instance_ctx.create() }>
+                        <Button color=ButtonColor::Success on_press=move |_| { instance_ctx.create() }>
                             <Icon icon=icondata::BsPlusCircle/>
                             <span style="text-decoration: underline">"N"</span>
                             "eu"
@@ -303,7 +303,7 @@ where
                                             <Button
                                                 color=button_color
                                                 disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
-                                                on_click=move |_| action_ctx.request_action(id)
+                                                on_press=move |_| action_ctx.request_action(id)
                                             >
                                                 {icon.map(|icon| view! { <Icon icon=icon/> })}
                                                 {name.clone()}
@@ -327,7 +327,7 @@ where
                                             <Button
                                                 color=button_color
                                                 disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
-                                                on_click=move |_| {
+                                                on_press=move |_| {
                                                     action_ctx.trigger_action(id, None, action.clone(), instance_ctx)
                                                 }
                                             >
@@ -344,11 +344,11 @@ where
                 </Col>
                 <Col xs=6 h_align=ColAlign::End>
                     <ButtonWrapper>
-                        <Button color=ButtonColor::Secondary on_click=move |_| { instance_ctx.reset() }>
+                        <Button color=ButtonColor::Secondary on_press=move |_| { instance_ctx.reset() }>
                             <Icon icon=icondata::BsArrowRepeat/>
                             "Reset"
                         </Button>
-                        <Button color=ButtonColor::Primary disabled=true on_click=move |_| filter_open.set(!filter_open.get_untracked())>
+                        <Button color=ButtonColor::Primary disabled=true on_press=move |_| filter_open.set(!filter_open.get_untracked())>
                             <Icon icon=icondata::BsSearch/>
                             "Filter"
                             {move || {

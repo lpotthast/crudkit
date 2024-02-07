@@ -22,7 +22,8 @@ use crate::{
     crud_instance_config::DynSelectConfig,
     crud_leave_modal::CrudLeaveModal,
     crud_table::NoDataAvailable,
-    IntoReactiveValue, ReactiveValue, prelude::CustomUpdateFields,
+    prelude::CustomUpdateFields,
+    IntoReactiveValue, ReactiveValue,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -301,31 +302,28 @@ where
                                             <Button
                                                 color=ButtonColor::Primary
                                                 disabled=save_disabled
-                                                on_click=move |_| trigger_save()
-                                                variations=view! {
-                                                    <Button
-                                                        color=ButtonColor::Primary
-                                                        disabled=save_disabled
-                                                        on_click=move |_| trigger_save_and_return()
-                                                    >
-                                                        "Speichern und zurück"
-                                                    </Button>
-                                                    <Button
-                                                        color=ButtonColor::Primary
-                                                        disabled=save_disabled
-                                                        on_click=move |_| trigger_save_and_new()
-                                                    >
-                                                        "Speichern und neu"
-                                                    </Button>
-                                                }
-                                                    .into_view()
+                                                on_press=move |_| trigger_save()
                                             >
                                                 "Speichern"
                                             </Button>
                                             <Button
+                                                color=ButtonColor::Primary
+                                                disabled=save_disabled
+                                                on_press=move |_| trigger_save_and_return()
+                                            >
+                                                "Speichern und zurück"
+                                            </Button>
+                                            <Button
+                                                color=ButtonColor::Primary
+                                                disabled=save_disabled
+                                                on_press=move |_| trigger_save_and_new()
+                                            >
+                                                "Speichern und neu"
+                                            </Button>
+                                            <Button
                                                 color=ButtonColor::Danger
                                                 disabled=delete_disabled
-                                                on_click=move |_| trigger_delete()
+                                                on_press=move |_| trigger_delete()
                                             >
                                                 "Löschen"
                                             </Button>
@@ -341,7 +339,7 @@ where
 
                                     <Col xs=6 h_align=ColAlign::End>
                                         <ButtonWrapper>
-                                            <Button color=ButtonColor::Secondary on_click=move |_| request_leave()>
+                                            <Button color=ButtonColor::Secondary on_press=move |_| request_leave()>
                                                 <span style="text-decoration: underline;">{"L"}</span>
                                                 {"istenansicht"}
                                             </Button>
@@ -372,7 +370,7 @@ where
                         <Row>
                             <Col h_align=ColAlign::End>
                                 <ButtonWrapper>
-                                    <Button color=ButtonColor::Secondary on_click=move |_| force_leave.call(())>
+                                    <Button color=ButtonColor::Secondary on_press=move |_| force_leave.call(())>
                                         <span style="text-decoration: underline;">{"L"}</span>
                                         {"istenansicht"}
                                     </Button>

@@ -217,33 +217,30 @@ where
                         <Button
                             color=ButtonColor::Primary
                             disabled=save_disabled
-                            on_click=move |_| trigger_save()
-                            variations=view! {
-                                <Button
-                                    color=ButtonColor::Primary
-                                    disabled=save_disabled
-                                    on_click=move |_| trigger_save_and_return()
-                                >
-                                    "Speichern und zurück"
-                                </Button>
-                                <Button
-                                    color=ButtonColor::Primary
-                                    disabled=save_disabled
-                                    on_click=move |_| trigger_save_and_new()
-                                >
-                                    "Speichern und neu"
-                                </Button>
-                            }
-                                .into_view()
+                            on_press=move |_| trigger_save()
                         >
                             "Speichern"
+                        </Button>
+                        <Button
+                            color=ButtonColor::Primary
+                            disabled=save_disabled
+                            on_press=move |_| trigger_save_and_return()
+                        >
+                            "Speichern und zurück"
+                        </Button>
+                        <Button
+                            color=ButtonColor::Primary
+                            disabled=save_disabled
+                            on_press=move |_| trigger_save_and_new()
+                        >
+                            "Speichern und neu"
                         </Button>
                     </ButtonWrapper>
                 </Col>
 
                 <Col xs=6 h_align=ColAlign::End>
                     <ButtonWrapper>
-                        <Button color=ButtonColor::Secondary on_click=move |_| request_leave()>
+                        <Button color=ButtonColor::Secondary on_press=move |_| request_leave()>
                             <span style="text-decoration: underline;">{"L"}</span>
                             {"istenansicht"}
                         </Button>

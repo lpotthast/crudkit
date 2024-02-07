@@ -55,7 +55,7 @@ where
                             <ButtonWrapper>
                                 <Button
                                     color=ButtonColor::Secondary
-                                    on_click=move |_| {
+                                    on_press=move |_| {
                                         on_cancel.call(())
                                     }
                                 >
@@ -63,7 +63,7 @@ where
                                 </Button>
                                 <Button
                                     color=ButtonColor::Danger
-                                    on_click=move |_| {
+                                    on_press=move |_| {
                                         match entity.get() {
                                             Some(model) => on_accept.call(model),
                                             None => {}

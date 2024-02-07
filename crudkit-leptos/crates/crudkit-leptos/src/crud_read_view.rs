@@ -154,7 +154,7 @@ where
                                         <ButtonWrapper>
                                             <Button
                                                 color=ButtonColor::Secondary
-                                                on_click=move |_| on_list_view.call(())
+                                                on_press=move |_| on_list_view.call(())
                                             >
                                                 <span style="text-decoration: underline;">{"L"}</span>
                                                 {"istenansicht"}
@@ -187,7 +187,7 @@ where
                         <Row>
                             <Col h_align=ColAlign::End>
                                 <ButtonWrapper>
-                                    <Button color=ButtonColor::Secondary on_click=move |_| on_list_view.call(())>
+                                    <Button color=ButtonColor::Secondary on_press=move |_| on_list_view.call(())>
                                         <span style="text-decoration: underline;">{"L"}</span>
                                         {"istenansicht"}
                                     </Button>

@@ -85,8 +85,7 @@ pub fn CrudPagination(
                                                 active=MaybeSignal::from(
                                                     page_number == Some(page_options.for_current_page),
                                                 )
-
-                                                on_click=move |_| {
+                                                on_press=move |_| {
                                                     if let Some(number) = page_number {
                                                         set_current_page.call(number)
                                                     }

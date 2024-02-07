@@ -34,20 +34,13 @@ pub fn CrudLeaveModal(
                             <ButtonWrapper>
                                 <Button
                                     color=ButtonColor::Secondary
-                                    on_click=move |_| {
-                                        tracing::info!("cancel");
-                                        on_cancel.call(());
-                                    }
+                                    on_press=move |_| on_cancel.call(())
                                 >
-
                                     "Zurück"
                                 </Button>
                                 <Button
                                     color=ButtonColor::Warn
-                                    on_click=move |_| {
-                                        tracing::info!("leave");
-                                        on_accept.call(());
-                                    }
+                                    on_press=move |_| on_accept.call(())
                                 >
                                     "Verlassen"
                                 </Button>
