@@ -6,6 +6,7 @@ use crudkit_web::prelude::*;
 use dyn_clone::DynClone;
 use indexmap::{indexmap, IndexMap};
 use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::{View, *};
 use serde::{Deserialize, Serialize};
 

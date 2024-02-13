@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
-use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::*;
 
 use crate::{crud_instance::CrudInstanceContext, crud_list_view::CrudListViewContext};

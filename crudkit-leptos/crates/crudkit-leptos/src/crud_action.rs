@@ -34,7 +34,7 @@ pub enum CrudEntityAction<T: CrudMainTrait + 'static> {
         id: &'static str,
         name: String,
         icon: Option<icondata::Icon>,
-        button_color: leptonic::prelude::ButtonColor,
+        button_color: leptonic::components::prelude::ButtonColor,
         valid_in: Vec<States>, // TODO: Use potentially non-allocating type for small const vecs
         action: Callback<(
             T::UpdateModel,
@@ -117,7 +117,7 @@ pub enum CrudAction<T: CrudMainTrait + 'static> {
         id: &'static str, // TODO: Should this be Cow?
         name: String,
         icon: Option<icondata::Icon>,
-        button_color: leptonic::prelude::ButtonColor,
+        button_color: leptonic::components::prelude::ButtonColor,
         action: Callback<(
             Option<T::ActionPayload>,
             Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
@@ -180,7 +180,7 @@ impl<T: CrudMainTrait> PartialEq for CrudAction<T> {
 
 #[derive(Debug, Clone)]
 pub struct CrudActionAftermath {
-    pub show_toast: Option<leptonic::prelude::Toast>,
+    pub show_toast: Option<leptonic::components::prelude::Toast>,
     pub reload_data: bool,
 }
 

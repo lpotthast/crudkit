@@ -1,6 +1,7 @@
 use std::{borrow::Cow, fmt::Display};
 
 use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::*;
 
 #[component]
@@ -82,9 +83,9 @@ pub fn CrudPagination(
                                                 color=ButtonColor::Secondary
                                                 disabled=page_number.is_none()
                                                 // TODO: Use signal::derive instead?
-                                                active=MaybeSignal::from(
-                                                    page_number == Some(page_options.for_current_page),
-                                                )
+                                                //active=MaybeSignal::from(
+                                                //    page_number == Some(page_options.for_current_page),
+                                                //)
                                                 on_press=move |_| {
                                                     if let Some(number) = page_number {
                                                         set_current_page.call(number)

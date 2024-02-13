@@ -10,6 +10,7 @@ use crudkit_web::{
     FieldMode, TabId, Value,
 };
 use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::*;
 use uuid::Uuid;
 

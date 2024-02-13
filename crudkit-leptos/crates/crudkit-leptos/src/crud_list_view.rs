@@ -5,6 +5,7 @@ use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
 use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::*;
 use uuid::Uuid;
 

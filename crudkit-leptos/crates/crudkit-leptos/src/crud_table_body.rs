@@ -5,6 +5,7 @@ use crudkit_web::{
     CrudMainTrait, CrudSimpleView, DeletableModel, FieldMode, FieldOptions, HeaderOptions,
 };
 use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::*;
 
 use crate::{

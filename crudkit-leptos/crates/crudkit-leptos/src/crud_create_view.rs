@@ -8,6 +8,7 @@ use crudkit_web::{
     TabId, Value,
 };
 use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::*;
 use uuid::Uuid;
 

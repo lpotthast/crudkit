@@ -1,5 +1,5 @@
 use crudkit_web::CrudMainTrait;
-use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::*;
 
 use crate::{

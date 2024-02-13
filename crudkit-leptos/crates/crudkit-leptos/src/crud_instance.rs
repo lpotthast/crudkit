@@ -4,7 +4,7 @@ use crudkit_id::{Id, SerializableId};
 use crudkit_shared::{DeleteResult, Order};
 use crudkit_web::{prelude::*, TabId};
 use indexmap::IndexMap;
-use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::*;
 use time::OffsetDateTime;
 use uuid::Uuid;

@@ -2,6 +2,7 @@ use std::{borrow::Cow, collections::HashMap, error::Error};
 
 use crudkit_web::{prelude::*, DateTimeDisplay, JsonValue};
 use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::*;
 use time::{
     format_description::well_known::Rfc3339, macros::format_description, PrimitiveDateTime,

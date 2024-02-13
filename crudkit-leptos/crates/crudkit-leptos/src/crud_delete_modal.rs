@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use crudkit_web::{CrudIdTrait, CrudMainTrait, DeletableModel};
 use leptonic::prelude::*;
+use leptonic::components::prelude::*;
 use leptos::*;
 
 #[component]
