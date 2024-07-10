@@ -54,7 +54,7 @@ pub fn CrudPagination(
 
     view! {
         <Show when=move || { item_count.get() > 0 } fallback=|| ()>
-            <Grid spacing=Size::Em(0.6) class="crud-pagination">
+            <Grid gap=Size::Em(0.6) class="crud-pagination">
                 <Row>
                     <Col xs=6 h_align=ColAlign::Start>
                         <div class="items-per-page-selector">

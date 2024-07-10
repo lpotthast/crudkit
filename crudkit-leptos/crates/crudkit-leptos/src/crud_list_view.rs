@@ -282,7 +282,7 @@ where
     let instance_ctx = expect_context::<CrudInstanceContext<T>>();
     let action_ctx = CrudActionContext::<T>::new();
     view! {
-        <Grid spacing=Size::Em(0.6) class="crud-nav">
+        <Grid gap=Size::Em(0.6) class="crud-nav">
             <Row>
                 <Col xs=6>
                     <ButtonWrapper>

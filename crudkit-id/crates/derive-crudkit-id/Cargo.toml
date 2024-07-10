@@ -12,9 +12,9 @@ name = "tests"
 path = "tests/progress.rs"
 
 [dev-dependencies]
-serde = "1.0.193"
-serde_json = "1.0.108"
-trybuild = { version = "1.0.86", features = ["diff"] }
+serde = "1.0.197"
+serde_json = "1.0.115"
+trybuild = { version = "1.0.91", features = ["diff"] }
 
 [dependencies]
 crudkit-id = { path = "../crudkit-id" }

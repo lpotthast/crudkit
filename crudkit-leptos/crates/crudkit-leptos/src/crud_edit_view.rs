@@ -296,7 +296,7 @@ where
                 view! {
                     {move || {
                         view! {
-                            <Grid spacing=Size::Em(0.6) class="crud-nav">
+                            <Grid gap=Size::Em(0.6) class="crud-nav">
                                 <Row>
                                     <Col xs=6>
                                         <ButtonWrapper>
@@ -367,7 +367,7 @@ where
             }
             (Err(no_data), _) => {
                 view! {
-                    <Grid spacing=Size::Em(0.6) class="crud-nav">
+                    <Grid gap=Size::Em(0.6) class="crud-nav">
                         <Row>
                             <Col h_align=ColAlign::End>
                                 <ButtonWrapper>

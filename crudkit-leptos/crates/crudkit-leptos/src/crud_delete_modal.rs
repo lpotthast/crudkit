@@ -50,7 +50,7 @@ where
             <ModalBody>"Bist du dir sicher?" <br/> "Dieser Eintrag kann nicht wiederhergestellt werden!"</ModalBody>
 
             <ModalFooter>
-                <Grid spacing=Size::Em(0.6)>
+                <Grid gap=Size::Em(0.6)>
                     <Row>
                         <Col h_align=ColAlign::End>
                             <ButtonWrapper>

@@ -141,7 +141,7 @@ where
                     {move || {
                         let on_list_view = on_list_view.clone();
                         view! {
-                            <Grid spacing=Size::Em(0.6) class="crud-nav">
+                            <Grid gap=Size::Em(0.6) class="crud-nav">
                                 <Row>
                                     <Col xs=6 h_align=ColAlign::Start>
                                         <CrudActionButtons
@@ -184,7 +184,7 @@ where
             (Err(no_data), _) => {
                 let on_list_view = on_list_view.clone();
                 view! {
-                    <Grid spacing=Size::Em(0.6) class="crud-nav">
+                    <Grid gap=Size::Em(0.6) class="crud-nav">
                         <Row>
                             <Col h_align=ColAlign::End>
                                 <ButtonWrapper>

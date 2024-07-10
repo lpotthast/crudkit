@@ -211,7 +211,7 @@ where
     });
 
     view! {
-        <Grid spacing=Size::Em(0.6) class="crud-nav">
+        <Grid gap=Size::Em(0.6) class="crud-nav">
             <Row>
                 <Col xs=6>
                     <ButtonWrapper>
