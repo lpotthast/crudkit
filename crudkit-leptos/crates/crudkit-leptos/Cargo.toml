@@ -21,7 +21,7 @@ derive-field-value = { path = "../../../crudkit-web/crates/derive-field-value" }
 dyn-clone = "1.0.17"
 indexmap = { version = "2.2.6", features = ["serde"] }
 #leptonic = { path = "../../../../leptonic/leptonic", features = ["tiptap"] }
-leptonic = { version = "0.5.0", git = "https://github.com/lpotthast/leptonic", branch = "main", features = ["tiptap"] }
+leptonic = { version = "0.5.0", git = "https://github.com/lpotthast/leptonic", branch = "dep-updates", features = ["tiptap"] }
 leptos = "0.6.9"
 serde = { version = "1.0.197", features = ["derive"] }
 # TODO: Only required to handle TipTap content. Can we get rid of this?
