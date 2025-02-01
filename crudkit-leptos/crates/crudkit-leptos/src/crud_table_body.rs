@@ -1,33 +1,32 @@
-use std::{collections::HashMap, marker::PhantomData, rc::Rc};
-
-use crudkit_web::{
-    CrudDataTrait, CrudFieldNameTrait, CrudFieldValueTrait, CrudIdTrait,
-    CrudMainTrait, CrudSimpleView, DeletableModel, FieldMode, FieldOptions, HeaderOptions,
-};
-use leptonic::prelude::*;
-use leptonic::components::prelude::*;
-use leptos::*;
-
 use crate::{
     crud_action::CrudActionTrait, crud_field::CrudField, crud_instance::CrudInstanceContext,
     crud_instance_config::DynSelectConfig, crud_list_view::CrudListViewContext,
-    crud_table::NoDataAvailable, IntoReactiveValue, prelude::CustomFields, ReactiveValue,
+    crud_table::NoDataAvailable, prelude::CustomFields, IntoReactiveValue, ReactiveValue,
 };
+use crudkit_web::{
+    CrudDataTrait, CrudFieldNameTrait, CrudFieldValueTrait, CrudIdTrait, CrudMainTrait,
+    CrudSimpleView, DeletableModel, FieldMode, FieldOptions, HeaderOptions,
+};
+use leptonic::components::prelude::*;
+use leptonic::prelude::*;
+use leptos::prelude::*;
+use std::sync::Arc;
+use std::{collections::HashMap, marker::PhantomData};
 
 #[component]
 pub fn CrudTableBody<T>(
     _phantom: PhantomData<T>,
-    #[prop(into)] data: Signal<Result<Rc<Vec<T::ReadModel>>, NoDataAvailable>>,
+    #[prop(into)] data: Signal<Result<Arc<Vec<T::ReadModel>>, NoDataAvailable>>,
     #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
-    #[prop(into)] custom_fields: Signal<CustomFields<T::ReadModel, leptos::View>>,
+    #[prop(into)] custom_fields: Signal<CustomFields<T::ReadModel>>,
     #[prop(into)] field_config: Signal<
         HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>,
     >,
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
-    #[prop(into)] additional_item_actions: Signal<Vec<Rc<Box<dyn CrudActionTrait>>>>,
+    #[prop(into)] additional_item_actions: Signal<Vec<Arc<Box<dyn CrudActionTrait>>>>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
@@ -36,19 +35,18 @@ where
         // A signal map is required to render custom fields,
         // as each custom field may want to access values of other fields to determine its redering output or processing!
         let signals: StoredValue<HashMap<<T::ReadModel as CrudDataTrait>::Field, ReactiveValue>> =
-        store_value({
-            let mut map = HashMap::new();
-            for field in T::ReadModel::get_all_fields() {
-                let initial = field.get_value(&entity);
-                map.insert(field, initial.into_reactive_value());
-            }
-            map
-        });
-
+            StoredValue::new({
+                let mut map = HashMap::new();
+                for field in T::ReadModel::get_all_fields() {
+                    let initial = field.get_value(&entity);
+                    map.insert(field, initial.into_reactive_value());
+                }
+                map
+            });
 
         // TODO: Check https://github.com/rust-lang/rfcs/issues/2407, we might be able to remove explicit clones in the future!
         let stored_entity: ReadSignal<<T as CrudMainTrait>::ReadModel> =
-            create_rw_signal(entity).read_only(); // TODO: Move signal creation up
+            RwSignal::new(entity).read_only(); // TODO: Move signal creation up
 
         let with_actions = Signal::derive(move || {
             !additional_item_actions.get().is_empty()
@@ -59,7 +57,7 @@ where
 
         let instance_ctx = expect_context::<CrudInstanceContext<T>>();
         let list_ctx = expect_context::<CrudListViewContext<T>>();
-        let is_selected = create_memo(move |_prev| {
+        let is_selected = Memo::new(move |_prev| {
             stored_entity.with(|stored_entity| {
                 list_ctx
                     .selected
@@ -76,8 +74,9 @@ where
         let delete = move |entity: T::ReadModel| {
             instance_ctx.request_deletion_of(DeletableModel::Read(entity))
         };
+        // TODO: why is this Arc<Box<...>>?
         let trigger_action =
-            move |entity: T::ReadModel, action: Rc<Box<dyn CrudActionTrait>>| todo!();
+            move |entity: T::ReadModel, action: Arc<Box<dyn CrudActionTrait>>| todo!();
 
         let dummy_value_changed_callback = Callback::new(move |_| {});
 
@@ -212,7 +211,7 @@ where
                                         {"Keine Daten"}
                                     </td>
                                 </tr>
-                            }.into_view()
+                            }.into_any()
                         }
                         _ => {
                             view! {
@@ -221,10 +220,10 @@ where
                                     key=|entity| entity.get_id()
                                     children=render_entry
                                 />
-                            }.into_view()
+                            }.into_any()
                         }
                     }
-                }
+                },
                 Err(no_data) => {
                     match no_data {
                         NoDataAvailable::NotYetLoaded => {
@@ -232,24 +231,24 @@ where
                                 <tr>
                                     <td colspan="100%">" "</td>
                                 </tr>
-                            }.into_view()
+                            }.into_any()
                         }
                         NoDataAvailable::RequestFailed(reason) => {
                             view! {
                                 <tr>
                                     <td colspan="100%">{format!("No data available: {reason:?}")}</td>
                                 </tr>
-                            }.into_view()
+                            }.into_any()
                         }
                         NoDataAvailable::RequestReturnedNoData(reason) => {
                             view! {
                                 <tr>
                                     <td colspan="100%">{format!("No data available: {reason:?}")}</td>
                                 </tr>
-                            }.into_view()
+                            }.into_any()
                         }
                     }
-                }
+                },
             }}
         </tbody>
     }

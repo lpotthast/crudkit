@@ -46,15 +46,17 @@ pub use crudkit_web;
 pub use crudkit_web::prelude::*;
 use crudkit_web::JsonValue;
 pub use crudkit_websocket;
-use leptos::*;
+use leptos::prelude::*;
 
 pub mod prelude {
     pub use crudkit_condition;
     pub use crudkit_id;
     pub use crudkit_shared;
     pub use crudkit_validation;
-    pub use crudkit_web; // TODO: Should this be removed?
-    pub use crudkit_web::prelude::*; // TODO: Should this be removed?
+    pub use crudkit_web;
+    // TODO: Should this be removed?
+    pub use crudkit_web::prelude::*;
+    // TODO: Should this be removed?
     pub use crudkit_websocket;
 
     pub use derive_crud_action_payload::CkActionPayload;
@@ -111,7 +113,9 @@ pub trait SignalsTrait {
     //fn to_signals(&self) -> std::collections::HashMap<Self::Field, ReactiveValue>;
     fn from_signals(signals: &std::collections::HashMap<Self::Field, ReactiveValue>) -> Self;
 
-    fn from_signals_untracked(signals: &std::collections::HashMap<Self::Field, ReactiveValue>) -> Self;
+    fn from_signals_untracked(
+        signals: &std::collections::HashMap<Self::Field, ReactiveValue>,
+    ) -> Self;
 }
 
 /// Theoretically, all `Value` types are already defined through crudkit_web::Value.
@@ -162,47 +166,43 @@ pub trait IntoReactiveValue {
 impl IntoReactiveValue for Value {
     fn into_reactive_value(self) -> ReactiveValue {
         match self {
-            Value::String(value) => ReactiveValue::String(create_rw_signal(value)),
-            Value::OptionalString(value) => ReactiveValue::OptionalString(create_rw_signal(value)),
-            Value::Text(value) => ReactiveValue::Text(create_rw_signal(value)),
-            Value::Json(value) => ReactiveValue::Json(create_rw_signal(value)),
-            Value::OptionalJson(value) => ReactiveValue::OptionalJson(create_rw_signal(value)),
-            Value::UuidV4(value) => ReactiveValue::UuidV4(create_rw_signal(value)),
-            Value::UuidV7(value) => ReactiveValue::UuidV7(create_rw_signal(value)),
-            Value::I32(value) => ReactiveValue::I32(create_rw_signal(value)),
-            Value::I64(value) => ReactiveValue::I64(create_rw_signal(value)),
-            Value::U32(value) => ReactiveValue::U32(create_rw_signal(value)),
-            Value::U64(value) => ReactiveValue::U64(create_rw_signal(value)),
-            Value::OptionalI32(value) => ReactiveValue::OptionalI32(create_rw_signal(value)),
-            Value::OptionalI64(value) => ReactiveValue::OptionalI64(create_rw_signal(value)),
-            Value::OptionalU32(value) => ReactiveValue::OptionalU32(create_rw_signal(value)),
-            Value::OptionalU64(value) => ReactiveValue::OptionalU64(create_rw_signal(value)),
-            Value::F32(value) => ReactiveValue::F32(create_rw_signal(value)),
-            Value::F64(value) => ReactiveValue::F64(create_rw_signal(value)),
-            Value::Bool(value) => ReactiveValue::Bool(create_rw_signal(value)),
-            Value::ValidationStatus(value) => {
-                ReactiveValue::ValidationStatus(create_rw_signal(value))
-            }
+            Value::String(value) => ReactiveValue::String(RwSignal::new(value)),
+            Value::OptionalString(value) => ReactiveValue::OptionalString(RwSignal::new(value)),
+            Value::Text(value) => ReactiveValue::Text(RwSignal::new(value)),
+            Value::Json(value) => ReactiveValue::Json(RwSignal::new(value)),
+            Value::OptionalJson(value) => ReactiveValue::OptionalJson(RwSignal::new(value)),
+            Value::UuidV4(value) => ReactiveValue::UuidV4(RwSignal::new(value)),
+            Value::UuidV7(value) => ReactiveValue::UuidV7(RwSignal::new(value)),
+            Value::I32(value) => ReactiveValue::I32(RwSignal::new(value)),
+            Value::I64(value) => ReactiveValue::I64(RwSignal::new(value)),
+            Value::U32(value) => ReactiveValue::U32(RwSignal::new(value)),
+            Value::U64(value) => ReactiveValue::U64(RwSignal::new(value)),
+            Value::OptionalI32(value) => ReactiveValue::OptionalI32(RwSignal::new(value)),
+            Value::OptionalI64(value) => ReactiveValue::OptionalI64(RwSignal::new(value)),
+            Value::OptionalU32(value) => ReactiveValue::OptionalU32(RwSignal::new(value)),
+            Value::OptionalU64(value) => ReactiveValue::OptionalU64(RwSignal::new(value)),
+            Value::F32(value) => ReactiveValue::F32(RwSignal::new(value)),
+            Value::F64(value) => ReactiveValue::F64(RwSignal::new(value)),
+            Value::Bool(value) => ReactiveValue::Bool(RwSignal::new(value)),
+            Value::ValidationStatus(value) => ReactiveValue::ValidationStatus(RwSignal::new(value)),
             Value::PrimitiveDateTime(value) => {
-                ReactiveValue::PrimitiveDateTime(create_rw_signal(value))
+                ReactiveValue::PrimitiveDateTime(RwSignal::new(value))
             }
-            Value::OffsetDateTime(value) => ReactiveValue::OffsetDateTime(create_rw_signal(value)),
+            Value::OffsetDateTime(value) => ReactiveValue::OffsetDateTime(RwSignal::new(value)),
             Value::OptionalPrimitiveDateTime(value) => {
-                ReactiveValue::OptionalPrimitiveDateTime(create_rw_signal(value))
+                ReactiveValue::OptionalPrimitiveDateTime(RwSignal::new(value))
             }
             Value::OptionalOffsetDateTime(value) => {
-                ReactiveValue::OptionalOffsetDateTime(create_rw_signal(value))
+                ReactiveValue::OptionalOffsetDateTime(RwSignal::new(value))
             }
-            Value::OneToOneRelation(value) => {
-                ReactiveValue::OneToOneRelation(create_rw_signal(value))
-            }
-            Value::Reference(value) => ReactiveValue::Reference(create_rw_signal(value)),
-            Value::Custom(value) => ReactiveValue::Custom(create_rw_signal(value)),
-            Value::Select(value) => ReactiveValue::Select(create_rw_signal(value)),
-            Value::Multiselect(value) => ReactiveValue::Multiselect(create_rw_signal(value)),
-            Value::OptionalSelect(value) => ReactiveValue::OptionalSelect(create_rw_signal(value)),
+            Value::OneToOneRelation(value) => ReactiveValue::OneToOneRelation(RwSignal::new(value)),
+            Value::Reference(value) => ReactiveValue::Reference(RwSignal::new(value)),
+            Value::Custom(value) => ReactiveValue::Custom(RwSignal::new(value)),
+            Value::Select(value) => ReactiveValue::Select(RwSignal::new(value)),
+            Value::Multiselect(value) => ReactiveValue::Multiselect(RwSignal::new(value)),
+            Value::OptionalSelect(value) => ReactiveValue::OptionalSelect(RwSignal::new(value)),
             Value::OptionalMultiselect(value) => {
-                ReactiveValue::OptionalMultiselect(create_rw_signal(value))
+                ReactiveValue::OptionalMultiselect(RwSignal::new(value))
             }
         }
     }

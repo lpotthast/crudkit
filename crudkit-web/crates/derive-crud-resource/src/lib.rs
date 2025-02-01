@@ -4,7 +4,7 @@
 use darling::*;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use proc_macro_error::{abort, proc_macro_error};
+use proc_macro_error::proc_macro_error;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
@@ -21,10 +21,6 @@ struct Args {
     /// Type of the action payload.
     #[darling(map = "strip_quotes")]
     action_payload: Option<String>, // TODO: Do not require quotes to begin with... require an ident
-
-    /// Type of the authentication data provider.
-    #[darling(map = "strip_quotes")]
-    auth_provider: Option<String>, // TODO: Do not require quotes to begin with... require an ident
 
     // TODO: Document
     create_model: Option<Ident>,
@@ -105,14 +101,6 @@ pub fn store(input: TokenStream) -> TokenStream {
         })
         .unwrap_or_else(|| quote! { crudkit_web::EmptyActionPayload });
 
-    let auth_provider_type = args
-        .auth_provider
-        .map(|it| match syn::parse_str::<syn::Type>(it.as_ref()) {
-            Ok(ty) => quote! { #ty },
-            Err(err) => abort!("Given 'auth_provider' is not a valid type: {}", err),
-        })
-        .unwrap_or_else(|| quote! { crudkit_web::services::requests::NoAuthProvider });
-
     quote! {
         #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
         pub struct #resource_ident {}
@@ -135,8 +123,6 @@ pub fn store(input: TokenStream) -> TokenStream {
             type UpdateModel = #update_model_ident;
 
             type ActionPayload = #action_payload_type;
-
-            type AuthProvider = #auth_provider_type;
         }
     }
     .into()

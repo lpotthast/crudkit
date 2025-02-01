@@ -1,7 +1,7 @@
 use std::{fmt::Debug, rc::Rc};
 
 use leptonic::prelude::icondata;
-use leptos::*;
+use leptos::prelude::*;
 
 use crate::prelude::*;
 
@@ -14,15 +14,15 @@ pub enum States {
 
 #[derive(Clone)]
 pub struct ModalGeneration<T: CrudMainTrait + 'static> {
-    pub show_when: leptos::Signal<bool>,
+    pub show_when: Signal<bool>,
     pub cancel: Callback<()>,
     pub execute: Callback<Option<T::ActionPayload>>,
 }
 
 #[derive(Clone)]
 pub struct EntityModalGeneration<T: CrudMainTrait + 'static> {
-    pub show_when: leptos::Signal<bool>,
-    pub state: leptos::Signal<Option<T::UpdateModel>>,
+    pub show_when: Signal<bool>,
+    pub state: Signal<Option<T::UpdateModel>>,
     pub cancel: Callback<()>,
     pub execute: Callback<Option<T::ActionPayload>>,
 }
@@ -42,7 +42,7 @@ pub enum CrudEntityAction<T: CrudMainTrait + 'static> {
             Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
         // TODO: Replace with Callback in rc3
-        modal: Option<Callback<EntityModalGeneration<T>, leptos::View>>,
+        modal: Option<Callback<EntityModalGeneration<T>, AnyView>>,
     },
 }
 
@@ -123,7 +123,7 @@ pub enum CrudAction<T: CrudMainTrait + 'static> {
             Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
         )>,
         // TODO: Replace with Callback in rc3
-        modal: Option<Callback<ModalGeneration<T>, leptos::View>>,
+        modal: Option<Callback<ModalGeneration<T>, AnyView>>,
     },
 }
 
@@ -186,7 +186,7 @@ pub struct CrudActionAftermath {
 
 /// Used to model entity action such as "Open edit view", ...
 /// Currently not related with the CrudAction enum.
-pub trait CrudActionTrait: Debug {
+pub trait CrudActionTrait: Debug + Send + Sync {
     fn get_name(&self) -> String;
     fn get_icon(&self) -> Option<icondata::Icon>;
     fn eq(&self, other: &dyn CrudActionTrait) -> bool;

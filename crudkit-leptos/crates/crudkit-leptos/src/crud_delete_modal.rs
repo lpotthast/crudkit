@@ -1,9 +1,9 @@
 use std::marker::PhantomData;
 
 use crudkit_web::{CrudIdTrait, CrudMainTrait, DeletableModel};
-use leptonic::prelude::*;
 use leptonic::components::prelude::*;
-use leptos::*;
+use leptonic::prelude::*;
+use leptos::prelude::*;
 
 #[component]
 pub fn CrudDeleteModal<T>(
@@ -19,10 +19,10 @@ where
     let show_when = Signal::derive(move || entity.get().is_some());
 
     let g_keyboard_event: GlobalKeyboardEvent = expect_context::<GlobalKeyboardEvent>();
-    create_effect(move |_old| {
+    Effect::new(move |_old| {
         if let Some(e) = g_keyboard_event.read_signal.get() {
             if show_when.get_untracked() && e.key().as_str() == "Escape" {
-                on_cancel.call(());
+                on_cancel.run(());
             }
         }
     });
@@ -57,7 +57,7 @@ where
                                 <Button
                                     color=ButtonColor::Secondary
                                     on_press=move |_| {
-                                        on_cancel.call(())
+                                        on_cancel.run(())
                                     }
                                 >
                                     "Zurück"
@@ -66,7 +66,7 @@ where
                                     color=ButtonColor::Danger
                                     on_press=move |_| {
                                         match entity.get() {
-                                            Some(model) => on_accept.call(model),
+                                            Some(model) => on_accept.run(model),
                                             None => {}
                                         }
                                     }

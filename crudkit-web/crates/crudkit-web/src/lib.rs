@@ -5,14 +5,14 @@ use async_trait::async_trait;
 use crudkit_condition::ConditionClauseValue;
 use crudkit_id::SerializableId;
 use dyn_clone::DynClone;
-use requests::{AuthProvider, RequestError};
+use requests::RequestError;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::sync::Arc;
 use std::{
     any::Any,
     borrow::Cow,
     fmt::{Debug, Display},
     hash::Hash,
-    rc::Rc,
 };
 use time::format_description::well_known::Rfc3339;
 use tracing::warn;
@@ -68,12 +68,9 @@ pub mod prelude {
     pub use super::requests::request_delete;
     pub use super::requests::request_get;
     pub use super::requests::request_post;
-    pub use super::requests::request_post_multipart;
     pub use super::requests::request_put;
-    pub use super::requests::AuthMethod;
-    pub use super::requests::AuthProvider;
-    pub use super::requests::NoAuthProvider;
     pub use super::requests::RequestError;
+    pub use super::requests::ReqwestExecutor;
     pub use super::CrudActionPayload;
     pub use super::CrudDataTrait;
     pub use super::CrudField;
@@ -177,41 +174,46 @@ pub enum CrudField<T: CrudMainTrait> {
 
 // TODO: impl Clone if both types are clone, same for debug, ...
 pub trait CrudMainTrait:
-    CrudResourceTrait + PartialEq + Default + Debug + Clone + Serialize + Send
+    CrudResourceTrait + PartialEq + Default + Debug + Clone + Serialize + Send + Sync
 {
-    type CreateModel: CrudDataTrait + Default + Send;
+    type CreateModel: CrudDataTrait + Default + Send + Sync;
 
-    type ReadModelIdField: crudkit_id::IdField + Serialize + Send;
+    type ReadModelIdField: crudkit_id::IdField + Serialize + Send + Sync;
     type ReadModelId: Serialize
         + DeserializeOwned
         + crudkit_id::Id<Field = Self::ReadModelIdField>
         + PartialEq
         + Clone
-        + Send;
+        + Send
+        + Sync;
     type ReadModel: Serialize
         + CrudDataTrait
         + Into<Self::UpdateModel>
         + CrudIdTrait<Id = Self::ReadModelId>
-        + Send;
+        + Send
+        + Sync;
 
-    type UpdateModelIdField: crudkit_id::IdField + Serialize + Send;
+    type UpdateModelIdField: crudkit_id::IdField + Serialize + Send + Sync;
     type UpdateModelId: Serialize
         + DeserializeOwned
         + crudkit_id::Id<Field = Self::UpdateModelIdField>
         + PartialEq
         + Clone
-        + Send;
-    type UpdateModel: Serialize + CrudDataTrait + CrudIdTrait<Id = Self::UpdateModelId> + Send;
+        + Send
+        + Sync;
+    type UpdateModel: Serialize
+        + CrudDataTrait
+        + CrudIdTrait<Id = Self::UpdateModelId>
+        + Send
+        + Sync;
 
-    type ActionPayload: Serialize + CrudActionPayload;
-
-    type AuthProvider: AuthProvider + Serialize; // TODO: This should not be serialize...
+    type ActionPayload: Serialize + CrudActionPayload + Send + Sync;
 }
 
 /// Marker trait for specifying data which can be used as payload for CRUD actions.
 /// Use the `CrudActionPayload` derive macro from derive-crud-action-payload to implement this for your type.
 pub trait CrudActionPayload:
-    PartialEq + Clone + Debug + Serialize + DeserializeOwned + Send
+    PartialEq + Clone + Debug + Serialize + DeserializeOwned + Send + Sync
 {
 }
 
@@ -221,7 +223,9 @@ pub struct EmptyActionPayload {}
 impl CrudActionPayload for EmptyActionPayload {}
 
 // Note: This does not have CrudIdTrait as a super trait, as not all data model (namely the CreateModel) can supply an ID!
-pub trait CrudDataTrait: PartialEq + Clone + Debug + Serialize + DeserializeOwned + Send {
+pub trait CrudDataTrait:
+    PartialEq + Clone + Debug + Serialize + DeserializeOwned + Send + Sync
+{
     type Field: CrudFieldNameTrait
         + CrudFieldValueTrait<Self>
         + PartialEq
@@ -231,14 +235,15 @@ pub trait CrudDataTrait: PartialEq + Clone + Debug + Serialize + DeserializeOwne
         + Debug
         + Serialize
         + DeserializeOwned
-        + Send;
+        + Send
+        + Sync;
 
     fn get_all_fields() -> Vec<Self::Field>;
     fn get_field(field_name: &str) -> Self::Field;
 }
 
 /// Allows us to access the ID of an entity.
-/// The ID type must provide more fine grained access (for example to individual fields).
+/// The ID type must provide more fine-grained access (for example to individual fields).
 pub trait CrudIdTrait {
     type Id: crudkit_id::Id;
 
@@ -260,12 +265,12 @@ pub trait CrudResourceTrait {
 }
 
 #[async_trait]
-pub trait CrudSelectableSource: Debug {
+pub trait CrudSelectableSource: Debug + Send + Sync {
     type Selectable: CrudSelectableTrait;
 
     async fn load(
         &self,
-    ) -> Result<Vec<Self::Selectable>, Rc<dyn std::error::Error + Send + Sync + 'static>>;
+    ) -> Result<Vec<Self::Selectable>, Arc<dyn std::error::Error + Send + Sync + 'static>>;
 
     fn set_selectable(&mut self, selectable: Vec<Self::Selectable>);
 
@@ -274,7 +279,7 @@ pub trait CrudSelectableSource: Debug {
 }
 
 //#[typetag::serde(tag = "type")]
-pub trait CrudSelectableTrait: Debug + Display + DynClone {
+pub trait CrudSelectableTrait: Debug + Display + DynClone + Send + Sync {
     fn as_any(&self) -> &dyn Any;
 }
 dyn_clone::clone_trait_object!(CrudSelectableTrait);
@@ -753,35 +758,35 @@ impl Into<ConditionClauseValue> for Value {
         match self {
             // TODO: Complete mapping!!
             Value::String(value) => ConditionClauseValue::String(value),
-            Value::OptionalString(value) => todo!(),
+            Value::OptionalString(_value) => todo!(),
             Value::Text(value) => ConditionClauseValue::String(value),
             Value::Json(value) => ConditionClauseValue::Json(value.into()),
-            Value::OptionalJson(value) => todo!(),
+            Value::OptionalJson(_value) => todo!(),
             Value::UuidV4(value) => ConditionClauseValue::UuidV4(value),
             Value::UuidV7(value) => ConditionClauseValue::UuidV7(value),
             Value::I32(value) => ConditionClauseValue::I32(value),
             Value::I64(value) => ConditionClauseValue::I64(value),
             Value::U32(value) => ConditionClauseValue::U32(value),
             Value::U64(value) => ConditionClauseValue::U64(value),
-            Value::OptionalI32(value) => todo!(),
-            Value::OptionalI64(value) => todo!(),
-            Value::OptionalU32(value) => todo!(),
-            Value::OptionalU64(value) => todo!(),
+            Value::OptionalI32(_value) => todo!(),
+            Value::OptionalI64(_value) => todo!(),
+            Value::OptionalU32(_value) => todo!(),
+            Value::OptionalU64(_value) => todo!(),
             Value::F32(value) => ConditionClauseValue::F32(value),
             Value::F64(value) => ConditionClauseValue::F64(value),
             Value::Bool(value) => ConditionClauseValue::Bool(value),
-            Value::ValidationStatus(value) => todo!(),
-            Value::PrimitiveDateTime(value) => todo!(),
-            Value::OffsetDateTime(value) => todo!(),
-            Value::OptionalPrimitiveDateTime(value) => todo!(),
-            Value::OptionalOffsetDateTime(value) => todo!(),
-            Value::OneToOneRelation(value) => todo!(),
-            Value::Reference(value) => todo!(),
-            Value::Custom(value) => todo!(),
-            Value::Select(value) => todo!(),
-            Value::Multiselect(value) => todo!(),
-            Value::OptionalSelect(value) => todo!(),
-            Value::OptionalMultiselect(value) => todo!(),
+            Value::ValidationStatus(_value) => todo!(),
+            Value::PrimitiveDateTime(_value) => todo!(),
+            Value::OffsetDateTime(_value) => todo!(),
+            Value::OptionalPrimitiveDateTime(_value) => todo!(),
+            Value::OptionalOffsetDateTime(_value) => todo!(),
+            Value::OneToOneRelation(_value) => todo!(),
+            Value::Reference(_value) => todo!(),
+            Value::Custom(_value) => todo!(),
+            Value::Select(_value) => todo!(),
+            Value::Multiselect(_value) => todo!(),
+            Value::OptionalSelect(_value) => todo!(),
+            Value::OptionalMultiselect(_value) => todo!(),
         }
     }
 }

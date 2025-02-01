@@ -1,7 +1,7 @@
-use std::{cell::RefCell, rc::Rc};
-
 use crudkit_web::SerializableCrudView;
-use leptos::*;
+use leptos::prelude::*;
+use std::ops::Deref;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
 pub struct InstanceState {
@@ -11,13 +11,13 @@ pub struct InstanceState {
 
 #[derive(Debug, Clone)]
 pub struct InstanceStates {
-    states: Rc<RefCell<Vec<InstanceState>>>,
+    states: Arc<Mutex<Vec<InstanceState>>>,
 }
 
 impl Default for InstanceStates {
     fn default() -> Self {
         Self {
-            states: Rc::new(RefCell::new(Vec::new())),
+            states: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
@@ -25,7 +25,9 @@ impl Default for InstanceStates {
 impl InstanceStates {
     pub fn get_by_name(&self, name: &'static str) -> Option<InstanceState> {
         self.states
-            .borrow()
+            .lock()
+            .unwrap()
+            .deref()
             .iter()
             .find(|state| state.name == name)
             .cloned()
@@ -42,7 +44,7 @@ impl CrudInstanceMgrContext {
     /// Panics when a state is already registered for this name!
     pub fn register(&self, name: &'static str, state: InstanceState) {
         self.set_instances.update(|instances| {
-            let mut states = instances.states.borrow_mut();
+            let mut states = instances.states.lock().unwrap();
             match states.iter_mut().find(|it| it.name == name) {
                 Some(elem) => *elem = state,
                 None => states.push(state),
@@ -54,7 +56,7 @@ impl CrudInstanceMgrContext {
 /// Manages instances in a dynamic way. Must be rendered before any instance is rendered!
 #[component]
 pub fn CrudInstanceMgr(children: Children) -> impl IntoView {
-    let (instances, set_instances) = create_signal(InstanceStates::default());
+    let (instances, set_instances) = signal(InstanceStates::default());
     provide_context(CrudInstanceMgrContext {
         instances,
         set_instances,

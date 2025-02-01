@@ -14,12 +14,12 @@ use proc_macro2::{Ident, Span};
 use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
 use serde::Deserialize;
-use syn::{parse_macro_input, DeriveInput, spanned::Spanned};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
 // TODO: This should create a darling error instead of panicking... See https://github.com/TedDriggs/darling/issues/207
 fn parse_type(string: Option<String>) -> Option<ReactiveValueType> {
     string.map(|ty| match serde_json::from_str(format!("\"{ty}\"").as_str()) {
-        Ok(value_type) => value_type,   
+        Ok(value_type) => value_type,
         Err(err) => panic!("crudkit: derive-field-signals: expected `field_value(type = ...)`, where '...' (actual: {ty}) is of a known variant. serde error: {err:?}"),
     })
 }
@@ -53,7 +53,8 @@ impl MyFieldReceiver {
     }
 
     pub fn reactive_value_type(&self) -> ReactiveValueType {
-        self.reactive_value_type.unwrap_or_else(|| (&self.ty).into())
+        self.reactive_value_type
+            .unwrap_or_else(|| (&self.ty).into())
     }
 }
 
@@ -124,14 +125,14 @@ pub fn store(input: TokenStream) -> TokenStream {
             ReactiveValueType::Select => {
                 let field_ty = field.get_type();
                 quote! { val.as_any().downcast_ref::<#field_ty>().unwrap().clone() }
-            },
-            _ => quote!{ val },
+            }
+            _ => quote! { val },
         };
 
         quote! {
             #name_ident: {
                 let rw_sig = signals.get(&#field_name::#type_ident).expect("Fully saturated signals map").#expect_fn();
-                let val = leptos::SignalGet::get(&rw_sig);
+                let val = ::leptos::reactive::traits::Get::get(&rw_sig);
                 let ret = #finalize_val;
                 ret
             }
@@ -163,14 +164,14 @@ pub fn store(input: TokenStream) -> TokenStream {
             ReactiveValueType::Select => {
                 let field_ty = field.get_type();
                 quote! { val.as_any().downcast_ref::<#field_ty>().unwrap().clone() }
-            },
-            _ => quote!{ val },
+            }
+            _ => quote! { val },
         };
 
         quote! {
             #name_ident: {
                 let rw_sig = signals.get(&#field_name::#type_ident).expect("Fully saturated signals map").#expect_fn();
-                let val = leptos::SignalGetUntracked::get_untracked(&rw_sig);
+                let val = ::leptos::reactive::traits::GetUntracked::get_untracked(&rw_sig);
                 let ret = #finalize_val;
                 ret
             }
@@ -198,7 +199,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
         }
     }
-    .into()
+        .into()
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, FromMeta, Deserialize)]

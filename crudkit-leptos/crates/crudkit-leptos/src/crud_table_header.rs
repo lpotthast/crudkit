@@ -4,7 +4,7 @@ use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
-use leptos::*;
+use leptos::prelude::*;
 
 use crate::{crud_instance::CrudInstanceContext, crud_list_view::CrudListViewContext};
 
@@ -13,11 +13,11 @@ pub fn CrudTableHeader<T>(
     _phantom: PhantomData<T>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
     #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
-    // Whether or not an action column should be displayed.
+    // Whether an action column should be displayed.
     #[prop(into)] with_actions: Signal<bool>,
     /// Recommended to be set to false when the table body does not actually display content.
     with_select_column: Signal<bool>,
-    // Wether or not all items displayed in the table are selected.
+    // Whether all items displayed in the table are selected.
     all_selected: Signal<bool>,
 ) -> impl IntoView
 where
@@ -72,7 +72,7 @@ where
 
                                     {options.display_name.clone()}
                                     <span class="crud-order-by-sign" class:active=order.is_some()>
-                                        <SafeHtml html=match order {
+                                        <SafeHtml<String> html=match order {
                                             Some(order) => {
                                                 match order {
                                                     Order::Asc => "&uarr;",

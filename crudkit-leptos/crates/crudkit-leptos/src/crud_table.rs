@@ -1,9 +1,9 @@
-use std::{collections::HashMap, marker::PhantomData, rc::Rc};
-
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
-use leptos::*;
+use leptos::prelude::*;
+use std::sync::Arc;
+use std::{collections::HashMap, marker::PhantomData};
 
 // TODO: Add prelude entry for CrudActionTrait
 use crate::{
@@ -26,15 +26,15 @@ pub fn CrudTable<T>(
     #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
     #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
-    #[prop(into)] data: Signal<Result<Rc<Vec<T::ReadModel>>, NoDataAvailable>>,
-    #[prop(into)] custom_fields: Signal<CustomFields<T::ReadModel, leptos::View>>,
+    #[prop(into)] data: Signal<Result<Arc<Vec<T::ReadModel>>, NoDataAvailable>>,
+    #[prop(into)] custom_fields: Signal<CustomFields<T::ReadModel>>,
     #[prop(into)] field_config: Signal<
         HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>,
     >,
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
-    #[prop(into)] additional_item_actions: Signal<Vec<Rc<Box<dyn CrudActionTrait>>>>,
+    #[prop(into)] additional_item_actions: Signal<Vec<Arc<Box<dyn CrudActionTrait>>>>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,

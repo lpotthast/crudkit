@@ -29,7 +29,7 @@ pub enum IdValue {
 /// The generated enum variants all carry a single value of the type of their original struct-field.
 ///
 /// A `Vec<dyn IdField>` could represent a dynamic entity ID.
-pub trait IdField: Debug + Display + DynClone {
+pub trait IdField: Debug + Display + DynClone + Send + Sync {
     /// The name of this field in its type.
     fn name(&self) -> &'static str;
     /// The value of the field.
@@ -42,7 +42,9 @@ dyn_clone::clone_trait_object!(IdField);
 /// Id's might be used as keys in data structures, as they are guaranteed to be Eq, Ord and Hash!
 ///
 /// You might want to generate a type-erased `SerializableId` using `into_serializable_id`.
-pub trait Id: Debug + Display + DynClone + PartialEq + Eq + Hash + PartialOrd + Ord {
+pub trait Id:
+    Debug + Display + DynClone + PartialEq + Eq + Hash + PartialOrd + Ord + Send + Sync
+{
     /// This might be an enum, providing all possible fields.
     type Field: IdField + Sized;
     type FieldIter: Iterator<Item = Self::Field>;

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crudkit_web::{CrudDataTrait, CrudSimpleView, Elem, Enclosing, FieldMode, TabId, Value};
 use leptonic::components::prelude::*;
-use leptos::*;
+use leptos::prelude::*;
 
 use crate::{
     crud_field::CrudField, crud_instance_config::DynSelectConfig, prelude::CustomFields,
@@ -13,16 +13,16 @@ use crate::{
 
 #[component]
 pub fn CrudFields<T>(
-    custom_fields: Signal<CustomFields<T, leptos::View>>,
+    custom_fields: Signal<CustomFields<T>>,
     field_config: Signal<HashMap<T::Field, DynSelectConfig>>,
     api_base_url: Signal<String>,
-    #[prop(into)] elements: MaybeSignal<Vec<Elem<T>>>,
+    #[prop(into)] elements: Signal<Vec<Elem<T>>>,
     #[prop(into)] signals: StoredValue<HashMap<T::Field, ReactiveValue>>,
     mode: FieldMode,
     current_view: CrudSimpleView,
     value_changed: Callback<(T::Field, Result<Value, String>)>,
     // active_tab: Option<Label>,
-    on_tab_selection: Callback<TabId>,
+    on_tab_selection: Callback<(TabId,)>,
 ) -> impl IntoView
 where
     T: CrudDataTrait + 'static,
@@ -50,7 +50,7 @@ where
                                     on_tab_selection=on_tab_selection.clone()
                                 />
                             }
-                            .into_view(),
+                            .into_any(),
                             Enclosing::Tabs(tabs) => view! {
                                 <Tabs>
                                     // active_tab={ctx.props().active_tab.clone()}
@@ -63,9 +63,9 @@ where
                                             view! {
                                                 <Tab
                                                     name=tab.id
-                                                    label=tab.label.name.clone().into_view()
+                                                    label=move || tab.label.name.clone()
                                                     on_show=move |()| {
-                                                        on_tab_selection1.call(id.clone())
+                                                        on_tab_selection1.run((id.clone(),))
                                                     }
                                                 >
                                                     <CrudFields
@@ -82,11 +82,11 @@ where
                                                     />
                                                 </Tab>
                                             }
-                                        })
-                                        .collect_view()}
+                                        }).collect_view()
+                                    }
                                 </Tabs>
                             }
-                            .into_view(),
+                            .into_any(),
                             Enclosing::Card(group) => view! {
                                 <div class="crud-card">
                                     <CrudFields
@@ -103,7 +103,7 @@ where
                                     />
                                 </div>
                             }
-                            .into_view(),
+                            .into_any(),
                         }
                     }
                     Elem::Field((field, field_options)) => view! {
@@ -122,8 +122,8 @@ where
                             value_changed=value_changed
                         />
                     }
-                    .into_view(),
-                    Elem::Separator => view! { <Separator/> }.into_view(),
+                    .into_any(),
+                    Elem::Separator => view! { <Separator/> }.into_any(),
                 }
             })
             .collect_view()

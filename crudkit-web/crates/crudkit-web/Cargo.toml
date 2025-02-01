@@ -17,6 +17,8 @@ derive-crud-selectable = { path = "../derive-crud-selectable" }
 derive-field = { path = "../derive-field" }
 derive-field-value = { path = "../derive-field-value" }
 
+send_wrapper = "0.6.0"
+leptos-keycloak-auth = "0.4.1"
 async-trait = "0.1.71"
 derive_more = "0.99.17"
 dyn-clone = "1.0.12"

@@ -1,18 +1,18 @@
-use leptonic::prelude::*;
 use leptonic::components::prelude::*;
-use leptos::*;
+use leptonic::prelude::*;
+use leptos::prelude::*;
 
 #[component]
 pub fn CrudLeaveModal(
     #[prop(into)] show_when: Signal<bool>,
-    #[prop(into)] on_cancel: Producer<()>,
-    #[prop(into)] on_accept: Producer<()>,
+    #[prop(into)] on_cancel: Callback<(), ()>,
+    #[prop(into)] on_accept: Callback<(), ()>,
 ) -> impl IntoView {
     let g_keyboard_event: GlobalKeyboardEvent = expect_context::<GlobalKeyboardEvent>();
-    create_effect(move |_old| {
+    Effect::new(move |_old| {
         if let Some(e) = g_keyboard_event.read_signal.get() {
             if show_when.get_untracked() && e.key().as_str() == "Escape" {
-                on_cancel.call(());
+                on_cancel.run(());
             }
         }
     });
@@ -23,7 +23,7 @@ pub fn CrudLeaveModal(
                 <ModalTitle>"Ungespeicherte Änderungen"</ModalTitle>
             </ModalHeader>
 
-            <ModalBody style="text-align: center;">
+            <ModalBody attr:style="text-align: center;">
                 "Du hast deine Änderungen noch nicht gespeichert." <br/> "Möchtest du den Bereich wirklich verlassen?"
                 <br/> "Ungespeicherte Änderungen gehen verloren!"
             </ModalBody>
@@ -35,13 +35,13 @@ pub fn CrudLeaveModal(
                             <ButtonWrapper>
                                 <Button
                                     color=ButtonColor::Secondary
-                                    on_press=move |_| on_cancel.call(())
+                                    on_press=move |_| on_cancel.run(())
                                 >
                                     "Zurück"
                                 </Button>
                                 <Button
                                     color=ButtonColor::Warn
-                                    on_press=move |_| on_accept.call(())
+                                    on_press=move |_| on_accept.run(())
                                 >
                                     "Verlassen"
                                 </Button>

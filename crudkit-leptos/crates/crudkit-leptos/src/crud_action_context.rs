@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crudkit_web::CrudMainTrait;
-use leptos::*;
+use leptos::prelude::*;
 
 use crate::{crud_action::CrudActionAftermath, crud_instance::CrudInstanceContext};
 
@@ -23,10 +23,10 @@ impl<T: CrudMainTrait> Copy for CrudActionContext<T> {}
 impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
     pub fn new() -> Self {
         // Stores the actions for which execution was requested by the user.
-        let (actions_requested, set_actions_requested) = create_signal(Vec::<ActionId>::new());
+        let (actions_requested, set_actions_requested) = signal(Vec::<ActionId>::new());
 
         // Stores the actions which are currently executing. This allows us to not let a user execute an action while it is already executing.
-        let (actions_executing, set_actions_executing) = create_signal(Vec::<ActionId>::new());
+        let (actions_executing, set_actions_executing) = signal(Vec::<ActionId>::new());
 
         Self {
             phantom: PhantomData::<T>::default(),
@@ -112,7 +112,7 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             instance_ctx.handle_action_outcome(outcome);
         });
 
-        action.call((action_payload, finish_handler));
+        action.run((action_payload, finish_handler));
     }
 
     pub fn trigger_entity_action(
@@ -158,6 +158,6 @@ impl<T: CrudMainTrait + 'static> CrudActionContext<T> {
             instance_ctx.handle_action_outcome(outcome);
         });
 
-        action.call((entity, action_payload, finish_handler));
+        action.run((entity, action_payload, finish_handler));
     }
 }

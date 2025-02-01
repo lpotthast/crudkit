@@ -1,19 +1,3 @@
-use std::{collections::HashMap, marker::PhantomData};
-
-use crudkit_condition::{merge_conditions, Condition, IntoAllEqualCondition};
-use crudkit_id::{Id, IdField};
-use crudkit_shared::{SaveResult, Saved};
-use crudkit_web::{
-    prelude::{CrudRestDataProvider, ReadOne, UpdateOne},
-    requests::RequestError,
-    CrudDataTrait, CrudFieldValueTrait, CrudMainTrait, CrudSimpleView, DeletableModel, Elem,
-    FieldMode, TabId, Value,
-};
-use leptonic::prelude::*;
-use leptonic::components::prelude::*;
-use leptos::*;
-use uuid::Uuid;
-
 use crate::{
     crud_action::{CrudEntityAction, States},
     crud_action_buttons::CrudActionButtons,
@@ -26,13 +10,19 @@ use crate::{
     prelude::CustomUpdateFields,
     IntoReactiveValue, ReactiveValue,
 };
-
-#[derive(Debug, Clone, PartialEq)]
-struct EntityReq<T: CrudMainTrait + 'static> {
-    condition: Option<Condition>,
-    reload: Uuid,
-    data_provider: CrudRestDataProvider<T>,
-}
+use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
+use crudkit_id::{Id, IdField};
+use crudkit_shared::{SaveResult, Saved};
+use crudkit_web::{
+    prelude::{CrudRestDataProvider, ReadOne, UpdateOne},
+    requests::RequestError,
+    CrudDataTrait, CrudFieldValueTrait, CrudMainTrait, CrudSimpleView, DeletableModel, Elem,
+    FieldMode, TabId, Value,
+};
+use leptonic::components::prelude::*;
+use leptonic::prelude::*;
+use leptos::prelude::*;
+use std::{collections::HashMap, marker::PhantomData};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Then {
@@ -59,17 +49,17 @@ pub fn CrudEditView<T>(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
     #[prop(into)] actions: Signal<Vec<CrudEntityAction<T>>>,
     #[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
-    #[prop(into)] custom_fields: Signal<CustomUpdateFields<T, leptos::View>>,
+    #[prop(into)] custom_fields: Signal<CustomUpdateFields<T>>,
     #[prop(into)] field_config: Signal<
         HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>,
     >,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
-    #[prop(into)] on_entity_updated: Callback<Saved<T::UpdateModel>>,
-    #[prop(into)] on_entity_update_aborted: Callback<String>,
+    #[prop(into)] on_entity_updated: Callback<(Saved<T::UpdateModel>,)>,
+    #[prop(into)] on_entity_update_aborted: Callback<(String,)>,
     #[prop(into)] on_entity_not_updated_critical_errors: Callback<()>,
-    #[prop(into)] on_entity_update_failed: Callback<RequestError>,
-    #[prop(into)] on_tab_selected: Callback<TabId>,
+    #[prop(into)] on_entity_update_failed: Callback<(RequestError,)>,
+    #[prop(into)] on_tab_selected: Callback<(TabId,)>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
@@ -77,55 +67,51 @@ where
     let instance_ctx = expect_context::<CrudInstanceContext<T>>();
 
     // The input is `None`, if the `entity` was not yet loaded. After the entity is loaded for the first time,
-    // the this signal becomes a copy of the current (loaded) entity state.
+    // then this signal becomes a copy of the current (loaded) entity state.
     // We cannot use a `Default` value. The UpdateModel type may contain fields for which no default is available.
     // All modifications made through the UI are stored in this signal.
-    let (input, set_input) = create_signal(Option::<T::UpdateModel>::None);
+    let (input, set_input) = signal(Option::<T::UpdateModel>::None);
 
-    let entity_resource = create_local_resource(
-        move || {
-            tracing::debug!("entity_req");
-            let id = id.get();
-            let equals_id_condition =
-                <T as CrudMainTrait>::UpdateModelId::fields_iter(&id) // TODO: This is complex and requires several use statements. Should be made easier.
-                    .map(|field| (field.name().to_owned(), field.to_value()))
-                    .into_all_equal_condition();
-            EntityReq {
+    // TODO: Do not use LocalResouce, allow loading on server.
+    let entity_resource = LocalResource::new(move || async move {
+        tracing::debug!("entity_req");
+        let id = id.get();
+        let equals_id_condition =
+            <T as CrudMainTrait>::UpdateModelId::fields_iter(&id) // TODO: This is complex and requires several use statements. Should be made easier.
+                .map(|field| (field.name().to_owned(), field.to_value()))
+                .into_all_equal_condition();
+
+        let _ = instance_ctx.reload.get();
+
+        data_provider
+            .read()
+            .read_one(ReadOne {
+                skip: None,
+                order_by: None,
                 condition: merge_conditions(
                     instance_ctx.base_condition.get(),
                     Some(equals_id_condition),
                 ),
-                reload: instance_ctx.reload.get(),
-                data_provider: data_provider.get(),
-            }
-        },
-        move |req| async move {
-            req.data_provider
-                .read_one(ReadOne {
-                    skip: None,
-                    order_by: None,
-                    condition: req.condition,
-                })
-                .await
-        },
-    );
+            })
+            .await
+    });
 
     // Stores the current state of the entity or an error, if no entity could be fetched.
     // Until the initial fetch request is completed, this is in the `Err(NoDataAvailable::NotYetLoaded` state!
-    let (entity, set_entity) = create_signal(Result::<T::UpdateModel, NoDataAvailable>::Err(
+    let (entity, set_entity) = signal(Result::<T::UpdateModel, NoDataAvailable>::Err(
         NoDataAvailable::NotYetLoaded,
     ));
 
-    let (signals, set_sig) = create_signal::<
-        StoredValue<HashMap<<T::UpdateModel as CrudDataTrait>::Field, ReactiveValue>>,
-    >(store_value(HashMap::new()));
+    let (signals, set_sig) = signal(StoredValue::<
+        HashMap<<T::UpdateModel as CrudDataTrait>::Field, ReactiveValue>,
+    >::new(HashMap::new()));
 
     // Update the `entity` signal whenever we fetched a new version of the edited entity.
-    create_effect(move |_prev| {
+    Effect::new(move |_prev| {
         set_entity.set(match entity_resource.get() {
             Some(result) => {
                 tracing::info!("loaded entity data");
-                match result {
+                match result.take() {
                     Ok(data) => match data {
                         Some(data) => {
                             let update_model = data.into();
@@ -136,7 +122,7 @@ where
                                     let initial = field.get_value(&update_model);
                                     map.insert(field, initial.into_reactive_value());
                                 }
-                                store_value(map)
+                                StoredValue::new(map)
                             });
 
                             // Copying the loaded entity data to be our current final input.
@@ -161,32 +147,32 @@ where
     });
 
     // The state of the `input` signal should be considered to be erroneous if at least one field is contained in this error list.
-    let (input_errors, set_input_errors) =
-        create_signal(HashMap::<<T::UpdateModel as CrudDataTrait>::Field, String>::new());
+    let (_input_errors, set_input_errors) =
+        signal(HashMap::<<T::UpdateModel as CrudDataTrait>::Field, String>::new());
 
-    let (user_wants_to_leave, set_user_wants_to_leave) = create_signal(false);
-    let (show_leave_modal, set_show_leave_modal) = create_signal(false);
+    let (user_wants_to_leave, set_user_wants_to_leave) = signal(false);
+    let (show_leave_modal, set_show_leave_modal) = signal(false);
 
     let on_list_view_clone = on_list_view.clone();
-    let force_leave = Callback::new(move |()| on_list_view_clone.call(()));
+    let force_leave = Callback::new(move |()| on_list_view_clone.run(()));
     let request_leave = move || set_user_wants_to_leave.set(true);
 
-    create_effect(
+    Effect::new(
         move |_prev| match (user_wants_to_leave.get(), input_changed.get()) {
             (true, true) => set_show_leave_modal.set(true),
-            (true, false) => force_leave.call(()),
+            (true, false) => force_leave.run(()),
             (false, _) => {}
         },
     );
 
     let save_action =
-        create_action(move |(entity, and_then): &(T::UpdateModel, Then)| {
+        Action::new_local(move |(entity, and_then): &(T::UpdateModel, Then)| {
             let entity: <T as CrudMainTrait>::UpdateModel = entity.clone();
             let and_then = and_then.clone();
             async move {
                 (
                     data_provider
-                        .get() // TODO: This does not track!!
+                        .read()
                         .update_one(UpdateOne {
                             entity: entity.clone(),
                             condition:
@@ -213,25 +199,25 @@ where
         Signal::derive(move || save_action.pending().get() || input.get().is_none());
 
     let save_action_value = save_action.value();
-    create_effect(move |_prev| {
+    Effect::new(move |_prev| {
         if let Some((result, and_then)) = save_action_value.get() {
             match result {
                 Ok(save_result) => match save_result {
                     SaveResult::Saved(saved) => {
                         set_entity.set(Ok(saved.entity.clone()));
-                        on_entity_updated.call(saved);
+                        on_entity_updated.run((saved,));
                         match and_then {
                             Then::DoNothing => {}
-                            Then::OpenListView => on_list_view.call(()),
-                            Then::OpenCreateView => on_create_view.call(()),
+                            Then::OpenListView => on_list_view.run(()),
+                            Then::OpenCreateView => on_create_view.run(()),
                         }
                     }
                     SaveResult::Aborted { reason } => {
-                        on_entity_update_aborted.call(reason);
+                        on_entity_update_aborted.run((reason,));
                     }
                     SaveResult::CriticalValidationErrors => {
                         tracing::info!("Entity was not updated due to critical validation errors.");
-                        on_entity_not_updated_critical_errors.call(());
+                        on_entity_not_updated_critical_errors.run(());
                     }
                 },
                 Err(request_error) => {
@@ -240,7 +226,7 @@ where
                         "Could not update entity due to RequestError: {}",
                         request_error.to_string()
                     );
-                    on_entity_update_failed.call(request_error);
+                    on_entity_update_failed.run((request_error,));
                 }
             }
         }
@@ -296,35 +282,35 @@ where
                 view! {
                     {move || {
                         view! {
-                            <Grid gap=Size::Em(0.6) class="crud-nav">
+                            <Grid gap=Size::Em(0.6) attr:class="crud-nav">
                                 <Row>
                                     <Col xs=6>
                                         <ButtonWrapper>
                                             <Button
                                                 color=ButtonColor::Primary
                                                 disabled=save_disabled
-                                                on_press=move |_| trigger_save()
+                                                on_press=move |_| { trigger_save(); }
                                             >
                                                 "Speichern"
                                             </Button>
                                             <Button
                                                 color=ButtonColor::Primary
                                                 disabled=save_disabled
-                                                on_press=move |_| trigger_save_and_return()
+                                                on_press=move |_| { trigger_save_and_return(); }
                                             >
                                                 "Speichern und zurück"
                                             </Button>
                                             <Button
                                                 color=ButtonColor::Primary
                                                 disabled=save_disabled
-                                                on_press=move |_| trigger_save_and_new()
+                                                on_press=move |_| { trigger_save_and_new(); }
                                             >
                                                 "Speichern und neu"
                                             </Button>
                                             <Button
                                                 color=ButtonColor::Danger
                                                 disabled=delete_disabled
-                                                on_press=move |_| trigger_delete()
+                                                on_press=move |_| { trigger_delete(); }
                                             >
                                                 "Löschen"
                                             </Button>
@@ -363,15 +349,15 @@ where
                         // active_tab={ctx.props().config.active_tab.clone()}
                         on_tab_selection=on_tab_selected.clone()
                     />
-                }.into_view()
+                }.into_any()
             }
             (Err(no_data), _) => {
                 view! {
-                    <Grid gap=Size::Em(0.6) class="crud-nav">
+                    <Grid gap=Size::Em(0.6) attr:class="crud-nav">
                         <Row>
                             <Col h_align=ColAlign::End>
                                 <ButtonWrapper>
-                                    <Button color=ButtonColor::Secondary on_press=move |_| force_leave.call(())>
+                                    <Button color=ButtonColor::Secondary on_press=move |_| force_leave.run(())>
                                         <span style="text-decoration: underline;">{"L"}</span>
                                         {"istenansicht"}
                                     </Button>
@@ -380,7 +366,7 @@ where
                         </Row>
                     </Grid>
                     <NoDataAvailable no_data/>
-                }.into_view()
+                }.into_any()
             }
         }}
 
@@ -392,7 +378,7 @@ where
             }
             on_accept=move || {
                 set_show_leave_modal.set(false);
-                force_leave.call(());
+                force_leave.run(());
             }
         />
     }

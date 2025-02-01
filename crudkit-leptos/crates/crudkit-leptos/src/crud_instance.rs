@@ -5,7 +5,7 @@ use crudkit_shared::{DeleteResult, Order};
 use crudkit_web::{prelude::*, TabId};
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
-use leptos::*;
+use leptos::prelude::*;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -177,7 +177,7 @@ impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
     }
 }
 
-// TODO: create_effect over all signals in config, bundle, serialize and store...
+// TODO: Effect::new over all signals in config, bundle, serialize and store...
 
 #[component]
 pub fn CrudInstance<T>(
@@ -215,8 +215,8 @@ pub fn CrudInstance<T>(
 where
     T: CrudMainTrait + 'static,
 {
-    let (api_base_url, set_api_base_url) = create_signal(config.api_base_url.clone());
-    let (view, set_view) = create_signal(config.view.clone());
+    let (api_base_url, set_api_base_url) = signal(config.api_base_url.clone());
+    let (view, set_view) = signal(config.view.clone());
     // TODO: As memo?
     let serializable_view = Signal::<SerializableCrudView>::derive(move || view.get().into());
 
@@ -229,10 +229,10 @@ where
         },
     );
 
-    let (headers, set_headers) = create_signal(config.headers.clone());
-    let (current_page, set_current_page) = create_signal(config.page.clone());
-    let (items_per_page, set_items_per_page) = create_signal(config.items_per_page.clone());
-    let (order_by, set_order_by) = create_signal(config.order_by.clone());
+    let (headers, set_headers) = signal(config.headers.clone());
+    let (current_page, set_current_page) = signal(config.page.clone());
+    let (items_per_page, set_items_per_page) = signal(config.items_per_page.clone());
+    let (order_by, set_order_by) = signal(config.order_by.clone());
 
     fn get_parent_id(
         parent: &CrudParentConfig,
@@ -251,7 +251,7 @@ where
         }
     }
 
-    let parent = store_value(parent);
+    let parent = StoredValue::new(parent);
     let parent_id = Signal::derive(move || {
         parent
             .get_value()
@@ -286,14 +286,16 @@ where
             base_condition.clone(),
         )
     });
-    let (create_elements, set_create_elements) = create_signal(config.create_elements.clone());
-    let (update_elements, set_update_elements) = create_signal(config.elements.clone());
-    let (deletion_request, set_deletion_request) = create_signal(None);
-    let (reload, set_reload) = create_signal(Uuid::new_v4());
+    let (create_elements, set_create_elements) = signal(config.create_elements.clone());
+    let (update_elements, set_update_elements) = signal(config.elements.clone());
+    let (deletion_request, set_deletion_request) = signal(None);
+    let (reload, set_reload) = signal(Uuid::new_v4());
 
-    let default_config = store_value(config);
+    let default_config = StoredValue::new(config);
 
-    let data_provider = create_memo(move |_| CrudRestDataProvider::<T>::new(api_base_url.get()));
+    let data_provider = Signal::derive(move || {
+        CrudRestDataProvider::<T>::new(api_base_url.get(), static_config.reqwest_executor.clone())
+    });
 
     // ctx is copy. But is it efficient? Do we want to put this into a stored value instead?
     let ctx = CrudInstanceContext::<T> {
@@ -317,7 +319,7 @@ where
     };
     provide_context(ctx);
     if let Some(on_context_created) = on_context_created {
-        on_context_created.call(ctx)
+        on_context_created.run(ctx)
     }
 
     let custom_read_fields = Signal::derive(move || static_config.custom_read_fields.clone());
@@ -342,7 +344,7 @@ where
     let on_accept_delete = Callback::new(
         move |entity: DeletableModel<T::ReadModel, T::UpdateModel>| {
             // TODO: A create_action_once could save us a clone...
-            let action = create_action(move |_data: &()| {
+            let action = Action::new_local(move |_data: &()| {
                 let id = match &entity {
                     DeletableModel::Read(entity) => entity.get_id().into_serializable_id(),
                     DeletableModel::Update(entity) => entity.get_id().into_serializable_id(),
@@ -357,7 +359,7 @@ where
             action.dispatch(());
 
             let value = action.value();
-            create_effect(move |_prev| {
+            Effect::new(move |_prev| {
                 if let Some(result) = value.get() {
                     // The delete operation was performed and must therefore no longer be requested.
                     set_deletion_request.set(None);
@@ -374,15 +376,16 @@ where
                                         id: Uuid::new_v4(),
                                         created_at: OffsetDateTime::now_utc(),
                                         variant: ToastVariant::Success,
-                                        header: "Löschen".into_view(),
-                                        body: format!(
-                                            "{num} {} erfolgreich gelöscht.",
-                                            match num {
-                                                1 => "Eintrag",
-                                                _ => "Einträge",
-                                            }
-                                        )
-                                        .into_view(),
+                                        header: ViewFn::from(|| "Löschen"),
+                                        body: ViewFn::from(move || {
+                                            format!(
+                                                "{num} {} erfolgreich gelöscht.",
+                                                match num {
+                                                    1 => "Eintrag",
+                                                    _ => "Einträge",
+                                                }
+                                            )
+                                        }),
                                         timeout: ToastTimeout::DefaultDelay,
                                     })
                                 }
@@ -392,9 +395,10 @@ where
                                         id: Uuid::new_v4(),
                                         created_at: OffsetDateTime::now_utc(),
                                         variant: ToastVariant::Warn,
-                                        header: "Delete".into_view(),
-                                        body: format!("Löschvorgang abgebrochen. Grund: {reason}")
-                                            .into_view(),
+                                        header: ViewFn::from(|| "Delete"),
+                                        body: ViewFn::from(move || {
+                                            format!("Löschvorgang abgebrochen. Grund: {reason}")
+                                        }),
                                         timeout: ToastTimeout::DefaultDelay,
                                     }),
                                 DeleteResult::CriticalValidationErrors => {
@@ -402,8 +406,8 @@ where
                                         id: Uuid::new_v4(),
                                         created_at: OffsetDateTime::now_utc(),
                                         variant: ToastVariant::Error,
-                                        header: "Delete".into_view(),
-                                        body: format!("{delete_result:#?}").into_view(),
+                                        header: ViewFn::from(|| "Delete"),
+                                        body: ViewFn::from(move || format!("{delete_result:#?}")),
                                         timeout: ToastTimeout::DefaultDelay,
                                     })
                                 }
@@ -415,8 +419,10 @@ where
                                 id: Uuid::new_v4(),
                                 created_at: OffsetDateTime::now_utc(),
                                 variant: ToastVariant::Error,
-                                header: "Delete".into_view(),
-                                body: format!("Konnte Eintrag nicht Löschen: {err:#?}").into_view(),
+                                header: ViewFn::from(|| "Delete"),
+                                body: ViewFn::from(move || {
+                                    format!("Konnte Eintrag nicht Löschen: {err:#?}")
+                                }),
                                 timeout: ToastTimeout::DefaultDelay,
                             });
                             ctx.reload()
@@ -431,85 +437,77 @@ where
         <div class="crud-instance">
             <div class="body">
                 {move || match view.get() {
-                    CrudView::List => {
-                        view! {
-                            <CrudListView
-                                api_base_url=api_base_url
-                                data_provider=data_provider
-                                headers=headers
-                                order_by=order_by
-                                custom_fields=custom_read_fields
-                                field_config=read_field_config
-                                actions=actions
-                            />
-                        }.into_view()
-                    }
-                    CrudView::Create => {
-                        view! {
-                            <CrudCreateView
-                                _phantom={PhantomData::<T>::default()}
-                                api_base_url=api_base_url
-                                data_provider=data_provider
-                                create_elements=create_elements
-                                custom_fields=custom_create_fields
-                                field_config=create_field_config
-                                on_edit_view=move |id| ctx.edit(id)
-                                on_list_view=move |()| ctx.list()
-                                on_create_view=move |()| ctx.create()
-                                on_entity_created=move |saved| {}
-                                on_entity_creation_aborted=move |reason| {}
-                                on_entity_not_created_critical_errors=move |()| {}
-                                on_entity_creation_failed=move |request_error| {}
-                                on_tab_selected=move |tab_id| {
-                                    ctx.tab_selected(tab_id)
-                                }
-                            />
-                        }.into_view()
-                    }
-                    CrudView::Read(id) => {
-                        view! {
-                            <CrudReadView
-                                _phantom={PhantomData::<T>::default()}
-                                api_base_url=api_base_url
-                                // TODO: This cant be good...
-                                id=Signal::derive(move || id.clone())
-                                data_provider=data_provider
-                                actions=entity_actions
-                                elements=update_elements
-                                custom_fields=custom_update_fields
-                                field_config=update_field_config
-                                on_list_view=move |()| ctx.list()
-                                on_tab_selected=move |tab_id| {
-                                    ctx.tab_selected(tab_id)
-                                }
-                            />
-                        }.into_view()
-                    }
-                    CrudView::Edit(id) => {
-                        view! {
+                    CrudView::List => view! {
+                        <CrudListView
+                            api_base_url=api_base_url
+                            data_provider=data_provider
+                            headers=headers
+                            order_by=order_by
+                            custom_fields=custom_read_fields
+                            field_config=read_field_config
+                            actions=actions
+                        />
+                    }.into_any(),
+                    CrudView::Create => view! {
+                        <CrudCreateView
+                            _phantom={PhantomData::<T>::default()}
+                            api_base_url=api_base_url
+                            data_provider=data_provider
+                            create_elements=create_elements
+                            custom_fields=custom_create_fields
+                            field_config=create_field_config
+                            on_edit_view=move |id| ctx.edit(id)
+                            on_list_view=move || ctx.list()
+                            on_create_view=move || ctx.create()
+                            on_entity_created=move |saved| {}
+                            on_entity_creation_aborted=move |reason| {}
+                            on_entity_not_created_critical_errors=move || {}
+                            on_entity_creation_failed=move |request_error| {}
+                            on_tab_selected=move |tab_id| {
+                                ctx.tab_selected(tab_id)
+                            }
+                        />
+                    }.into_any(),
+                    CrudView::Read(id) => view! {
+                        <CrudReadView
+                            _phantom={PhantomData::<T>::default()}
+                            api_base_url=api_base_url
                             // TODO: This cant be good...
-                            <CrudEditView
-                                _phantom={PhantomData::<T>::default()}
-                                api_base_url=api_base_url
-                                // TODO: This cant be good...
-                                id=Signal::derive(move || id.clone())
-                                data_provider=data_provider
-                                actions=entity_actions
-                                elements=update_elements
-                                custom_fields=custom_update_fields
-                                field_config=update_field_config
-                                on_list_view=move |()| ctx.list()
-                                on_create_view=move |()| ctx.create()
-                                on_entity_updated=move |saved| {}
-                                on_entity_update_aborted=move |reason| {}
-                                on_entity_not_updated_critical_errors=move |()| {}
-                                on_entity_update_failed=move |request_error| {}
-                                on_tab_selected=move |tab_id| {
-                                    ctx.tab_selected(tab_id)
-                                }
-                            />
-                        }.into_view()
-                    }
+                            id=Signal::derive(move || id.clone())
+                            data_provider=data_provider
+                            actions=entity_actions
+                            elements=update_elements
+                            custom_fields=custom_update_fields
+                            field_config=update_field_config
+                            on_list_view=move || ctx.list()
+                            on_tab_selected=move |tab_id| {
+                                ctx.tab_selected(tab_id)
+                            }
+                        />
+                    }.into_any(),
+                    CrudView::Edit(id) => view! {
+                        // TODO: This cant be good...
+                        <CrudEditView
+                            _phantom={PhantomData::<T>::default()}
+                            api_base_url=api_base_url
+                            // TODO: This cant be good...
+                            id=Signal::derive(move || id.clone())
+                            data_provider=data_provider
+                            actions=entity_actions
+                            elements=update_elements
+                            custom_fields=custom_update_fields
+                            field_config=update_field_config
+                            on_list_view=move || ctx.list()
+                            on_create_view=move || ctx.create()
+                            on_entity_updated=move |saved| {}
+                            on_entity_update_aborted=move |reason| {}
+                            on_entity_not_updated_critical_errors=move || {}
+                            on_entity_update_failed=move |request_error| {}
+                            on_tab_selected=move |tab_id| {
+                                ctx.tab_selected(tab_id)
+                            }
+                        />
+                    }.into_any(),
                 }}
                 <CrudDeleteModal
                     _phantom={PhantomData::<T>::default()}

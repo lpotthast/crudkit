@@ -1,16 +1,16 @@
 use std::{borrow::Cow, fmt::Display};
 
-use leptonic::prelude::*;
 use leptonic::components::prelude::*;
-use leptos::*;
+use leptonic::prelude::*;
+use leptos::prelude::*;
 
 #[component]
 pub fn CrudPagination(
-    #[prop(into)] item_count: MaybeSignal<u64>,
+    #[prop(into)] item_count: Signal<u64>,
     #[prop(into)] current_page: Signal<u64>,
-    #[prop(into)] set_current_page: Callback<u64>,
-    #[prop(into, default = 5.into())] items_per_page: MaybeSignal<u64>,
-    #[prop(into)] set_items_per_page: Callback<u64>,
+    #[prop(into)] set_current_page: Callback<(u64,)>,
+    #[prop(into, default = 5.into())] items_per_page: Signal<u64>,
+    #[prop(into)] set_items_per_page: Callback<(u64,)>,
 ) -> impl IntoView {
     let page_count = Signal::derive(move || {
         (item_count.get() as f64 / items_per_page.get() as f64).ceil() as u64
@@ -43,18 +43,18 @@ pub fn CrudPagination(
     });
 
     let set_items_per_page = Callback::new(move |option: ItemsPerPage| {
-        set_items_per_page.call(option.items_per_page);
+        set_items_per_page.run((option.items_per_page,));
 
         // We may have to update the current page as well if it would not show any element anymore!
         let new_page_count = (item_count.get() as f64 / option.items_per_page as f64).ceil() as u64;
         if current_page.get_untracked() > new_page_count {
-            set_current_page.call(new_page_count);
+            set_current_page.run((new_page_count,));
         }
     });
 
     view! {
         <Show when=move || { item_count.get() > 0 } fallback=|| ()>
-            <Grid gap=Size::Em(0.6) class="crud-pagination">
+            <Grid gap=Size::Em(0.6) attr:class="crud-pagination">
                 <Row>
                     <Col xs=6 h_align=ColAlign::Start>
                         <div class="items-per-page-selector">
@@ -62,7 +62,7 @@ pub fn CrudPagination(
                             <Select
                                 options=items_per_page_options
                                 search_text_provider=move |o: ItemsPerPage| { o.to_string() }
-                                render_option=move |o: ItemsPerPage| o.to_string().into_view()
+                                render_option=move |o: ItemsPerPage| o.to_string().into_any()
                                 selected=Signal::derive(move || ItemsPerPage::some(items_per_page.get()))
                                 set_selected=set_items_per_page
                             />
@@ -88,7 +88,7 @@ pub fn CrudPagination(
                                                 //)
                                                 on_press=move |_| {
                                                     if let Some(number) = page_number {
-                                                        set_current_page.call(number)
+                                                        set_current_page.run((number,))
                                                     }
                                                 }
                                             >

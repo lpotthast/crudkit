@@ -1,14 +1,3 @@
-use std::{collections::HashMap, marker::PhantomData, rc::Rc};
-
-use crudkit_condition::Condition;
-use crudkit_shared::Order;
-use crudkit_web::prelude::*;
-use indexmap::IndexMap;
-use leptonic::prelude::*;
-use leptonic::components::prelude::*;
-use leptos::*;
-use uuid::Uuid;
-
 use crate::{
     crud_action::{CrudAction, ModalGeneration},
     crud_action_context::CrudActionContext,
@@ -18,8 +7,18 @@ use crate::{
     crud_table::NoDataAvailable,
     prelude::{CrudTable, CustomReadFields},
 };
+use crudkit_condition::Condition;
+use crudkit_shared::Order;
+use crudkit_web::prelude::*;
+use indexmap::IndexMap;
+use leptonic::components::prelude::*;
+use leptonic::prelude::*;
+use leptos::prelude::*;
+use std::sync::Arc;
+use std::{collections::HashMap, marker::PhantomData};
+use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 struct PageReq<T: CrudMainTrait + 'static> {
     reload: Uuid,
     order_by: IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>,
@@ -29,7 +28,7 @@ struct PageReq<T: CrudMainTrait + 'static> {
     data_provider: CrudRestDataProvider<T>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 struct CountReq<T: CrudMainTrait + 'static> {
     condition: Option<Condition>,
     reload: Uuid,
@@ -38,11 +37,11 @@ struct CountReq<T: CrudMainTrait + 'static> {
 
 #[derive(Debug, Clone)]
 pub struct CrudListViewContext<T: CrudMainTrait + 'static> {
-    pub data: Memo<Result<Rc<Vec<T::ReadModel>>, NoDataAvailable>>,
+    pub data: Memo<Result<Arc<Vec<T::ReadModel>>, NoDataAvailable>>,
     pub has_data: Signal<bool>,
 
-    pub selected: ReadSignal<Rc<Vec<T::ReadModel>>>,
-    set_selected: WriteSignal<Rc<Vec<T::ReadModel>>>,
+    pub selected: ReadSignal<Arc<Vec<T::ReadModel>>>,
+    set_selected: WriteSignal<Arc<Vec<T::ReadModel>>>,
     pub all_selected: Signal<bool>,
 }
 
@@ -59,7 +58,7 @@ impl<T: CrudMainTrait + 'static> CrudListViewContext<T> {
             } else {
                 // Deselect all
                 self.set_selected
-                    .update(|selected| *selected = Rc::new(Vec::new()));
+                    .update(|selected| *selected = Arc::new(Vec::new()));
             }
         } else {
             tracing::warn!("Tried to toggle_select_all when no data was present.");
@@ -80,7 +79,7 @@ impl<T: CrudMainTrait + 'static> CrudListViewContext<T> {
                 }
             }
 
-            *list = Rc::new(selected);
+            *list = Arc::new(selected);
         });
     }
 
@@ -96,7 +95,7 @@ impl<T: CrudMainTrait + 'static> CrudListViewContext<T> {
                 }
             }
 
-            *list = Rc::new(selected);
+            *list = Arc::new(selected);
         });
     }
 }
@@ -107,7 +106,7 @@ pub fn CrudListView<T>(
     #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
     #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
-    #[prop(into)] custom_fields: Signal<CustomReadFields<T, leptos::View>>,
+    #[prop(into)] custom_fields: Signal<CustomReadFields<T>>,
     #[prop(into)] field_config: Signal<
         HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>,
     >,
@@ -118,14 +117,14 @@ where
 {
     let instance_ctx = expect_context::<CrudInstanceContext<T>>();
 
-    let filter_open = create_rw_signal(false);
-    let filter = create_rw_signal(Option::<String>::None);
+    let filter_open = RwSignal::new(false);
+    let filter = RwSignal::new(Option::<String>::None);
 
     let read_allowed = Signal::derive(move || true);
     let edit_allowed = Signal::derive(move || true);
     let delete_allowed = Signal::derive(move || true);
 
-    let headers = create_memo(move |_prev| {
+    let headers = Memo::new(move |_prev| {
         headers
             .get()
             .iter()
@@ -134,65 +133,56 @@ where
     });
 
     // TODO: Investigate: After a fresh page load, the first change to one of the signals (items_per_page, ...) triggers an unexpected reload. source is not re-run.
-    let page_resource = create_local_resource(
-        move || {
-            let req = PageReq {
-                reload: instance_ctx.reload.get(),
-                order_by: instance_ctx.order_by.get(),
-                condition: instance_ctx.base_condition.get(),
-                page: instance_ctx.current_page.get(),
-                items_per_page: instance_ctx.items_per_page.get(),
-                data_provider: data_provider.get(),
-            };
-            tracing::debug!(?req, "source");
-            req
-        },
-        move |req| async move {
-            tracing::debug!(?req, "fetcher");
-            req.data_provider
-                .read_many(ReadMany {
-                    limit: Some(req.items_per_page),
-                    skip: Some(req.items_per_page * (req.page - 1)),
-                    order_by: Some(req.order_by),
-                    condition: req.condition,
-                })
-                .await
-        },
-    );
+    let page_resource = LocalResource::new(move || async move {
+        // TODO: optimize
+        let req = PageReq {
+            reload: instance_ctx.reload.get(),
+            order_by: instance_ctx.order_by.get(),
+            condition: instance_ctx.base_condition.get(),
+            page: instance_ctx.current_page.get(),
+            items_per_page: instance_ctx.items_per_page.get(),
+            data_provider: data_provider.get(),
+        };
 
-    let page = create_memo(move |_prev| match page_resource.get() {
+        tracing::debug!(?req, "fetcher");
+        req.data_provider
+            .read_many(ReadMany {
+                limit: Some(req.items_per_page),
+                skip: Some(req.items_per_page * (req.page - 1)),
+                order_by: Some(req.order_by),
+                condition: req.condition,
+            })
+            .await
+    });
+
+    let page = Memo::new(move |_prev| match page_resource.get() {
         Some(result) => {
             tracing::debug!("loaded list data");
-            match result {
-                Ok(data) => Ok(Rc::new(data)),
+            match result.take() {
+                Ok(data) => Ok(Arc::new(data)),
                 Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
             }
         }
         None => Err(NoDataAvailable::NotYetLoaded),
     });
 
-    let count_resource = create_local_resource(
-        move || {
-            tracing::debug!("count_req");
-            CountReq {
-                condition: instance_ctx.base_condition.get(),
-                reload: instance_ctx.reload.get(),
-                data_provider: data_provider.get(),
-            }
-        },
-        move |req| async move {
-            req.data_provider
-                .read_count(ReadCount {
-                    condition: req.condition,
-                })
-                .await
-        },
-    );
+    let count_resource = LocalResource::new(move || async move {
+        // TODO: optimize
+        tracing::debug!("count_req");
+        let req = CountReq {
+            condition: instance_ctx.base_condition.get(),
+            reload: instance_ctx.reload.get(),
+            data_provider: data_provider.get(),
+        };
 
-    let count: Signal<Option<Result<u64, RequestError>>> =
-        Signal::derive(move || count_resource.get());
+        req.data_provider
+            .read_count(ReadCount {
+                condition: req.condition,
+            })
+            .await
+    });
 
-    let (selected, set_selected) = create_signal(Rc::new(Vec::<T::ReadModel>::new()));
+    let (selected, set_selected) = signal(Arc::new(Vec::<T::ReadModel>::new()));
 
     provide_context(CrudListViewContext::<T> {
         data: page,
@@ -242,9 +232,9 @@ where
         {multiselect_info}
 
         // Pagination
-        {move || match count.get() {
+        {move || match count_resource.get() {
             Some(result) => {
-                match result {
+                match result.take() {
                     Ok(count) => {
                         Some(
                             view! {
@@ -255,12 +245,12 @@ where
                                     set_current_page=move |page_number| instance_ctx.set_page(page_number)
                                     set_items_per_page=move |item_count| instance_ctx.set_items_per_page(item_count)
                                 />
-                            }.into_view(),
+                            }.into_any(),
                         )
                     }
                     Err(reason) => {
                         Some(
-                            view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }.into_view(),
+                            view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }.into_any(),
                         )
                     }
                 }
@@ -282,7 +272,7 @@ where
     let instance_ctx = expect_context::<CrudInstanceContext<T>>();
     let action_ctx = CrudActionContext::<T>::new();
     view! {
-        <Grid gap=Size::Em(0.6) class="crud-nav">
+        <Grid gap=Size::Em(0.6) attr:class="crud-nav">
             <Row>
                 <Col xs=6>
                     <ButtonWrapper>
@@ -310,7 +300,7 @@ where
                                                 {name.clone()}
                                             </Button>
                                             {
-                                                modal_generator.call(ModalGeneration {
+                                                modal_generator.run(ModalGeneration {
                                                     show_when: Signal::derive(move || {
                                                         action_ctx.is_action_requested(id)
                                                     }),
@@ -321,7 +311,7 @@ where
                                                     }),
                                                 })
                                             }
-                                        }.into_view()
+                                        }.into_any()
                                     } else {
                                         let action = action.clone();
                                         view! {
@@ -335,7 +325,7 @@ where
                                                 {icon.map(|icon| view! { <Icon icon=icon/> })}
                                                 {name.clone()}
                                             </Button>
-                                        }.into_view()
+                                        }.into_any()
                                     }
                                 }
                             }
@@ -363,7 +353,6 @@ where
                                         }
                                     })
                             }}
-
                         </Button>
                     </ButtonWrapper>
                 </Col>

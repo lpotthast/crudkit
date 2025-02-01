@@ -191,10 +191,10 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
             ValueType::OneToOneRelation => quote! { entity.#field_ident = value.take_one_to_one_relation() },
             ValueType::Reference => {
-                quote! { tracing::warn!("Setting a 'reference' dummy field is not allowed") }
+                quote! { ::tracing::warn!("Setting a 'reference' dummy field is not allowed") }
             }
             ValueType::Custom => {
-                quote! { tracing::warn!("Setting a custom field is not allowed") }
+                quote! { ::tracing::warn!("Setting a custom field is not allowed") }
             }
         };
         quote! {

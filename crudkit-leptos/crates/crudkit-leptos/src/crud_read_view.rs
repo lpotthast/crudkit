@@ -1,15 +1,14 @@
 use std::{collections::HashMap, marker::PhantomData};
 
-use crudkit_condition::{merge_conditions, Condition, IntoAllEqualCondition};
+use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
 use crudkit_id::{Id, IdField};
 use crudkit_web::{
     prelude::{CrudRestDataProvider, ReadOne},
     CrudDataTrait, CrudFieldValueTrait, CrudMainTrait, CrudSimpleView, Elem, FieldMode, TabId,
 };
-use leptonic::prelude::*;
 use leptonic::components::prelude::*;
-use leptos::*;
-use uuid::Uuid;
+use leptonic::prelude::*;
+use leptos::prelude::*;
 
 use crate::{
     crud_action_buttons::CrudActionButtons,
@@ -17,16 +16,9 @@ use crate::{
     crud_instance::CrudInstanceContext,
     crud_instance_config::DynSelectConfig,
     crud_table::NoDataAvailable,
-    prelude::{CrudActionContext, CrudEntityAction, States, CustomUpdateFields},
+    prelude::{CrudActionContext, CrudEntityAction, CustomUpdateFields, States},
     IntoReactiveValue, ReactiveValue,
 };
-
-#[derive(Debug, Clone, PartialEq)]
-struct EntityReq<T: CrudMainTrait + 'static> {
-    condition: Option<Condition>,
-    reload: Uuid,
-    data_provider: CrudRestDataProvider<T>,
-}
 
 #[component]
 pub fn CrudReadView<T>(
@@ -38,63 +30,56 @@ pub fn CrudReadView<T>(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
     #[prop(into)] actions: Signal<Vec<CrudEntityAction<T>>>,
     #[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
-    #[prop(into)] custom_fields: Signal<CustomUpdateFields<T, leptos::View>>,
+    #[prop(into)] custom_fields: Signal<CustomUpdateFields<T>>,
     #[prop(into)] field_config: Signal<
         HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>,
     >,
     #[prop(into)] on_list_view: Callback<()>,
-    #[prop(into)] on_tab_selected: Callback<TabId>,
+    #[prop(into)] on_tab_selected: Callback<(TabId,)>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
 {
     let instance_ctx = expect_context::<CrudInstanceContext<T>>();
 
-    let entity_resource = create_local_resource(
-        move || {
-            tracing::debug!("entity_req");
-            let id = id.get();
-            let equals_id_condition =
-                <T as CrudMainTrait>::ReadModelId::fields_iter(&id) // TODO: This is complex and requires several use statements. Should be made easier.
-                    .map(|field| (field.name().to_owned(), field.to_value()))
-                    .into_all_equal_condition();
-            EntityReq {
+    let entity_resource = LocalResource::new(move || async move {
+        tracing::debug!("entity_req");
+        let _ = instance_ctx.reload.get();
+        let id = id.get();
+        let equals_id_condition =
+            <T as CrudMainTrait>::ReadModelId::fields_iter(&id) // TODO: This is complex and requires several use statements. Should be made easier.
+                .map(|field| (field.name().to_owned(), field.to_value()))
+                .into_all_equal_condition();
+        data_provider
+            .read()
+            .read_one(ReadOne {
+                skip: None,
+                order_by: None,
                 condition: merge_conditions(
                     instance_ctx.base_condition.get(),
                     Some(equals_id_condition),
                 ),
-                reload: instance_ctx.reload.get(),
-                data_provider: data_provider.get(),
-            }
-        },
-        move |req| async move {
-            req.data_provider
-                .read_one(ReadOne {
-                    skip: None,
-                    order_by: None,
-                    condition: req.condition,
-                })
-                .await
-        },
-    );
+            })
+            .await
+    });
 
     // Stores the current state of the entity or an error, if no entity could be fetched.
     // Until the initial fetch request is completed, this is in the `Err(NoDataAvailable::NotYetLoaded` state!
-    let (entity, set_entity) = create_signal(
-        Result::<ReadSignal<T::UpdateModel>, NoDataAvailable>::Err(NoDataAvailable::NotYetLoaded),
-    );
+    let (entity, set_entity) = signal(Result::<ReadSignal<T::UpdateModel>, NoDataAvailable>::Err(
+        NoDataAvailable::NotYetLoaded,
+    ));
 
     // TODO: Read and Edit view have some things in common, like loading the current entity and creating the signals map. Can this be simplified or extracted?
-    let (signals, set_sig) = create_signal::<
+    let (signals, set_sig) = signal::<
         StoredValue<HashMap<<T::UpdateModel as CrudDataTrait>::Field, ReactiveValue>>,
-    >(store_value(HashMap::new()));
+    >(StoredValue::new(HashMap::new()));
 
     // Update the `entity` signal whenever we fetched a new version of the edited entity.
-    create_effect(move |_prev| {
+    Effect::new(move |_prev| {
         set_entity.set(match entity_resource.get() {
             Some(result) => {
                 tracing::info!("loaded entity data");
-                match result {
+                match result.take() {
                     Ok(data) => match data {
                         Some(data) => {
                             let update_model = data.into();
@@ -106,10 +91,10 @@ where
                                     let initial = field.get_value(&update_model);
                                     map.insert(field, initial.into_reactive_value());
                                 }
-                                store_value(map)
+                                StoredValue::new(map)
                             });
 
-                            Ok(create_rw_signal(update_model).read_only())
+                            Ok(RwSignal::new(update_model).read_only())
                         }
                         None => Err(NoDataAvailable::RequestReturnedNoData(format!(
                             "Eintrag existiert nicht."
@@ -141,7 +126,7 @@ where
                     {move || {
                         let on_list_view = on_list_view.clone();
                         view! {
-                            <Grid gap=Size::Em(0.6) class="crud-nav">
+                            <Grid gap=Size::Em(0.6) attr:class="crud-nav">
                                 <Row>
                                     <Col xs=6 h_align=ColAlign::Start>
                                         <CrudActionButtons
@@ -155,7 +140,7 @@ where
                                         <ButtonWrapper>
                                             <Button
                                                 color=ButtonColor::Secondary
-                                                on_press=move |_| on_list_view.call(())
+                                                on_press=move |_| on_list_view.run(())
                                             >
                                                 <span style="text-decoration: underline;">{"L"}</span>
                                                 {"istenansicht"}
@@ -179,16 +164,16 @@ where
                         // active_tab={ctx.props().config.active_tab.clone()}
                         on_tab_selection=on_tab_selected.clone()
                     />
-                }.into_view()
+                }.into_any()
             }
             (Err(no_data), _) => {
                 let on_list_view = on_list_view.clone();
                 view! {
-                    <Grid gap=Size::Em(0.6) class="crud-nav">
+                    <Grid gap=Size::Em(0.6) attr:class="crud-nav">
                         <Row>
                             <Col h_align=ColAlign::End>
                                 <ButtonWrapper>
-                                    <Button color=ButtonColor::Secondary on_press=move |_| on_list_view.call(())>
+                                    <Button color=ButtonColor::Secondary on_press=move |_| on_list_view.run(())>
                                         <span style="text-decoration: underline;">{"L"}</span>
                                         {"istenansicht"}
                                     </Button>
@@ -197,7 +182,7 @@ where
                         </Row>
                     </Grid>
                     <div>{format!("Daten nicht verfügbar: {:?}", no_data)}</div>
-                }.into_view()
+                }.into_any()
             }
         }}
     }

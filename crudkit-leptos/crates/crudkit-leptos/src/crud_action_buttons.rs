@@ -1,6 +1,6 @@
 use crudkit_web::CrudMainTrait;
 use leptonic::components::prelude::*;
-use leptos::*;
+use leptos::prelude::*;
 
 use crate::{
     crud_action::EntityModalGeneration,
@@ -45,7 +45,7 @@ where
                                     </Button>
 
                                     {modal_generator
-                                        .call(EntityModalGeneration {
+                                        .run(EntityModalGeneration {
                                             show_when: Signal::derive(move || { action_ctx.is_action_requested(id) }),
                                             state: input.into(),
                                             cancel: Callback::new(move |_| { action_ctx.cancel_action(id) }),
@@ -61,7 +61,7 @@ where
                                             }),
                                         })}
                                 }
-                                    .into_view()
+                                    .into_any()
                             } else {
                                 view! {
                                     <Button
@@ -83,7 +83,7 @@ where
                                         {name.clone()}
                                     </Button>
                                 }
-                                    .into_view()
+                                    .into_any()
                             }
                         })
                 }

@@ -7,9 +7,9 @@ use crudkit_web::{
     CrudDataTrait, CrudFieldValueTrait, CrudIdTrait, CrudMainTrait, CrudSimpleView, FieldMode,
     TabId, Value,
 };
-use leptonic::prelude::*;
 use leptonic::components::prelude::*;
-use leptos::*;
+use leptonic::prelude::*;
+use leptos::prelude::*;
 use uuid::Uuid;
 
 use crate::{
@@ -17,10 +17,11 @@ use crate::{
     crud_instance::CrudInstanceContext,
     crud_instance_config::{CreateElements, DynSelectConfig},
     crud_leave_modal::CrudLeaveModal,
-    IntoReactiveValue, ReactiveValue, prelude::CustomCreateFields,
+    prelude::CustomCreateFields,
+    IntoReactiveValue, ReactiveValue,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 struct EntityReq<T: CrudMainTrait + 'static> {
     reload: Uuid,
     id: T::UpdateModelId,
@@ -68,19 +69,19 @@ pub fn CrudCreateView<T>(
     #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
     #[prop(into)] create_elements: Signal<CreateElements<T>>,
-    #[prop(into)] custom_fields: Signal<CustomCreateFields<T, leptos::View>>,
+    #[prop(into)] custom_fields: Signal<CustomCreateFields<T>>,
     #[prop(into)] field_config: Signal<
         HashMap<<T::CreateModel as CrudDataTrait>::Field, DynSelectConfig>,
     >,
-    #[prop(into)] on_edit_view: Callback<T::UpdateModelId>,
+    #[prop(into)] on_edit_view: Callback<(T::UpdateModelId,)>,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
     // TODO: consolidate these into one "on_entity_creation_attempt" with type Result<CreateResult<T::UpdateModel>, SomeErrorType>?
-    #[prop(into)] on_entity_created: Callback<Saved<T::UpdateModel>>,
-    #[prop(into)] on_entity_creation_aborted: Callback<String>,
+    #[prop(into)] on_entity_created: Callback<(Saved<T::UpdateModel>,)>,
+    #[prop(into)] on_entity_creation_aborted: Callback<(String,)>,
     #[prop(into)] on_entity_not_created_critical_errors: Callback<()>,
-    #[prop(into)] on_entity_creation_failed: Callback<RequestError>,
-    #[prop(into)] on_tab_selected: Callback<TabId>,
+    #[prop(into)] on_entity_creation_failed: Callback<(RequestError,)>,
+    #[prop(into)] on_tab_selected: Callback<(TabId,)>,
     // /// Required because when creating the initial CreateModel, we have to set the "parent id" field of that model to the given id.
     // /// TODO: Only a subset of the parent id might be required to for matching. Consider a CreateModel#initialize_with_parent_id(ParentId)...
     // pub parent_id: Option<SerializableId>,
@@ -93,7 +94,7 @@ where
     let default_create_model: T::CreateModel = default_create_model::<T>(&instance_ctx);
 
     let signals: StoredValue<HashMap<<T::CreateModel as CrudDataTrait>::Field, ReactiveValue>> =
-        store_value({
+        StoredValue::new({
             let mut map = HashMap::new();
             for field in T::CreateModel::get_all_fields() {
                 let initial = field.get_value(&default_create_model);
@@ -105,21 +106,21 @@ where
     // The CreateModel enforces a `Default` value! We cannot deserialize a loaded model, so we have to create one from scratch with which the UI can be initialized.
     // We therefore do not have to deal with None states in the create case, compared to the edit view.
     // All modifications made through the UI are stored in this signal.
-    let (input, set_input) = create_signal::<T::CreateModel>(default_create_model.clone());
+    let (input, set_input) = signal::<T::CreateModel>(default_create_model.clone());
 
     let input_changed = Signal::derive(move || input.get() != default_create_model);
 
     // The state of the `input` signal should be considered to be erroneous if at least one field is contained in this error list.
-    let (input_errors, set_input_errors) =
-        create_signal(HashMap::<<T::CreateModel as CrudDataTrait>::Field, String>::new());
+    let (_input_errors, set_input_errors) =
+        signal(HashMap::<<T::CreateModel as CrudDataTrait>::Field, String>::new());
 
-    let (user_wants_to_leave, set_user_wants_to_leave) = create_signal(false);
-    let (show_leave_modal, set_show_leave_modal) = create_signal(false);
+    let (user_wants_to_leave, set_user_wants_to_leave) = signal(false);
+    let (show_leave_modal, set_show_leave_modal) = signal(false);
 
     let force_leave = move || instance_ctx.list();
     let request_leave = move || set_user_wants_to_leave.set(true);
 
-    create_effect(
+    Effect::new(
         move |_prev| match (user_wants_to_leave.get(), input_changed.get()) {
             (true, true) => set_show_leave_modal.set(true),
             (true, false) => force_leave(),
@@ -127,46 +128,48 @@ where
         },
     );
 
-    let save_action = create_action(move |(create_model, and_then): &(T::CreateModel, Then)| {
-        let create_model: <T as CrudMainTrait>::CreateModel = create_model.clone();
-        let and_then = and_then.clone();
-        async move {
-            (
-                data_provider
-                    .get() // TODO: This does not track!!
-                    .create_one_from_create_model(CreateOne {
-                        entity: create_model,
-                    })
-                    .await,
-                and_then,
-            )
-        }
-    });
+    // TODO: Can we get rid of new_local?
+    let save_action =
+        Action::new_local(move |(create_model, and_then): &(T::CreateModel, Then)| {
+            let create_model: <T as CrudMainTrait>::CreateModel = create_model.clone();
+            let and_then = and_then.clone();
+            let data_provider = data_provider.get(); // TODO: This does not track!!
+            async move {
+                (
+                    data_provider
+                        .create_one_from_create_model(CreateOne {
+                            entity: create_model,
+                        })
+                        .await,
+                    and_then,
+                )
+            }
+        });
 
     let save_disabled = Signal::derive(move || {
         save_action.pending().get() // Note (lukas): We deliberately ignore the input_changed state here, as the default input should always be saveable!
     });
 
     let save_action_value = save_action.value();
-    create_effect(move |_prev| {
+    Effect::new(move |_prev| {
         if let Some((result, and_then)) = save_action_value.get() {
             match result {
                 Ok(save_result) => match save_result {
                     SaveResult::Saved(saved) => {
                         let id = saved.entity.get_id();
-                        on_entity_created.call(saved);
+                        on_entity_created.run((saved,));
                         match and_then {
-                            Then::OpenEditView => on_edit_view.call(id),
-                            Then::OpenListView => on_list_view.call(()),
-                            Then::OpenCreateView => on_create_view.call(()),
+                            Then::OpenEditView => on_edit_view.run((id,)),
+                            Then::OpenListView => on_list_view.run(()),
+                            Then::OpenCreateView => on_create_view.run(()),
                         }
                     }
                     SaveResult::Aborted { reason } => {
-                        on_entity_creation_aborted.call(reason);
+                        on_entity_creation_aborted.run((reason,));
                     }
                     SaveResult::CriticalValidationErrors => {
                         tracing::info!("Entity was not created due to critical validation errors.");
-                        on_entity_not_created_critical_errors.call(());
+                        on_entity_not_created_critical_errors.run(());
                     }
                 },
                 Err(request_error) => {
@@ -174,7 +177,7 @@ where
                         "Could not create entity due to RequestError: {}",
                         request_error.to_string()
                     );
-                    on_entity_creation_failed.call(request_error);
+                    on_entity_creation_failed.run((request_error,));
                 }
             }
         }
@@ -211,28 +214,28 @@ where
     });
 
     view! {
-        <Grid gap=Size::Em(0.6) class="crud-nav">
+        <Grid gap=Size::Em(0.6) attr:class="crud-nav">
             <Row>
                 <Col xs=6>
                     <ButtonWrapper>
                         <Button
                             color=ButtonColor::Primary
                             disabled=save_disabled
-                            on_press=move |_| trigger_save()
+                            on_press=move |_| { trigger_save(); }
                         >
                             "Speichern"
                         </Button>
                         <Button
                             color=ButtonColor::Primary
                             disabled=save_disabled
-                            on_press=move |_| trigger_save_and_return()
+                            on_press=move |_| { trigger_save_and_return(); }
                         >
                             "Speichern und zurück"
                         </Button>
                         <Button
                             color=ButtonColor::Primary
                             disabled=save_disabled
-                            on_press=move |_| trigger_save_and_new()
+                            on_press=move |_| { trigger_save_and_new(); }
                         >
                             "Speichern und neu"
                         </Button>
@@ -251,7 +254,7 @@ where
         </Grid>
 
         {move || match create_elements.get() {
-            CreateElements::None => view! { "Keine Felder definiert." }.into_view(),
+            CreateElements::None => view! { "Keine Felder definiert." }.into_any(),
             CreateElements::Custom(create_elements) => {
                 view! {
                     <CrudFields
@@ -266,7 +269,7 @@ where
                         // active_tab={ctx.props().config.active_tab.clone()}
                         on_tab_selection=on_tab_selected
                     />
-                }.into_view()
+                }.into_any()
             }
         }}
 
