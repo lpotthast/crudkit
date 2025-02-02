@@ -1,7 +1,0 @@
-[package]
-name = "crudkit-leptos-build"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-leptos-tiptap-build = "0.2.7"

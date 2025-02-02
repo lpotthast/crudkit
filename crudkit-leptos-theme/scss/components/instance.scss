@@ -1,0 +1,70 @@
+@use "sass:map";
+
+.crud-instance {
+  position: relative;
+  display: block;
+  transition: all 0.7s ease-in-out;
+  //box-shadow: 1px 1px 5px -2px #131313;
+
+  &.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.75);
+  }
+
+  &:focus {
+    outline: none;
+  }
+
+  span.state {
+    display: inline-flex;
+    border-radius: 10em;
+    width: 0.5em;
+    height: 0.5em;
+    margin-right: 0.4em;
+    visibility: hidden;
+
+    &.active {
+      visibility: visible;
+      background-color: #26b527;
+    }
+  }
+
+  .header {
+    font-size: 1em;
+    font-weight: 400;
+    color: var(--crudkit-instance-header-color);
+    background-color: var(--crudkit-instance-header-bg-color);
+  }
+
+  .body {
+    background-color: var(--crudkit-instance-body-bg-color);
+  }
+}
+
+.crud-instance-header-wrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .crud-instance-header-actions {
+    display: flex;
+    flex-direction: row;
+    margin: -1em;
+
+    fa-icon {
+      padding: 0.8em 0.7em;
+      font-size: 1.2em;
+
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.39);
+      }
+    }
+  }
+}

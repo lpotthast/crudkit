@@ -1,10 +1,3 @@
-use crudkit_shared::Order;
-use crudkit_web::prelude::*;
-use indexmap::IndexMap;
-use leptos::prelude::*;
-use std::sync::Arc;
-use std::{collections::HashMap, marker::PhantomData};
-
 // TODO: Add prelude entry for CrudActionTrait
 use crate::{
     crud_action::CrudActionTrait,
@@ -12,6 +5,13 @@ use crate::{
     crud_list_view::CrudListViewContext,
     prelude::{CrudTableBody, CrudTableFooter, CrudTableHeader, CustomFields},
 };
+use crudkit_shared::Order;
+use crudkit_web::prelude::*;
+use indexmap::IndexMap;
+use leptonic::components::table::{Table, TableContainer};
+use leptos::prelude::*;
+use std::sync::Arc;
+use std::{collections::HashMap, marker::PhantomData};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NoDataAvailable {
@@ -50,8 +50,8 @@ where
 
     // TODO: Extract to leptonic
     view! {
-        <div class="crud-table-wrapper">
-            <table class="crud-table crud-table-bordered crud-table-hoverable">
+        <TableContainer>
+            <Table bordered=true hoverable=true>
                 <CrudTableHeader
                     _phantom={PhantomData::<T>::default()}
                     headers=headers
@@ -75,7 +75,7 @@ where
                 />
 
                 <CrudTableFooter/>
-            </table>
-        </div>
+            </Table>
+        </TableContainer>
     }
 }

@@ -1,0 +1,19 @@
+[package]
+name = "crudkit-leptos-theme"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.60"
+authors = ["Lukas Potthast <privat@lukas-potthast.de>"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/lpotthast/crudkit-leptos-scss"
+description = """
+Theme builder for the Crudkit component library.
+"""
+categories = ["gui"]
+keywords = ["leptos", "crudkit", "styling", "theme", "css"]
+
+[dependencies]
+include_dir = "0.7.3"
+anyhow = "1.0.95"
+indoc = "2.0.5"

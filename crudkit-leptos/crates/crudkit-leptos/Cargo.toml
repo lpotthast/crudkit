@@ -2,6 +2,7 @@
 name = "crudkit-leptos"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [dependencies]
 crudkit-condition = { path = "../../../crudkit-condition" }
@@ -33,3 +34,9 @@ time = { version = "0.3.37", features = [
 ] }
 tracing = "0.1.41"
 uuid = { version = "1.12.1", features = ["js", "v4", "v7", "serde"] }
+
+[build-dependencies]
+anyhow = "1.0.79"
+cargo_toml = "0.21.0"
+lazy_static = "1.4.0"
+crudkit-leptos-theme = { path = "../../../crudkit-leptos-theme" }

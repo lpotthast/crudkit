@@ -88,7 +88,7 @@ where
                             }
                             .into_any(),
                             Enclosing::Card(group) => view! {
-                                <div class="crud-card">
+                                <Card>
                                     <CrudFields
                                         custom_fields=custom_fields
                                         field_config=field_config
@@ -101,7 +101,7 @@ where
                                         // active_tab={ctx.props().active_tab.clone()}
                                         on_tab_selection=on_tab_selection.clone()
                                     />
-                                </div>
+                                </Card>
                             }
                             .into_any(),
                         }

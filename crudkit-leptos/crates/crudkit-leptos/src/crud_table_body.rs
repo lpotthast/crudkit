@@ -81,14 +81,14 @@ where
         let dummy_value_changed_callback = Callback::new(move |_| {});
 
         view! {
-            <tr class="interactable" on:click=move |_e| { instance_ctx.edit(stored_entity.get().into().get_id()) }>
-                <td class="select fit-content" on:click=move |e| e.stop_propagation()>
+            <TableRow attr:class="interactable" on:click=move |_e| { instance_ctx.edit(stored_entity.get().into().get_id()) }>
+                <TableCell attr:class="select fit-content" on:click=move |e| e.stop_propagation()>
                     <Checkbox checked=is_selected set_checked=move |checked| {
                         if checked != is_selected.get_untracked() {
                             toggle_selected()
                         }
                     }/>
-                </td>
+                </TableCell>
 
                 <For
                     each=move || headers.get()
@@ -103,7 +103,7 @@ where
                             // TODO: Is it ok to recreate this reactive value on the fly?
                             // TODO: Optimize. Do we still need a StoredEntity?
 
-                            <td class:fit-content=options.min_width>
+                            <TableCell class:fit-content=options.min_width>
                                 <CrudField
                                     // children={ctx.props().children.clone()} // TODO: make this work
                                     custom_fields=custom_fields
@@ -122,7 +122,7 @@ where
                                     value=reactive_value
                                     value_changed=dummy_value_changed_callback.clone()
                                 />
-                            </td>
+                            </TableCell>
                         }
                     }
                 />
@@ -132,7 +132,7 @@ where
                         .get()
                         .then(|| {
                             view! {
-                                <td class="fit-content" on:click=|e| e.stop_propagation()>
+                                <TableCell attr:class="fit-content" on:click=|e| e.stop_propagation()>
                                     <div class="action-icons">
                                         {read_allowed
                                             .get()
@@ -190,27 +190,26 @@ where
                                         />
 
                                     </div>
-                                </td>
+                                </TableCell>
                             }
                         })
                 }}
-
-            </tr>
+            </TableRow>
         }
     };
 
     view! {
-        <tbody>
+        <TableBody>
             {move || match data.get() {
                 Ok(data) => {
                     match data.len() {
                         0 => {
                             view! {
-                                <tr>
-                                    <td colspan="100%" class="no-data">
+                                <TableRow>
+                                    <TableCell attr:colspan="100%" attr:class="no-data">
                                         {"Keine Daten"}
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             }.into_any()
                         }
                         _ => {
@@ -228,28 +227,28 @@ where
                     match no_data {
                         NoDataAvailable::NotYetLoaded => {
                             view! {
-                                <tr>
-                                    <td colspan="100%">" "</td>
-                                </tr>
+                                <TableRow>
+                                    <TableCell attr:colspan="100%">" "</TableCell>
+                                </TableRow>
                             }.into_any()
                         }
                         NoDataAvailable::RequestFailed(reason) => {
                             view! {
-                                <tr>
-                                    <td colspan="100%">{format!("No data available: {reason:?}")}</td>
-                                </tr>
+                                <TableRow>
+                                    <TableCell attr:colspan="100%">{format!("No data available: {reason:?}")}</TableCell>
+                                </TableRow>
                             }.into_any()
                         }
                         NoDataAvailable::RequestReturnedNoData(reason) => {
                             view! {
-                                <tr>
-                                    <td colspan="100%">{format!("No data available: {reason:?}")}</td>
-                                </tr>
+                                <TableRow>
+                                    <TableCell attr:colspan="100%">{format!("No data available: {reason:?}")}</TableCell>
+                                </TableRow>
                             }.into_any()
                         }
                     }
                 },
             }}
-        </tbody>
+        </TableBody>
     }
 }

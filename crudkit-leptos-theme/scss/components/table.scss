@@ -1,0 +1,28 @@
+leptonic-table {
+
+  leptonic-table-header {
+
+    leptonic-table-header-cell {
+      text-align: start;
+
+      &.fit-content {
+        min-width: fit-content;
+      }
+    }
+  }
+
+  leptonic-table-row {
+    // TODO: use this in list view or delete this style.
+    &.recently-updated {
+      transition: background-color 0.5s;
+      background-color: #4181aa;
+    }
+  }
+
+  leptonic-table-body {
+
+    leptonic-table-cell.fit-content {
+      width: 0;
+    }
+  }
+}

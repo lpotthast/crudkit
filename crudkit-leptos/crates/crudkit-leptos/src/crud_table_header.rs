@@ -31,20 +31,20 @@ where
     };
 
     view! {
-        <thead class="crud-table-header">
-            <tr>
+        <TableHeader>
+            <TableRow>
                 {move || {
                     with_select_column
                         .get()
                         .then(|| {
                             view! {
-                                <th class="select fit-content">
+                                <TableHeaderCell attr:class="select fit-content">
                                     <Checkbox checked=all_selected set_checked=move |checked| {
                                         if checked != all_selected.get_untracked() {
                                             list_ctx.toggle_select_all()
                                         }
                                     }/>
-                                </th>
+                                </TableHeaderCell>
                             }
                         })
                 }}
@@ -55,11 +55,11 @@ where
                         move || {
                             let field_clone = field.clone();
                             let order_by = order_by.get();
-                            let order = order_by.get(&field);
+                            let order = order_by.get(&field).cloned();
+                            let display_name = options.display_name.clone();
                             tracing::debug!(? field, ? order, "render header");
                             view! {
-                                <th
-                                    class="crud-column-header"
+                                <TableHeaderCell
                                     class:crud-column-ordered=order.is_some()
                                     class:crud-order-by-trigger=options.ordering_allowed
                                     class:min-width=options.min_width
@@ -69,8 +69,7 @@ where
                                         }
                                     }
                                 >
-
-                                    {options.display_name.clone()}
+                                    {display_name.clone()}
                                     <span class="crud-order-by-sign" class:active=order.is_some()>
                                         <SafeHtml<String> html=match order {
                                             Some(order) => {
@@ -82,14 +81,13 @@ where
                                             None => "&uarr;",
                                         }/>
                                     </span>
-                                </th>
+                                </TableHeaderCell>
                             }
                         }
                     }
                 />
-                {move || { with_actions.get().then(|| view! { <th class="actions fit-content">"Aktionen"</th> }) }}
-
-            </tr>
-        </thead>
+                {move || { with_actions.get().then(|| view! { <TableHeaderCell attr:class="actions fit-content">"Aktionen"</TableHeaderCell> }) }}
+            </TableRow>
+        </TableHeader>
     }
 }

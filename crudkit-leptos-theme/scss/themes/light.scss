@@ -1,0 +1,17 @@
+[data-theme="light"] {
+  --crudkit-instance-header-color: var(--std-text-dark);
+  --crudkit-instance-header-bg-color: #eaeaea;
+  //--crudkit-instance-body-bg-color: white;
+  --crudkit-instance-body-bg-color: transparent;
+  --crudkit-instance-collapsible-body-content-margin: 0.75em;
+
+  --crudkit-field-label-color: #767676;
+
+  // LEPTONIC OVERRIDES
+
+  // Input
+  --input-padding: 0.5em 2em 0.5em 0;
+  --input-border: none;
+  --input-border-bottom: 1px rgba(0, 0, 0, .15); // TODO make work
+  --input-border-radius: 0;
+}

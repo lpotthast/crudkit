@@ -8,17 +8,8 @@ pub fn CrudLeaveModal(
     #[prop(into)] on_cancel: Callback<(), ()>,
     #[prop(into)] on_accept: Callback<(), ()>,
 ) -> impl IntoView {
-    let g_keyboard_event: GlobalKeyboardEvent = expect_context::<GlobalKeyboardEvent>();
-    Effect::new(move |_old| {
-        if let Some(e) = g_keyboard_event.read_signal.get() {
-            if show_when.get_untracked() && e.key().as_str() == "Escape" {
-                on_cancel.run(());
-            }
-        }
-    });
-
     view! {
-        <Modal show_when=show_when>
+        <Modal show_when=show_when on_escape=move || on_cancel.run(())>
             <ModalHeader>
                 <ModalTitle>"Ungespeicherte Änderungen"</ModalTitle>
             </ModalHeader>

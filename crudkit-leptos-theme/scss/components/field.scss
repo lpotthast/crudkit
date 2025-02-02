@@ -1,0 +1,9 @@
+.crud-field {
+  display: block;
+  width: 100%;
+  margin-bottom: 1.5em;
+}
+
+.crud-field:last-of-type {
+  margin-bottom: 0;
+}
