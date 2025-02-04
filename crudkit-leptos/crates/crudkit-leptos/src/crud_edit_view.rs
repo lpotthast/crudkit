@@ -153,8 +153,7 @@ where
     let (user_wants_to_leave, set_user_wants_to_leave) = signal(false);
     let (show_leave_modal, set_show_leave_modal) = signal(false);
 
-    let on_list_view_clone = on_list_view.clone();
-    let force_leave = Callback::new(move |()| on_list_view_clone.run(()));
+    let force_leave = on_list_view;
     let request_leave = move || set_user_wants_to_leave.set(true);
 
     Effect::new(
@@ -208,7 +207,7 @@ where
                         on_entity_updated.run((saved,));
                         match and_then {
                             Then::DoNothing => {}
-                            Then::OpenListView => on_list_view.run(()),
+                            Then::OpenListView => force_leave.run(()),
                             Then::OpenCreateView => on_create_view.run(()),
                         }
                     }
@@ -280,62 +279,58 @@ where
         {move || match (entity.get(), signals.get()) {
             (Ok(_entity), signals) => {
                 view! {
-                    {move || {
-                        view! {
-                            <Grid gap=Size::Em(0.6) attr:class="crud-nav">
-                                <Row>
-                                    <Col xs=6>
-                                        <ButtonWrapper>
-                                            <Button
-                                                color=ButtonColor::Primary
-                                                disabled=save_disabled
-                                                on_press=move |_| { trigger_save(); }
-                                            >
-                                                "Speichern"
-                                            </Button>
-                                            <Button
-                                                color=ButtonColor::Primary
-                                                disabled=save_disabled
-                                                on_press=move |_| { trigger_save_and_return(); }
-                                            >
-                                                "Speichern und zurück"
-                                            </Button>
-                                            <Button
-                                                color=ButtonColor::Primary
-                                                disabled=save_disabled
-                                                on_press=move |_| { trigger_save_and_new(); }
-                                            >
-                                                "Speichern und neu"
-                                            </Button>
-                                            <Button
-                                                color=ButtonColor::Danger
-                                                disabled=delete_disabled
-                                                on_press=move |_| { trigger_delete(); }
-                                            >
-                                                "Löschen"
-                                            </Button>
+                    <Grid gap=Size::Em(0.6) attr:class="crud-nav">
+                        <Row>
+                            <Col xs=6>
+                                <ButtonWrapper>
+                                    <Button
+                                        color=ButtonColor::Primary
+                                        disabled=save_disabled
+                                        on_press=move |_| { trigger_save(); }
+                                    >
+                                        "Speichern"
+                                    </Button>
+                                    <Button
+                                        color=ButtonColor::Primary
+                                        disabled=save_disabled
+                                        on_press=move |_| { trigger_save_and_return(); }
+                                    >
+                                        "Speichern und zurück"
+                                    </Button>
+                                    <Button
+                                        color=ButtonColor::Primary
+                                        disabled=save_disabled
+                                        on_press=move |_| { trigger_save_and_new(); }
+                                    >
+                                        "Speichern und neu"
+                                    </Button>
+                                    <Button
+                                        color=ButtonColor::Danger
+                                        disabled=delete_disabled
+                                        on_press=move |_| { trigger_delete(); }
+                                    >
+                                        "Löschen"
+                                    </Button>
 
-                                            <CrudActionButtons
-                                                action_ctx=action_ctx
-                                                actions=actions
-                                                input=input
-                                                required_state=States::Update
-                                            />
-                                        </ButtonWrapper>
-                                    </Col>
+                                    <CrudActionButtons
+                                        action_ctx=action_ctx
+                                        actions=actions
+                                        input=input
+                                        required_state=States::Update
+                                    />
+                                </ButtonWrapper>
+                            </Col>
 
-                                    <Col xs=6 h_align=ColAlign::End>
-                                        <ButtonWrapper>
-                                            <Button color=ButtonColor::Secondary on_press=move |_| request_leave()>
-                                                <span style="text-decoration: underline;">{"L"}</span>
-                                                {"istenansicht"}
-                                            </Button>
-                                        </ButtonWrapper>
-                                    </Col>
-                                </Row>
-                            </Grid>
-                        }
-                    }}
+                            <Col xs=6 h_align=ColAlign::End>
+                                <ButtonWrapper>
+                                    <Button color=ButtonColor::Secondary on_press=move |_| request_leave()>
+                                        <span style="text-decoration: underline;">{"L"}</span>
+                                        {"istenansicht"}
+                                    </Button>
+                                </ButtonWrapper>
+                            </Col>
+                        </Row>
+                    </Grid>
 
                     <CrudFields
                         custom_fields=custom_fields

@@ -7,7 +7,6 @@ use crate::{
     crud_table::NoDataAvailable,
     prelude::{CrudTable, CustomReadFields},
 };
-use crudkit_condition::Condition;
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
@@ -16,24 +15,6 @@ use leptonic::prelude::*;
 use leptos::prelude::*;
 use std::sync::Arc;
 use std::{collections::HashMap, marker::PhantomData};
-use uuid::Uuid;
-
-#[derive(Debug, Clone)]
-struct PageReq<T: CrudMainTrait + 'static> {
-    reload: Uuid,
-    order_by: IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>,
-    condition: Option<Condition>,
-    page: u64,
-    items_per_page: u64,
-    data_provider: CrudRestDataProvider<T>,
-}
-
-#[derive(Debug, Clone)]
-struct CountReq<T: CrudMainTrait + 'static> {
-    condition: Option<Condition>,
-    reload: Uuid,
-    data_provider: CrudRestDataProvider<T>,
-}
 
 #[derive(Debug, Clone)]
 pub struct CrudListViewContext<T: CrudMainTrait + 'static> {
@@ -134,23 +115,18 @@ where
 
     // TODO: Investigate: After a fresh page load, the first change to one of the signals (items_per_page, ...) triggers an unexpected reload. source is not re-run.
     let page_resource = LocalResource::new(move || async move {
-        // TODO: optimize
-        let req = PageReq {
-            reload: instance_ctx.reload.get(),
-            order_by: instance_ctx.order_by.get(),
-            condition: instance_ctx.base_condition.get(),
-            page: instance_ctx.current_page.get(),
-            items_per_page: instance_ctx.items_per_page.get(),
-            data_provider: data_provider.get(),
-        };
+        let _ = instance_ctx.reload.get();
 
-        tracing::debug!(?req, "fetcher");
-        req.data_provider
+        let items_per_page = instance_ctx.items_per_page.get();
+        let page = instance_ctx.current_page.get();
+
+        data_provider
+            .get()
             .read_many(ReadMany {
-                limit: Some(req.items_per_page),
-                skip: Some(req.items_per_page * (req.page - 1)),
-                order_by: Some(req.order_by),
-                condition: req.condition,
+                limit: Some(items_per_page),
+                skip: Some(items_per_page * (page - 1)),
+                order_by: Some(instance_ctx.order_by.get()),
+                condition: instance_ctx.base_condition.get(),
             })
             .await
     });
@@ -167,17 +143,11 @@ where
     });
 
     let count_resource = LocalResource::new(move || async move {
-        // TODO: optimize
-        tracing::debug!("count_req");
-        let req = CountReq {
-            condition: instance_ctx.base_condition.get(),
-            reload: instance_ctx.reload.get(),
-            data_provider: data_provider.get(),
-        };
-
-        req.data_provider
+        let _ = instance_ctx.reload.get();
+        data_provider
+            .get()
             .read_count(ReadCount {
-                condition: req.condition,
+                condition: instance_ctx.base_condition.get(),
             })
             .await
     });
@@ -232,30 +202,22 @@ where
         {multiselect_info}
 
         // Pagination
-        {move || match count_resource.get() {
-            Some(result) => {
-                match result.take() {
-                    Ok(count) => {
-                        Some(
-                            view! {
-                                <CrudPagination
-                                    item_count=count
-                                    items_per_page=instance_ctx.items_per_page
-                                    current_page=instance_ctx.current_page
-                                    set_current_page=move |page_number| instance_ctx.set_page(page_number)
-                                    set_items_per_page=move |item_count| instance_ctx.set_items_per_page(item_count)
-                                />
-                            }.into_any(),
-                        )
-                    }
-                    Err(reason) => {
-                        Some(
-                            view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }.into_any(),
-                        )
-                    }
-                }
-            }
-            None => None,
+        {move || match count_resource.get().deref() {
+            Some(Ok(count)) => {
+                view! {
+                    <CrudPagination
+                        item_count=*count
+                        items_per_page=instance_ctx.items_per_page
+                        current_page=instance_ctx.current_page
+                        set_current_page=move |page_number| instance_ctx.set_page(page_number)
+                        set_items_per_page=move |item_count| instance_ctx.set_items_per_page(item_count)
+                    />
+                }.into_any()
+            },
+            Some(Err(reason)) => {
+                view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }.into_any()
+            },
+            None => view! {}.into_any(),
         }}
     }
 }

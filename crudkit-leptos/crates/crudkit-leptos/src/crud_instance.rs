@@ -74,24 +74,22 @@ impl<T: CrudMainTrait> Copy for CrudInstanceContext<T> {}
 impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
     /// Opens the list view.
     pub fn list(&self) {
-        self.set_view.update(|view| *view = CrudView::List);
+        self.set_view.set(CrudView::List);
     }
 
     /// Opens the create view.
     pub fn create(&self) {
-        self.set_view.update(|view| *view = CrudView::Create);
+        self.set_view.set(CrudView::Create);
     }
 
     /// Opens the read view for the given entity.
-    pub fn read(&self, entity_with_id: T::ReadModelId) {
-        self.set_view
-            .update(|view| *view = CrudView::Read(entity_with_id));
+    pub fn read(&self, entity_id: T::ReadModelId) {
+        self.set_view.set(CrudView::Read(entity_id));
     }
 
     /// Opens the edit view for the given entity.
-    pub fn edit(&self, entity_with_id: T::UpdateModelId) {
-        self.set_view
-            .update(|view| *view = CrudView::Edit(entity_with_id));
+    pub fn edit(&self, entity_id: T::UpdateModelId) {
+        self.set_view.set(CrudView::Edit(entity_id));
     }
 
     pub fn set_page(&self, page_number: u64) {
@@ -168,12 +166,12 @@ impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
     /// Every change made by the user is reverted.
     pub fn reset(&self) {
         let default = self.default_config.get_value();
-        // TODO: Should there be functions resetting individual views? This always resets everything and sets the view to be the List view...
-        self.set_view.set(default.view);
+        self.set_deletion_request.set(None);
         self.set_current_page.set(default.page);
         self.set_items_per_page.set(default.items_per_page);
         self.set_order_by.set(default.order_by.clone());
-        self.set_deletion_request.set(None);
+        // TODO: Should there be functions resetting individual views? This always resets everything and sets the view to be the List view...
+        self.set_view.set(default.view);
     }
 }
 
@@ -181,51 +179,25 @@ impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
 
 #[component]
 pub fn CrudInstance<T>(
-    // TODO: Analyze children once on creation and on prop changes. Pass generated data-structure to children!
-    // TODO: Only allow easy-to-parse structure:
-    /*
-       tbd...
-       ListDetails {
-
-       }
-       FieldDetails {
-
-       }
-    */
-    //#[prop_or_default]
-    //pub children: ChildrenRenderer<Item>,
     name: &'static str,
-
-    //#[prop(into)] api_base_url: Signal<String>,
-    //#[prop(into)] view: Signal<CrudView<T::ReadModelId, T::UpdateModelId>>,
-    //#[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
-    //#[prop(into)] create_elements: Signal<CreateElements<T>>,
-    //#[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
-    //#[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
-    //#[prop(into)] items_per_page: Signal<u64>,
-    //#[prop(into)] current_page: Signal<u64>,
-    //#[prop(into)] active_tab: Signal<Option<Label>>,
-    //#[prop(into)] nested: Signal<Option<NestedConfig>>,
     config: CrudInstanceConfig<T>,
     static_config: CrudStaticInstanceConfig<T>,
     #[prop(optional)] parent: Option<CrudParentConfig>,
     #[prop(optional)] on_context_created: Option<Callback<CrudInstanceContext<T>>>,
-    //pub portal_target: Option<String>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
 {
     let (api_base_url, set_api_base_url) = signal(config.api_base_url.clone());
     let (view, set_view) = signal(config.view.clone());
-    // TODO: As memo?
-    let serializable_view = Signal::<SerializableCrudView>::derive(move || view.get().into());
+    let serializable_view = Memo::<SerializableCrudView>::new(move |_| view.get().into());
 
     let mgr = expect_context::<CrudInstanceMgrContext>();
     mgr.register(
         name,
         InstanceState {
             name,
-            view: serializable_view,
+            view: serializable_view.into(),
         },
     );
 
@@ -233,23 +205,6 @@ where
     let (current_page, set_current_page) = signal(config.page.clone());
     let (items_per_page, set_items_per_page) = signal(config.items_per_page.clone());
     let (order_by, set_order_by) = signal(config.order_by.clone());
-
-    fn get_parent_id(
-        parent: &CrudParentConfig,
-        mgr: CrudInstanceMgrContext,
-    ) -> Option<SerializableId> {
-        let parent_state = mgr
-            .instances
-            .get()
-            .get_by_name(parent.name)
-            .expect("parent to be managed");
-        match parent_state.view.get() {
-            SerializableCrudView::List => None,
-            SerializableCrudView::Create => None,
-            SerializableCrudView::Read(id) => Some(id),
-            SerializableCrudView::Edit(id) => Some(id),
-        }
-    }
 
     let parent = StoredValue::new(parent);
     let parent_id = Signal::derive(move || {
@@ -340,96 +295,33 @@ where
         set_deletion_request.set(None);
     });
 
-    // TODO: Always open the list view after a successful delete.
+    let delete_action = Action::new_local(move |entity_id: &SerializableId| {
+        let data_provider = data_provider.get();
+        let id = entity_id.clone();
+        async move {
+            let result = data_provider.delete_by_id(DeleteById { id }).await;
+
+            // The delete operation was performed and must therefore no longer be requested.
+            set_deletion_request.set(None);
+
+            // No matter where the user deleted an entity, the list view should be shown afterwards.
+            ctx.list();
+
+            // The user must be notified how the delete operation went.
+            handle_delete_result(result);
+
+            // We have to reload the list-view!
+            ctx.reload();
+        }
+    });
+
     let on_accept_delete = Callback::new(
         move |entity: DeletableModel<T::ReadModel, T::UpdateModel>| {
-            // TODO: A create_action_once could save us a clone...
-            let action = Action::new_local(move |_data: &()| {
-                let id = match &entity {
-                    DeletableModel::Read(entity) => entity.get_id().into_serializable_id(),
-                    DeletableModel::Update(entity) => entity.get_id().into_serializable_id(),
-                };
-                let data_provider = data_provider.get();
-                async move {
-                    data_provider
-                        .delete_by_id(DeleteById { id: id.clone() })
-                        .await
-                }
-            });
-            action.dispatch(());
-
-            let value = action.value();
-            Effect::new(move |_prev| {
-                if let Some(result) = value.get() {
-                    // The delete operation was performed and must therefore no longer be requested.
-                    set_deletion_request.set(None);
-
-                    // No matter where the user deleted an entity, the list view should be shown afterwards.
-                    ctx.list();
-
-                    // The user must be notified how the delete operation went.
-                    match result {
-                        Ok(delete_result) => {
-                            match delete_result {
-                                DeleteResult::Deleted(num) => {
-                                    expect_context::<Toasts>().push(Toast {
-                                        id: Uuid::new_v4(),
-                                        created_at: OffsetDateTime::now_utc(),
-                                        variant: ToastVariant::Success,
-                                        header: ViewFn::from(|| "Löschen"),
-                                        body: ViewFn::from(move || {
-                                            format!(
-                                                "{num} {} erfolgreich gelöscht.",
-                                                match num {
-                                                    1 => "Eintrag",
-                                                    _ => "Einträge",
-                                                }
-                                            )
-                                        }),
-                                        timeout: ToastTimeout::DefaultDelay,
-                                    })
-                                }
-
-                                DeleteResult::Aborted { reason } => expect_context::<Toasts>()
-                                    .push(Toast {
-                                        id: Uuid::new_v4(),
-                                        created_at: OffsetDateTime::now_utc(),
-                                        variant: ToastVariant::Warn,
-                                        header: ViewFn::from(|| "Delete"),
-                                        body: ViewFn::from(move || {
-                                            format!("Löschvorgang abgebrochen. Grund: {reason}")
-                                        }),
-                                        timeout: ToastTimeout::DefaultDelay,
-                                    }),
-                                DeleteResult::CriticalValidationErrors => {
-                                    expect_context::<Toasts>().push(Toast {
-                                        id: Uuid::new_v4(),
-                                        created_at: OffsetDateTime::now_utc(),
-                                        variant: ToastVariant::Error,
-                                        header: ViewFn::from(|| "Delete"),
-                                        body: ViewFn::from(move || format!("{delete_result:#?}")),
-                                        timeout: ToastTimeout::DefaultDelay,
-                                    })
-                                }
-                            }
-                            ctx.reload()
-                        }
-                        Err(err) => {
-                            expect_context::<Toasts>().push(Toast {
-                                id: Uuid::new_v4(),
-                                created_at: OffsetDateTime::now_utc(),
-                                variant: ToastVariant::Error,
-                                header: ViewFn::from(|| "Delete"),
-                                body: ViewFn::from(move || {
-                                    format!("Konnte Eintrag nicht Löschen: {err:#?}")
-                                }),
-                                timeout: ToastTimeout::DefaultDelay,
-                            });
-                            ctx.reload()
-                        }
-                    }
-                }
-            });
+            let entity_id = match &entity {
+                DeletableModel::Read(entity) => entity.get_id().into_serializable_id(),
+                DeletableModel::Update(entity) => entity.get_id().into_serializable_id(),
+            };
+            delete_action.dispatch(entity_id);
         },
     );
 
@@ -517,5 +409,69 @@ where
                 />
             </div>
         </div>
+    }
+}
+
+fn get_parent_id(parent: &CrudParentConfig, mgr: CrudInstanceMgrContext) -> Option<SerializableId> {
+    let parent_state = mgr
+        .instances
+        .get()
+        .get_by_name(parent.name)
+        .expect("parent to be managed");
+    match parent_state.view.get() {
+        SerializableCrudView::List => None,
+        SerializableCrudView::Create => None,
+        SerializableCrudView::Read(id) => Some(id),
+        SerializableCrudView::Edit(id) => Some(id),
+    }
+}
+
+fn handle_delete_result(result: Result<DeleteResult, RequestError>) {
+    match result {
+        Ok(delete_result) => match delete_result {
+            DeleteResult::Deleted(num) => expect_context::<Toasts>().push(Toast {
+                id: Uuid::new_v4(),
+                created_at: OffsetDateTime::now_utc(),
+                variant: ToastVariant::Success,
+                header: ViewFn::from(|| "Löschen"),
+                body: ViewFn::from(move || {
+                    format!(
+                        "{num} {} erfolgreich gelöscht.",
+                        match num {
+                            1 => "Eintrag",
+                            _ => "Einträge",
+                        }
+                    )
+                }),
+                timeout: ToastTimeout::DefaultDelay,
+            }),
+
+            DeleteResult::Aborted { reason } => expect_context::<Toasts>().push(Toast {
+                id: Uuid::new_v4(),
+                created_at: OffsetDateTime::now_utc(),
+                variant: ToastVariant::Warn,
+                header: ViewFn::from(|| "Delete"),
+                body: ViewFn::from(move || format!("Löschvorgang abgebrochen. Grund: {reason}")),
+                timeout: ToastTimeout::DefaultDelay,
+            }),
+            DeleteResult::CriticalValidationErrors => expect_context::<Toasts>().push(Toast {
+                id: Uuid::new_v4(),
+                created_at: OffsetDateTime::now_utc(),
+                variant: ToastVariant::Error,
+                header: ViewFn::from(|| "Delete"),
+                body: ViewFn::from(move || format!("{delete_result:#?}")),
+                timeout: ToastTimeout::DefaultDelay,
+            }),
+        },
+        Err(err) => {
+            expect_context::<Toasts>().push(Toast {
+                id: Uuid::new_v4(),
+                created_at: OffsetDateTime::now_utc(),
+                variant: ToastVariant::Error,
+                header: ViewFn::from(|| "Delete"),
+                body: ViewFn::from(move || format!("Konnte Eintrag nicht Löschen: {err:#?}")),
+                timeout: ToastTimeout::DefaultDelay,
+            });
+        }
     }
 }
