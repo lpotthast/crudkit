@@ -407,6 +407,7 @@ impl Value {
     pub fn take_string(self) -> String {
         match self {
             Self::String(string) => string,
+            Self::Text(string) => string,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
