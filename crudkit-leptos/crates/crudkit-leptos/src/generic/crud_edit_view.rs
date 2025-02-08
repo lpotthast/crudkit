@@ -1,15 +1,13 @@
-use crate::{
-    crud_action::{CrudEntityAction, States},
-    crud_action_buttons::CrudActionButtons,
-    crud_action_context::CrudActionContext,
-    crud_fields::CrudFields,
-    crud_instance::CrudInstanceContext,
-    crud_instance_config::DynSelectConfig,
-    crud_leave_modal::CrudLeaveModal,
-    crud_table::NoDataAvailable,
-    prelude::CustomUpdateFields,
-    IntoReactiveValue, ReactiveValue,
-};
+use crate::generic::crud_action::{CrudEntityAction, States};
+use crate::generic::crud_action_buttons::CrudActionButtons;
+use crate::generic::crud_action_context::CrudActionContext;
+use crate::generic::crud_fields::CrudFields;
+use crate::generic::crud_instance::CrudInstanceContext;
+use crate::generic::crud_instance_config::DynSelectConfig;
+use crate::generic::crud_leave_modal::CrudLeaveModal;
+use crate::generic::crud_table::NoDataAvailable;
+use crate::generic::custom_field::CustomUpdateFields;
+use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
 use crudkit_id::{Id, IdField};
 use crudkit_shared::{SaveResult, Saved};

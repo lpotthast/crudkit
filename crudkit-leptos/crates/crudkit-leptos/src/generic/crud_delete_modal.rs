@@ -1,9 +1,8 @@
-use std::marker::PhantomData;
-
 use crudkit_web::{CrudIdTrait, CrudMainTrait, DeletableModel};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
+use std::marker::PhantomData;
 
 #[component]
 pub fn CrudDeleteModal<T>(

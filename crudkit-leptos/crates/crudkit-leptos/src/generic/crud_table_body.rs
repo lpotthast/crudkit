@@ -1,8 +1,11 @@
-use crate::{
-    crud_action::CrudActionTrait, crud_field::CrudField, crud_instance::CrudInstanceContext,
-    crud_instance_config::DynSelectConfig, crud_list_view::CrudListViewContext,
-    crud_table::NoDataAvailable, prelude::CustomFields, IntoReactiveValue, ReactiveValue,
-};
+use crate::generic::crud_action::CrudActionTrait;
+use crate::generic::crud_field::CrudField;
+use crate::generic::crud_instance::CrudInstanceContext;
+use crate::generic::crud_instance_config::DynSelectConfig;
+use crate::generic::crud_list_view::CrudListViewContext;
+use crate::generic::crud_table::NoDataAvailable;
+use crate::generic::custom_field::CustomFields;
+use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_web::{
     CrudDataTrait, CrudFieldNameTrait, CrudFieldValueTrait, CrudIdTrait, CrudMainTrait,
     CrudSimpleView, DeletableModel, FieldMode, FieldOptions, HeaderOptions,

@@ -1,13 +1,9 @@
-use std::{collections::HashMap, marker::PhantomData};
-
-use crate::{
-    crud_fields::CrudFields,
-    crud_instance::CrudInstanceContext,
-    crud_instance_config::{CreateElements, DynSelectConfig},
-    crud_leave_modal::CrudLeaveModal,
-    prelude::CustomCreateFields,
-    IntoReactiveValue, ReactiveValue,
-};
+use crate::generic::crud_fields::CrudFields;
+use crate::generic::crud_instance::CrudInstanceContext;
+use crate::generic::crud_instance_config::{CreateElements, DynSelectConfig};
+use crate::generic::crud_leave_modal::CrudLeaveModal;
+use crate::generic::custom_field::CustomCreateFields;
+use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_shared::{SaveResult, Saved};
 use crudkit_web::prelude::RequestError;
 use crudkit_web::{
@@ -18,6 +14,7 @@ use crudkit_web::{
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
+use std::{collections::HashMap, marker::PhantomData};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]

@@ -1,5 +1,12 @@
-use std::{collections::HashMap, marker::PhantomData};
-
+use crate::generic::crud_action::{CrudEntityAction, States};
+use crate::generic::crud_action_buttons::CrudActionButtons;
+use crate::generic::crud_action_context::CrudActionContext;
+use crate::generic::crud_fields::CrudFields;
+use crate::generic::crud_instance::CrudInstanceContext;
+use crate::generic::crud_instance_config::DynSelectConfig;
+use crate::generic::crud_table::NoDataAvailable;
+use crate::generic::custom_field::CustomUpdateFields;
+use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
 use crudkit_id::{Id, IdField};
 use crudkit_web::{
@@ -9,16 +16,7 @@ use crudkit_web::{
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
-
-use crate::{
-    crud_action_buttons::CrudActionButtons,
-    crud_fields::CrudFields,
-    crud_instance::CrudInstanceContext,
-    crud_instance_config::DynSelectConfig,
-    crud_table::NoDataAvailable,
-    prelude::{CrudActionContext, CrudEntityAction, CustomUpdateFields, States},
-    IntoReactiveValue, ReactiveValue,
-};
+use std::{collections::HashMap, marker::PhantomData};
 
 #[component]
 pub fn CrudReadView<T>(

@@ -1,23 +1,21 @@
-use std::sync::Arc;
+use crate::dynamic::crud_action::CrudActionAftermath;
 use crate::dynamic::crud_delete_modal::CrudDeleteModal;
 use crate::dynamic::crud_instance_config::{
     CrudInstanceConfig, CrudParentConfig, CrudStaticInstanceConfig,
 };
 use crate::dynamic::crud_list_view::CrudListView;
-use crate::{
-    crud_instance_mgr::InstanceState,
-    crud_read_view::CrudReadView,
-    dynamic::crud_action::CrudActionAftermath,
-    prelude::{CrudCreateView, CrudEditView, CrudInstanceMgrContext},
-};
+use crate::shared::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
 use crudkit_id::SerializableId;
 use crudkit_shared::{DeleteResult, Order};
 use crudkit_web::crud_rest_data_provider_dyn::{CrudRestDataProvider, DeleteById};
 use crudkit_web::prelude::RequestError;
-use crudkit_web::{AnyField, AnyModel, Identifiable, OrderByUpdateOptions, SerializableCrudView, TabId};
+use crudkit_web::{
+    AnyField, AnyModel, Identifiable, OrderByUpdateOptions, SerializableCrudView, TabId,
+};
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
+use std::sync::Arc;
 use time::OffsetDateTime;
 use uuid::Uuid;
 

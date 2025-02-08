@@ -1,12 +1,9 @@
 use crudkit_web::CrudMainTrait;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
-
-use crate::{
-    crud_action::EntityModalGeneration,
-    crud_instance::CrudInstanceContext,
-    prelude::{CrudActionContext, CrudEntityAction, States},
-};
+use crate::generic::crud_action::{CrudEntityAction, EntityModalGeneration, States};
+use crate::generic::crud_action_context::CrudActionContext;
+use crate::generic::crud_instance::CrudInstanceContext;
 
 #[component]
 pub fn CrudActionButtons<T>(

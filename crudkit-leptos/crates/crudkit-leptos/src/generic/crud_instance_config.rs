@@ -1,7 +1,5 @@
-use crate::{
-    crud_action::{CrudAction, CrudEntityAction},
-    prelude::{CustomCreateFields, CustomReadFields, CustomUpdateFields},
-};
+use crate::generic::crud_action::{CrudAction, CrudEntityAction};
+use crate::generic::custom_field::{CustomCreateFields, CustomReadFields, CustomUpdateFields};
 use crudkit_condition::Condition;
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;

@@ -1,14 +1,11 @@
-use std::collections::HashMap;
-
+use crate::generic::crud_field::CrudField;
+use crate::generic::crud_instance_config::DynSelectConfig;
+use crate::generic::custom_field::CustomFields;
+use crate::ReactiveValue;
 use crudkit_web::{CrudDataTrait, CrudSimpleView, Elem, Enclosing, FieldMode, TabId, Value};
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
-
-use crate::{
-    crud_field::CrudField, crud_instance_config::DynSelectConfig, prelude::CustomFields,
-    ReactiveValue,
-};
-
+use std::collections::HashMap;
 // TODO: Propagate tab selection...
 
 #[component]

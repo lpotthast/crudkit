@@ -1,9 +1,8 @@
-use std::marker::PhantomData;
-
 use crudkit_web::CrudMainTrait;
 use leptos::prelude::*;
-
-use crate::{crud_action::CrudActionAftermath, crud_instance::CrudInstanceContext};
+use std::marker::PhantomData;
+use crate::generic::crud_action::CrudActionAftermath;
+use crate::generic::crud_instance::CrudInstanceContext;
 
 pub type ActionId = &'static str;
 

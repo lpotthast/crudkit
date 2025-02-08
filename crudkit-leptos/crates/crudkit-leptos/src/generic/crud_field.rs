@@ -1,9 +1,7 @@
-use crate::{
-    crud_field_label::CrudFieldLabelOpt,
-    crud_instance_config::{DynSelectConfig, SelectConfigTrait},
-    prelude::CustomFields,
-    ReactiveValue,
-};
+use crate::generic::crud_field_label::CrudFieldLabelOpt;
+use crate::generic::crud_instance_config::{DynSelectConfig, SelectConfigTrait};
+use crate::generic::custom_field::CustomFields;
+use crate::ReactiveValue;
 use crudkit_web::{prelude::*, DateTimeDisplay, JsonValue};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;

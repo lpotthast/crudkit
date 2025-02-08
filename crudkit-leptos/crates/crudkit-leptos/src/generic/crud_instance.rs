@@ -1,22 +1,22 @@
-use std::marker::PhantomData;
-
+use crate::generic::crud_action::CrudActionAftermath;
+use crate::generic::crud_create_view::CrudCreateView;
+use crate::generic::crud_delete_modal::CrudDeleteModal;
+use crate::generic::crud_edit_view::CrudEditView;
+use crate::generic::crud_instance_config::{
+    CrudInstanceConfig, CrudParentConfig, CrudStaticInstanceConfig,
+};
+use crate::generic::crud_list_view::CrudListView;
+use crate::generic::crud_read_view::CrudReadView;
+use crate::shared::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
 use crudkit_id::{Id, SerializableId};
 use crudkit_shared::{DeleteResult, Order};
 use crudkit_web::{prelude::*, TabId};
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
+use std::marker::PhantomData;
 use time::OffsetDateTime;
 use uuid::Uuid;
-
-use crate::{
-    crud_action::CrudActionAftermath,
-    crud_delete_modal::CrudDeleteModal,
-    crud_instance_config::{CrudInstanceConfig, CrudParentConfig, CrudStaticInstanceConfig},
-    crud_instance_mgr::InstanceState,
-    crud_read_view::CrudReadView,
-    prelude::{CrudCreateView, CrudEditView, CrudInstanceMgrContext, CrudListView},
-};
 
 /// Runtime data of this instance, provided to child components through provide_context.
 ///

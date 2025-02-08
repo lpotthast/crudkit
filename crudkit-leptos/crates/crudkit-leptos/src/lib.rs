@@ -1,33 +1,10 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-pub mod crud_action;
-pub mod crud_action_buttons;
-pub mod crud_action_context;
-pub mod crud_create_view;
-pub mod crud_delete_modal;
-pub mod crud_edit_view;
-pub mod crud_field;
-pub mod crud_field_label;
-pub mod crud_fields;
-pub mod crud_instance;
-pub mod crud_instance_config;
-pub mod crud_instance_mgr;
-pub mod crud_leave_modal;
-pub mod crud_list_view;
-pub mod custom_field;
-//pub mod crud_nested_instance;
-pub mod crud_read_view;
-//pub mod crud_related_field;
-pub mod crud_table;
-pub mod crud_table_body;
-pub mod crud_table_footer;
-pub mod crud_table_header;
-
 pub mod dynamic;
+pub mod generic;
 pub mod shared;
 pub mod stores;
-
 /*
 * Reexport common modules.
 * This allows the user to only
@@ -72,38 +49,6 @@ pub mod prelude {
     pub use super::IntoReactiveValue;
     pub use super::ReactiveValue;
     pub use super::SignalsTrait;
-
-    pub use super::custom_field::CustomCreateFields;
-    pub use super::custom_field::CustomField;
-    pub use super::custom_field::CustomFields;
-    pub use super::custom_field::CustomReadFields;
-    pub use super::custom_field::CustomUpdateFields;
-
-    pub use super::crud_action::CrudAction;
-    pub use super::crud_action::CrudActionAftermath;
-    pub use super::crud_action::CrudActionTrait;
-    pub use super::crud_action::CrudEntityAction;
-    pub use super::crud_action::States;
-    pub use super::crud_action_context::CrudActionContext;
-    pub use super::crud_create_view::CrudCreateView;
-    pub use super::crud_edit_view::CrudEditView;
-    pub use super::crud_field::CrudField;
-    pub use super::crud_field_label::CrudFieldLabel;
-    pub use super::crud_field_label::CrudFieldLabelOpt;
-    pub use super::crud_fields::CrudFields;
-    pub use super::crud_instance::CrudInstance;
-    pub use super::crud_instance_config::CreateElements;
-    pub use super::crud_instance_config::CrudInstanceConfig;
-    pub use super::crud_instance_config::CrudStaticInstanceConfig;
-    pub use super::crud_instance_mgr::CrudInstanceMgr;
-    pub use super::crud_instance_mgr::CrudInstanceMgrContext;
-    pub use super::crud_leave_modal::CrudLeaveModal;
-    pub use super::crud_list_view::CrudListView;
-    pub use super::crud_read_view::CrudReadView;
-    pub use super::crud_table::CrudTable;
-    pub use super::crud_table_body::CrudTableBody;
-    pub use super::crud_table_footer::CrudTableFooter;
-    pub use super::crud_table_header::CrudTableHeader;
 }
 
 /// Anything that can be created from a HashMap of `ReactiveValue`s.

@@ -1,10 +1,11 @@
+use crate::generic::crud_action::CrudActionTrait;
+use crate::generic::crud_instance_config::DynSelectConfig;
+use crate::generic::crud_list_view::CrudListViewContext;
+use crate::generic::crud_table_body::CrudTableBody;
+use crate::generic::crud_table_footer::CrudTableFooter;
+use crate::generic::crud_table_header::CrudTableHeader;
+use crate::generic::custom_field::CustomFields;
 // TODO: Add prelude entry for CrudActionTrait
-use crate::{
-    crud_action::CrudActionTrait,
-    crud_instance_config::DynSelectConfig,
-    crud_list_view::CrudListViewContext,
-    prelude::{CrudTableBody, CrudTableFooter, CrudTableHeader, CustomFields},
-};
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
