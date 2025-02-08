@@ -188,6 +188,7 @@ pub struct CrudActionAftermath {
 /// Currently not related with the CrudAction enum.
 ///
 /// TODO: Should this be dyn compatible?
+/// TODO: Move methods to AnyAction!
 pub trait CrudActionTrait: Debug + Send + Sync {
     fn get_name(&self) -> String;
     fn get_icon(&self) -> Option<icondata::Icon>;

@@ -1,19 +1,20 @@
+use std::sync::Arc;
 use crate::dynamic::crud_delete_modal::CrudDeleteModal;
 use crate::dynamic::crud_instance_config::{
     CrudInstanceConfig, CrudParentConfig, CrudStaticInstanceConfig,
 };
 use crate::dynamic::crud_list_view::CrudListView;
 use crate::{
-    crud_action::CrudActionAftermath,
     crud_instance_mgr::InstanceState,
     crud_read_view::CrudReadView,
+    dynamic::crud_action::CrudActionAftermath,
     prelude::{CrudCreateView, CrudEditView, CrudInstanceMgrContext},
 };
-use crudkit_id::{Id, SerializableId};
+use crudkit_id::SerializableId;
 use crudkit_shared::{DeleteResult, Order};
 use crudkit_web::crud_rest_data_provider_dyn::{CrudRestDataProvider, DeleteById};
 use crudkit_web::prelude::RequestError;
-use crudkit_web::{AnyDeletableModel, AnyField, OrderByUpdateOptions, SerializableCrudView, TabId};
+use crudkit_web::{AnyField, AnyModel, Identifiable, OrderByUpdateOptions, SerializableCrudView, TabId};
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
@@ -62,8 +63,8 @@ pub struct CrudInstanceContext {
     pub base_condition: Signal<Option<crudkit_condition::Condition>>,
 
     /// Whenever the user requests to delete something, this is the place that information is stored.
-    pub deletion_request: ReadSignal<Option<AnyDeletableModel>>, // Read or update model
-    set_deletion_request: WriteSignal<Option<AnyDeletableModel>>, // Read or update model
+    pub deletion_request: ReadSignal<Option<AnyModel>>, // Read or update model
+    set_deletion_request: WriteSignal<Option<AnyModel>>, // Read or update model
 
     /// Whenever this signal changes, the current view should "refresh" by reloading all server provided data.
     /// It simply provides a new random ID on each invocation.
@@ -126,7 +127,8 @@ impl CrudInstanceContext {
         tracing::info!(?tab_id, "tab_selected");
     }
 
-    pub fn request_deletion_of(&self, entity: AnyDeletableModel) {
+    pub fn request_deletion_of(&self, entity: AnyModel) {
+        // TODO: Use upcasting instead of helper function when Rust 1.86 lands. (see: dyn upcasting coercion")
         self.set_deletion_request.set(Some(entity));
     }
 
@@ -312,7 +314,7 @@ pub fn CrudInstance(
         }
     });
 
-    let on_accept_delete = Callback::new(move |entity: AnyDeletableModel| {
+    let on_accept_delete = Callback::new(move |entity: AnyModel| {
         delete_action.dispatch(entity.get_id());
     });
 

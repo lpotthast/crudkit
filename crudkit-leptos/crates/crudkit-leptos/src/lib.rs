@@ -17,7 +17,6 @@ pub mod crud_leave_modal;
 pub mod crud_list_view;
 pub mod custom_field;
 //pub mod crud_nested_instance;
-pub mod crud_pagination;
 pub mod crud_read_view;
 //pub mod crud_related_field;
 pub mod crud_table;
@@ -26,7 +25,9 @@ pub mod crud_table_footer;
 pub mod crud_table_header;
 
 pub mod dynamic;
+pub mod shared;
 pub mod stores;
+
 /*
 * Reexport common modules.
 * This allows the user to only
@@ -48,6 +49,7 @@ use crudkit_web::JsonValue;
 pub use crudkit_websocket;
 use leptos::prelude::*;
 
+// TODO: This prelude should only contain types always required when using the lib.
 pub mod prelude {
     pub use crudkit_condition;
     pub use crudkit_id;
@@ -97,7 +99,6 @@ pub mod prelude {
     pub use super::crud_instance_mgr::CrudInstanceMgrContext;
     pub use super::crud_leave_modal::CrudLeaveModal;
     pub use super::crud_list_view::CrudListView;
-    pub use super::crud_pagination::CrudPagination;
     pub use super::crud_read_view::CrudReadView;
     pub use super::crud_table::CrudTable;
     pub use super::crud_table_body::CrudTableBody;

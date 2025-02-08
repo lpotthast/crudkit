@@ -1,4 +1,4 @@
-use crudkit_web::{AnyDeletableModel, Identifiable};
+use crudkit_web::{AnyModel, Identifiable};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -6,9 +6,9 @@ use leptos::prelude::*;
 #[component]
 pub fn CrudDeleteModal(
     // Modal is shown when this Signal contains a Some value.
-    #[prop(into)] entity: Signal<Option<AnyDeletableModel>>,
+    #[prop(into)] entity: Signal<Option<AnyModel>>,
     #[prop(into)] on_cancel: Callback<()>,
-    #[prop(into)] on_accept: Callback<AnyDeletableModel>,
+    #[prop(into)] on_accept: Callback<AnyModel>,
 ) -> impl IntoView {
     let show_when = Signal::derive(move || entity.get().is_some());
 

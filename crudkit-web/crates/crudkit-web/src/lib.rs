@@ -268,9 +268,10 @@ impl<T: CrudIdTrait> CrudIdTrait for &T {
 /// Anything that has an identifier in form of a `SerializableId`.
 ///
 /// Trait is expected to be object safe.
-pub trait Identifiable: DynClone + Send + Sync {
+pub trait Identifiable: Debug + DynClone + DynEq + Send + Sync {
     fn get_id(&self) -> SerializableId;
 }
+dyn_eq::eq_trait_object!(Identifiable);
 dyn_clone::clone_trait_object!(Identifiable);
 
 pub type AnyIdentifiable = Arc<dyn Identifiable>;
@@ -297,14 +298,15 @@ struct Property {
 }
 
 #[typetag::serde]
-pub trait Model: Debug + DynClone + DynEq + Send + Sync {}
+pub trait Model: Identifiable + Debug + DynClone + DynEq + Send + Sync {
+}
 dyn_eq::eq_trait_object!(Model);
 dyn_clone::clone_trait_object!(Model);
 
 pub type AnyModel = Arc<dyn Model>;
 
 // TODO: Serialization?
-pub trait ActionPayload: DynClone + DynEq + Send + Sync {}
+pub trait ActionPayload: Debug + DynClone + DynEq + Send + Sync {}
 
 pub type AnyActionPayload = Arc<dyn ActionPayload>;
 
@@ -950,10 +952,6 @@ pub enum DeletableModel<
     Read(ReadModel),
     Update(UpdateModel),
 }
-
-pub trait DeletableModelTrait: Identifiable + Send + Sync {}
-
-pub type AnyDeletableModel = Arc<dyn DeletableModelTrait>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct HeaderOptions {

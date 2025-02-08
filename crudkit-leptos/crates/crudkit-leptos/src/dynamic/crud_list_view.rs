@@ -1,12 +1,7 @@
-use crate::dynamic::crud_action::CrudAction;
+use crate::dynamic::crud_action::{CrudAction, ModalGeneration};
+use crate::dynamic::crud_action_context::CrudActionContext;
 use crate::dynamic::crud_instance::CrudInstanceContext;
-use crate::{
-    crud_action_context::CrudActionContext,
-    crud_instance_config::DynSelectConfig,
-    crud_pagination::CrudPagination,
-    crud_table::NoDataAvailable,
-    prelude::{CrudTable, CustomReadFields},
-};
+use crate::shared::crud_pagination::CrudPagination;
 use crudkit_shared::Order;
 use crudkit_web::crud_rest_data_provider_dyn::{CrudRestDataProvider, ReadCount, ReadMany};
 use crudkit_web::prelude::RequestError;
@@ -17,6 +12,7 @@ use leptonic::prelude::*;
 use leptos::prelude::*;
 use std::sync::Arc;
 use std::{collections::HashMap, marker::PhantomData};
+use crate::dynamic::crud_table::{CrudTable, NoDataAvailable};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CrudListViewContext {
@@ -192,144 +188,138 @@ pub fn CrudListView(
     };
 
     view! {
-        <div>
-            "LIST VIEW"
-        </div>
-            //<ActionRow actions filter filter_open />
-    //
-            //<CrudTable
-            //    api_base_url=api_base_url
-            //    headers=headers
-            //    order_by=order_by
-            //    data=page
-            //    custom_fields=custom_fields
-            //    field_config=field_config
-            //    read_allowed=read_allowed
-            //    edit_allowed=edit_allowed
-            //    delete_allowed=delete_allowed
-            //    additional_item_actions=Signal::derive(move || vec![])
-            ///>
-    //
-            //{multiselect_info}
-    //
-            //// Pagination
-            //{move || match count_resource.get().deref() {
-            //    Some(Ok(count)) => {
-            //        view! {
-            //            <CrudPagination
-            //                item_count=*count
-            //                items_per_page=instance_ctx.items_per_page
-            //                current_page=instance_ctx.current_page
-            //                set_current_page=move |page_number| instance_ctx.set_page(page_number)
-            //                set_items_per_page=move |item_count| instance_ctx.set_items_per_page(item_count)
-            //            />
-            //        }.into_any()
-            //    },
-            //    Some(Err(reason)) => {
-            //        view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }.into_any()
-            //    },
-            //    None => view! {}.into_any(),
-            //}}
-        }
+        <ActionRow actions filter filter_open />
+
+        <CrudTable
+            api_base_url=api_base_url
+            headers=headers
+            order_by=order_by
+            data=page
+            //custom_fields=custom_fields
+            //field_config=field_config
+            read_allowed=read_allowed
+            edit_allowed=edit_allowed
+            delete_allowed=delete_allowed
+            additional_item_actions=Signal::derive(move || vec![])
+        />
+
+        {multiselect_info}
+
+        // Pagination
+        {move || match count_resource.get().deref() {
+            Some(Ok(count)) => {
+                view! {
+                    <CrudPagination
+                        item_count=*count
+                        items_per_page=instance_ctx.items_per_page
+                        current_page=instance_ctx.current_page
+                        set_current_page=move |page_number| instance_ctx.set_page(page_number)
+                        set_items_per_page=move |item_count| instance_ctx.set_items_per_page(item_count)
+                    />
+                }.into_any()
+            },
+            Some(Err(reason)) => {
+                view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }.into_any()
+            },
+            None => view! {}.into_any(),
+        }}
+    }
 }
 
-//#[component]
-//fn ActionRow<T>(
-//    actions: Signal<Vec<CrudAction<T>>>,
-//    filter: RwSignal<Option<String>>,
-//    filter_open: RwSignal<bool>,
-//) -> impl IntoView
-//where
-//    T: CrudMainTrait + 'static,
-//{
-//    let instance_ctx = expect_context::<CrudInstanceContext<T>>();
-//    let action_ctx = CrudActionContext::<T>::new();
-//    view! {
-//        <Grid gap=Size::Em(0.6) attr:class="crud-nav">
-//            <Row>
-//                <Col xs=6>
-//                    <ButtonWrapper>
-//                        <Button color=ButtonColor::Success on_press=move |_| { instance_ctx.create() }>
-//                            <Icon icon=icondata::BsPlusCircle/>
-//                            <span style="text-decoration: underline">"N"</span>
-//                            "eu"
-//                        </Button>
-//
-//                        <For
-//                            each=move || actions.get()
-//                            key=|action| match action {
-//                                CrudAction::Custom { id, name: _, icon: _, button_color: _, action: _, modal: _ } => *id,
-//                            }
-//                            children=move |action| match action {
-//                                CrudAction::Custom { id, name, icon, button_color, action, modal } => {
-//                                    if let Some(modal_generator) = modal {
-//                                        view! {
-//                                            <Button
-//                                                color=button_color
-//                                                disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
-//                                                on_press=move |_| action_ctx.request_action(id)
-//                                            >
-//                                                {icon.map(|icon| view! { <Icon icon=icon/> })}
-//                                                {name.clone()}
-//                                            </Button>
-//                                            {
-//                                                modal_generator.run(ModalGeneration {
-//                                                    show_when: Signal::derive(move || {
-//                                                        action_ctx.is_action_requested(id)
-//                                                    }),
-//                                                    cancel: Callback::new(move |_| { action_ctx.cancel_action(id) }),
-//                                                    execute: Callback::new(move |action_payload| {
-//                                                        action_ctx
-//                                                            .trigger_action(id, action_payload, action.clone(), instance_ctx)
-//                                                    }),
-//                                                })
-//                                            }
-//                                        }.into_any()
-//                                    } else {
-//                                        let action = action.clone();
-//                                        view! {
-//                                            <Button
-//                                                color=button_color
-//                                                disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
-//                                                on_press=move |_| {
-//                                                    action_ctx.trigger_action(id, None, action.clone(), instance_ctx)
-//                                                }
-//                                            >
-//                                                {icon.map(|icon| view! { <Icon icon=icon/> })}
-//                                                {name.clone()}
-//                                            </Button>
-//                                        }.into_any()
-//                                    }
-//                                }
-//                            }
-//                        />
-//
-//                    </ButtonWrapper>
-//                </Col>
-//                <Col xs=6 h_align=ColAlign::End>
-//                    <ButtonWrapper>
-//                        <Button color=ButtonColor::Secondary on_press=move |_| { instance_ctx.reset() }>
-//                            <Icon icon=icondata::BsArrowRepeat/>
-//                            "Reset"
-//                        </Button>
-//                        <Button color=ButtonColor::Primary disabled=true on_press=move |_| filter_open.set(!filter_open.get_untracked())>
-//                            <Icon icon=icondata::BsSearch/>
-//                            "Filter"
-//                            {move || {
-//                                filter
-//                                    .get()
-//                                    .map(|_filter| {
-//                                        view! {
-//                                            <div style="font-size: 0.5em; font-weight: bold; margin-left: 0.3em;">
-//                                                "aktiv"
-//                                            </div>
-//                                        }
-//                                    })
-//                            }}
-//                        </Button>
-//                    </ButtonWrapper>
-//                </Col>
-//            </Row>
-//        </Grid>
-//    }
-//}
+#[component]
+fn ActionRow(
+    actions: Signal<Vec<CrudAction>>,
+    filter: RwSignal<Option<String>>,
+    filter_open: RwSignal<bool>,
+) -> impl IntoView {
+    let instance_ctx = expect_context::<CrudInstanceContext>();
+    let action_ctx = CrudActionContext::new();
+    view! {
+        <Grid gap=Size::Em(0.6) attr:class="crud-nav">
+            <Row>
+                <Col xs=6>
+                    <ButtonWrapper>
+                        <Button color=ButtonColor::Success on_press=move |_| { instance_ctx.create() }>
+                            <Icon icon=icondata::BsPlusCircle/>
+                            <span style="text-decoration: underline">"N"</span>
+                            "eu"
+                        </Button>
+
+                        <For
+                            each=move || actions.get()
+                            key=|action| match action {
+                                CrudAction::Custom { id, name: _, icon: _, button_color: _, action: _, modal: _ } => *id,
+                            }
+                            children=move |action| match action {
+                                CrudAction::Custom { id, name, icon, button_color, action, modal } => {
+                                    if let Some(modal_generator) = modal {
+                                        view! {
+                                            <Button
+                                                color=button_color
+                                                disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
+                                                on_press=move |_| action_ctx.request_action(id)
+                                            >
+                                                {icon.map(|icon| view! { <Icon icon=icon/> })}
+                                                {name.clone()}
+                                            </Button>
+                                            {
+                                                modal_generator.run(ModalGeneration {
+                                                    show_when: Signal::derive(move || {
+                                                        action_ctx.is_action_requested(id)
+                                                    }),
+                                                    cancel: Callback::new(move |_| { action_ctx.cancel_action(id) }),
+                                                    execute: Callback::new(move |action_payload| {
+                                                        action_ctx
+                                                            .trigger_action(id, action_payload, action.clone(), instance_ctx)
+                                                    }),
+                                                })
+                                            }
+                                        }.into_any()
+                                    } else {
+                                        let action = action.clone();
+                                        view! {
+                                            <Button
+                                                color=button_color
+                                                disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
+                                                on_press=move |_| {
+                                                    action_ctx.trigger_action(id, None, action.clone(), instance_ctx)
+                                                }
+                                            >
+                                                {icon.map(|icon| view! { <Icon icon=icon/> })}
+                                                {name.clone()}
+                                            </Button>
+                                        }.into_any()
+                                    }
+                                }
+                            }
+                        />
+
+                    </ButtonWrapper>
+                </Col>
+                <Col xs=6 h_align=ColAlign::End>
+                    <ButtonWrapper>
+                        <Button color=ButtonColor::Secondary on_press=move |_| { instance_ctx.reset() }>
+                            <Icon icon=icondata::BsArrowRepeat/>
+                            "Reset"
+                        </Button>
+                        <Button color=ButtonColor::Primary disabled=true on_press=move |_| filter_open.set(!filter_open.get_untracked())>
+                            <Icon icon=icondata::BsSearch/>
+                            "Filter"
+                            {move || {
+                                filter
+                                    .get()
+                                    .map(|_filter| {
+                                        view! {
+                                            <div style="font-size: 0.5em; font-weight: bold; margin-left: 0.3em;">
+                                                "aktiv"
+                                            </div>
+                                        }
+                                    })
+                            }}
+                        </Button>
+                    </ButtonWrapper>
+                </Col>
+            </Row>
+        </Grid>
+    }
+}

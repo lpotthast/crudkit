@@ -1,9 +1,9 @@
+use crate::shared::crud_pagination::CrudPagination;
 use crate::{
     crud_action::{CrudAction, ModalGeneration},
     crud_action_context::CrudActionContext,
     crud_instance::CrudInstanceContext,
     crud_instance_config::DynSelectConfig,
-    crud_pagination::CrudPagination,
     crud_table::NoDataAvailable,
     prelude::{CrudTable, CustomReadFields},
 };
