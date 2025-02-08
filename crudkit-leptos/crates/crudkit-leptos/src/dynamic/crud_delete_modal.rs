@@ -1,21 +1,15 @@
-use std::marker::PhantomData;
-
-use crudkit_web::{CrudIdTrait, CrudMainTrait, DeletableModel};
+use crudkit_web::{AnyDeletableModel, Identifiable};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
 
 #[component]
-pub fn CrudDeleteModal<T>(
-    _phantom: PhantomData<T>,
+pub fn CrudDeleteModal(
     // Modal is shown when this Signal contains a Some value.
-    #[prop(into)] entity: Signal<Option<DeletableModel<T::ReadModel, T::UpdateModel>>>, // TODO: Do not take Option
+    #[prop(into)] entity: Signal<Option<AnyDeletableModel>>,
     #[prop(into)] on_cancel: Callback<()>,
-    #[prop(into)] on_accept: Callback<DeletableModel<T::ReadModel, T::UpdateModel>>,
-) -> impl IntoView
-where
-    T: CrudMainTrait + 'static,
-{
+    #[prop(into)] on_accept: Callback<AnyDeletableModel>,
+) -> impl IntoView {
     let show_when = Signal::derive(move || entity.get().is_some());
 
     view! {
@@ -27,10 +21,7 @@ where
                         entity
                             .get()
                             .map(|it| {
-                                format!(
-                                    "Löschen - {}", match it { DeletableModel::Read(model) => model.get_id()
-                                    .to_string(), DeletableModel::Update(model) => model.get_id().to_string(), }
-                                )
+                                format!("Löschen - {:?}", it.get_id()) // TODO: Use other stringify method
                             })
                     }}
 

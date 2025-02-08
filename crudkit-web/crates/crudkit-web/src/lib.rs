@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use crudkit_condition::ConditionClauseValue;
 use crudkit_id::SerializableId;
 use dyn_clone::DynClone;
-use requests::RequestError;
+use dyn_hash::DynHash;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::sync::Arc;
 use std::{
@@ -18,9 +18,13 @@ use time::format_description::well_known::Rfc3339;
 use tracing::warn;
 
 pub mod crud_rest_data_provider;
+pub mod crud_rest_data_provider_dyn;
 pub mod error;
 pub mod files;
+pub mod request_error;
 pub mod requests;
+pub mod requests_dyn;
+pub mod reqwest_executor;
 
 /*
 * Reexport common modules.
@@ -33,11 +37,13 @@ pub mod requests;
 * to manually depend on other crud crates such as "crudkit_id",
 * which are required for many derive macro implementations.
 */
+use crate::request_error::RequestError;
 pub use crudkit_condition;
 pub use crudkit_id;
 pub use crudkit_shared;
 pub use crudkit_validation;
 pub use crudkit_websocket;
+use dyn_eq::DynEq;
 
 pub mod prelude {
     pub use crudkit_condition;
@@ -64,13 +70,14 @@ pub mod prelude {
     pub use super::files::FileResource;
     pub use super::files::ListFileError;
     pub use super::files::ListFilesResponse;
-    pub use super::requests::request;
-    pub use super::requests::request_delete;
-    pub use super::requests::request_get;
-    pub use super::requests::request_post;
-    pub use super::requests::request_put;
-    pub use super::requests::RequestError;
-    pub use super::requests::ReqwestExecutor;
+    pub use super::request_error::RequestError;
+    // TODO: add as static and dynamic modules
+    //pub use super::requests::request;
+    //pub use super::requests::request_delete;
+    //pub use super::requests::request_get;
+    //pub use super::requests::request_post;
+    //pub use super::requests::request_put;
+    pub use super::reqwest_executor::ReqwestExecutor;
     pub use super::CrudActionPayload;
     pub use super::CrudDataTrait;
     pub use super::CrudField;
@@ -257,6 +264,49 @@ impl<T: CrudIdTrait> CrudIdTrait for &T {
         T::get_id(&self)
     }
 }
+
+/// Anything that has an identifier in form of a `SerializableId`.
+///
+/// Trait is expected to be object safe.
+pub trait Identifiable: DynClone + Send + Sync {
+    fn get_id(&self) -> SerializableId;
+}
+dyn_clone::clone_trait_object!(Identifiable);
+
+pub type AnyIdentifiable = Arc<dyn Identifiable>;
+
+pub trait NamedProperty: Send + Sync {
+    fn get_name(&self) -> String;
+}
+
+pub trait DynSerialize: Send + Sync {
+    fn serialize(&self) -> serde_json::Value;
+}
+
+#[typetag::serde]
+pub trait Field: Debug + NamedProperty + DynClone + DynEq + DynHash + Send + Sync {}
+dyn_eq::eq_trait_object!(Field);
+dyn_clone::clone_trait_object!(Field);
+dyn_hash::hash_trait_object!(Field);
+
+pub type AnyField = Arc<dyn Field>;
+
+struct Property {
+    name: String,
+    getter: Arc<dyn Fn(&Self) -> Value>,
+}
+
+#[typetag::serde]
+pub trait Model: Debug + DynClone + DynEq + Send + Sync {}
+dyn_eq::eq_trait_object!(Model);
+dyn_clone::clone_trait_object!(Model);
+
+pub type AnyModel = Arc<dyn Model>;
+
+// TODO: Serialization?
+pub trait ActionPayload: DynClone + DynEq + Send + Sync {}
+
+pub type AnyActionPayload = Arc<dyn ActionPayload>;
 
 pub trait CrudResourceTrait {
     fn get_resource_name() -> &'static str
@@ -826,9 +876,9 @@ where
     Edit(UpdateId),
 }
 
-// TODO :PartialEq
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SerializableCrudView {
+    #[default]
     List,
     Create,
     #[serde(bound = "")]
@@ -900,6 +950,10 @@ pub enum DeletableModel<
     Read(ReadModel),
     Update(UpdateModel),
 }
+
+pub trait DeletableModelTrait: Identifiable + Send + Sync {}
+
+pub type AnyDeletableModel = Arc<dyn DeletableModelTrait>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct HeaderOptions {

@@ -146,18 +146,14 @@ where
                                                     </div>
                                                 }
                                             })}
-                                        {edit_allowed
-                                            .get()
-                                            .then(|| {
-                                                view! {
-                                                    <div
-                                                        class="action-icon"
-                                                        on:click=move |_| edit(stored_entity.get())
-                                                    >
-                                                        <Icon icon=icondata::BsPencil/>
-                                                    </div>
-                                                }
-                                            })}
+                                        {edit_allowed.get().then(|| view! {
+                                            <div
+                                                class="action-icon"
+                                                on:click=move |_| edit(stored_entity.get())
+                                            >
+                                                <Icon icon=icondata::BsPencil/>
+                                            </div>
+                                        })}
                                         {delete_allowed
                                             .get()
                                             .then(|| {

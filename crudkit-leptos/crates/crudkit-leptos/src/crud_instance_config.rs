@@ -5,7 +5,7 @@ use crate::{
 use crudkit_condition::Condition;
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
-use crudkit_web::requests::NewClientPerRequestExecutor;
+use crudkit_web::reqwest_executor::NewClientPerRequestExecutor;
 use dyn_clone::DynClone;
 use indexmap::{indexmap, IndexMap};
 use leptonic::components::prelude::*;

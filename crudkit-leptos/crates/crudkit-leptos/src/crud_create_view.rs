@@ -1,17 +1,5 @@
 use std::{collections::HashMap, marker::PhantomData};
 
-use crudkit_shared::{SaveResult, Saved};
-use crudkit_web::{
-    prelude::{CreateOne, CrudRestDataProvider},
-    requests::RequestError,
-    CrudDataTrait, CrudFieldValueTrait, CrudIdTrait, CrudMainTrait, CrudSimpleView, FieldMode,
-    TabId, Value,
-};
-use leptonic::components::prelude::*;
-use leptonic::prelude::*;
-use leptos::prelude::*;
-use uuid::Uuid;
-
 use crate::{
     crud_fields::CrudFields,
     crud_instance::CrudInstanceContext,
@@ -20,6 +8,17 @@ use crate::{
     prelude::CustomCreateFields,
     IntoReactiveValue, ReactiveValue,
 };
+use crudkit_shared::{SaveResult, Saved};
+use crudkit_web::prelude::RequestError;
+use crudkit_web::{
+    prelude::{CreateOne, CrudRestDataProvider},
+    CrudDataTrait, CrudFieldValueTrait, CrudIdTrait, CrudMainTrait, CrudSimpleView, FieldMode,
+    TabId, Value,
+};
+use leptonic::components::prelude::*;
+use leptonic::prelude::*;
+use leptos::prelude::*;
+use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 struct EntityReq<T: CrudMainTrait + 'static> {
@@ -118,7 +117,7 @@ where
     let (show_leave_modal, set_show_leave_modal) = signal(false);
 
     let force_leave = move || instance_ctx.list();
-    let request_leave = move || set_user_wants_to_leave.set(true);
+    let request_leave = Callback::from(move || set_user_wants_to_leave.set(true));
 
     Effect::new(
         move |_prev| match (user_wants_to_leave.get(), input_changed.get()) {
@@ -183,11 +182,9 @@ where
         }
     });
 
-    let trigger_save = move || save_action.dispatch((input.get(), Then::OpenEditView));
-
-    let trigger_save_and_return = move || save_action.dispatch((input.get(), Then::OpenListView));
-
-    let trigger_save_and_new = move || save_action.dispatch((input.get(), Then::OpenCreateView));
+    let save = Callback::from(move |then| {
+        save_action.dispatch((input.get(), then));
+    });
 
     // TODO: Refactor this code. Much of it is shared with the edit_view!
     let value_changed = Callback::<(
@@ -214,45 +211,7 @@ where
     });
 
     view! {
-        <Grid gap=Size::Em(0.6) attr:class="crud-nav">
-            <Row>
-                <Col xs=6>
-                    <ButtonWrapper>
-                        <Button
-                            color=ButtonColor::Primary
-                            disabled=save_disabled
-                            on_press=move |_| { trigger_save(); }
-                        >
-                            "Speichern"
-                        </Button>
-                        <Button
-                            color=ButtonColor::Primary
-                            disabled=save_disabled
-                            on_press=move |_| { trigger_save_and_return(); }
-                        >
-                            "Speichern und zurück"
-                        </Button>
-                        <Button
-                            color=ButtonColor::Primary
-                            disabled=save_disabled
-                            on_press=move |_| { trigger_save_and_new(); }
-                        >
-                            "Speichern und neu"
-                        </Button>
-                    </ButtonWrapper>
-                </Col>
-
-                <Col xs=6 h_align=ColAlign::End>
-                    <ButtonWrapper>
-                        <Button color=ButtonColor::Secondary on_press=move |_| request_leave()>
-                            <span style="text-decoration: underline;">{"L"}</span>
-                            {"istenansicht"}
-                        </Button>
-                    </ButtonWrapper>
-                </Col>
-            </Row>
-        </Grid>
-
+        <Actions save_disabled save request_leave />
         {move || match create_elements.get() {
             CreateElements::None => view! { "Keine Felder definiert." }.into_any(),
             CreateElements::Custom(create_elements) => {
@@ -284,5 +243,53 @@ where
                 force_leave();
             }
         />
+    }
+}
+
+#[component]
+fn Actions(
+    save_disabled: Signal<bool>,
+    save: Callback<(Then,)>,
+    request_leave: Callback<()>,
+) -> impl IntoView {
+    view! {
+        <Grid gap=Size::Em(0.6) attr:class="crud-nav">
+            <Row>
+                <Col xs=6>
+                    <ButtonWrapper>
+                        <Button
+                            color=ButtonColor::Primary
+                            disabled=save_disabled
+                            on_press=move |_| { save.run((Then::OpenEditView,)); }
+                        >
+                            "Speichern"
+                        </Button>
+                        <Button
+                            color=ButtonColor::Primary
+                            disabled=save_disabled
+                            on_press=move |_| { save.run((Then::OpenListView,)); }
+                        >
+                            "Speichern und zurück"
+                        </Button>
+                        <Button
+                            color=ButtonColor::Primary
+                            disabled=save_disabled
+                            on_press=move |_| { save.run((Then::OpenCreateView,)); }
+                        >
+                            "Speichern und neu"
+                        </Button>
+                    </ButtonWrapper>
+                </Col>
+
+                <Col xs=6 h_align=ColAlign::End>
+                    <ButtonWrapper>
+                        <Button color=ButtonColor::Secondary on_press=move |_| request_leave.run(())>
+                            <span style="text-decoration: underline;">{"L"}</span>
+                            {"istenansicht"}
+                        </Button>
+                    </ButtonWrapper>
+                </Col>
+            </Row>
+        </Grid>
     }
 }

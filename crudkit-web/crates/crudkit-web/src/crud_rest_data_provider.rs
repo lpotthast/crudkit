@@ -1,4 +1,6 @@
 use super::requests::*;
+use crate::request_error::RequestError;
+use crate::reqwest_executor::ReqwestExecutor;
 use crate::{CrudDataTrait, CrudMainTrait};
 use crudkit_condition::{merge_conditions, Condition};
 use crudkit_id::SerializableId;
@@ -49,6 +51,7 @@ pub struct CrudRestDataProvider<T: CrudMainTrait> {
     api_base_url: String,
     executor: Arc<dyn ReqwestExecutor>,
     base_condition: Option<Condition>,
+    resource_name: &'static str,
     phantom_data: PhantomData<T>,
 }
 
@@ -58,6 +61,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
             api_base_url: api_base_url,
             executor,
             base_condition: None,
+            resource_name: T::get_resource_name(),
             phantom_data: PhantomData {},
         }
     }
@@ -68,9 +72,11 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
 
     pub async fn read_count(&self, mut read_count: ReadCount) -> Result<u64, RequestError> {
         read_count.condition = merge_conditions(self.base_condition.clone(), read_count.condition);
-        let resource = T::get_resource_name();
         request_post(
-            format!("{}/{resource}/crud/read-count", self.api_base_url),
+            format!(
+                "{}/{}/crud/read-count",
+                self.api_base_url, self.resource_name
+            ),
             self.executor.as_ref(),
             read_count,
         )
@@ -85,9 +91,11 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         <T as CrudMainTrait>::ReadModel: 'static,
     {
         read_many.condition = merge_conditions(self.base_condition.clone(), read_many.condition);
-        let resource = T::get_resource_name();
         request_post(
-            format!("{}/{resource}/crud/read-many", self.api_base_url),
+            format!(
+                "{}/{}/crud/read-many",
+                self.api_base_url, self.resource_name
+            ),
             self.executor.as_ref(),
             read_many,
         )
@@ -102,9 +110,8 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         <T as CrudMainTrait>::ReadModel: 'static,
     {
         read_one.condition = merge_conditions(self.base_condition.clone(), read_one.condition);
-        let resource = T::get_resource_name();
         request_post(
-            format!("{}/{resource}/crud/read-one", self.api_base_url),
+            format!("{}/{}/crud/read-one", self.api_base_url, self.resource_name),
             self.executor.as_ref(),
             read_one,
         )
@@ -118,9 +125,11 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
     where
         <T as CrudMainTrait>::CreateModel: 'static,
     {
-        let resource = T::get_resource_name();
         request_post(
-            format!("{}/{resource}/crud/create-one", self.api_base_url),
+            format!(
+                "{}/{}/crud/create-one",
+                self.api_base_url, self.resource_name
+            ),
             self.executor.as_ref(),
             create_one,
         )
@@ -135,9 +144,11 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
     where
         <T as CrudMainTrait>::UpdateModel: 'static,
     {
-        let resource = T::get_resource_name();
         request_post(
-            format!("{}/{resource}/crud/create-one", self.api_base_url),
+            format!(
+                "{}/{}/crud/create-one",
+                self.api_base_url, self.resource_name
+            ),
             self.executor.as_ref(),
             create_one,
         )
@@ -152,9 +163,11 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         <T as CrudMainTrait>::UpdateModel: 'static,
     {
         update_one.condition = merge_conditions(self.base_condition.clone(), update_one.condition);
-        let resource = T::get_resource_name();
         request_post(
-            format!("{}/{resource}/crud/update-one", self.api_base_url),
+            format!(
+                "{}/{}/crud/update-one",
+                self.api_base_url, self.resource_name
+            ),
             self.executor.as_ref(),
             update_one,
         )
@@ -165,9 +178,11 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         &self,
         delete_by_id: DeleteById,
     ) -> Result<DeleteResult, RequestError> {
-        let resource = T::get_resource_name();
         request_post(
-            format!("{}/{resource}/crud/delete-by-id", self.api_base_url),
+            format!(
+                "{}/{}/crud/delete-by-id",
+                self.api_base_url, self.resource_name
+            ),
             self.executor.as_ref(),
             delete_by_id,
         )

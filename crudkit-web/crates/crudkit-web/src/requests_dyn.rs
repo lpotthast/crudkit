@@ -1,21 +1,19 @@
+use crate::crud_rest_data_provider_dyn::serialize_any_as_json;
+use crate::request_error::{error_response_to_request_error, RequestError};
+use crate::reqwest_executor::ReqwestExecutor;
 use leptos_keycloak_auth::reqwest::Method;
-use serde::{de::DeserializeOwned, Serialize};
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crate::request_error::{error_response_to_request_error, RequestError};
-use crate::reqwest_executor::ReqwestExecutor;
-
 /// build all kinds of http requests: post/get/delete etc.
-pub async fn request<B, T>(
+pub async fn request<B>(
     method: Method,
     url: String,
     executor: &(impl ReqwestExecutor + ?Sized),
     body: B,
-) -> Result<T, RequestError>
+) -> Result<serde_json::Value, RequestError>
 where
-    T: DeserializeOwned + Debug,
-    B: Serialize + Debug + Send + Sync + 'static,
+    B: erased_serde::Serialize + Debug + Send + Sync + 'static,
 {
     // ASSUMPTION: The given url is complete, meaning nothing hast to be added to it to work!
     let allow_body = method == Method::POST || method == Method::PUT;
@@ -28,7 +26,7 @@ where
                 if allow_body {
                     builder
                         .header("Content-Type", "application/json")
-                        .json(&body)
+                        .body(serialize_any_as_json(&body))
                 } else {
                     builder
                 }
@@ -39,16 +37,13 @@ where
     process_json_response(result).await
 }
 
-async fn process_json_response<T>(
+async fn process_json_response(
     result: Result<reqwest::Response, reqwest::Error>,
-) -> Result<T, RequestError>
-where
-    T: DeserializeOwned + Debug,
-{
+) -> Result<serde_json::Value, RequestError> {
     match result {
         Ok(response) => {
             if response.status().is_success() {
-                match response.json::<T>().await {
+                match response.json::<serde_json::Value>().await {
                     Ok(data) => Ok(data),
                     Err(err) => Err(RequestError::Deserialize(err.to_string())),
                 }
@@ -56,44 +51,37 @@ where
                 Err(error_response_to_request_error(response).await)
             }
         }
-        Err(err) => {
-            tracing::error!(?err, "Request failed");
-            Err(RequestError::Request(err.to_string()))
-        }
+        Err(err) => Err(RequestError::Request(err.to_string())),
     }
 }
 
 #[allow(dead_code)]
 /// Delete request
-pub async fn request_delete<T>(
+pub async fn request_delete(
     url: String,
     executor: &impl ReqwestExecutor,
-) -> Result<T, RequestError>
-where
-    T: DeserializeOwned + Debug,
-{
+) -> Result<serde_json::Value, RequestError> {
     request(Method::DELETE, url, executor, ()).await
 }
 
 /// Get request
 #[allow(dead_code)]
-pub async fn request_get<T>(url: String, executor: &impl ReqwestExecutor) -> Result<T, RequestError>
-where
-    T: DeserializeOwned + Debug,
-{
+pub async fn request_get(
+    url: String,
+    executor: &impl ReqwestExecutor,
+) -> Result<serde_json::Value, RequestError> {
     request(Method::GET, url, executor, ()).await
 }
 
 /// Post request with a body
 #[allow(dead_code)]
-pub async fn request_post<B, T>(
+pub async fn request_post<B>(
     url: String,
     executor: &(impl ReqwestExecutor + ?Sized),
     body: B,
-) -> Result<T, RequestError>
+) -> Result<serde_json::Value, RequestError>
 where
-    T: DeserializeOwned + Debug,
-    B: Serialize + Debug + Send + Sync + 'static,
+    B: erased_serde::Serialize + Debug + Send + Sync + 'static,
 {
     request(Method::POST, url, executor, body).await
 }
@@ -121,14 +109,13 @@ where
 
 /// Put request with a body
 #[allow(dead_code)]
-pub async fn request_put<B, T>(
+pub async fn request_put<B>(
     url: String,
     auth: &impl ReqwestExecutor,
     body: B,
-) -> Result<T, RequestError>
+) -> Result<serde_json::Value, RequestError>
 where
-    T: DeserializeOwned + Debug,
-    B: Serialize + Debug + Send + Sync + 'static,
+    B: erased_serde::Serialize + Debug + Send + Sync + 'static,
 {
     request(Method::PUT, url, auth, body).await
 }

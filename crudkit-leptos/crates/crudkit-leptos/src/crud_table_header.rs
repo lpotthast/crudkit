@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::marker::PhantomData;
 
 use crudkit_shared::Order;
@@ -29,24 +30,14 @@ where
     let update_order_of_field = move |field: <T::ReadModel as CrudDataTrait>::Field| {
         instance_ctx.oder_by(field, OrderByUpdateOptions { append: false })
     };
-
+    let select_all = Callback::from(move || {
+        list_ctx.toggle_select_all();
+    });
     view! {
         <TableHeader>
             <TableRow>
                 {move || {
-                    with_select_column
-                        .get()
-                        .then(|| {
-                            view! {
-                                <TableHeaderCell attr:class="select fit-content">
-                                    <Checkbox checked=all_selected set_checked=move |checked| {
-                                        if checked != all_selected.get_untracked() {
-                                            list_ctx.toggle_select_all()
-                                        }
-                                    }/>
-                                </TableHeaderCell>
-                            }
-                        })
+                    with_select_column.get().then(move || view! { <SelectAll all_selected select_all/> })
                 }}
                 <For
                     each=move || headers.get()
@@ -54,34 +45,9 @@ where
                     children=move |(field, options)| {
                         move || {
                             let field_clone = field.clone();
-                            let order_by = order_by.get();
-                            let order = order_by.get(&field).cloned();
-                            let display_name = options.display_name.clone();
-                            tracing::debug!(? field, ? order, "render header");
+                            let update_order = Callback::from(move || { update_order_of_field(field_clone.clone()); });
                             view! {
-                                <TableHeaderCell
-                                    class:crud-column-ordered=order.is_some()
-                                    class:crud-order-by-trigger=options.ordering_allowed
-                                    class:min-width=options.min_width
-                                    on:click=move |_| {
-                                        if options.ordering_allowed {
-                                            update_order_of_field(field_clone.clone())
-                                        }
-                                    }
-                                >
-                                    {display_name.clone()}
-                                    <span class="crud-order-by-sign" class:active=order.is_some()>
-                                        <SafeHtml<String> html=match order {
-                                            Some(order) => {
-                                                match order {
-                                                    Order::Asc => "&uarr;",
-                                                    Order::Desc => "&darr;",
-                                                }
-                                            }
-                                            None => "&uarr;",
-                                        }/>
-                                    </span>
-                                </TableHeaderCell>
+                                <Header name=options.display_name.clone() order=order_by.read().get(&field).cloned() ordering_allowed=options.ordering_allowed update_order apply_min_width_class=options.min_width/>
                             }
                         }
                     }
@@ -89,5 +55,53 @@ where
                 {move || { with_actions.get().then(|| view! { <TableHeaderCell attr:class="actions fit-content">"Aktionen"</TableHeaderCell> }) }}
             </TableRow>
         </TableHeader>
+    }
+}
+
+#[component]
+fn SelectAll(all_selected: Signal<bool>, select_all: Callback<()>) -> impl IntoView {
+    view! {
+        <TableHeaderCell attr:class="select fit-content">
+            <Checkbox checked=all_selected set_checked=move |checked| {
+                if checked != all_selected.get_untracked() {
+                    select_all.run(())
+                }
+            }/>
+        </TableHeaderCell>
+    }
+}
+
+#[component]
+fn Header(
+    name: Cow<'static, str>,
+    order: Option<Order>,
+    ordering_allowed: bool,
+    update_order: Callback<()>,
+    apply_min_width_class: bool,
+) -> impl IntoView {
+    view! {
+        <TableHeaderCell
+            class:crud-column-ordered=order.is_some()
+            class:crud-order-by-trigger=ordering_allowed
+            class:min-width=apply_min_width_class
+            on:click=move |_| {
+                if ordering_allowed {
+                    update_order.run(())
+                }
+            }
+        >
+            { name }
+            <span class="crud-order-by-sign" class:active=order.is_some()>
+                <SafeHtml<String> html=match order {
+                    Some(order) => {
+                        match order {
+                            Order::Asc => "&uarr;",
+                            Order::Desc => "&darr;",
+                        }
+                    }
+                    None => "&uarr;",
+                }/>
+            </span>
+        </TableHeaderCell>
     }
 }

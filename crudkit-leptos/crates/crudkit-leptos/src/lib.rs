@@ -25,8 +25,8 @@ pub mod crud_table_body;
 pub mod crud_table_footer;
 pub mod crud_table_header;
 
+pub mod dynamic;
 pub mod stores;
-
 /*
 * Reexport common modules.
 * This allows the user to only

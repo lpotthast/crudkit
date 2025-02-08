@@ -17,11 +17,13 @@ derive-crud-selectable = { path = "../derive-crud-selectable" }
 derive-field = { path = "../derive-field" }
 derive-field-value = { path = "../derive-field-value" }
 
+typetag = "0.2.19"
+erased-serde = "0.4.5"
+dyn-eq = "0.1.3"
+dyn-hash = "0.2.1"
 send_wrapper = "0.6.0"
-#leptos-keycloak-auth = "0.4.01"
-leptos-keycloak-auth = { path = "../../../../../leptos-keycloak-auth/leptos-keycloak-auth", features = ["internals"] }
+leptos-keycloak-auth = "0.5.4"
 async-trait = "0.1.71"
-derive_more = "0.99.17"
 dyn-clone = "1.0.12"
 indexmap = { version = "2.0.0", features = ["serde"] }
 reqwest = { version = "0.12.5", default-features = false, features = [
