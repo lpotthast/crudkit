@@ -1,4 +1,4 @@
-use crudkit_web::SerializableCrudView;
+use crudkit_web::view::SerializableCrudView;
 use leptos::prelude::*;
 use std::ops::Deref;
 use std::sync::{Arc, Mutex};

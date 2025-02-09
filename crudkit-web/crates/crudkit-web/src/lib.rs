@@ -2,7 +2,6 @@
 #![deny(clippy::unwrap_used)]
 
 use async_trait::async_trait;
-use crudkit_id::SerializableId;
 use dyn_clone::DynClone;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::sync::Arc;
@@ -20,6 +19,7 @@ pub mod generic;
 pub mod request_error;
 pub mod reqwest_executor;
 pub mod value;
+pub mod view;
 
 /*
 * Reexport common modules.
@@ -40,7 +40,6 @@ pub use crudkit_id;
 pub use crudkit_shared;
 pub use crudkit_validation;
 pub use crudkit_websocket;
-use dyn_eq::DynEq;
 
 pub(crate) mod prelude {
     pub use crudkit_condition;
@@ -63,19 +62,18 @@ pub(crate) mod prelude {
     pub use super::request_error::RequestError;
     pub use super::reqwest_executor::ReqwestExecutor;
     pub use super::value::Value;
+    pub use super::view::CrudSimpleView;
+    pub use super::view::CrudView;
+    pub use super::view::SerializableCrudView;
     pub use super::CrudActionPayload;
     pub use super::CrudDataTrait;
-    pub use super::CrudField;
     pub use super::CrudFieldNameTrait;
     pub use super::CrudFieldValueTrait;
     pub use super::CrudIdTrait;
     pub use super::CrudMainTrait;
-    pub use super::CrudModel;
     pub use super::CrudResourceTrait;
     pub use super::CrudSelectableSource;
     pub use super::CrudSelectableTrait;
-    pub use super::CrudSimpleView;
-    pub use super::CrudView;
     pub use super::DeletableModel;
     pub use super::EmptyActionPayload;
     pub use super::FieldMode;
@@ -85,7 +83,6 @@ pub(crate) mod prelude {
     pub use super::Layout;
     pub use super::NoData;
     pub use super::OrderByUpdateOptions;
-    pub use super::SerializableCrudView;
     pub use super::TabId;
 }
 
@@ -101,22 +98,6 @@ pub enum NoData {
     UpdateFailed(RequestError),
     // TODO: Can probably be deleted at some point...
     UpdateReturnedNothing,
-}
-
-/// Any possible model.
-#[derive(Debug, Clone, PartialEq)]
-pub enum CrudModel<T: CrudMainTrait> {
-    ReadModel(T::ReadModel),
-    CreateModel(T::CreateModel),
-    UpdateModel(T::UpdateModel),
-}
-
-/// Any possible field.
-#[derive(Debug, Clone, PartialEq)]
-pub enum CrudField<T: CrudMainTrait> {
-    ReadModel(<T::ReadModel as CrudDataTrait>::Field),
-    CreateModel(<T::CreateModel as CrudDataTrait>::Field),
-    UpdateModel(<T::UpdateModel as CrudDataTrait>::Field),
 }
 
 // TODO: impl Clone if both types are clone, same for debug, ...
@@ -225,7 +206,6 @@ pub trait CrudSelectableSource: Debug + Send + Sync {
     fn get_selectable(&self) -> Option<Vec<Self::Selectable>>;
 }
 
-//#[typetag::serde(tag = "type")]
 pub trait CrudSelectableTrait: Debug + Display + DynClone + Send + Sync {
     fn as_any(&self) -> &dyn Any;
 }
@@ -238,79 +218,6 @@ pub trait CrudFieldNameTrait {
 pub trait CrudFieldValueTrait<T> {
     fn get_value(&self, entity: &T) -> Value;
     fn set_value(&self, entity: &mut T, value: Value);
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum CrudView<ReadId, UpdateId>
-where
-    ReadId: crudkit_id::Id + Serialize + DeserializeOwned,
-    UpdateId: crudkit_id::Id + Serialize + DeserializeOwned,
-{
-    List,
-    Create,
-    #[serde(bound = "")]
-    Read(ReadId),
-    #[serde(bound = "")]
-    Edit(UpdateId),
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum SerializableCrudView {
-    #[default]
-    List,
-    Create,
-    #[serde(bound = "")]
-    Read(SerializableId),
-    #[serde(bound = "")]
-    Edit(SerializableId),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum CrudSimpleView {
-    List,
-    Create,
-    Read,
-    Edit,
-}
-
-impl<ReadId, UpdateId> Into<SerializableCrudView> for CrudView<ReadId, UpdateId>
-where
-    ReadId: crudkit_id::Id + Serialize + DeserializeOwned,
-    UpdateId: crudkit_id::Id + Serialize + DeserializeOwned,
-{
-    fn into(self) -> SerializableCrudView {
-        match self {
-            CrudView::List => SerializableCrudView::List,
-            CrudView::Create => SerializableCrudView::Create,
-            CrudView::Read(id) => SerializableCrudView::Read(id.into_serializable_id()),
-            CrudView::Edit(id) => SerializableCrudView::Edit(id.into_serializable_id()),
-        }
-    }
-}
-
-impl<ReadId, UpdateId> Into<CrudSimpleView> for CrudView<ReadId, UpdateId>
-where
-    ReadId: crudkit_id::Id + Serialize + DeserializeOwned,
-    UpdateId: crudkit_id::Id + Serialize + DeserializeOwned,
-{
-    fn into(self) -> CrudSimpleView {
-        match self {
-            CrudView::List => CrudSimpleView::List,
-            CrudView::Create => CrudSimpleView::Create,
-            CrudView::Read(_) => CrudSimpleView::Read,
-            CrudView::Edit(_) => CrudSimpleView::Edit,
-        }
-    }
-}
-
-impl<ReadId, UpdateId> Default for CrudView<ReadId, UpdateId>
-where
-    ReadId: crudkit_id::Id + Serialize + DeserializeOwned,
-    UpdateId: crudkit_id::Id + Serialize + DeserializeOwned,
-{
-    fn default() -> Self {
-        Self::List
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

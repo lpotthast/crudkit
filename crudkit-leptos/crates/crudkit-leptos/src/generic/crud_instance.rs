@@ -351,10 +351,10 @@ where
                             on_edit_view=move |id| ctx.edit(id)
                             on_list_view=move || ctx.list()
                             on_create_view=move || ctx.create()
-                            on_entity_created=move |saved| {}
-                            on_entity_creation_aborted=move |reason| {}
+                            on_entity_created=move |_saved| {}
+                            on_entity_creation_aborted=move |_reason| {}
                             on_entity_not_created_critical_errors=move || {}
-                            on_entity_creation_failed=move |request_error| {}
+                            on_entity_creation_failed=move |_request_error| {}
                             on_tab_selected=move |tab_id| {
                                 ctx.tab_selected(tab_id)
                             }
@@ -388,10 +388,10 @@ where
                             field_config=update_field_config
                             on_list_view=move || ctx.list()
                             on_create_view=move || ctx.create()
-                            on_entity_updated=move |saved| {}
-                            on_entity_update_aborted=move |reason| {}
+                            on_entity_updated=move |_saved| {}
+                            on_entity_update_aborted=move |_reason| {}
                             on_entity_not_updated_critical_errors=move || {}
-                            on_entity_update_failed=move |request_error| {}
+                            on_entity_update_failed=move |_request_error| {}
                             on_tab_selected=move |tab_id| {
                                 ctx.tab_selected(tab_id)
                             }
