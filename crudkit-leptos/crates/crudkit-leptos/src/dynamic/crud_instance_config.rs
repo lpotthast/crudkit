@@ -1,24 +1,25 @@
-use crate::dynamic::crud_action::CrudAction;
-use crate::dynamic::custom_field::CustomReadFields;
+use crate::dynamic::crud_action::{CrudAction, CrudEntityAction};
+use crate::dynamic::custom_field::{CustomCreateFields, CustomReadFields, CustomUpdateFields};
 use crate::shared::crud_instance_config::DynSelectConfig;
+use crate::ReactiveValue;
 use crudkit_condition::Condition;
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
-use crudkit_web::{AnyField, AnyModel, SerializableCrudView};
+use crudkit_web::{AnyElem, AnyField, AnyModel, SerializableCrudView};
 use indexmap::{indexmap, IndexMap};
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::sync::Arc;
-use std::{fmt::Debug, hash::Hash};
 
 #[derive(Debug, Clone, PartialEq)] // TODO: Serialize, Deserialize
 pub struct CrudInstanceConfig {
     pub api_base_url: String,
     pub view: SerializableCrudView,
     pub headers: Vec<(AnyField, HeaderOptions)>, // Read model field!
-    //pub create_elements: CreateElements<T>,
-    //pub elements: Vec<Elem<T::UpdateModel>>,
+    pub create_elements: CreateElements,
+    pub elements: Vec<AnyElem>,              // UpdateModel
     pub order_by: IndexMap<AnyField, Order>, // Read model field name!
     pub items_per_page: u64,
     pub page: u64,
@@ -39,9 +40,9 @@ pub struct CrudParentConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum CreateElements<T: CrudMainTrait> {
+pub enum CreateElements {
     None,
-    Custom(Vec<Elem<T::CreateModel>>),
+    Custom(Vec<AnyElem>), // CreateModel
 }
 
 /// This config is non-serializable. Every piece of runtime-changing data relevant to be tracked and reloaded should be part of the CrudInstanceConfig struct.
@@ -52,15 +53,20 @@ pub struct CrudStaticInstanceConfig {
     pub actions: Vec<CrudAction>,
     pub deserialize_read_many_response:
         Callback<(serde_json::Value,), Result<Vec<AnyModel>, serde_json::Error>>,
-    //pub entity_actions: Vec<CrudEntityAction<T>>,
-    //pub create_field_select_config:
-    //    HashMap<<T::CreateModel as CrudDataTrait>::Field, DynSelectConfig>,
-    pub read_field_select_config: HashMap<AnyField, DynSelectConfig>,
-    //pub update_field_select_config:
-    //    HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>,
+    pub deserialize_read_one_response:
+        Callback<(serde_json::Value,), Result<Option<AnyModel>, serde_json::Error>>,
+
+    pub read_model_to_update_model: Callback<(AnyModel,), AnyModel>,
+    pub read_model_to_signal_map: Callback<(AnyModel,), HashMap<AnyField, ReactiveValue>>,
+    pub update_model_to_signal_map: Callback<(AnyModel,), HashMap<AnyField, ReactiveValue>>,
+
+    pub entity_actions: Vec<CrudEntityAction>,
+    pub create_field_select_config: HashMap<AnyField, DynSelectConfig>, // CreateModel field
+    pub read_field_select_config: HashMap<AnyField, DynSelectConfig>,   // ReadModel field
+    pub update_field_select_config: HashMap<AnyField, DynSelectConfig>, // UpdateModel field
     pub custom_read_fields: CustomReadFields,
-    //pub custom_create_fields: CustomCreateFields<T>,
-    //pub custom_update_fields: CustomUpdateFields<T>,
+    pub custom_create_fields: CustomCreateFields,
+    pub custom_update_fields: CustomUpdateFields,
 }
 
 //impl Default for CrudStaticInstanceConfig {
@@ -96,8 +102,8 @@ impl Default for CrudInstanceConfig {
             //     },
             // )],
             headers: vec![],
-            //create_elements: CreateElements::None,
-            //elements: vec![],
+            create_elements: CreateElements::None,
+            elements: vec![],
             // order_by: indexmap! { // TODO: Nothing? First id field? All id fields?
             //     T::ReadModel::get_id_field() => Order::Asc,
             // },

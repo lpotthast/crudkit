@@ -2,15 +2,12 @@ use crate::generic::custom_field::CustomFields;
 use crate::shared::crud_instance_config::{DynSelectConfig, SelectConfigTrait};
 use crate::shared::fields::{render_field, render_label};
 use crate::ReactiveValue;
-use crudkit_web::{prelude::*, DateTimeDisplay, JsonValue};
+use crudkit_web::prelude::*;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
 use std::sync::Arc;
-use std::{borrow::Cow, collections::HashMap, error::Error};
-use time::{
-    format_description::well_known::Rfc3339, macros::format_description, PrimitiveDateTime,
-};
+use std::{collections::HashMap, error::Error};
 use uuid::Uuid;
 
 #[component]

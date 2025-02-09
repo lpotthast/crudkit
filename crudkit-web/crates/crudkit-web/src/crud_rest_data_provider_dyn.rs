@@ -136,17 +136,15 @@ impl CrudRestDataProvider {
         .await
     }
 
-    pub async fn read_one(&self, mut read_one: ReadOne) -> Result<Option<AnyModel>, RequestError> // ReadModel
+    pub async fn read_one(&self, mut read_one: ReadOne) -> Result<serde_json::Value, RequestError> // ReadModel
     {
         read_one.condition = merge_conditions(self.base_condition.clone(), read_one.condition);
-        let json = request_post(
+        request_post(
             format!("{}/{}/crud/read-one", self.api_base_url, self.resource_name),
             self.executor.as_ref(),
             read_one,
         )
-        .await?;
-        let result: Option<AnyModel> = serde_json::from_value(json).unwrap();
-        Ok(result)
+        .await
     }
 
     pub async fn create_one_from_create_model(

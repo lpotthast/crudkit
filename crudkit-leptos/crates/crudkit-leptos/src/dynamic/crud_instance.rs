@@ -1,9 +1,11 @@
 use crate::dynamic::crud_action::CrudActionAftermath;
 use crate::dynamic::crud_delete_modal::CrudDeleteModal;
+use crate::dynamic::crud_edit_view::CrudEditView;
 use crate::dynamic::crud_instance_config::{
     CrudInstanceConfig, CrudParentConfig, CrudStaticInstanceConfig,
 };
 use crate::dynamic::crud_list_view::CrudListView;
+use crate::dynamic::crud_read_view::CrudReadView;
 use crate::shared::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
 use crudkit_id::SerializableId;
 use crudkit_shared::{DeleteResult, Order};
@@ -15,7 +17,6 @@ use crudkit_web::{
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
-use std::sync::Arc;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -233,8 +234,8 @@ pub fn CrudInstance(
             base_condition.clone(),
         )
     });
-    //let (create_elements, set_create_elements) = signal(config.create_elements.clone());
-    //let (update_elements, set_update_elements) = signal(config.elements.clone());
+    let (create_elements, set_create_elements) = signal(config.create_elements.clone());
+    let (update_elements, set_update_elements) = signal(config.elements.clone());
     let (deletion_request, set_deletion_request) = signal(None);
     let (reload, set_reload) = signal(Uuid::new_v4());
 
@@ -276,18 +277,28 @@ pub fn CrudInstance(
 
     let custom_read_fields =
         Signal::derive(move || static_config.read_value().custom_read_fields.clone());
-    //let custom_create_fields = Signal::derive(move || static_config.custom_create_fields.clone());
-    //let custom_update_fields = Signal::derive(move || static_config.custom_update_fields.clone());
+    let custom_create_fields =
+        Signal::derive(move || static_config.read_value().custom_create_fields.clone());
+    let custom_update_fields =
+        Signal::derive(move || static_config.read_value().custom_update_fields.clone());
 
-    //let create_field_config =
-    //    Signal::derive(move || static_config.create_field_select_config.clone());
+    let create_field_config = Signal::derive(move || {
+        static_config
+            .read_value()
+            .create_field_select_config
+            .clone()
+    });
     let read_field_config =
         Signal::derive(move || static_config.read_value().read_field_select_config.clone());
-    //let update_field_config =
-    //    Signal::derive(move || static_config.update_field_select_config.clone());
+    let update_field_config = Signal::derive(move || {
+        static_config
+            .read_value()
+            .update_field_select_config
+            .clone()
+    });
 
     let actions = Signal::derive(move || static_config.get_value().actions.clone());
-    //let entity_actions = Signal::derive(move || static_config.entity_actions.clone());
+    let entity_actions = Signal::derive(move || static_config.read_value().entity_actions.clone());
 
     let on_cancel_delete = Callback::new(move |()| {
         tracing::info!("Removing delete request");
@@ -339,14 +350,39 @@ pub fn CrudInstance(
                         </div>
                     }.into_any(),
                     SerializableCrudView::Read(id) => view! {
-                        <div>
-                            "read view"
-                        </div>
+                        <CrudReadView
+                            api_base_url=api_base_url
+                            id=id
+                            data_provider=data_provider
+                            actions=entity_actions
+                            elements=update_elements
+                            custom_fields=custom_update_fields
+                            field_config=update_field_config
+                            on_list_view=move || ctx.list()
+                            on_tab_selected=move |tab_id| {
+                                ctx.tab_selected(tab_id)
+                            }
+                        />
                     }.into_any(),
                     SerializableCrudView::Edit(id) => view! {
-                        <div>
-                            "edit view"
-                        </div>
+                        <CrudEditView
+                            api_base_url=api_base_url
+                            id=id
+                            data_provider=data_provider
+                            actions=entity_actions
+                            elements=update_elements
+                            custom_fields=custom_update_fields
+                            field_config=update_field_config
+                            on_list_view=move || ctx.list()
+                            on_create_view=move || ctx.create()
+                            on_entity_updated=move |saved| {}
+                            on_entity_update_aborted=move |reason| {}
+                            on_entity_not_updated_critical_errors=move || {}
+                            on_entity_update_failed=move |request_error| {}
+                            on_tab_selected=move |tab_id| {
+                                ctx.tab_selected(tab_id)
+                            }
+                        />
                     }.into_any(),
                 }}
                 <CrudDeleteModal

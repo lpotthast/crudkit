@@ -1,10 +1,11 @@
 use crate::dynamic::crud_action::CrudActionTrait;
+use crate::dynamic::crud_field::CrudField;
 use crate::dynamic::crud_instance::CrudInstanceContext;
 use crate::dynamic::crud_list_view::CrudListViewContext;
 use crate::dynamic::crud_table::NoDataAvailable;
 use crate::dynamic::custom_field::CustomFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
-use crudkit_web::{AnyField, AnyModel, HeaderOptions};
+use crudkit_web::{AnyField, AnyModel, CrudSimpleView, FieldMode, FieldOptions, HeaderOptions};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -23,18 +24,17 @@ pub fn CrudTableBody(
     #[prop(into)] delete_allowed: Signal<bool>,
     #[prop(into)] additional_item_actions: Signal<Vec<Arc<Box<dyn CrudActionTrait>>>>, // TODO: Use AnyAction
 ) -> impl IntoView {
+    let ctx = expect_context::<CrudInstanceContext>();
+
     let render_entry = move |entity: AnyModel| {
         // A signal map is required to render custom fields,
-        // as each custom field may want to access values of other fields to determine its redering output or processing!
-        //let signals: StoredValue<HashMap<AnyField, ReactiveValue>> = // ReadModel field
-        //    StoredValue::new({
-        //        let mut map = HashMap::new();
-        //        for field in T::ReadModel::get_all_fields() {
-        //            let initial = field.get_value(&entity);
-        //            map.insert(field, initial.into_reactive_value());
-        //        }
-        //        map
-        //    });
+        // as each custom field may want to access values of other fields to determine its rendering output or processing!
+        let signals = StoredValue::new(
+            ctx.static_config
+                .read_value()
+                .read_model_to_signal_map
+                .run((entity.clone(),)),
+        ); // TODO: Can we get rid of this clone???
 
         // TODO: Check https://github.com/rust-lang/rfcs/issues/2407, we might be able to remove explicit clones in the future!
         let stored_entity: ReadSignal<AnyModel> = // ReadModel
@@ -68,7 +68,7 @@ pub fn CrudTableBody(
         // TODO: why is this Arc<Box<...>>?
         let trigger_action = move |entity: AnyModel, action: Arc<Box<dyn CrudActionTrait>>| todo!();
 
-        //let dummy_value_changed_callback = Callback::new(move |_| {});
+        let dummy_value_changed_callback = Callback::new(move |_| {});
 
         view! {
             <TableRow attr:class="interactable" on:click=move |_e| { instance_ctx.edit(stored_entity.get().get_id()) }>
@@ -85,34 +85,29 @@ pub fn CrudTableBody(
                     key=|(field, _options)| field.get_name()
                     children=move |(field, options)| {
                         let entity = stored_entity.get();
-                        //let reactive_value = {
-                        //    let initial = field.get_value(&entity);
-                        //    initial.into_reactive_value()
-                        //};
+                        let reactive_value = *signals.read_value().get(&field).unwrap();
                         view! {
                             // TODO: Is it ok to recreate this reactive value on the fly?
                             // TODO: Optimize. Do we still need a StoredEntity?
 
                             <TableCell class:fit-content=options.min_width>
-                                "cell"
-                                //<CrudField
-                                //    // children={ctx.props().children.clone()} // TODO: make this work
-                                //    custom_fields=custom_fields
-                                //    field_config=field_config
-                                //    api_base_url=api_base_url
-                                //    current_view=CrudSimpleView::List
-                                //    field=field.clone()
-                                //    field_options=FieldOptions {
-                                //        disabled: false,
-                                //        label: None,
-                                //        date_time_display: options.date_time_display,
-                                //    }
-                                //    // TODO: We could tie the value_changed callback to the field_mode, as it is only required when a value can actually change!
-                                //    field_mode=FieldMode::Display
-                                //    signals=signals
-                                //    value=reactive_value
-                                //    value_changed=dummy_value_changed_callback.clone()
-                                ///>
+                                <CrudField
+                                    custom_fields=custom_fields
+                                    field_config=field_config
+                                    api_base_url=api_base_url
+                                    current_view=CrudSimpleView::List
+                                    field=field.clone()
+                                    field_options=FieldOptions {
+                                        disabled: false,
+                                        label: None,
+                                        date_time_display: options.date_time_display,
+                                    }
+                                    // TODO: We could tie the value_changed callback to the field_mode, as it is only required when a value can actually change!
+                                    field_mode=FieldMode::Display
+                                    signals=signals
+                                    value=reactive_value
+                                    value_changed=dummy_value_changed_callback.clone()
+                                />
                             </TableCell>
                         }
                     }

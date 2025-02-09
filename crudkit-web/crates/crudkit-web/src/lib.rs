@@ -285,7 +285,9 @@ pub trait DynSerialize: Send + Sync {
 }
 
 #[typetag::serde]
-pub trait Field: Debug + NamedProperty + DynClone + DynEq + DynHash + Send + Sync {}
+pub trait Field: Debug + NamedProperty + DynClone + DynEq + DynHash + Send + Sync {
+    fn set_value(&self, model: &mut AnyModel, value: Value);
+}
 dyn_eq::eq_trait_object!(Field);
 dyn_clone::clone_trait_object!(Field);
 dyn_hash::hash_trait_object!(Field);
@@ -298,12 +300,15 @@ struct Property {
 }
 
 #[typetag::serde]
-pub trait Model: Identifiable + Debug + DynClone + DynEq + Send + Sync {
+pub trait Model:
+    Identifiable + Debug + DynClone + DynEq + downcast_rs::Downcast + Send + Sync
+{
 }
 dyn_eq::eq_trait_object!(Model);
 dyn_clone::clone_trait_object!(Model);
+downcast_rs::impl_downcast!(Model);
 
-pub type AnyModel = Arc<dyn Model>;
+pub type AnyModel = Box<dyn Model>;
 
 // TODO: Serialization?
 pub trait ActionPayload: Debug + DynClone + DynEq + Send + Sync {}
@@ -1022,6 +1027,13 @@ pub enum Elem<T: CrudDataTrait> {
     Separator,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum AnyElem {
+    Enclosing(AnyEnclosing),
+    Field((AnyField, FieldOptions)),
+    Separator,
+}
+
 pub type TabId = Cow<'static, str>;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1034,6 +1046,14 @@ pub struct Tab<T: CrudDataTrait> {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AnyTab {
+    /// A unique identifier for this tab.
+    pub id: TabId,
+    pub label: Label,
+    pub group: AnyGroup,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Enclosing<T: CrudDataTrait> {
     #[serde(bound = "")]
     None(Group<T>),
@@ -1041,6 +1061,13 @@ pub enum Enclosing<T: CrudDataTrait> {
     Tabs(Vec<Tab<T>>),
     #[serde(bound = "")]
     Card(Group<T>),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum AnyEnclosing {
+    None(AnyGroup),
+    Tabs(Vec<AnyTab>),
+    Card(AnyGroup),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1063,4 +1090,10 @@ pub struct Group<T: CrudDataTrait> {
     // serde bound used as described in: https://github.com/serde-rs/serde/issues/1296
     #[serde(bound = "")]
     pub children: Vec<Elem<T>>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AnyGroup {
+    pub layout: Layout,
+    pub children: Vec<AnyElem>,
 }

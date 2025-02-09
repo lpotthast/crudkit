@@ -1,25 +1,26 @@
-use crate::generic::crud_action::{CrudEntityAction, States};
-use crate::generic::crud_action_buttons::CrudActionButtons;
-use crate::generic::crud_action_context::CrudActionContext;
-use crate::generic::crud_fields::CrudFields;
-use crate::generic::crud_instance::CrudInstanceContext;
-use crate::generic::crud_table::NoDataAvailable;
-use crate::generic::custom_field::CustomUpdateFields;
+use crate::dynamic::crud_action::{CrudEntityAction, States};
+use crate::dynamic::crud_action_buttons::CrudActionButtons;
+use crate::dynamic::crud_action_context::CrudActionContext;
+use crate::dynamic::crud_fields::CrudFields;
+use crate::dynamic::crud_instance::CrudInstanceContext;
+use crate::dynamic::crud_table::NoDataAvailable;
+use crate::dynamic::custom_field::CustomUpdateFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
-use crate::{IntoReactiveValue, ReactiveValue};
+use crate::ReactiveValue;
 use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
-use crudkit_id::{Id, IdField};
+use crudkit_id::{Id, SerializableId};
 use crudkit_shared::{SaveResult, Saved};
+use crudkit_web::crud_rest_data_provider_dyn::{CrudRestDataProvider, ReadOne, UpdateOne};
+use crudkit_web::request_error::RequestError;
 use crudkit_web::{
-    prelude::{CrudRestDataProvider, ReadOne, RequestError, UpdateOne},
-    CrudDataTrait, CrudFieldValueTrait, CrudMainTrait, CrudSimpleView, DeletableModel, Elem,
-    FieldMode, TabId, Value,
+    AnyElem, AnyField, AnyModel, CrudFieldValueTrait, CrudSimpleView, DeletableModel, FieldMode,
+    TabId, Value,
 };
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
-use std::{collections::HashMap, marker::PhantomData};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Then {
@@ -37,49 +38,37 @@ pub enum Then {
 // If any field value differs, the input was changed. This can be memoized.
 
 #[component]
-pub fn CrudEditView<T>(
-    _phantom: PhantomData<T>,
+pub fn CrudEditView(
     #[prop(into)] api_base_url: Signal<String>,
     /// The ID of the entity being edited.
     #[prop(into)]
-    id: Signal<T::UpdateModelId>,
-    #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
-    #[prop(into)] actions: Signal<Vec<CrudEntityAction<T>>>,
-    #[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
-    #[prop(into)] custom_fields: Signal<CustomUpdateFields<T>>,
-    #[prop(into)] field_config: Signal<
-        HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>,
-    >,
+    id: Signal<SerializableId>, // UpdateModel id
+    #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
+    #[prop(into)] actions: Signal<Vec<CrudEntityAction>>,
+    #[prop(into)] elements: Signal<Vec<AnyElem>>,
+    #[prop(into)] custom_fields: Signal<CustomUpdateFields>,
+    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // UpdateModel field
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
-    #[prop(into)] on_entity_updated: Callback<(Saved<T::UpdateModel>,)>,
+    #[prop(into)] on_entity_updated: Callback<(Saved<AnyModel>,)>, // UpdateModel
     #[prop(into)] on_entity_update_aborted: Callback<(String,)>,
     #[prop(into)] on_entity_not_updated_critical_errors: Callback<()>,
     #[prop(into)] on_entity_update_failed: Callback<(RequestError,)>,
     #[prop(into)] on_tab_selected: Callback<(TabId,)>,
-) -> impl IntoView
-where
-    T: CrudMainTrait + 'static,
-{
-    let instance_ctx = expect_context::<CrudInstanceContext<T>>();
+) -> impl IntoView {
+    let instance_ctx = expect_context::<CrudInstanceContext>();
 
     // The input is `None`, if the `entity` was not yet loaded. After the entity is loaded for the first time,
     // then this signal becomes a copy of the current (loaded) entity state.
     // We cannot use a `Default` value. The UpdateModel type may contain fields for which no default is available.
     // All modifications made through the UI are stored in this signal.
-    let (input, set_input) = signal(Option::<T::UpdateModel>::None);
+    let (input, set_input) = signal(Option::<AnyModel>::None);
 
     // TODO: Do not use LocalResouce, allow loading on server.
     let entity_resource = LocalResource::new(move || async move {
         tracing::debug!("entity_req");
-        let id = id.get();
-        let equals_id_condition =
-            <T as CrudMainTrait>::UpdateModelId::fields_iter(&id) // TODO: This is complex and requires several use statements. Should be made easier.
-                .map(|field| (field.name().to_owned(), field.to_value()))
-                .into_all_equal_condition();
-
         let _ = instance_ctx.reload.get();
-
+        let equals_id_condition = id.get().0.into_iter().into_all_equal_condition();
         data_provider
             .read()
             .read_one(ReadOne {
@@ -91,17 +80,25 @@ where
                 ),
             })
             .await
+            .and_then(|json| {
+                instance_ctx
+                    .static_config
+                    .read_value()
+                    .deserialize_read_one_response
+                    .run((json,))
+                    .map_err(|de_err| RequestError::Deserialize(de_err.to_string()))
+            })
     });
 
     // Stores the current state of the entity or an error, if no entity could be fetched.
     // Until the initial fetch request is completed, this is in the `Err(NoDataAvailable::NotYetLoaded` state!
-    let (entity, set_entity) = signal(Result::<T::UpdateModel, NoDataAvailable>::Err(
+    let (entity, set_entity) = signal(Result::<AnyModel, NoDataAvailable>::Err(
         NoDataAvailable::NotYetLoaded,
     ));
 
-    let (signals, set_sig) = signal(StoredValue::<
-        HashMap<<T::UpdateModel as CrudDataTrait>::Field, ReactiveValue>,
-    >::new(HashMap::new()));
+    let (signals, set_sig) = signal(StoredValue::<HashMap<AnyField, ReactiveValue>>::new(
+        HashMap::new(),
+    ));
 
     // Update the `entity` signal whenever we fetched a new version of the edited entity.
     Effect::new(move |_prev| {
@@ -109,17 +106,23 @@ where
             Some(result) => {
                 tracing::info!("loaded entity data");
                 match result.take() {
+                    // TODO: This code is shared with read_view
                     Ok(data) => match data {
-                        Some(data) => {
-                            let update_model = data.into();
+                        Some(read_model) => {
+                            let update_model = instance_ctx
+                                .static_config
+                                .read_value()
+                                .read_model_to_update_model
+                                .run((read_model,));
+
                             // Creating signals for all fields of the loaded entity, so that input fields can work on the data.
                             set_sig.set({
-                                let mut map = HashMap::new();
-                                for field in T::UpdateModel::get_all_fields() {
-                                    let initial = field.get_value(&update_model);
-                                    map.insert(field, initial.into_reactive_value());
-                                }
-                                StoredValue::new(map)
+                                let signals = instance_ctx
+                                    .static_config
+                                    .read_value()
+                                    .update_model_to_signal_map
+                                    .run((update_model.clone(),));
+                                StoredValue::new(signals)
                             });
 
                             // Copying the loaded entity data to be our current final input.
@@ -144,8 +147,7 @@ where
     });
 
     // The state of the `input` signal should be considered to be erroneous if at least one field is contained in this error list.
-    let (_input_errors, set_input_errors) =
-        signal(HashMap::<<T::UpdateModel as CrudDataTrait>::Field, String>::new());
+    let (_input_errors, set_input_errors) = signal(HashMap::<AnyField, String>::new());
 
     let (user_wants_to_leave, set_user_wants_to_leave) = signal(false);
     let (show_leave_modal, set_show_leave_modal) = signal(false);
@@ -161,33 +163,25 @@ where
         },
     );
 
-    let save_action =
-        Action::new_local(move |(entity, and_then): &(T::UpdateModel, Then)| {
-            let entity: <T as CrudMainTrait>::UpdateModel = entity.clone();
-            let and_then = and_then.clone();
-            async move {
-                (
-                    data_provider
-                        .read()
-                        .update_one(UpdateOne {
-                            entity: entity.clone(),
-                            condition:
-                                merge_conditions(
-                                    instance_ctx.base_condition.get(),
-                                    Some(
-                                        <T as CrudMainTrait>::UpdateModelId::fields_iter(&id.get()) // TODO: Simplify this!
-                                            .map(|field| {
-                                                (field.name().to_owned(), field.to_value())
-                                            })
-                                            .into_all_equal_condition(),
-                                    ),
-                                ),
-                        })
-                        .await,
-                    and_then,
-                )
-            }
-        });
+    let save_action = Action::new_local(move |(entity, and_then): &(AnyModel, Then)| {
+        let entity: AnyModel = entity.clone();
+        let and_then = and_then.clone();
+        async move {
+            (
+                data_provider
+                    .read()
+                    .update_one(UpdateOne {
+                        entity: entity.clone(),
+                        condition: merge_conditions(
+                            instance_ctx.base_condition.get(),
+                            Some(id.get().0.into_iter().into_all_equal_condition()),
+                        ),
+                    })
+                    .await,
+                and_then,
+            )
+        }
+    });
 
     let save_disabled = Signal::derive(move || save_action.pending().get() || !input_changed.get());
 
@@ -237,40 +231,36 @@ where
         move || save_action.dispatch((input.get().unwrap(), Then::OpenCreateView));
 
     let trigger_delete = move || {
-        instance_ctx.request_deletion_of(DeletableModel::Update(
-            input.get().expect("Entity to be already loaded"),
-        ));
+        instance_ctx.request_deletion_of(input.get().expect("Entity to be already loaded"));
     };
 
-    let action_ctx = CrudActionContext::<T>::new();
+    let action_ctx = CrudActionContext::new();
 
-    let value_changed = Callback::<(
-        <T::UpdateModel as CrudDataTrait>::Field,
-        Result<Value, String>,
-    )>::new(move |(field, result)| {
-        tracing::info!(?field, ?result, "value changed");
-        match result {
-            Ok(value) => {
-                set_input.update(|input| match input {
-                    Some(input) => field.set_value(input, value.clone()),
-                    None => {}
-                });
-                set_input_errors.update(|errors| {
-                    errors.remove(&field);
-                });
-                signals.with_untracked(|signals| {
-                    signals.update_value(|map| {
-                        map.get(&field).expect("field must be present").set(value);
-                    })
-                });
+    let value_changed =
+        Callback::<(AnyField, Result<Value, String>)>::new(move |(field, result)| {
+            tracing::info!(?field, ?result, "value changed");
+            match result {
+                Ok(value) => {
+                    set_input.update(|input| match input {
+                        Some(input) => field.set_value(input, value.clone()),
+                        None => {}
+                    });
+                    set_input_errors.update(|errors| {
+                        errors.remove(&field);
+                    });
+                    signals.with_untracked(|signals| {
+                        signals.update_value(|map| {
+                            map.get(&field).expect("field must be present").set(value);
+                        })
+                    });
+                }
+                Err(err) => {
+                    set_input_errors.update(|errors| {
+                        errors.insert(field, err);
+                    });
+                }
             }
-            Err(err) => {
-                set_input_errors.update(|errors| {
-                    errors.insert(field, err);
-                });
-            }
-        }
-    });
+        });
 
     view! {
         {move || match (entity.get(), signals.get()) {

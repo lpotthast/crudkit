@@ -8,7 +8,6 @@ pub mod crud_field;
 pub mod crud_fields;
 pub mod crud_instance;
 pub mod crud_instance_config;
-pub mod crud_leave_modal;
 pub mod crud_list_view;
 pub mod custom_field;
 //pub mod crud_nested_instance;

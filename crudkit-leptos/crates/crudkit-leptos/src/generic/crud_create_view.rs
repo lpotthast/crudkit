@@ -1,9 +1,9 @@
 use crate::generic::crud_fields::CrudFields;
 use crate::generic::crud_instance::CrudInstanceContext;
 use crate::generic::crud_instance_config::CreateElements;
-use crate::generic::crud_leave_modal::CrudLeaveModal;
 use crate::generic::custom_field::CustomCreateFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
+use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_shared::{SaveResult, Saved};
 use crudkit_web::prelude::RequestError;
