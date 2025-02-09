@@ -1,9 +1,9 @@
 use crate::generic::crud_action::{CrudAction, ModalGeneration};
 use crate::generic::crud_action_context::CrudActionContext;
 use crate::generic::crud_instance::CrudInstanceContext;
-use crate::generic::crud_instance_config::DynSelectConfig;
 use crate::generic::crud_table::{CrudTable, NoDataAvailable};
 use crate::generic::custom_field::CustomReadFields;
+use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_pagination::CrudPagination;
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;

@@ -1,6 +1,6 @@
 use crate::generic::crud_field::CrudField;
-use crate::generic::crud_instance_config::DynSelectConfig;
 use crate::generic::custom_field::CustomFields;
+use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::ReactiveValue;
 use crudkit_web::{CrudDataTrait, CrudSimpleView, Elem, Enclosing, FieldMode, TabId, Value};
 use leptonic::components::prelude::*;

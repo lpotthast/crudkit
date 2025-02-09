@@ -5,7 +5,6 @@ pub mod crud_create_view;
 pub mod crud_delete_modal;
 pub mod crud_edit_view;
 pub mod crud_field;
-pub mod crud_field_label;
 pub mod crud_fields;
 pub mod crud_instance;
 pub mod crud_instance_config;

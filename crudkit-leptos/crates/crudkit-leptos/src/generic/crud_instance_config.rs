@@ -1,10 +1,10 @@
 use crate::generic::crud_action::{CrudAction, CrudEntityAction};
 use crate::generic::custom_field::{CustomCreateFields, CustomReadFields, CustomUpdateFields};
+use crate::shared::crud_instance_config::{DynSelectConfig, SelectConfigTrait};
 use crudkit_condition::Condition;
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
 use crudkit_web::reqwest_executor::NewClientPerRequestExecutor;
-use dyn_clone::DynClone;
 use indexmap::{indexmap, IndexMap};
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
@@ -41,23 +41,6 @@ pub struct CrudParentConfig {
     /// The `own` field in which the reference is stored. For example: "user_id", when referencing a User entity.
     pub referencing_field: String, // TODO: This should be: T::ReadModel::Field? (ClusterCertificateField::CreatedAt)
 }
-
-// TODO: Should the use ViewFn?
-pub trait SelectConfigTrait: Debug + DynClone + Send + Sync + 'static {
-    fn render_select(
-        &self,
-        selected: Signal<Box<dyn CrudSelectableTrait>>,
-        set_selected: Callback<Box<dyn CrudSelectableTrait>>,
-    ) -> AnyView;
-    fn render_optional_select(
-        &self,
-        selected: Signal<Option<Box<dyn CrudSelectableTrait>>>,
-        set_selected: Callback<Option<Box<dyn CrudSelectableTrait>>>,
-    ) -> AnyView;
-}
-dyn_clone::clone_trait_object!(SelectConfigTrait);
-
-pub type DynSelectConfig = Box<dyn SelectConfigTrait>;
 
 #[derive(Debug, Clone)]
 pub enum SelectOptionsProvider<
