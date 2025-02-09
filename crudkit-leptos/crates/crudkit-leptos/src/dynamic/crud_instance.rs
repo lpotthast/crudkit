@@ -1,4 +1,5 @@
 use crate::dynamic::crud_action::CrudActionAftermath;
+use crate::dynamic::crud_create_view::CrudCreateView;
 use crate::dynamic::crud_delete_modal::CrudDeleteModal;
 use crate::dynamic::crud_edit_view::CrudEditView;
 use crate::dynamic::crud_instance_config::{
@@ -345,9 +346,23 @@ pub fn CrudInstance(
                         />
                     }.into_any(),
                     SerializableCrudView::Create => view! {
-                        <div>
-                            "create view"
-                        </div>
+                        <CrudCreateView
+                            api_base_url=api_base_url
+                            data_provider=data_provider
+                            create_elements=create_elements
+                            custom_fields=custom_create_fields
+                            field_config=create_field_config
+                            on_edit_view=move |id| ctx.edit(id)
+                            on_list_view=move || ctx.list()
+                            on_create_view=move || ctx.create()
+                            on_entity_created=move |saved| {}
+                            on_entity_creation_aborted=move |reason| {}
+                            on_entity_not_created_critical_errors=move || {}
+                            on_entity_creation_failed=move |request_error| {}
+                            on_tab_selected=move |tab_id| {
+                                ctx.tab_selected(tab_id)
+                            }
+                        />
                     }.into_any(),
                     SerializableCrudView::Read(id) => view! {
                         <CrudReadView

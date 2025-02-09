@@ -4,7 +4,6 @@ use crate::shared::fields::{render_field, render_label};
 use crate::ReactiveValue;
 use crudkit_web::prelude::*;
 use leptonic::components::prelude::*;
-use leptonic::prelude::*;
 use leptos::prelude::*;
 use std::sync::Arc;
 use std::{collections::HashMap, error::Error};

@@ -1,17 +1,15 @@
-use crate::generic::crud_fields::CrudFields;
-use crate::generic::crud_instance::CrudInstanceContext;
-use crate::generic::crud_instance_config::CreateElements;
-use crate::generic::custom_field::CustomCreateFields;
+use crate::dynamic::crud_fields::CrudFields;
+use crate::dynamic::crud_instance::CrudInstanceContext;
+use crate::dynamic::crud_instance_config::CreateElements;
+use crate::dynamic::custom_field::CustomCreateFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::{IntoReactiveValue, ReactiveValue};
+use crudkit_id::SerializableId;
 use crudkit_shared::{SaveResult, Saved};
+use crudkit_web::crud_rest_data_provider_dyn::{CreateOne, CrudRestDataProvider};
 use crudkit_web::prelude::RequestError;
-use crudkit_web::{
-    prelude::{CreateOne, CrudRestDataProvider},
-    CrudDataTrait, CrudFieldValueTrait, CrudIdTrait, CrudMainTrait, CrudSimpleView, FieldMode,
-    TabId, Value,
-};
+use crudkit_web::{AnyField, AnyModel, CrudSimpleView, FieldMode, TabId, Value};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -26,10 +24,13 @@ pub enum Then {
 }
 
 // TODO: Make this a signal? How would we act upon changes?
-fn default_create_model<T: CrudMainTrait + 'static>(
-    ctx: &CrudInstanceContext<T>,
-) -> T::CreateModel {
-    let mut entity: T::CreateModel = Default::default();
+fn default_create_model(ctx: &CrudInstanceContext) -> AnyModel {
+    let mut entity: AnyModel = ctx
+        .static_config
+        .read_value()
+        .get_default_create_model
+        .run(());
+
     if let Some(parent) = ctx.parent.get_value() {
         if let Some(parent_id) = ctx.parent_id.get_untracked() {
             let (_field_name, value) = parent_id
@@ -37,7 +38,10 @@ fn default_create_model<T: CrudMainTrait + 'static>(
                 .iter()
                 .find(|(field_name, _value)| field_name == parent.referenced_field.as_str())
                 .expect("related parent field must be part of the parents id!");
-            T::CreateModel::get_field(parent.referencing_field.as_str())
+            ctx.static_config
+                .read_value()
+                .get_create_model_field
+                .run((parent.referencing_field.clone(),))
                 .set_value(&mut entity, value.clone().into());
             tracing::info!("successfully set parent id to reference field");
         } else {
@@ -54,20 +58,17 @@ fn default_create_model<T: CrudMainTrait + 'static>(
 /// These fields are then also used for creation, requiring this component to be able to work with the create and the update model!
 /// This component decides on its own, depending on the instance configuration, which fields to display.
 #[component]
-pub fn CrudCreateView<T>(
-    _phantom: PhantomData<T>,
+pub fn CrudCreateView(
     #[prop(into)] api_base_url: Signal<String>,
-    #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
-    #[prop(into)] create_elements: Signal<CreateElements<T>>,
-    #[prop(into)] custom_fields: Signal<CustomCreateFields<T>>,
-    #[prop(into)] field_config: Signal<
-        HashMap<<T::CreateModel as CrudDataTrait>::Field, DynSelectConfig>,
-    >,
-    #[prop(into)] on_edit_view: Callback<(T::UpdateModelId,)>,
+    #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
+    #[prop(into)] create_elements: Signal<CreateElements>,
+    #[prop(into)] custom_fields: Signal<CustomCreateFields>,
+    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // CreateModel field
+    #[prop(into)] on_edit_view: Callback<(SerializableId,)>,                // UpdateModel id
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
     // TODO: consolidate these into one "on_entity_creation_attempt" with type Result<CreateResult<T::UpdateModel>, SomeErrorType>?
-    #[prop(into)] on_entity_created: Callback<(Saved<T::UpdateModel>,)>,
+    #[prop(into)] on_entity_created: Callback<(Saved<AnyModel>,)>, // UpdateModel
     #[prop(into)] on_entity_creation_aborted: Callback<(String,)>,
     #[prop(into)] on_entity_not_created_critical_errors: Callback<()>,
     #[prop(into)] on_entity_creation_failed: Callback<(RequestError,)>,
@@ -75,39 +76,33 @@ pub fn CrudCreateView<T>(
     // /// Required because when creating the initial CreateModel, we have to set the "parent id" field of that model to the given id.
     // /// TODO: Only a subset of the parent id might be required to for matching. Consider a CreateModel#initialize_with_parent_id(ParentId)...
     // pub parent_id: Option<SerializableId>,
-) -> impl IntoView
-where
-    T: CrudMainTrait + 'static,
-{
-    let instance_ctx = expect_context::<CrudInstanceContext<T>>();
+) -> impl IntoView {
+    let ctx = expect_context::<CrudInstanceContext>();
 
-    let default_create_model: T::CreateModel = default_create_model::<T>(&instance_ctx);
+    let default_create_model: AnyModel = default_create_model(&ctx);
 
-    let signals: StoredValue<HashMap<<T::CreateModel as CrudDataTrait>::Field, ReactiveValue>> =
-        StoredValue::new({
-            let mut map = HashMap::new();
-            for field in T::CreateModel::get_all_fields() {
-                let initial = field.get_value(&default_create_model);
-                map.insert(field, initial.into_reactive_value());
-            }
-            map
-        });
+    let signals: StoredValue<HashMap<AnyField, ReactiveValue>> = // CrateModel field
+        StoredValue::new(
+            ctx.static_config
+                .read_value()
+                .create_model_to_signal_map
+                .run((default_create_model.clone(),)),
+        );
 
     // The CreateModel enforces a `Default` value! We cannot deserialize a loaded model, so we have to create one from scratch with which the UI can be initialized.
     // We therefore do not have to deal with None states in the create case, compared to the edit view.
     // All modifications made through the UI are stored in this signal.
-    let (input, set_input) = signal::<T::CreateModel>(default_create_model.clone());
+    let (input, set_input) = signal::<AnyModel>(default_create_model.clone());
 
     let input_changed = Signal::derive(move || input.get() != default_create_model);
 
     // The state of the `input` signal should be considered to be erroneous if at least one field is contained in this error list.
-    let (_input_errors, set_input_errors) =
-        signal(HashMap::<<T::CreateModel as CrudDataTrait>::Field, String>::new());
+    let (_input_errors, set_input_errors) = signal(HashMap::<AnyField, String>::new());
 
     let (user_wants_to_leave, set_user_wants_to_leave) = signal(false);
     let (show_leave_modal, set_show_leave_modal) = signal(false);
 
-    let force_leave = move || instance_ctx.list();
+    let force_leave = move || ctx.list();
     let request_leave = Callback::from(move || set_user_wants_to_leave.set(true));
 
     Effect::new(
@@ -119,22 +114,21 @@ where
     );
 
     // TODO: Can we get rid of new_local?
-    let save_action =
-        Action::new_local(move |(create_model, and_then): &(T::CreateModel, Then)| {
-            let create_model: <T as CrudMainTrait>::CreateModel = create_model.clone();
-            let and_then = and_then.clone();
-            let data_provider = data_provider.get(); // TODO: This does not track!!
-            async move {
-                (
-                    data_provider
-                        .create_one_from_create_model(CreateOne {
-                            entity: create_model,
-                        })
-                        .await,
-                    and_then,
-                )
-            }
-        });
+    let save_action = Action::new_local(move |(create_model, and_then): &(AnyModel, Then)| {
+        let create_model: AnyModel = create_model.clone();
+        let and_then = and_then.clone();
+        let data_provider = data_provider.get(); // TODO: This does not track!!
+        async move {
+            (
+                data_provider
+                    .create_one_from_create_model(CreateOne {
+                        entity: create_model,
+                    })
+                    .await,
+                and_then,
+            )
+        }
+    });
 
     let save_disabled = Signal::derive(move || {
         save_action.pending().get() // Note (lukas): We deliberately ignore the input_changed state here, as the default input should always be saveable!
@@ -178,28 +172,26 @@ where
     });
 
     // TODO: Refactor this code. Much of it is shared with the edit_view!
-    let value_changed = Callback::<(
-        <T::CreateModel as CrudDataTrait>::Field,
-        Result<Value, String>,
-    )>::new(move |(field, result)| {
-        tracing::info!(?field, ?result, "value changed");
-        match result {
-            Ok(value) => {
-                set_input.update(|input| field.set_value(input, value.clone())); // Clone avoidable? We have to set the signal as well...
-                set_input_errors.update(|errors| {
-                    errors.remove(&field);
-                });
-                signals.update_value(|map| {
-                    map.get(&field).expect("field must be present").set(value);
-                });
+    let value_changed =
+        Callback::<(AnyField, Result<Value, String>)>::new(move |(field, result)| {
+            tracing::info!(?field, ?result, "value changed");
+            match result {
+                Ok(value) => {
+                    set_input.update(|input| field.set_value(input, value.clone())); // Clone avoidable? We have to set the signal as well...
+                    set_input_errors.update(|errors| {
+                        errors.remove(&field);
+                    });
+                    signals.update_value(|map| {
+                        map.get(&field).expect("field must be present").set(value);
+                    });
+                }
+                Err(err) => {
+                    set_input_errors.update(|errors| {
+                        errors.insert(field, err);
+                    });
+                }
             }
-            Err(err) => {
-                set_input_errors.update(|errors| {
-                    errors.insert(field, err);
-                });
-            }
-        }
-    });
+        });
 
     view! {
         <Actions save_disabled save request_leave />

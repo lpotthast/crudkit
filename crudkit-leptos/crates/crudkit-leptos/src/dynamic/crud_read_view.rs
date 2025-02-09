@@ -8,7 +8,7 @@ use crate::dynamic::custom_field::CustomUpdateFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::ReactiveValue;
 use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
-use crudkit_id::{Id, SerializableId};
+use crudkit_id::SerializableId;
 use crudkit_web::crud_rest_data_provider_dyn::{CrudRestDataProvider, ReadOne};
 use crudkit_web::prelude::RequestError;
 use crudkit_web::{AnyElem, AnyField, AnyModel, CrudSimpleView, FieldMode, TabId};

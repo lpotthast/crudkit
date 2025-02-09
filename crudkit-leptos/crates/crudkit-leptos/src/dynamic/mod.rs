@@ -1,6 +1,7 @@
 pub mod crud_action;
 pub mod crud_action_buttons;
 pub mod crud_action_context;
+pub mod crud_create_view;
 pub mod crud_delete_modal;
 pub mod crud_edit_view;
 pub mod crud_field;

@@ -57,8 +57,11 @@ pub struct CrudStaticInstanceConfig {
         Callback<(serde_json::Value,), Result<Option<AnyModel>, serde_json::Error>>,
 
     pub read_model_to_update_model: Callback<(AnyModel,), AnyModel>,
+    pub create_model_to_signal_map: Callback<(AnyModel,), HashMap<AnyField, ReactiveValue>>,
     pub read_model_to_signal_map: Callback<(AnyModel,), HashMap<AnyField, ReactiveValue>>,
     pub update_model_to_signal_map: Callback<(AnyModel,), HashMap<AnyField, ReactiveValue>>,
+    pub get_create_model_field: Callback<(String,), AnyField>,
+    pub get_default_create_model: Callback<(), AnyModel>,
 
     pub entity_actions: Vec<CrudEntityAction>,
     pub create_field_select_config: HashMap<AnyField, DynSelectConfig>, // CreateModel field
