@@ -78,7 +78,6 @@ downcast_rs::impl_downcast!(Model);
 
 pub type AnyModel = Box<dyn Model>;
 
-// TODO: Serialization?
 pub trait ActionPayload: Debug + DynClone + DynEq + Send + Sync {}
 
 pub type AnyActionPayload = Arc<dyn ActionPayload>;

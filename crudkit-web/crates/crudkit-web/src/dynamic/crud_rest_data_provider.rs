@@ -6,6 +6,7 @@ use crudkit_id::SerializableId;
 use crudkit_shared::{DeleteResult, Order, SaveResult};
 use indexmap::IndexMap;
 use serde::Serialize;
+use serde_json::Value;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
@@ -51,7 +52,7 @@ pub struct ReadOne {
     pub condition: Option<Condition>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct CreateOne {
     pub entity: AnyModel,
 }
@@ -152,20 +153,13 @@ impl CrudRestDataProvider {
         create_one: CreateOne,
     ) -> Result<SaveResult<AnyModel>, RequestError> // UpdateModel
     {
-        #[derive(Debug, Serialize)]
-        struct CreateOneDto {
-            entity: String,
-        }
-
         let json = request_post(
             format!(
                 "{}/{}/crud/create-one",
                 self.api_base_url, self.resource_name
             ),
             self.executor.as_ref(),
-            CreateOneDto {
-                entity: serialize_any_as_json(&create_one.entity),
-            },
+            create_one,
         )
         .await?;
         let result: SaveResult<AnyModel> = serde_json::from_value(json).unwrap();
@@ -178,20 +172,13 @@ impl CrudRestDataProvider {
         create_one: CreateOne,
     ) -> Result<SaveResult<AnyModel>, RequestError> // UpdateModel
     {
-        #[derive(Debug, Serialize)]
-        struct CreateOneDto {
-            entity: String,
-        }
-
         let json = request_post(
             format!(
                 "{}/{}/crud/create-one",
                 self.api_base_url, self.resource_name
             ),
             self.executor.as_ref(),
-            CreateOneDto {
-                entity: serialize_any_as_json(&create_one.entity),
-            },
+            create_one,
         )
         .await?;
         let result: SaveResult<AnyModel> = serde_json::from_value(json).unwrap();
@@ -201,29 +188,28 @@ impl CrudRestDataProvider {
     pub async fn update_one(
         &self,
         mut update_one: UpdateOne,
-    ) -> Result<SaveResult<AnyModel>, RequestError> // UpdateModel
+    ) -> Result<serde_json::Value, RequestError> // UpdateModel
     {
+        // TODO: Should we let a callback do the concrete serialization?
         #[derive(Debug, Serialize)]
         struct UpdateOneDto {
-            entity: String,
+            entity: serde_json::Value,
             condition: Option<Condition>,
         }
 
         update_one.condition = merge_conditions(self.base_condition.clone(), update_one.condition);
-        let json = request_post(
+        request_post(
             format!(
                 "{}/{}/crud/update-one",
                 self.api_base_url, self.resource_name
             ),
             self.executor.as_ref(),
             UpdateOneDto {
-                entity: serialize_any_as_json(&update_one.entity),
+                entity: serialize_any_as_json_value_omitting_type_information(&update_one.entity),
                 condition: update_one.condition,
             },
         )
-        .await?;
-        let result: SaveResult<AnyModel> = serde_json::from_value(json).unwrap();
-        Ok(result)
+        .await
     }
 
     pub async fn delete_by_id(
@@ -261,4 +247,26 @@ pub(crate) fn serialize_any_as_json(data: &(impl erased_serde::Serialize + Debug
     drop(json_format);
 
     String::from_utf8_lossy(buf.as_slice()).to_string()
+}
+
+pub(crate) fn serialize_any_as_json_value_omitting_type_information(
+    data: &(impl erased_serde::Serialize + Debug),
+) -> serde_json::Value {
+    let mut value: serde_json::Value =
+        erased_serde::serialize(data, serde_json::value::Serializer).unwrap();
+    assert!(value.is_object());
+    match value {
+        Value::Null => unreachable!(),
+        Value::Bool(_) => unreachable!(),
+        Value::Number(_) => unreachable!(),
+        Value::String(_) => unreachable!(),
+        Value::Array(_) => unreachable!(),
+        Value::Object(object) => {
+            assert_eq!(object.len(), 1);
+            object
+                .into_values()
+                .next()
+                .expect("real data to be present")
+        }
+    }
 }

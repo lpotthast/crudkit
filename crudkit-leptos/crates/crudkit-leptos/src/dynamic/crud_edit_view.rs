@@ -173,7 +173,15 @@ pub fn CrudEditView(
                             Some(id.get().0.into_iter().into_all_equal_condition()),
                         ),
                     })
-                    .await,
+                    .await
+                    .and_then(|json| {
+                        instance_ctx
+                            .static_config
+                            .read_value()
+                            .deserialize_update_one_response
+                            .run((json,))
+                            .map_err(|de_err| RequestError::Deserialize(de_err.to_string()))
+                    }),
                 and_then,
             )
         }

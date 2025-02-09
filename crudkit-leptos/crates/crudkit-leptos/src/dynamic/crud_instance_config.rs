@@ -3,7 +3,7 @@ use crate::dynamic::custom_field::{CustomCreateFields, CustomReadFields, CustomU
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::ReactiveValue;
 use crudkit_condition::Condition;
-use crudkit_shared::Order;
+use crudkit_shared::{Order, SaveResult};
 use crudkit_web::dynamic::prelude::*;
 use indexmap::{indexmap, IndexMap};
 use leptos::prelude::*;
@@ -54,6 +54,8 @@ pub struct CrudStaticInstanceConfig {
         Callback<(serde_json::Value,), Result<Vec<AnyModel>, serde_json::Error>>,
     pub deserialize_read_one_response:
         Callback<(serde_json::Value,), Result<Option<AnyModel>, serde_json::Error>>,
+    pub deserialize_update_one_response:
+        Callback<(serde_json::Value,), Result<SaveResult<AnyModel>, serde_json::Error>>,
 
     pub read_model_to_update_model: Callback<(AnyModel,), AnyModel>,
     pub create_model_to_signal_map: Callback<(AnyModel,), HashMap<AnyField, ReactiveValue>>,
