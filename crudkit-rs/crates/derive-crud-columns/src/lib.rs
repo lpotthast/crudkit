@@ -200,7 +200,11 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
             "i32" => "to_i32",
             "i64" => "to_i64",
             "f32" => "to_f32",
+            "OrderedFloat<f32>" => "to_f32",
+            "ordered_float::OrderedFloat<f32>" => "to_f32",
             "f64" => "to_f64",
+            "OrderedFloat<f64>" => "to_f64",
+            "ordered_float::OrderedFloat<f64>" => "to_f64",
             "String" => "to_string",
             "serde_json::Value" => "to_json_value",
             "crudkit_shared::UuidV4" => "to_uuid_v4",
@@ -225,7 +229,7 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
         },
         other => {
             let message =
-                format!("Unknown type {other:?}. Not a 'Path' type. Expected a known type.");
+                format!("derive-crud-columns: Unknown type {other:?}. Not a 'Path' type. Expected a known type.");
             abort!(
                 span, message;
                 help = "use one of the following types: [...]";

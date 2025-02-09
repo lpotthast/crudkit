@@ -255,6 +255,15 @@ pub fn store(input: TokenStream) -> TokenStream {
                 }
             }
         }
+
+        // -----------------
+
+        impl crudkit_web::Identifiable for #source_struct_name {
+            fn get_id(&self) -> crudkit_id::SerializableId {
+                let id = crudkit_web::CrudIdTrait::get_id(&self);
+                crudkit_id::Id::into_serializable_id(&id)
+            }
+        }
     }
     .into()
 }

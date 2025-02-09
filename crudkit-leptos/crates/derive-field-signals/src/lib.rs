@@ -301,6 +301,8 @@ impl From<&syn::Type> for ReactiveValueType {
                 "u64" => ReactiveValueType::U64,
                 "i64" => ReactiveValueType::I64,
                 "f32" => ReactiveValueType::F32,
+                "OrderedFloat<f32>" => ReactiveValueType::F32,
+                "ordered_float::OrderedFloat<f32>" => ReactiveValueType::F32,
                 "String" => ReactiveValueType::String,
                 "serde_json::Value" => ReactiveValueType::Json,
                 "UuidV4" => ReactiveValueType::UuidV4,
