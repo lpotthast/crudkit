@@ -9,14 +9,11 @@ use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::ReactiveValue;
 use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
-use crudkit_id::{Id, SerializableId};
+use crudkit_id::SerializableId;
 use crudkit_shared::{SaveResult, Saved};
 use crudkit_web::crud_rest_data_provider_dyn::{CrudRestDataProvider, ReadOne, UpdateOne};
 use crudkit_web::request_error::RequestError;
-use crudkit_web::{
-    AnyElem, AnyField, AnyModel, CrudFieldValueTrait, CrudSimpleView, DeletableModel, FieldMode,
-    TabId, Value,
-};
+use crudkit_web::{AnyElem, AnyField, AnyModel, CrudSimpleView, FieldMode, TabId, Value};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;

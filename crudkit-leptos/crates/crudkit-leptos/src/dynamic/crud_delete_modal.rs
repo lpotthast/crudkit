@@ -1,4 +1,4 @@
-use crudkit_web::{AnyModel, Identifiable};
+use crudkit_web::AnyModel;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;

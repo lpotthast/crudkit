@@ -116,9 +116,10 @@ pub fn CrudReadView(
         }
     });
 
+    // TODO: Do we need to match over entity?
     view! {
         {move || match (entity.get(), signals.get()) {
-            (Ok(entity), signals) => {
+            (Ok(_entity), signals) => {
                 let on_list_view = on_list_view.clone();
                 view! {
                     {move || {

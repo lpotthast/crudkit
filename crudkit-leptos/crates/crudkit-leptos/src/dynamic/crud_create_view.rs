@@ -4,7 +4,7 @@ use crate::dynamic::crud_instance_config::CreateElements;
 use crate::dynamic::custom_field::CustomCreateFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
-use crate::{IntoReactiveValue, ReactiveValue};
+use crate::ReactiveValue;
 use crudkit_id::SerializableId;
 use crudkit_shared::{SaveResult, Saved};
 use crudkit_web::crud_rest_data_provider_dyn::{CreateOne, CrudRestDataProvider};
@@ -13,8 +13,7 @@ use crudkit_web::{AnyField, AnyModel, CrudSimpleView, FieldMode, TabId, Value};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
-use std::{collections::HashMap, marker::PhantomData};
-use uuid::Uuid;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Then {

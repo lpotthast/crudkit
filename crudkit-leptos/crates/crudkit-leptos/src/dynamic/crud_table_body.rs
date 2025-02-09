@@ -66,7 +66,8 @@ pub fn CrudTableBody(
         let edit = move |entity: AnyModel| instance_ctx.edit(entity.get_id());
         let delete = move |entity: AnyModel| instance_ctx.request_deletion_of(entity);
         // TODO: why is this Arc<Box<...>>?
-        let trigger_action = move |entity: AnyModel, action: Arc<Box<dyn CrudActionTrait>>| todo!();
+        let trigger_action =
+            move |_entity: AnyModel, _action: Arc<Box<dyn CrudActionTrait>>| todo!();
 
         let dummy_value_changed_callback = Callback::new(move |_| {});
 
@@ -84,7 +85,8 @@ pub fn CrudTableBody(
                     each=move || headers.get()
                     key=|(field, _options)| field.get_name()
                     children=move |(field, options)| {
-                        let entity = stored_entity.get();
+                        // TODO: Why is this access to stored_entity necessary?
+                        let _ = stored_entity.get();
                         let reactive_value = *signals.read_value().get(&field).unwrap();
                         view! {
                             // TODO: Is it ok to recreate this reactive value on the fly?

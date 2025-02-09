@@ -294,11 +294,6 @@ dyn_hash::hash_trait_object!(Field);
 
 pub type AnyField = Arc<dyn Field>;
 
-struct Property {
-    name: String,
-    getter: Arc<dyn Fn(&Self) -> Value>,
-}
-
 #[typetag::serde]
 pub trait Model:
     Identifiable + Debug + DynClone + DynEq + downcast_rs::Downcast + Send + Sync

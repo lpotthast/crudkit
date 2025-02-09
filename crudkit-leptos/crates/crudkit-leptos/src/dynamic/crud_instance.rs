@@ -12,9 +12,7 @@ use crudkit_id::SerializableId;
 use crudkit_shared::{DeleteResult, Order};
 use crudkit_web::crud_rest_data_provider_dyn::{CrudRestDataProvider, DeleteById};
 use crudkit_web::prelude::RequestError;
-use crudkit_web::{
-    AnyField, AnyModel, Identifiable, OrderByUpdateOptions, SerializableCrudView, TabId,
-};
+use crudkit_web::{AnyField, AnyModel, OrderByUpdateOptions, SerializableCrudView, TabId};
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
@@ -195,7 +193,7 @@ pub fn CrudInstance(
         },
     );
 
-    let (headers, set_headers) = signal(config.headers.clone());
+    let (headers, _set_headers) = signal(config.headers.clone());
     let (current_page, set_current_page) = signal(config.page.clone());
     let (items_per_page, set_items_per_page) = signal(config.items_per_page.clone());
     let (order_by, set_order_by) = signal(config.order_by.clone());
@@ -235,8 +233,8 @@ pub fn CrudInstance(
             base_condition.clone(),
         )
     });
-    let (create_elements, set_create_elements) = signal(config.create_elements.clone());
-    let (update_elements, set_update_elements) = signal(config.elements.clone());
+    let (create_elements, _set_create_elements) = signal(config.create_elements.clone());
+    let (update_elements, _set_update_elements) = signal(config.elements.clone());
     let (deletion_request, set_deletion_request) = signal(None);
     let (reload, set_reload) = signal(Uuid::new_v4());
 
@@ -355,10 +353,10 @@ pub fn CrudInstance(
                             on_edit_view=move |id| ctx.edit(id)
                             on_list_view=move || ctx.list()
                             on_create_view=move || ctx.create()
-                            on_entity_created=move |saved| {}
-                            on_entity_creation_aborted=move |reason| {}
+                            on_entity_created=move |_saved| {}
+                            on_entity_creation_aborted=move |_reason| {}
                             on_entity_not_created_critical_errors=move || {}
-                            on_entity_creation_failed=move |request_error| {}
+                            on_entity_creation_failed=move |_request_error| {}
                             on_tab_selected=move |tab_id| {
                                 ctx.tab_selected(tab_id)
                             }
@@ -390,10 +388,10 @@ pub fn CrudInstance(
                             field_config=update_field_config
                             on_list_view=move || ctx.list()
                             on_create_view=move || ctx.create()
-                            on_entity_updated=move |saved| {}
-                            on_entity_update_aborted=move |reason| {}
+                            on_entity_updated=move |_saved| {}
+                            on_entity_update_aborted=move |_reason| {}
                             on_entity_not_updated_critical_errors=move || {}
-                            on_entity_update_failed=move |request_error| {}
+                            on_entity_update_failed=move |_request_error| {}
                             on_tab_selected=move |tab_id| {
                                 ctx.tab_selected(tab_id)
                             }
