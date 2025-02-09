@@ -1,9 +1,7 @@
-use std::{fmt::Debug, rc::Rc};
-
+use crudkit_web::CrudMainTrait;
 use leptonic::prelude::icondata;
 use leptos::prelude::*;
-
-use crate::prelude::*;
+use std::{fmt::Debug, rc::Rc};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum States {

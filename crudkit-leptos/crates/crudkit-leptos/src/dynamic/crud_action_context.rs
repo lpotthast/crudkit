@@ -1,6 +1,6 @@
 use crate::dynamic::crud_action::CrudActionAftermath;
 use crate::dynamic::crud_instance::CrudInstanceContext;
-use crudkit_web::{AnyActionPayload, AnyModel};
+use crudkit_web::dynamic::prelude::*;
 use leptos::prelude::*;
 
 pub type ActionId = &'static str;

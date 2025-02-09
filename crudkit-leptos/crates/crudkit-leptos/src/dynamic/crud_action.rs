@@ -1,9 +1,8 @@
-use std::{fmt::Debug, rc::Rc};
-
 use crate::prelude::*;
-use crudkit_web::{AnyActionPayload, AnyModel};
+use crudkit_web::dynamic::prelude::*;
 use leptonic::prelude::icondata;
 use leptos::prelude::*;
+use std::{fmt::Debug, rc::Rc};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum States {

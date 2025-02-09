@@ -1,9 +1,15 @@
-use std::fmt::{Debug, Display};
-use std::hash::Hash;
-
 use dyn_clone::DynClone;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Display};
+use std::hash::Hash;
 use utoipa::ToSchema;
+
+pub mod prelude {
+    pub use super::Id;
+    pub use super::IdField;
+    pub use super::IdValue;
+    pub use super::SerializableId;
+}
 
 /// "ID-able" values. Values which might be part of an entities ID. All variants must implement `Eq` for proper comparability!
 /// This constraint excludes options like floats as parts of primary keys.

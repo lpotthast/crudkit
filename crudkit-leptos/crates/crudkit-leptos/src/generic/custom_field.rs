@@ -1,5 +1,5 @@
-use crate::{CrudDataTrait, CrudMainTrait, FieldMode, FieldOptions, ReactiveValue};
-use crudkit_web::Value;
+use crate::ReactiveValue;
+use crudkit_web::generic::prelude::*;
 use leptonic::prelude::ViewCallback;
 use leptos::prelude::*;
 use std::fmt::Debug;

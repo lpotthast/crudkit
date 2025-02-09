@@ -3,7 +3,7 @@ use crate::generic::custom_field::{CustomCreateFields, CustomReadFields, CustomU
 use crate::shared::crud_instance_config::{DynSelectConfig, SelectConfigTrait};
 use crudkit_condition::Condition;
 use crudkit_shared::Order;
-use crudkit_web::prelude::*;
+use crudkit_web::generic::prelude::*;
 use crudkit_web::reqwest_executor::NewClientPerRequestExecutor;
 use indexmap::{indexmap, IndexMap};
 use leptonic::components::prelude::*;

@@ -1,4 +1,4 @@
-use crudkit_web::AnyModel;
+use crudkit_web::dynamic::prelude::*;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;

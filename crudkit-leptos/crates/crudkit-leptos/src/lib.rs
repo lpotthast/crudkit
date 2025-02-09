@@ -21,21 +21,20 @@ pub use crudkit_id;
 pub use crudkit_shared;
 pub use crudkit_validation;
 pub use crudkit_web;
-pub use crudkit_web::prelude::*;
-use crudkit_web::JsonValue;
+use crudkit_web::value::{JsonValue, Value};
+use crudkit_web::CrudSelectableTrait;
 pub use crudkit_websocket;
 use leptos::prelude::*;
 
 // TODO: This prelude should only contain types always required when using the lib.
-pub mod prelude {
+pub(crate) mod prelude {
     pub use crudkit_condition;
     pub use crudkit_id;
+    pub use crudkit_id::*;
     pub use crudkit_shared;
+    pub use crudkit_shared::*;
     pub use crudkit_validation;
     pub use crudkit_web;
-    // TODO: Should this be removed?
-    pub use crudkit_web::prelude::*;
-    // TODO: Should this be removed?
     pub use crudkit_websocket;
 
     pub use derive_crud_action_payload::CkActionPayload;
@@ -155,9 +154,9 @@ impl IntoReactiveValue for Value {
 }
 
 impl ReactiveValue {
-    /// Allows to to dynamically set a new value based on any given `crudkit_web::Value`.
+    /// Allows to dynamically set a new value based on any given `crudkit_web::Value`.
     /// Make sure that only appropriate values are passed, as this function
-    /// may *panic* if `Value` is not not of the same* or otherwise compliant variant as this ReactiveValue.
+    /// may *panic* if `Value` is not of the same* or otherwise compliant variant as this ReactiveValue.
     /// Uses the `crudkit_web::Value::take_*` functions to get the expected type out of `v` or fail.
     pub fn set(&self, v: Value) {
         match self {

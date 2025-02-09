@@ -6,12 +6,8 @@ use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_shared::{SaveResult, Saved};
-use crudkit_web::prelude::RequestError;
-use crudkit_web::{
-    prelude::{CreateOne, CrudRestDataProvider},
-    CrudDataTrait, CrudFieldValueTrait, CrudIdTrait, CrudMainTrait, CrudSimpleView, FieldMode,
-    TabId, Value,
-};
+use crudkit_web::generic::prelude::*;
+use crudkit_web::TabId;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;

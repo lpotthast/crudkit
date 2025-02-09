@@ -2,7 +2,7 @@ use crate::dynamic::crud_field::CrudField;
 use crate::dynamic::custom_field::CustomFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::ReactiveValue;
-use crudkit_web::{AnyElem, AnyEnclosing, AnyField, CrudSimpleView, FieldMode, TabId, Value};
+use crudkit_web::dynamic::prelude::*;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
 use std::collections::HashMap;

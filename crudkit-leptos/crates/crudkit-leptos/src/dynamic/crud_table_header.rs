@@ -1,8 +1,7 @@
 use crate::dynamic::crud_instance::CrudInstanceContext;
 use crate::dynamic::crud_list_view::CrudListViewContext;
 use crudkit_shared::Order;
-use crudkit_web::prelude::*;
-use crudkit_web::AnyField;
+use crudkit_web::dynamic::prelude::*;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;

@@ -1,7 +1,7 @@
 use crate::dynamic::crud_action::{CrudEntityAction, EntityModalGeneration, States};
 use crate::dynamic::crud_action_context::CrudActionContext;
 use crate::dynamic::crud_instance::CrudInstanceContext;
-use crudkit_web::AnyModel;
+use crudkit_web::dynamic::prelude::*;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
 

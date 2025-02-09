@@ -6,7 +6,7 @@ use crate::generic::custom_field::CustomReadFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_pagination::CrudPagination;
 use crudkit_shared::Order;
-use crudkit_web::prelude::*;
+use crudkit_web::generic::prelude::*;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;

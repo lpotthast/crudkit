@@ -2,7 +2,7 @@ use crate::generic::custom_field::CustomFields;
 use crate::shared::crud_instance_config::{DynSelectConfig, SelectConfigTrait};
 use crate::shared::fields::{render_field, render_label};
 use crate::ReactiveValue;
-use crudkit_web::prelude::*;
+use crudkit_web::generic::prelude::*;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
 use std::sync::Arc;

@@ -15,3 +15,14 @@ pub mod crud_table_body;
 pub mod crud_table_footer;
 pub mod crud_table_header;
 pub mod custom_field;
+
+pub mod prelude {
+    pub use crate::prelude::*;
+
+    pub use crudkit_web::dynamic::prelude::*;
+
+    pub use super::crud_instance::CrudInstance;
+    pub use super::crud_instance_config::CreateElements;
+    pub use super::crud_instance_config::CrudInstanceConfig;
+    pub use super::crud_instance_config::CrudStaticInstanceConfig;
+}

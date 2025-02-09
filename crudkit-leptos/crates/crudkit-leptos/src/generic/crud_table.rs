@@ -4,10 +4,9 @@ use crate::generic::crud_table_body::CrudTableBody;
 use crate::generic::crud_table_footer::CrudTableFooter;
 use crate::generic::crud_table_header::CrudTableHeader;
 use crate::generic::custom_field::CustomFields;
-// TODO: Add prelude entry for CrudActionTrait
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crudkit_shared::Order;
-use crudkit_web::prelude::*;
+use crudkit_web::generic::prelude::*;
 use indexmap::IndexMap;
 use leptonic::components::table::{Table, TableContainer};
 use leptos::prelude::*;

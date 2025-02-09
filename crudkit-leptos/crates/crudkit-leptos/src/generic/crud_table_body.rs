@@ -6,10 +6,7 @@ use crate::generic::crud_table::NoDataAvailable;
 use crate::generic::custom_field::CustomFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::{IntoReactiveValue, ReactiveValue};
-use crudkit_web::{
-    CrudDataTrait, CrudFieldNameTrait, CrudFieldValueTrait, CrudIdTrait, CrudMainTrait,
-    CrudSimpleView, DeletableModel, FieldMode, FieldOptions, HeaderOptions,
-};
+use crudkit_web::generic::prelude::*;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;

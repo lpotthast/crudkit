@@ -1,6 +1,6 @@
-use super::requests_dyn::*;
+use crate::dynamic::requests::request_post;
+use crate::dynamic::{AnyField, AnyModel};
 use crate::prelude::{RequestError, ReqwestExecutor};
-use crate::{requests, AnyField, AnyModel};
 use crudkit_condition::{merge_conditions, Condition};
 use crudkit_id::SerializableId;
 use crudkit_shared::{DeleteResult, Order, SaveResult};
@@ -106,7 +106,7 @@ impl CrudRestDataProvider {
 
     pub async fn read_count(&self, mut read_count: ReadCount) -> Result<u64, RequestError> {
         read_count.condition = merge_conditions(self.base_condition.clone(), read_count.condition);
-        requests::request_post(
+        crate::generic::requests::request_post(
             format!(
                 "{}/{}/crud/read-count",
                 self.api_base_url, self.resource_name

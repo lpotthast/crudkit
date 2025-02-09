@@ -9,10 +9,7 @@ use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
 use crudkit_id::{Id, IdField};
-use crudkit_web::{
-    prelude::{CrudRestDataProvider, ReadOne},
-    CrudDataTrait, CrudFieldValueTrait, CrudMainTrait, CrudSimpleView, Elem, FieldMode, TabId,
-};
+use crudkit_web::generic::prelude::*;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;

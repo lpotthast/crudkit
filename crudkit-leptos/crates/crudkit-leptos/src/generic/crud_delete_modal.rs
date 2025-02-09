@@ -1,4 +1,4 @@
-use crudkit_web::{CrudIdTrait, CrudMainTrait, DeletableModel};
+use crudkit_web::generic::prelude::*;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;

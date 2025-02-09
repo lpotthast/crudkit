@@ -5,7 +5,7 @@ use crate::dynamic::crud_list_view::CrudListViewContext;
 use crate::dynamic::crud_table::NoDataAvailable;
 use crate::dynamic::custom_field::CustomFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
-use crudkit_web::{AnyField, AnyModel, CrudSimpleView, FieldMode, FieldOptions, HeaderOptions};
+use crudkit_web::dynamic::prelude::*;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;

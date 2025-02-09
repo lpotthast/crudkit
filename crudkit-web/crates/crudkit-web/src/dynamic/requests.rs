@@ -1,4 +1,4 @@
-use crate::crud_rest_data_provider_dyn::serialize_any_as_json;
+use crate::dynamic::crud_rest_data_provider::serialize_any_as_json;
 use crate::request_error::{error_response_to_request_error, RequestError};
 use crate::reqwest_executor::ReqwestExecutor;
 use leptos_keycloak_auth::reqwest::Method;

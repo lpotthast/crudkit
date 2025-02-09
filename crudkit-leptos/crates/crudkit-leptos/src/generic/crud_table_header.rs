@@ -1,13 +1,12 @@
-use std::borrow::Cow;
-use std::marker::PhantomData;
-
 use crate::generic::crud_instance::CrudInstanceContext;
 use crate::generic::crud_list_view::CrudListViewContext;
 use crudkit_shared::Order;
-use crudkit_web::prelude::*;
+use crudkit_web::generic::prelude::*;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
+use std::borrow::Cow;
+use std::marker::PhantomData;
 
 #[component]
 pub fn CrudTableHeader<T>(
