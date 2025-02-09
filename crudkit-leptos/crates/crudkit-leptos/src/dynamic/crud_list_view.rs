@@ -1,6 +1,9 @@
 use crate::dynamic::crud_action::{CrudAction, ModalGeneration};
 use crate::dynamic::crud_action_context::CrudActionContext;
 use crate::dynamic::crud_instance::CrudInstanceContext;
+use crate::dynamic::crud_table::{CrudTable, NoDataAvailable};
+use crate::dynamic::custom_field::CustomReadFields;
+use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_pagination::CrudPagination;
 use crudkit_shared::Order;
 use crudkit_web::crud_rest_data_provider_dyn::{CrudRestDataProvider, ReadCount, ReadMany};
@@ -12,7 +15,6 @@ use leptonic::prelude::*;
 use leptos::prelude::*;
 use std::sync::Arc;
 use std::{collections::HashMap, marker::PhantomData};
-use crate::dynamic::crud_table::{CrudTable, NoDataAvailable};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CrudListViewContext {
@@ -83,8 +85,8 @@ pub fn CrudListView(
     #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(AnyField, HeaderOptions)>>, // ReadModel field
     #[prop(into)] order_by: Signal<IndexMap<AnyField, Order>>,     // ReadModel field
-    //#[prop(into)] custom_fields: Signal<CustomReadFields>,
-    //#[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // ReadModel field
+    #[prop(into)] custom_fields: Signal<CustomReadFields>,
+    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // ReadModel field
     #[prop(into)] actions: Signal<Vec<CrudAction>>,
 ) -> impl IntoView {
     let instance_ctx = expect_context::<CrudInstanceContext>();
@@ -195,8 +197,8 @@ pub fn CrudListView(
             headers=headers
             order_by=order_by
             data=page
-            //custom_fields=custom_fields
-            //field_config=field_config
+            custom_fields=custom_fields
+            field_config=field_config
             read_allowed=read_allowed
             edit_allowed=edit_allowed
             delete_allowed=delete_allowed

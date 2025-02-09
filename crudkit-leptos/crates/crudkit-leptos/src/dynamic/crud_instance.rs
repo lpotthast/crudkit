@@ -274,13 +274,15 @@ pub fn CrudInstance(
         on_context_created.run(ctx)
     }
 
-    //let custom_read_fields = Signal::derive(move || static_config.custom_read_fields.clone());
+    let custom_read_fields =
+        Signal::derive(move || static_config.read_value().custom_read_fields.clone());
     //let custom_create_fields = Signal::derive(move || static_config.custom_create_fields.clone());
     //let custom_update_fields = Signal::derive(move || static_config.custom_update_fields.clone());
 
     //let create_field_config =
     //    Signal::derive(move || static_config.create_field_select_config.clone());
-    //let read_field_config = Signal::derive(move || static_config.read_field_select_config.clone());
+    let read_field_config =
+        Signal::derive(move || static_config.read_value().read_field_select_config.clone());
     //let update_field_config =
     //    Signal::derive(move || static_config.update_field_select_config.clone());
 
@@ -326,8 +328,8 @@ pub fn CrudInstance(
                             data_provider=data_provider
                             headers=headers
                             order_by=order_by
-                            //custom_fields=custom_read_fields
-                            //field_config=read_field_config
+                            custom_fields=custom_read_fields
+                            field_config=read_field_config
                             actions=actions
                         />
                     }.into_any(),

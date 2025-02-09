@@ -8,3 +8,4 @@ pub mod crud_table;
 pub mod crud_table_body;
 pub mod crud_table_footer;
 pub mod crud_table_header;
+pub mod custom_field;

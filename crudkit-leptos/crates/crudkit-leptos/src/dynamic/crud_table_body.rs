@@ -1,22 +1,23 @@
-use leptonic::components::prelude::*;
-use leptonic::prelude::*;
-use leptos::prelude::*;
-use std::sync::Arc;
-use std::{collections::HashMap, marker::PhantomData};
-use crudkit_web::{AnyField, AnyModel, HeaderOptions};
 use crate::dynamic::crud_action::CrudActionTrait;
 use crate::dynamic::crud_instance::CrudInstanceContext;
 use crate::dynamic::crud_list_view::CrudListViewContext;
 use crate::dynamic::crud_table::NoDataAvailable;
-use crate::ReactiveValue;
+use crate::dynamic::custom_field::CustomFields;
+use crate::shared::crud_instance_config::DynSelectConfig;
+use crudkit_web::{AnyField, AnyModel, HeaderOptions};
+use leptonic::components::prelude::*;
+use leptonic::prelude::*;
+use leptos::prelude::*;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 #[component]
 pub fn CrudTableBody(
     #[prop(into)] data: Signal<Result<Arc<Vec<AnyModel>>, NoDataAvailable>>, // ReadModel
     #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(AnyField, HeaderOptions)>>, // ReadModel field
-    //#[prop(into)] custom_fields: Signal<CustomFields<AnyModel>>, // ReadModel
-    //#[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // ReadModel field
+    #[prop(into)] custom_fields: Signal<CustomFields>,             // ReadModel
+    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // ReadModel field
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
@@ -63,12 +64,9 @@ pub fn CrudTableBody(
         // TODO: These closures are now identical...
         let read = move |entity: AnyModel| instance_ctx.read(entity.get_id());
         let edit = move |entity: AnyModel| instance_ctx.edit(entity.get_id());
-        let delete = move |entity: AnyModel| {
-            instance_ctx.request_deletion_of(entity)
-        };
+        let delete = move |entity: AnyModel| instance_ctx.request_deletion_of(entity);
         // TODO: why is this Arc<Box<...>>?
-        let trigger_action =
-            move |entity: AnyModel, action: Arc<Box<dyn CrudActionTrait>>| todo!();
+        let trigger_action = move |entity: AnyModel, action: Arc<Box<dyn CrudActionTrait>>| todo!();
 
         //let dummy_value_changed_callback = Callback::new(move |_| {});
 

@@ -1,4 +1,6 @@
 use crate::dynamic::crud_action::CrudAction;
+use crate::dynamic::custom_field::CustomReadFields;
+use crate::shared::crud_instance_config::DynSelectConfig;
 use crudkit_condition::Condition;
 use crudkit_shared::Order;
 use crudkit_web::prelude::*;
@@ -6,6 +8,7 @@ use crudkit_web::{AnyField, AnyModel, SerializableCrudView};
 use indexmap::{indexmap, IndexMap};
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::{fmt::Debug, hash::Hash};
 
@@ -52,10 +55,10 @@ pub struct CrudStaticInstanceConfig {
     //pub entity_actions: Vec<CrudEntityAction<T>>,
     //pub create_field_select_config:
     //    HashMap<<T::CreateModel as CrudDataTrait>::Field, DynSelectConfig>,
-    //pub read_field_select_config: HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>,
+    pub read_field_select_config: HashMap<AnyField, DynSelectConfig>,
     //pub update_field_select_config:
     //    HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>,
-    //pub custom_read_fields: CustomReadFields<T>,
+    pub custom_read_fields: CustomReadFields,
     //pub custom_create_fields: CustomCreateFields<T>,
     //pub custom_update_fields: CustomUpdateFields<T>,
 }
