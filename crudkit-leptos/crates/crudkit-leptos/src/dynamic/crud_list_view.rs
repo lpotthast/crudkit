@@ -106,31 +106,26 @@ pub fn CrudListView(
             .collect::<Vec<(AnyField, HeaderOptions)>>() // ReadModel field
     });
 
-    // TODO: Investigate: After a fresh page load, the first change to one of the signals (items_per_page, ...) triggers an unexpected reload. source is not re-run.
     let page_resource = LocalResource::new(move || async move {
         let _ = instance_ctx.reload.get();
-
         let items_per_page = instance_ctx.items_per_page.get();
         let page = instance_ctx.current_page.get();
 
-        let read_many = ReadMany {
-            limit: Some(items_per_page),
-            skip: Some(items_per_page * (page - 1)),
-            order_by: Some({
-                let original = instance_ctx.order_by.get();
-                let mut new = IndexMap::new();
-                for (field, order) in original {
-                    new.insert(SerializableField::from(field), order.clone());
-                }
-                new
-            }),
-            condition: instance_ctx.base_condition.get(),
-        };
-        tracing::debug!(?read_many, "loading list data");
-
-        let data = data_provider
+        data_provider
             .get()
-            .read_many(read_many)
+            .read_many(ReadMany {
+                limit: Some(items_per_page),
+                skip: Some(items_per_page * (page - 1)),
+                order_by: Some({
+                    let original = instance_ctx.order_by.get();
+                    let mut new = IndexMap::new();
+                    for (field, order) in original {
+                        new.insert(SerializableField::from(field), order.clone());
+                    }
+                    new
+                }),
+                condition: instance_ctx.base_condition.get(),
+            })
             .await
             .and_then(|json| {
                 instance_ctx
@@ -140,10 +135,7 @@ pub fn CrudListView(
                     .deserialize_read_many_response
                     .run((json,))
                     .map_err(|de_err| RequestError::Deserialize(de_err.to_string()))
-            });
-
-        tracing::debug!(?data, "got list data");
-        data
+            })
     });
 
     let page = Memo::new(move |_prev| match page_resource.get() {

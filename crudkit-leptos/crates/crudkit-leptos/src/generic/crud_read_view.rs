@@ -38,7 +38,6 @@ where
     let instance_ctx = expect_context::<CrudInstanceContext<T>>();
 
     let entity_resource = LocalResource::new(move || async move {
-        tracing::debug!("entity_req");
         let _ = instance_ctx.reload.get();
         let id = id.get();
         let equals_id_condition =
@@ -73,7 +72,6 @@ where
     Effect::new(move |_prev| {
         set_entity.set(match entity_resource.get() {
             Some(result) => {
-                tracing::info!("loaded entity data");
                 match result.take() {
                     Ok(data) => match data {
                         Some(data) => {

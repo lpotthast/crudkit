@@ -67,7 +67,6 @@ where
 
     // TODO: Do not use LocalResouce, allow loading on server.
     let entity_resource = LocalResource::new(move || async move {
-        tracing::debug!("entity_req");
         let id = id.get();
         let equals_id_condition =
             <T as CrudMainTrait>::UpdateModelId::fields_iter(&id) // TODO: This is complex and requires several use statements. Should be made easier.
@@ -103,7 +102,6 @@ where
     Effect::new(move |_prev| {
         set_entity.set(match entity_resource.get() {
             Some(result) => {
-                tracing::info!("loaded entity data");
                 match result.take() {
                     Ok(data) => match data {
                         Some(data) => {

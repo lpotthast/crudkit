@@ -62,7 +62,6 @@ pub fn CrudEditView(
 
     // TODO: Do not use LocalResouce, allow loading on server.
     let entity_resource = LocalResource::new(move || async move {
-        tracing::debug!("entity_req");
         let _ = instance_ctx.reload.get();
         let equals_id_condition = id.get().0.into_iter().into_all_equal_condition();
         data_provider
@@ -101,7 +100,6 @@ pub fn CrudEditView(
     Effect::new(move |_prev| {
         set_entity.set(match entity_resource.get() {
             Some(result) => {
-                tracing::info!("loaded entity data");
                 match result.take() {
                     // TODO: This code is shared with read_view
                     Ok(data) => match data {

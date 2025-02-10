@@ -195,9 +195,6 @@ pub(crate) fn serialize_any_as_json(data: &(impl erased_serde::Serialize + Debug
     // erasure makes it possible with erased_serde::Serializer.
     let mut json_format = Box::new(<dyn erased_serde::Serializer>::erase(json));
 
-    // This line prints `["a","b"]` to stdout.
-    tracing::info!(?data, "serializing");
-
     data.erased_serialize(&mut json_format).unwrap();
     drop(json_format);
 
