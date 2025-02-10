@@ -52,6 +52,7 @@ pub(crate) mod prelude {
     pub use derive_crud_resource::CkResource;
     pub use derive_crud_selectable::CkSelectable;
     pub use derive_crudkit_id::CkId;
+    pub use derive_dynamic::CkDynamic;
     pub use derive_field::CkField;
     pub use derive_field_value::CkFieldValue;
 

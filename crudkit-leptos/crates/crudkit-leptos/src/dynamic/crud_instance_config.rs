@@ -1,12 +1,13 @@
 use crate::dynamic::crud_action::{CrudAction, CrudEntityAction};
 use crate::dynamic::custom_field::{CustomCreateFields, CustomReadFields, CustomUpdateFields};
 use crate::shared::crud_instance_config::DynSelectConfig;
-use crate::ReactiveValue;
+use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_condition::Condition;
-use crudkit_shared::{Order, SaveResult};
+use crudkit_shared::{Order, SaveResult, Saved};
 use crudkit_web::dynamic::prelude::*;
 use indexmap::{indexmap, IndexMap};
 use leptos::prelude::*;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -59,6 +60,95 @@ pub struct ModelHandler {
     pub update_model_to_signal_map: Callback<(AnyModel,), HashMap<AnyField, ReactiveValue>>,
     pub get_create_model_field: Callback<(String,), AnyField>,
     pub get_default_create_model: Callback<(), AnyModel>,
+}
+
+impl ModelHandler {
+    pub fn new<Create, Read, Update>() -> ModelHandler
+    where
+        Create: Model + DeserializeOwned + CrudDataTrait + Default,
+        Read: Model + DeserializeOwned + CrudDataTrait,
+        Update: Model + DeserializeOwned + CrudDataTrait + From<Read>,
+        <Read as CrudDataTrait>::Field: Field,
+        <Create as CrudDataTrait>::Field: Field,
+        <Update as CrudDataTrait>::Field: Field,
+    {
+        ModelHandler {
+            deserialize_read_many_response: Callback::from(move |json| {
+                Ok(serde_json::from_value::<Vec<Read>>(json)?
+                    .into_iter()
+                    .map(|it| Box::new(it) as AnyModel)
+                    .collect::<Vec<AnyModel>>())
+            }),
+            deserialize_read_one_response: Callback::from(move |json| {
+                Ok(
+                    serde_json::from_value::<Option<Read>>(json)?
+                        .map(|it| Box::new(it) as AnyModel),
+                )
+            }),
+            deserialize_update_one_response: Callback::from(move |json| {
+                let result: SaveResult<Update> = serde_json::from_value(json)?;
+                let result: SaveResult<AnyModel> = match result {
+                    SaveResult::Saved(saved) => SaveResult::Saved(Saved {
+                        entity: Box::new(saved.entity) as AnyModel,
+                        with_validation_errors: saved.with_validation_errors,
+                    }),
+                    SaveResult::Aborted { reason } => SaveResult::Aborted { reason },
+                    SaveResult::CriticalValidationErrors => SaveResult::CriticalValidationErrors,
+                };
+                Ok(result)
+            }),
+            read_model_to_update_model: Callback::from(move |read_model: AnyModel| {
+                let read_model: Read = read_model
+                    .downcast_ref::<Read>()
+                    .expect("failed to downcast")
+                    .to_owned();
+                let update_model: Update = read_model.into();
+                Box::new(update_model) as AnyModel
+            }),
+            create_model_to_signal_map: Callback::from(move |create_model: AnyModel| {
+                let create_model: &Create = create_model
+                    .downcast_ref::<Create>()
+                    .expect("failed to downcast");
+
+                let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
+                for field in Create::get_all_fields() {
+                    let initial = CrudFieldValueTrait::get_value(&field, create_model);
+                    map.insert(Arc::new(field), initial.into_reactive_value());
+                }
+                map
+            }),
+            read_model_to_signal_map: Callback::from(move |read_model: AnyModel| {
+                let read_model: &Read = read_model
+                    .downcast_ref::<Read>()
+                    .expect("failed to downcast");
+
+                let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
+                for field in Read::get_all_fields() {
+                    let initial = CrudFieldValueTrait::get_value(&field, read_model);
+                    map.insert(Arc::new(field), initial.into_reactive_value());
+                }
+                map
+            }),
+            update_model_to_signal_map: Callback::from(move |update_model: AnyModel| {
+                let update_model: &Update = update_model
+                    .downcast_ref::<Update>()
+                    .expect("failed to downcast");
+
+                let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
+                for field in Update::get_all_fields() {
+                    let initial = CrudFieldValueTrait::get_value(&field, update_model);
+                    map.insert(Arc::new(field), initial.into_reactive_value());
+                }
+                map
+            }),
+            get_create_model_field: Callback::from(move |field_name: String| {
+                Arc::new(Create::get_field(&field_name)) as AnyField
+            }),
+            get_default_create_model: Callback::from(move || {
+                Box::new(Create::default()) as AnyModel
+            }),
+        }
+    }
 }
 
 /// This config is non-serializable. Every piece of runtime-changing data relevant to be tracked and reloaded should be part of the CrudInstanceConfig struct.

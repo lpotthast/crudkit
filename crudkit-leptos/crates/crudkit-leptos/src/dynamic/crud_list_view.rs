@@ -14,7 +14,6 @@ use leptonic::prelude::*;
 use leptos::prelude::*;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy)]

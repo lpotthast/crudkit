@@ -16,6 +16,7 @@ derive-crud-resource = { path = "../derive-crud-resource" }
 derive-crud-selectable = { path = "../derive-crud-selectable" }
 derive-field = { path = "../derive-field" }
 derive-field-value = { path = "../derive-field-value" }
+derive-dynamic = { path = "../derive-dynamic" }
 
 downcast-rs = "2.0.1"
 typetag = "0.2.19"
