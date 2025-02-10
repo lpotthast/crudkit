@@ -8,6 +8,23 @@ leptonic-table {
       &.fit-content {
         min-width: fit-content;
       }
+
+      &.crud-order-by-trigger {
+        user-select: none;
+        cursor: pointer;
+        white-space: nowrap;
+
+        &:hover {
+          background-color: var(--table-background-color-on-hover);
+        }
+      }
+
+      .crud-order-by-sign {
+        min-width: .5em;
+        display: inline-flex;
+        margin: 0 0 0 0.25em;
+        font-size: 1.1em;
+      }
     }
   }
 

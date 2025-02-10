@@ -92,7 +92,7 @@ fn Header(
                             Order::Desc => "&darr;",
                         }
                     }
-                    None => "&uarr;",
+                    None => "&nbsp;",
                 }/>
             </span>
         </TableHeaderCell>
