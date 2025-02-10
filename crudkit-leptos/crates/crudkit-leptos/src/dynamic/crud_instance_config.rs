@@ -51,6 +51,8 @@ pub struct ModelHandler {
         Callback<(serde_json::Value,), Result<Vec<AnyModel>, serde_json::Error>>,
     pub deserialize_read_one_response:
         Callback<(serde_json::Value,), Result<Option<AnyModel>, serde_json::Error>>,
+    pub deserialize_create_one_response:
+        Callback<(serde_json::Value,), Result<SaveResult<AnyModel>, serde_json::Error>>,
     pub deserialize_update_one_response:
         Callback<(serde_json::Value,), Result<SaveResult<AnyModel>, serde_json::Error>>,
 
@@ -76,20 +78,29 @@ impl ModelHandler {
             deserialize_read_many_response: Callback::from(move |json| {
                 Ok(serde_json::from_value::<Vec<Read>>(json)?
                     .into_iter()
-                    .map(|it| Box::new(it) as AnyModel)
+                    .map(AnyModel::from)
                     .collect::<Vec<AnyModel>>())
             }),
             deserialize_read_one_response: Callback::from(move |json| {
-                Ok(
-                    serde_json::from_value::<Option<Read>>(json)?
-                        .map(|it| Box::new(it) as AnyModel),
-                )
+                Ok(serde_json::from_value::<Option<Read>>(json)?.map(AnyModel::from))
+            }),
+            deserialize_create_one_response: Callback::from(move |json| {
+                let result: SaveResult<Update> = serde_json::from_value(json)?;
+                let result: SaveResult<AnyModel> = match result {
+                    SaveResult::Saved(saved) => SaveResult::Saved(Saved {
+                        entity: AnyModel::from(saved.entity),
+                        with_validation_errors: saved.with_validation_errors,
+                    }),
+                    SaveResult::Aborted { reason } => SaveResult::Aborted { reason },
+                    SaveResult::CriticalValidationErrors => SaveResult::CriticalValidationErrors,
+                };
+                Ok(result)
             }),
             deserialize_update_one_response: Callback::from(move |json| {
                 let result: SaveResult<Update> = serde_json::from_value(json)?;
                 let result: SaveResult<AnyModel> = match result {
                     SaveResult::Saved(saved) => SaveResult::Saved(Saved {
-                        entity: Box::new(saved.entity) as AnyModel,
+                        entity: AnyModel::from(saved.entity),
                         with_validation_errors: saved.with_validation_errors,
                     }),
                     SaveResult::Aborted { reason } => SaveResult::Aborted { reason },
@@ -98,18 +109,10 @@ impl ModelHandler {
                 Ok(result)
             }),
             read_model_to_update_model: Callback::from(move |read_model: AnyModel| {
-                let read_model: Read = read_model
-                    .downcast_ref::<Read>()
-                    .expect("failed to downcast")
-                    .to_owned();
-                let update_model: Update = read_model.into();
-                Box::new(update_model) as AnyModel
+                AnyModel::from(Update::from(read_model.downcast::<Read>()))
             }),
             create_model_to_signal_map: Callback::from(move |create_model: AnyModel| {
-                let create_model: &Create = create_model
-                    .downcast_ref::<Create>()
-                    .expect("failed to downcast");
-
+                let create_model: &Create = create_model.downcast_ref::<Create>();
                 let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
                 for field in Create::get_all_fields() {
                     let initial = CrudFieldValueTrait::get_value(&field, create_model);
@@ -118,10 +121,7 @@ impl ModelHandler {
                 map
             }),
             read_model_to_signal_map: Callback::from(move |read_model: AnyModel| {
-                let read_model: &Read = read_model
-                    .downcast_ref::<Read>()
-                    .expect("failed to downcast");
-
+                let read_model: &Read = read_model.downcast_ref::<Read>();
                 let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
                 for field in Read::get_all_fields() {
                     let initial = CrudFieldValueTrait::get_value(&field, read_model);
@@ -130,10 +130,7 @@ impl ModelHandler {
                 map
             }),
             update_model_to_signal_map: Callback::from(move |update_model: AnyModel| {
-                let update_model: &Update = update_model
-                    .downcast_ref::<Update>()
-                    .expect("failed to downcast");
-
+                let update_model: &Update = update_model.downcast_ref::<Update>();
                 let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
                 for field in Update::get_all_fields() {
                     let initial = CrudFieldValueTrait::get_value(&field, update_model);
@@ -144,9 +141,7 @@ impl ModelHandler {
             get_create_model_field: Callback::from(move |field_name: String| {
                 Arc::new(Create::get_field(&field_name)) as AnyField
             }),
-            get_default_create_model: Callback::from(move || {
-                Box::new(Create::default()) as AnyModel
-            }),
+            get_default_create_model: Callback::from(move || AnyModel::from(Create::default())),
         }
     }
 }

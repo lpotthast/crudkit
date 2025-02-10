@@ -5,6 +5,7 @@ use dyn_eq::DynEq;
 use dyn_hash::DynHash;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::ops::Deref;
 use std::sync::Arc;
 
 pub mod crud_rest_data_provider;
@@ -120,12 +121,76 @@ dyn_eq::eq_trait_object!(Model);
 dyn_clone::clone_trait_object!(Model);
 downcast_rs::impl_downcast!(Model);
 
-pub type AnyModel = Box<dyn Model>;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnyModel {
+    inner: Box<dyn Model>,
+}
+
+impl AnyModel {
+    pub fn from<Concrete: Model>(concrete: Concrete) -> Self {
+        Self {
+            inner: Box::new(concrete),
+        }
+    }
+
+    pub fn downcast<Concrete: Model>(self) -> Concrete {
+        *self.inner.downcast::<Concrete>().expect("correct")
+    }
+
+    pub fn downcast_ref<Concrete: Model>(&self) -> &Concrete {
+        self.inner.downcast_ref::<Concrete>().expect("correct")
+    }
+
+    pub fn downcast_mut<Concrete: Model>(&mut self) -> &mut Concrete {
+        self.inner.downcast_mut::<Concrete>().expect("correct")
+    }
+}
+
+impl Deref for AnyModel {
+    type Target = dyn Model;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner.as_ref()
+    }
+}
 
 pub trait ActionPayload: Debug + DynClone + DynEq + downcast_rs::Downcast + Send + Sync {}
+dyn_eq::eq_trait_object!(ActionPayload);
+dyn_clone::clone_trait_object!(ActionPayload);
 downcast_rs::impl_downcast!(ActionPayload);
 
-pub type AnyActionPayload = Box<dyn ActionPayload>;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnyActionPayload {
+    inner: Box<dyn ActionPayload>,
+}
+
+impl AnyActionPayload {
+    pub fn from<Concrete: ActionPayload>(concrete: Concrete) -> Self {
+        Self {
+            inner: Box::new(concrete),
+        }
+    }
+
+    pub fn downcast<Concrete: ActionPayload>(self) -> Concrete {
+        *self.inner.downcast::<Concrete>().expect("correct")
+    }
+
+    pub fn downcast_ref<Concrete: ActionPayload>(&self) -> &Concrete {
+        self.inner.downcast_ref::<Concrete>().expect("correct")
+    }
+
+    pub fn downcast_mut<Concrete: ActionPayload>(&mut self) -> &mut Concrete {
+        self.inner.downcast_mut::<Concrete>().expect("correct")
+    }
+}
+
+impl Deref for AnyActionPayload {
+    type Target = dyn ActionPayload;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner.as_ref()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AnyElem {

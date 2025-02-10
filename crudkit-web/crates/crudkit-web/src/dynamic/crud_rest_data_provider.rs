@@ -3,7 +3,7 @@ use crate::dynamic::{AnyModel, SerializableField};
 use crate::prelude::{RequestError, ReqwestExecutor};
 use crudkit_condition::{merge_conditions, Condition};
 use crudkit_id::SerializableId;
-use crudkit_shared::{DeleteResult, Order, SaveResult};
+use crudkit_shared::{DeleteResult, Order};
 use indexmap::IndexMap;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -29,11 +29,13 @@ pub struct ReadOne {
     pub condition: Option<Condition>,
 }
 
-#[derive(Debug, Serialize)]
+/// Not `Serialize`, as we perform custom serialization of the model on use.
+#[derive(Debug)]
 pub struct CreateOne {
     pub entity: AnyModel,
 }
 
+/// Not `Serialize`, as we perform custom serialization of the model on use.
 #[derive(Debug)]
 pub struct UpdateOne {
     pub entity: AnyModel,
@@ -112,41 +114,28 @@ impl CrudRestDataProvider {
         .await
     }
 
-    pub async fn create_one_from_create_model(
+    pub async fn create_one(
         &self,
         create_one: CreateOne,
-    ) -> Result<SaveResult<AnyModel>, RequestError> // UpdateModel
+    ) -> Result<serde_json::Value, RequestError> // UpdateModel
     {
-        let json = request_post(
+        #[derive(Debug, Serialize)]
+        struct CreateOneDto {
+            entity: serde_json::Value,
+        }
+        request_post(
             format!(
                 "{}/{}/crud/create-one",
                 self.api_base_url, self.resource_name
             ),
             self.executor.as_ref(),
-            create_one,
+            CreateOneDto {
+                entity: serialize_any_as_json_value_omitting_type_information(
+                    &create_one.entity.inner,
+                ),
+            },
         )
-        .await?;
-        let result: SaveResult<AnyModel> = serde_json::from_value(json).unwrap();
-        Ok(result)
-    }
-
-    #[deprecated]
-    pub async fn create_one_from_update_model(
-        &self,
-        create_one: CreateOne,
-    ) -> Result<SaveResult<AnyModel>, RequestError> // UpdateModel
-    {
-        let json = request_post(
-            format!(
-                "{}/{}/crud/create-one",
-                self.api_base_url, self.resource_name
-            ),
-            self.executor.as_ref(),
-            create_one,
-        )
-        .await?;
-        let result: SaveResult<AnyModel> = serde_json::from_value(json).unwrap();
-        Ok(result)
+        .await
     }
 
     pub async fn update_one(
@@ -169,7 +158,9 @@ impl CrudRestDataProvider {
             ),
             self.executor.as_ref(),
             UpdateOneDto {
-                entity: serialize_any_as_json_value_omitting_type_information(&update_one.entity),
+                entity: serialize_any_as_json_value_omitting_type_information(
+                    &update_one.entity.inner,
+                ),
                 condition: update_one.condition,
             },
         )

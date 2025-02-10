@@ -121,10 +121,18 @@ pub fn CrudCreateView(
         async move {
             (
                 data_provider
-                    .create_one_from_create_model(CreateOne {
+                    .create_one(CreateOne {
                         entity: create_model,
                     })
-                    .await,
+                    .await
+                    .and_then(|json| {
+                        ctx.static_config
+                            .read_value()
+                            .model_handler
+                            .deserialize_create_one_response
+                            .run((json,))
+                            .map_err(|de_err| RequestError::Deserialize(de_err.to_string()))
+                    }),
                 and_then,
             )
         }

@@ -21,6 +21,12 @@ pub mod prelude {
 
     pub use crudkit_web::dynamic::prelude::*;
 
+    pub use super::crud_action::CrudAction;
+    pub use super::crud_action::CrudActionAftermath;
+    pub use super::crud_action::CrudEntityAction;
+    pub use super::crud_action::EntityModalGeneration;
+    pub use super::crud_action::ModalGeneration;
+
     pub use super::crud_instance::CrudInstance;
     pub use super::crud_instance_config::CreateElements;
     pub use super::crud_instance_config::CrudInstanceConfig;

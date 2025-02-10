@@ -29,13 +29,8 @@ pub fn store(input: TokenStream) -> TokenStream {
     quote! {
         #[typetag::serde]
         impl crudkit_web::dynamic::Field for #field_ident {
-            fn set_value(&self, model: &mut AnyModel, value: crudkit_web::value::Value) {
-                use std::ops::DerefMut;
-                let model = model
-                    .deref_mut()
-                    .as_any_mut()
-                    .downcast_mut::<#ident>()
-                    .unwrap();
+            fn set_value(&self, model: &mut crudkit_web::dynamic::AnyModel, value: crudkit_web::value::Value) {
+                let model = model.downcast_mut::<#ident>();
                 crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
             }
         }
