@@ -116,7 +116,7 @@ impl ModelHandler {
                 let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
                 for field in Create::get_all_fields() {
                     let initial = CrudFieldValueTrait::get_value(&field, create_model);
-                    map.insert(Arc::new(field), initial.into_reactive_value());
+                    map.insert(AnyField::from(field), initial.into_reactive_value());
                 }
                 map
             }),
@@ -125,7 +125,7 @@ impl ModelHandler {
                 let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
                 for field in Read::get_all_fields() {
                     let initial = CrudFieldValueTrait::get_value(&field, read_model);
-                    map.insert(Arc::new(field), initial.into_reactive_value());
+                    map.insert(AnyField::from(field), initial.into_reactive_value());
                 }
                 map
             }),
@@ -134,12 +134,12 @@ impl ModelHandler {
                 let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
                 for field in Update::get_all_fields() {
                     let initial = CrudFieldValueTrait::get_value(&field, update_model);
-                    map.insert(Arc::new(field), initial.into_reactive_value());
+                    map.insert(AnyField::from(field), initial.into_reactive_value());
                 }
                 map
             }),
             get_create_model_field: Callback::from(move |field_name: String| {
-                Arc::new(Create::get_field(&field_name)) as AnyField
+                AnyField::from(Create::get_field(&field_name))
             }),
             get_default_create_model: Callback::from(move || AnyModel::from(Create::default())),
         }

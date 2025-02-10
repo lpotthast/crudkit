@@ -70,7 +70,42 @@ dyn_eq::eq_trait_object!(Field);
 dyn_clone::clone_trait_object!(Field);
 dyn_hash::hash_trait_object!(Field);
 
-pub type AnyField = Arc<dyn Field>;
+#[derive(Debug, Clone, Eq, Hash, Serialize, Deserialize)]
+pub struct AnyField {
+    inner: Arc<dyn Field>,
+}
+
+impl PartialEq for AnyField {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner.dyn_eq(other.inner.as_any())
+    }
+}
+
+impl AnyField {
+    pub fn from<Concrete: Field>(concrete: Concrete) -> Self {
+        Self {
+            inner: Arc::new(concrete),
+        }
+    }
+
+    //pub fn downcast<Concrete: Field>(self) -> Concrete {
+    //    *self.inner.downcast::<Concrete>().expect("correct")
+    //}
+    //pub fn downcast_ref<Concrete: Field>(&self) -> &Concrete {
+    //    self.inner.downcast_ref::<Concrete>().expect("correct")
+    //}
+    //pub fn downcast_mut<Concrete: Field>(&mut self) -> &mut Concrete {
+    //    self.inner.downcast_mut::<Concrete>().expect("correct")
+    //}
+}
+
+impl Deref for AnyField {
+    type Target = dyn Field;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner.as_ref()
+    }
+}
 
 /// Configuration trait for field serialization
 pub trait SerializeAsKey: Send + Sync {
@@ -84,7 +119,7 @@ pub struct SerializableField {
 
 impl PartialEq for SerializableField {
     fn eq(&self, other: &Self) -> bool {
-        self.field.dyn_eq(other.field.as_ref().as_any())
+        self.field.dyn_eq(other.field.as_any())
     }
 }
 
@@ -201,7 +236,7 @@ pub enum AnyElem {
 
 impl AnyElem {
     pub fn field(field: impl Field, options: FieldOptions) -> Self {
-        Self::Field((Arc::new(field), options))
+        Self::Field((AnyField::from(field), options))
     }
 }
 
