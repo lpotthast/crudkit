@@ -44,12 +44,8 @@ pub enum CreateElements {
     Custom(Vec<AnyElem>), // CreateModel
 }
 
-/// This config is non-serializable. Every piece of runtime-changing data relevant to be tracked and reloaded should be part of the CrudInstanceConfig struct.
 #[derive(Debug, Clone)]
-pub struct CrudStaticInstanceConfig {
-    pub resource_name: String,
-    pub reqwest_executor: Arc<dyn ReqwestExecutor>,
-    pub actions: Vec<CrudAction>,
+pub struct ModelHandler {
     pub deserialize_read_many_response:
         Callback<(serde_json::Value,), Result<Vec<AnyModel>, serde_json::Error>>,
     pub deserialize_read_one_response:
@@ -63,7 +59,15 @@ pub struct CrudStaticInstanceConfig {
     pub update_model_to_signal_map: Callback<(AnyModel,), HashMap<AnyField, ReactiveValue>>,
     pub get_create_model_field: Callback<(String,), AnyField>,
     pub get_default_create_model: Callback<(), AnyModel>,
+}
 
+/// This config is non-serializable. Every piece of runtime-changing data relevant to be tracked and reloaded should be part of the CrudInstanceConfig struct.
+#[derive(Debug, Clone)]
+pub struct CrudStaticInstanceConfig {
+    pub resource_name: String,
+    pub reqwest_executor: Arc<dyn ReqwestExecutor>,
+    pub model_handler: ModelHandler,
+    pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction>,
     pub create_field_select_config: HashMap<AnyField, DynSelectConfig>, // CreateModel field
     pub read_field_select_config: HashMap<AnyField, DynSelectConfig>,   // ReadModel field

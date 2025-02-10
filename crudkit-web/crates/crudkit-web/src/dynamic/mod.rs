@@ -57,8 +57,12 @@ pub trait NamedProperty: Send + Sync {
     fn get_name(&self) -> String;
 }
 
-#[typetag::serde]
-pub trait Field: Debug + NamedProperty + DynClone + DynEq + DynHash + Send + Sync {
+/// A `#[typetag::serde]` annotation was omitted intentionally, as custom serializers are
+/// expected to be provided through configuration.
+#[typetag::serde] // Required for serialize/deserialize on AnyElem.
+pub trait Field:
+    Debug + NamedProperty + DynClone + DynEq + DynHash + SerializeAsKey + Send + Sync
+{
     fn set_value(&self, model: &mut AnyModel, value: Value);
 }
 dyn_eq::eq_trait_object!(Field);
@@ -66,6 +70,46 @@ dyn_clone::clone_trait_object!(Field);
 dyn_hash::hash_trait_object!(Field);
 
 pub type AnyField = Arc<dyn Field>;
+
+/// Configuration trait for field serialization
+pub trait SerializeAsKey: Send + Sync {
+    fn serialize_as_key(&self) -> String;
+}
+
+#[derive(Debug, Eq, Hash)]
+pub struct SerializableField {
+    field: AnyField,
+}
+
+impl PartialEq for SerializableField {
+    fn eq(&self, other: &Self) -> bool {
+        self.field.dyn_eq(other.field.as_ref().as_any())
+    }
+}
+
+impl SerializableField {
+    pub fn into_inner(self) -> AnyField {
+        self.field
+    }
+}
+
+impl Serialize for SerializableField {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.field.serialize_as_key().as_str().trim_matches('\"'))
+    }
+}
+
+impl From<AnyField> for SerializableField {
+    fn from(field: AnyField) -> Self {
+        SerializableField { field }
+    }
+}
+
+impl AsRef<AnyField> for SerializableField {
+    fn as_ref(&self) -> &AnyField {
+        &self.field
+    }
+}
 
 #[typetag::serde]
 pub trait Model:
@@ -78,15 +122,22 @@ downcast_rs::impl_downcast!(Model);
 
 pub type AnyModel = Box<dyn Model>;
 
-pub trait ActionPayload: Debug + DynClone + DynEq + Send + Sync {}
+pub trait ActionPayload: Debug + DynClone + DynEq + downcast_rs::Downcast + Send + Sync {}
+downcast_rs::impl_downcast!(ActionPayload);
 
-pub type AnyActionPayload = Arc<dyn ActionPayload>;
+pub type AnyActionPayload = Box<dyn ActionPayload>;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AnyElem {
     Enclosing(AnyEnclosing),
     Field((AnyField, FieldOptions)),
     Separator,
+}
+
+impl AnyElem {
+    pub fn field(field: impl Field, options: FieldOptions) -> Self {
+        Self::Field((Arc::new(field), options))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -25,6 +25,7 @@ fn default_create_model(ctx: &CrudInstanceContext) -> AnyModel {
     let mut entity: AnyModel = ctx
         .static_config
         .read_value()
+        .model_handler
         .get_default_create_model
         .run(());
 
@@ -37,6 +38,7 @@ fn default_create_model(ctx: &CrudInstanceContext) -> AnyModel {
                 .expect("related parent field must be part of the parents id!");
             ctx.static_config
                 .read_value()
+                .model_handler
                 .get_create_model_field
                 .run((parent.referencing_field.clone(),))
                 .set_value(&mut entity, value.clone().into());
@@ -82,6 +84,7 @@ pub fn CrudCreateView(
         StoredValue::new(
             ctx.static_config
                 .read_value()
+                .model_handler
                 .create_model_to_signal_map
                 .run((default_create_model.clone(),)),
         );

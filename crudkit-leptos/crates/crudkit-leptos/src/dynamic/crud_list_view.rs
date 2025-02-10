@@ -7,11 +7,14 @@ use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_pagination::CrudPagination;
 use crudkit_shared::Order;
 use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::SerializableField;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
+use serde::Serialize;
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy)]
@@ -26,8 +29,8 @@ pub struct CrudListViewContext {
 
 impl CrudListViewContext {
     pub fn toggle_select_all(&self) {
-        if let Ok(data) = self.data.get() {
-            let selected = self.selected.get();
+        if let Ok(data) = self.data.get_untracked() {
+            let selected = self.selected.get_untracked();
             if selected.len() < data.len() {
                 // Select all
                 self.set_selected
@@ -114,7 +117,14 @@ pub fn CrudListView(
         let read_many = ReadMany {
             limit: Some(items_per_page),
             skip: Some(items_per_page * (page - 1)),
-            order_by: Some(instance_ctx.order_by.get()),
+            order_by: Some({
+                let original = instance_ctx.order_by.get();
+                let mut new = IndexMap::new();
+                for (field, order) in original {
+                    new.insert(SerializableField::from(field), order.clone());
+                }
+                new
+            }),
             condition: instance_ctx.base_condition.get(),
         };
         tracing::debug!(?read_many, "loading list data");
@@ -127,6 +137,7 @@ pub fn CrudListView(
                 instance_ctx
                     .static_config
                     .read_value()
+                    .model_handler
                     .deserialize_read_many_response
                     .run((json,))
                     .map_err(|de_err| RequestError::Deserialize(de_err.to_string()))
@@ -138,7 +149,7 @@ pub fn CrudListView(
 
     let page = Memo::new(move |_prev| match page_resource.get() {
         Some(result) => {
-            tracing::debug!("loaded list data");
+            tracing::trace!("loaded list data");
             match result.take() {
                 Ok(data) => Ok(Arc::new(data)),
                 Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),

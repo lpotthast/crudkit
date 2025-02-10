@@ -32,6 +32,7 @@ pub fn CrudTableBody(
         let signals = StoredValue::new(
             ctx.static_config
                 .read_value()
+                .model_handler
                 .read_model_to_signal_map
                 .run((entity.clone(),)),
         ); // TODO: Can we get rid of this clone???

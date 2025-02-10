@@ -1,13 +1,12 @@
 use crate::dynamic::requests::request_post;
-use crate::dynamic::{AnyField, AnyModel};
+use crate::dynamic::{AnyModel, SerializableField};
 use crate::prelude::{RequestError, ReqwestExecutor};
 use crudkit_condition::{merge_conditions, Condition};
 use crudkit_id::SerializableId;
 use crudkit_shared::{DeleteResult, Order, SaveResult};
 use indexmap::IndexMap;
 use serde::Serialize;
-use serde_json::Value;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::sync::Arc;
 
 #[derive(Debug, Serialize)]
@@ -19,36 +18,14 @@ pub struct ReadCount {
 pub struct ReadMany {
     pub limit: Option<u64>,
     pub skip: Option<u64>,
-    #[serde(serialize_with = "serialize_order_by")]
-    pub order_by: Option<IndexMap<AnyField, Order>>,
+    pub order_by: Option<IndexMap<SerializableField, Order>>,
     pub condition: Option<Condition>,
-}
-
-fn serialize_order_by<S>(
-    order_by: &Option<IndexMap<AnyField, Order>>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    use serde::ser::SerializeMap;
-
-    match order_by {
-        None => serializer.serialize_none(),
-        Some(map) => {
-            let mut map_ser = serializer.serialize_map(Some(map.len()))?;
-            for (field, order) in map {
-                map_ser.serialize_entry(&field.get_name(), order)?;
-            }
-            map_ser.end()
-        }
-    }
 }
 
 #[derive(Debug, Serialize)]
 pub struct ReadOne {
     pub skip: Option<u64>,
-    pub order_by: Option<IndexMap<AnyField, Order>>,
+    pub order_by: Option<IndexMap<SerializableField, Order>>,
     pub condition: Option<Condition>,
 }
 
@@ -74,17 +51,6 @@ pub struct CrudRestDataProvider {
     executor: Arc<dyn ReqwestExecutor>,
     base_condition: Option<Condition>,
     resource_name: String,
-}
-
-#[derive(Serialize)]
-struct RequestWrapper {
-    data: Box<dyn erased_serde::Serialize + Send + Sync>,
-}
-
-impl Debug for RequestWrapper {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RequestWrapper").finish()
-    }
 }
 
 impl CrudRestDataProvider {
@@ -130,9 +96,7 @@ impl CrudRestDataProvider {
                 self.api_base_url, self.resource_name
             ),
             self.executor.as_ref(),
-            RequestWrapper {
-                data: Box::new(read_many),
-            },
+            read_many,
         )
         .await
     }
@@ -252,16 +216,16 @@ pub(crate) fn serialize_any_as_json(data: &(impl erased_serde::Serialize + Debug
 pub(crate) fn serialize_any_as_json_value_omitting_type_information(
     data: &(impl erased_serde::Serialize + Debug),
 ) -> serde_json::Value {
-    let mut value: serde_json::Value =
+    let value: serde_json::Value =
         erased_serde::serialize(data, serde_json::value::Serializer).unwrap();
     assert!(value.is_object());
     match value {
-        Value::Null => unreachable!(),
-        Value::Bool(_) => unreachable!(),
-        Value::Number(_) => unreachable!(),
-        Value::String(_) => unreachable!(),
-        Value::Array(_) => unreachable!(),
-        Value::Object(object) => {
+        serde_json::Value::Null => unreachable!(),
+        serde_json::Value::Bool(_) => unreachable!(),
+        serde_json::Value::Number(_) => unreachable!(),
+        serde_json::Value::String(_) => unreachable!(),
+        serde_json::Value::Array(_) => unreachable!(),
+        serde_json::Value::Object(object) => {
             assert_eq!(object.len(), 1);
             object
                 .into_values()

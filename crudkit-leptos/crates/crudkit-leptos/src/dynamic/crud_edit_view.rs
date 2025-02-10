@@ -80,6 +80,7 @@ pub fn CrudEditView(
                 instance_ctx
                     .static_config
                     .read_value()
+                    .model_handler
                     .deserialize_read_one_response
                     .run((json,))
                     .map_err(|de_err| RequestError::Deserialize(de_err.to_string()))
@@ -108,6 +109,7 @@ pub fn CrudEditView(
                             let update_model = instance_ctx
                                 .static_config
                                 .read_value()
+                                .model_handler
                                 .read_model_to_update_model
                                 .run((read_model,));
 
@@ -116,6 +118,7 @@ pub fn CrudEditView(
                                 let signals = instance_ctx
                                     .static_config
                                     .read_value()
+                                    .model_handler
                                     .update_model_to_signal_map
                                     .run((update_model.clone(),));
                                 StoredValue::new(signals)
@@ -178,6 +181,7 @@ pub fn CrudEditView(
                         instance_ctx
                             .static_config
                             .read_value()
+                            .model_handler
                             .deserialize_update_one_response
                             .run((json,))
                             .map_err(|de_err| RequestError::Deserialize(de_err.to_string()))
