@@ -1,4 +1,4 @@
-use crate::dynamic::crud_action::{CrudAction, ModalGeneration};
+use crate::dynamic::crud_action::{CrudAction, ResourceActionViewInput};
 use crate::dynamic::crud_action_context::CrudActionContext;
 use crate::dynamic::crud_instance::CrudInstanceContext;
 use crate::dynamic::crud_table::{CrudTable, NoDataAvailable};
@@ -12,7 +12,6 @@ use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
-use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -82,7 +81,6 @@ impl CrudListViewContext {
 #[component]
 pub fn CrudListView(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
-    #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(AnyField, HeaderOptions)>>, // ReadModel field
     #[prop(into)] order_by: Signal<IndexMap<AnyField, Order>>,     // ReadModel field
     #[prop(into)] custom_fields: Signal<CustomReadFields>,
@@ -193,7 +191,6 @@ pub fn CrudListView(
         <ActionRow actions filter filter_open />
 
         <CrudTable
-            api_base_url=api_base_url
             headers=headers
             order_by=order_by
             data=page
@@ -249,49 +246,44 @@ fn ActionRow(
 
                         <For
                             each=move || actions.get()
-                            key=|action| match action {
-                                CrudAction::Custom { id, name: _, icon: _, button_color: _, action: _, modal: _ } => *id,
-                            }
-                            children=move |action| match action {
-                                CrudAction::Custom { id, name, icon, button_color, action, modal } => {
-                                    if let Some(modal_generator) = modal {
-                                        view! {
-                                            <Button
-                                                color=button_color
-                                                disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
-                                                on_press=move |_| action_ctx.request_action(id)
-                                            >
-                                                {icon.map(|icon| view! { <Icon icon=icon/> })}
-                                                {name.clone()}
-                                            </Button>
-                                            {
-                                                modal_generator.run(ModalGeneration {
-                                                    show_when: Signal::derive(move || {
-                                                        action_ctx.is_action_requested(id)
-                                                    }),
-                                                    cancel: Callback::new(move |_| { action_ctx.cancel_action(id) }),
-                                                    execute: Callback::new(move |action_payload| {
-                                                        action_ctx
-                                                            .trigger_action(id, action_payload, action.clone(), instance_ctx)
-                                                    }),
-                                                })
+                            key=|action| action.id
+                            children=move |CrudAction { id, name, icon, button_color, action, modal }| {
+                                if let Some(view_fn) = modal {
+                                    view! {
+                                        <Button
+                                            color=button_color
+                                            disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
+                                            on_press=move |_| action_ctx.request_action(id)
+                                        >
+                                            {icon.map(|icon| view! { <Icon icon=icon/> })}
+                                            {name.clone()}
+                                        </Button>
+                                        {
+                                            view_fn.run(ResourceActionViewInput {
+                                                show_when: Signal::derive(move || {
+                                                    action_ctx.is_action_requested(id)
+                                                }),
+                                                cancel: Callback::new(move |_| { action_ctx.cancel_action(id) }),
+                                                execute: Callback::new(move |action_payload| {
+                                                    action_ctx
+                                                        .trigger_action(id, action_payload, action, instance_ctx)
+                                                }),
+                                            })
+                                        }
+                                    }.into_any()
+                                } else {
+                                    view! {
+                                        <Button
+                                            color=button_color
+                                            disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
+                                            on_press=move |_| {
+                                                action_ctx.trigger_action(id, None, action, instance_ctx)
                                             }
-                                        }.into_any()
-                                    } else {
-                                        let action = action.clone();
-                                        view! {
-                                            <Button
-                                                color=button_color
-                                                disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
-                                                on_press=move |_| {
-                                                    action_ctx.trigger_action(id, None, action.clone(), instance_ctx)
-                                                }
-                                            >
-                                                {icon.map(|icon| view! { <Icon icon=icon/> })}
-                                                {name.clone()}
-                                            </Button>
-                                        }.into_any()
-                                    }
+                                        >
+                                            {icon.map(|icon| view! { <Icon icon=icon/> })}
+                                            {name.clone()}
+                                        </Button>
+                                    }.into_any()
                                 }
                             }
                         />

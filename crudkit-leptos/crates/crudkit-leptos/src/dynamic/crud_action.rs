@@ -12,50 +12,57 @@ pub enum States {
 }
 
 #[derive(Clone)]
-pub struct ModalGeneration {
+pub struct ResourceActionViewInput {
     pub show_when: Signal<bool>,
     pub cancel: Callback<()>,
     pub execute: Callback<Option<AnyActionPayload>>,
 }
 
-#[derive(Clone)]
-pub struct EntityModalGeneration {
+#[derive(Clone, Copy)]
+pub struct EntityActionViewInput {
     pub show_when: Signal<bool>,
     pub state: Signal<Option<AnyModel>>,
     pub cancel: Callback<()>,
     pub execute: Callback<Option<AnyActionPayload>>,
 }
 
+pub struct ResourceActionInput {
+    pub payload: Option<AnyActionPayload>,
+    pub after: Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
+}
+
+/// The concrete data to perform an entity-action with.
+pub struct EntityActionInput {
+    pub update_model: AnyModel,
+    pub payload: Option<AnyActionPayload>,
+    pub after: Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
+}
+
 #[derive(Clone)]
-pub enum CrudEntityAction {
+pub struct CrudEntityAction {
     // TODO: Both id and name could be Cow
-    Custom {
-        id: &'static str,
-        name: String,
-        icon: Option<icondata::Icon>,
-        button_color: leptonic::components::prelude::ButtonColor,
-        valid_in: Vec<States>, // TODO: Use potentially non-allocating type for small const vecs
-        action: Callback<(
-            AnyModel, // UpdateModel
-            Option<AnyActionPayload>,
-            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
-        )>,
-        // TODO: Replace with Callback in rc3
-        modal: Option<Callback<EntityModalGeneration, AnyView>>,
-    },
+    pub id: &'static str,
+    pub name: String,
+    pub icon: Option<icondata::Icon>,
+    pub button_color: leptonic::components::prelude::ButtonColor,
+    pub valid_in: Vec<States>,
+    pub action: Callback<EntityActionInput>,
+    /// The view to be shown for this action.
+    /// If not provided, triggering the action executes it immediately.
+    pub view: Option<Callback<EntityActionViewInput, AnyView>>,
 }
 
 impl Debug for CrudEntityAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Custom {
+            Self {
                 id,
                 name,
                 icon,
                 button_color,
                 valid_in,
                 action: _,
-                modal: _,
+                view: _,
             } => f
                 .debug_struct("Custom")
                 .field("id", id)
@@ -72,23 +79,23 @@ impl PartialEq for CrudEntityAction {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (
-                Self::Custom {
+                Self {
                     id: l_id,
                     name: l_name,
                     icon: l_icon,
                     button_color: l_button_color,
                     valid_in: l_valid_in,
                     action: _l_action,
-                    modal: _l_modal,
+                    view: _l_modal,
                 },
-                Self::Custom {
+                Self {
                     id: r_id,
                     name: r_name,
                     icon: r_icon,
                     button_color: r_button_color,
                     valid_in: r_valid_in,
                     action: _r_action,
-                    modal: _r_modal,
+                    view: _r_modal,
                 },
             ) => {
                 l_id == r_id
@@ -111,25 +118,19 @@ impl<T, R> ActionModalGen<T, R> {
 }
 
 #[derive(Clone)]
-pub enum CrudAction {
-    Custom {
-        id: &'static str, // TODO: Should this be Cow?
-        name: String,
-        icon: Option<icondata::Icon>,
-        button_color: leptonic::components::prelude::ButtonColor,
-        action: Callback<(
-            Option<AnyActionPayload>,
-            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
-        )>,
-        // TODO: Replace with Callback in rc3
-        modal: Option<Callback<ModalGeneration, AnyView>>,
-    },
+pub struct CrudAction {
+    pub id: &'static str, // TODO: Should this be Cow?
+    pub name: String,
+    pub icon: Option<icondata::Icon>,
+    pub button_color: leptonic::components::prelude::ButtonColor,
+    pub action: Callback<ResourceActionInput>,
+    pub modal: Option<Callback<ResourceActionViewInput, AnyView>>,
 }
 
 impl Debug for CrudAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Custom {
+            Self {
                 id,
                 name,
                 icon,
@@ -151,7 +152,7 @@ impl PartialEq for CrudAction {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (
-                Self::Custom {
+                Self {
                     id: l_id,
                     name: l_name,
                     icon: l_icon,
@@ -159,7 +160,7 @@ impl PartialEq for CrudAction {
                     action: _l_action,
                     modal: _l_modal,
                 },
-                Self::Custom {
+                Self {
                     id: r_id,
                     name: r_name,
                     icon: r_icon,

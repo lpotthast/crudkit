@@ -332,7 +332,6 @@ pub fn CrudInstance(
                 {move || match view.get() {
                     SerializableCrudView::List => view! {
                         <CrudListView
-                            api_base_url=api_base_url
                             data_provider=data_provider
                             headers=headers
                             order_by=order_by
@@ -343,7 +342,6 @@ pub fn CrudInstance(
                     }.into_any(),
                     SerializableCrudView::Create => view! {
                         <CrudCreateView
-                            api_base_url=api_base_url
                             data_provider=data_provider
                             create_elements=create_elements
                             custom_fields=custom_create_fields
@@ -362,7 +360,6 @@ pub fn CrudInstance(
                     }.into_any(),
                     SerializableCrudView::Read(id) => view! {
                         <CrudReadView
-                            api_base_url=api_base_url
                             id=id
                             data_provider=data_provider
                             actions=entity_actions
@@ -377,7 +374,6 @@ pub fn CrudInstance(
                     }.into_any(),
                     SerializableCrudView::Edit(id) => view! {
                         <CrudEditView
-                            api_base_url=api_base_url
                             id=id
                             data_provider=data_provider
                             actions=entity_actions

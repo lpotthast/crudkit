@@ -15,10 +15,9 @@ use std::sync::Arc;
 #[component]
 pub fn CrudTableBody(
     #[prop(into)] data: Signal<Result<Arc<Vec<AnyModel>>, NoDataAvailable>>, // ReadModel
-    #[prop(into)] api_base_url: Signal<String>,
-    #[prop(into)] headers: Signal<Vec<(AnyField, HeaderOptions)>>, // ReadModel field
-    #[prop(into)] custom_fields: Signal<CustomFields>,             // ReadModel
-    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // ReadModel field
+    #[prop(into)] headers: Signal<Vec<(AnyField, HeaderOptions)>>,           // ReadModel field
+    #[prop(into)] custom_fields: Signal<CustomFields>,                       // ReadModel
+    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>,  // ReadModel field
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
@@ -97,7 +96,6 @@ pub fn CrudTableBody(
                                 <CrudField
                                     custom_fields=custom_fields
                                     field_config=field_config
-                                    api_base_url=api_base_url
                                     current_view=CrudSimpleView::List
                                     field=field.clone()
                                     field_options=FieldOptions {

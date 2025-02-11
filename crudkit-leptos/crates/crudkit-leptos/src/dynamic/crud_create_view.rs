@@ -58,7 +58,6 @@ fn default_create_model(ctx: &CrudInstanceContext) -> AnyModel {
 /// This component decides on its own, depending on the instance configuration, which fields to display.
 #[component]
 pub fn CrudCreateView(
-    #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
     #[prop(into)] create_elements: Signal<CreateElements>,
     #[prop(into)] custom_fields: Signal<CustomCreateFields>,
@@ -210,7 +209,6 @@ pub fn CrudCreateView(
                     <CrudFields
                         custom_fields=custom_fields
                         field_config=field_config
-                        api_base_url=api_base_url
                         elements=create_elements
                         signals=signals
                         mode=FieldMode::Editable

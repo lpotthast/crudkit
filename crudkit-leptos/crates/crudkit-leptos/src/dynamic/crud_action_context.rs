@@ -1,4 +1,4 @@
-use crate::dynamic::crud_action::CrudActionAftermath;
+use crate::dynamic::crud_action::{EntityActionInput, ResourceActionInput};
 use crate::dynamic::crud_instance::CrudInstanceContext;
 use crudkit_web::dynamic::prelude::*;
 use leptos::prelude::*;
@@ -68,10 +68,7 @@ impl CrudActionContext {
         &self,
         action_id: ActionId,
         action_payload: Option<AnyActionPayload>,
-        action: Callback<(
-            Option<AnyActionPayload>,
-            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
-        )>,
+        action: Callback<ResourceActionInput>,
         instance_ctx: CrudInstanceContext,
     ) {
         tracing::debug!(action_id, ?action_payload, "trigger_action");
@@ -105,19 +102,18 @@ impl CrudActionContext {
             instance_ctx.handle_action_outcome(outcome);
         });
 
-        action.run((action_payload, finish_handler));
+        action.run(ResourceActionInput {
+            payload: action_payload,
+            after: finish_handler,
+        });
     }
 
     pub fn trigger_entity_action(
         &self,
         action_id: ActionId,
-        entity: AnyModel, // UpdateModel
+        update_model: AnyModel,
         action_payload: Option<AnyActionPayload>,
-        action: Callback<(
-            AnyModel, // UpdateModel
-            Option<AnyActionPayload>,
-            Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
-        )>,
+        action: Callback<EntityActionInput>,
         instance_ctx: CrudInstanceContext,
     ) {
         tracing::debug!(action_id, ?action_payload, "trigger_action");
@@ -151,6 +147,10 @@ impl CrudActionContext {
             instance_ctx.handle_action_outcome(outcome);
         });
 
-        action.run((entity, action_payload, finish_handler));
+        action.run(EntityActionInput {
+            update_model,
+            payload: action_payload,
+            after: finish_handler,
+        });
     }
 }

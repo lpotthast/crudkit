@@ -22,7 +22,6 @@ pub enum NoDataAvailable {
 
 #[component]
 pub fn CrudTable(
-    #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(AnyField, HeaderOptions)>>, // ReadModel field
     #[prop(into)] order_by: Signal<IndexMap<AnyField, Order>>,     // ReadModel field
     #[prop(into)] data: Signal<Result<Arc<Vec<AnyModel>>, NoDataAvailable>>, // ReadModel
@@ -56,7 +55,6 @@ pub fn CrudTable(
 
                 <CrudTableBody
                     data=data
-                    api_base_url=api_base_url
                     headers=headers
                     custom_fields=custom_fields
                     field_config=field_config
