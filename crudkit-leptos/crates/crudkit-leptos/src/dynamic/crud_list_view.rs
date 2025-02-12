@@ -1,6 +1,7 @@
 use crate::dynamic::crud_action::{CrudAction, ResourceActionViewInput};
 use crate::dynamic::crud_action_context::CrudActionContext;
 use crate::dynamic::crud_instance::CrudInstanceContext;
+use crate::dynamic::crud_instance_config::Header;
 use crate::dynamic::crud_table::{CrudTable, NoDataAvailable};
 use crate::dynamic::custom_field::CustomReadFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
@@ -81,8 +82,8 @@ impl CrudListViewContext {
 #[component]
 pub fn CrudListView(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
-    #[prop(into)] headers: Signal<Vec<(AnyField, HeaderOptions)>>, // ReadModel field
-    #[prop(into)] order_by: Signal<IndexMap<AnyField, Order>>,     // ReadModel field
+    #[prop(into)] headers: Signal<Vec<Header>>,
+    #[prop(into)] order_by: Signal<IndexMap<AnyField, Order>>, // ReadModel field
     #[prop(into)] custom_fields: Signal<CustomReadFields>,
     #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // ReadModel field
     #[prop(into)] actions: Signal<Vec<CrudAction>>,
@@ -96,13 +97,13 @@ pub fn CrudListView(
     let edit_allowed = Signal::derive(move || true);
     let delete_allowed = Signal::derive(move || true);
 
-    let headers = Memo::new(move |_prev| {
-        headers
-            .get()
-            .iter()
-            .map(|(field, options)| (field.clone(), options.clone()))
-            .collect::<Vec<(AnyField, HeaderOptions)>>() // ReadModel field
-    });
+    //let headers = Memo::new(move |_prev| {
+    //    headers
+    //        .get()
+    //        .iter()
+    //        .map(|Header { field, options }| (field.clone(), options.clone()))
+    //        .collect::<Vec<(AnyField, HeaderOptions)>>() // ReadModel field
+    //});
 
     let page_resource = LocalResource::new(move || async move {
         let _ = instance_ctx.reload.get();
@@ -247,8 +248,8 @@ fn ActionRow(
                         <For
                             each=move || actions.get()
                             key=|action| action.id
-                            children=move |CrudAction { id, name, icon, button_color, action, modal }| {
-                                if let Some(view_fn) = modal {
+                            children=move |CrudAction { id, name, icon, button_color, action, view }| {
+                                if let Some(view_fn) = view {
                                     view! {
                                         <Button
                                             color=button_color

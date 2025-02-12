@@ -12,6 +12,7 @@ use leptonic::components::table::{Table, TableContainer};
 use leptos::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
+use crate::dynamic::crud_instance_config::Header;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NoDataAvailable {
@@ -22,7 +23,7 @@ pub enum NoDataAvailable {
 
 #[component]
 pub fn CrudTable(
-    #[prop(into)] headers: Signal<Vec<(AnyField, HeaderOptions)>>, // ReadModel field
+    #[prop(into)] headers: Signal<Vec<Header>>,
     #[prop(into)] order_by: Signal<IndexMap<AnyField, Order>>,     // ReadModel field
     #[prop(into)] data: Signal<Result<Arc<Vec<AnyModel>>, NoDataAvailable>>, // ReadModel
     #[prop(into)] custom_fields: Signal<CustomFields>,             // ReadModel

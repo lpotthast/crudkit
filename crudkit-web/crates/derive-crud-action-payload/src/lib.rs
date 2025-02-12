@@ -16,6 +16,9 @@ pub fn store(input: TokenStream) -> TokenStream {
     quote! {
         impl crudkit_web::CrudActionPayload for #ident {
         }
+
+        impl crudkit_web::dynamic::ActionPayload for #ident {
+        }
     }
     .into()
 }

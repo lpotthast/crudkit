@@ -13,13 +13,34 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Header {
+    pub field: AnyField, // Read model field!
+    pub options: HeaderOptions,
+}
+
+impl Header {
+    pub fn showing(field: impl Field, options: HeaderOptions) -> Header {
+        Self {
+            field: AnyField::from(field),
+            options,
+        }
+    }
+}
+
+impl From<(AnyField, HeaderOptions)> for Header {
+    fn from((field, options): (AnyField, HeaderOptions)) -> Self {
+        Self { field, options }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)] // TODO: Serialize, Deserialize
 pub struct CrudInstanceConfig {
     pub api_base_url: String,
     pub view: SerializableCrudView,
-    pub headers: Vec<(AnyField, HeaderOptions)>, // Read model field!
+    pub headers: Vec<Header>,
     pub create_elements: CreateElements,
-    pub elements: Vec<AnyElem>,              // UpdateModel
+    pub elements: Vec<Elem>,                 // UpdateModel
     pub order_by: IndexMap<AnyField, Order>, // Read model field name!
     pub items_per_page: u64,
     pub page: u64,
@@ -42,7 +63,7 @@ pub struct CrudParentConfig {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CreateElements {
     None,
-    Custom(Vec<AnyElem>), // CreateModel
+    Custom(Vec<Elem>), // CreateModel
 }
 
 #[derive(Debug, Clone)]

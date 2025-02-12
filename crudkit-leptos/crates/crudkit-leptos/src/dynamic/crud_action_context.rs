@@ -104,7 +104,7 @@ impl CrudActionContext {
 
         action.run(ResourceActionInput {
             payload: action_payload,
-            after: finish_handler,
+            and_then: finish_handler,
         });
     }
 
@@ -150,7 +150,7 @@ impl CrudActionContext {
         action.run(EntityActionInput {
             update_model,
             payload: action_payload,
-            after: finish_handler,
+            and_then: finish_handler,
         });
     }
 }

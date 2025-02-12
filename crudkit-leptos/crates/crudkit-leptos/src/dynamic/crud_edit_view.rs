@@ -40,7 +40,7 @@ pub fn CrudEditView(
     id: Signal<SerializableId>, // UpdateModel id
     #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
     #[prop(into)] actions: Signal<Vec<CrudEntityAction>>,
-    #[prop(into)] elements: Signal<Vec<AnyElem>>,
+    #[prop(into)] elements: Signal<Vec<Elem>>,
     #[prop(into)] custom_fields: Signal<CustomUpdateFields>,
     #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // UpdateModel field
     #[prop(into)] on_list_view: Callback<()>,

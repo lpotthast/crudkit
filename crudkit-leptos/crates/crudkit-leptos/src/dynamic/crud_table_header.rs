@@ -1,4 +1,5 @@
 use crate::dynamic::crud_instance::CrudInstanceContext;
+use crate::dynamic::crud_instance_config::Header;
 use crate::dynamic::crud_list_view::CrudListViewContext;
 use crudkit_shared::Order;
 use crudkit_web::dynamic::prelude::*;
@@ -9,8 +10,8 @@ use std::borrow::Cow;
 
 #[component]
 pub fn CrudTableHeader(
-    #[prop(into)] headers: Signal<Vec<(AnyField, HeaderOptions)>>, // ReadModel field
-    #[prop(into)] order_by: Signal<IndexMap<AnyField, Order>>,     // ReadModel field
+    #[prop(into)] headers: Signal<Vec<Header>>,
+    #[prop(into)] order_by: Signal<IndexMap<AnyField, Order>>, // ReadModel field
     // Whether an action column should be displayed.
     #[prop(into)] with_actions: Signal<bool>,
     /// Recommended to be set to false when the table body does not actually display content.
@@ -34,13 +35,13 @@ pub fn CrudTableHeader(
                 }}
                 <For
                     each=move || headers.get()
-                    key=|(field, _options)| field.get_name()
-                    children=move |(field, options)| {
+                    key=|header| header.field.get_name()
+                    children=move |Header { field, options }| {
                         move || {
                             let field_clone = field.clone();
                             let update_order = Callback::from(move || { update_order_of_field(field_clone.clone()); });
                             view! {
-                                <Header name=options.display_name.clone() order=order_by.read().get(&field).cloned() ordering_allowed=options.ordering_allowed update_order apply_min_width_class=options.min_width/>
+                                <HeaderCell name=options.display_name.clone() order=order_by.read().get(&field).cloned() ordering_allowed=options.ordering_allowed update_order apply_min_width_class=options.min_width/>
                             }
                         }
                     }
@@ -65,7 +66,7 @@ fn SelectAll(all_selected: Signal<bool>, select_all: Callback<()>) -> impl IntoV
 }
 
 #[component]
-fn Header(
+fn HeaderCell(
     name: Cow<'static, str>,
     order: Option<Order>,
     ordering_allowed: bool,

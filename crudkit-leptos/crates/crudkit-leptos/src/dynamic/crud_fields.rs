@@ -12,7 +12,7 @@ use std::collections::HashMap;
 pub fn CrudFields(
     custom_fields: Signal<CustomFields>,
     field_config: Signal<HashMap<AnyField, DynSelectConfig>>,
-    #[prop(into)] elements: Signal<Vec<AnyElem>>,
+    #[prop(into)] elements: Signal<Vec<Elem>>,
     #[prop(into)] signals: StoredValue<HashMap<AnyField, ReactiveValue>>,
     mode: FieldMode,
     current_view: CrudSimpleView,
@@ -27,9 +27,9 @@ pub fn CrudFields(
             .map(|elem| {
                 let on_tab_selection = on_tab_selection.clone();
                 match elem {
-                    AnyElem::Enclosing(enclosing) => {
+                    Elem::Enclosing(enclosing) => {
                         match enclosing {
-                            AnyEnclosing::None(group) => view! {
+                            Enclosing::None(group) => view! {
                                 <CrudFields
                                     custom_fields=custom_fields
                                     field_config=field_config
@@ -43,7 +43,7 @@ pub fn CrudFields(
                                 />
                             }
                             .into_any(),
-                            AnyEnclosing::Tabs(tabs) => view! {
+                            Enclosing::Tabs(tabs) => view! {
                                 <Tabs>
                                     // active_tab={ctx.props().active_tab.clone()}
                                     // on_tab_selection={ctx.link().callback(|label| Msg::TabSelected(label))}
@@ -78,7 +78,7 @@ pub fn CrudFields(
                                 </Tabs>
                             }
                             .into_any(),
-                            AnyEnclosing::Card(group) => view! {
+                            Enclosing::Card(group) => view! {
                                 <Card>
                                     <CrudFields
                                         custom_fields=custom_fields
@@ -96,7 +96,7 @@ pub fn CrudFields(
                             .into_any(),
                         }
                     }
-                    AnyElem::Field((field, field_options)) => view! {
+                    Elem::Field((field, field_options)) => view! {
                         <CrudField
                             custom_fields=custom_fields
                             field_config=field_config
@@ -112,7 +112,7 @@ pub fn CrudFields(
                         />
                     }
                     .into_any(),
-                    AnyElem::Separator => view! { <Separator/> }.into_any(),
+                    Elem::Separator => view! { <Separator/> }.into_any(),
                 }
             })
             .collect_view()

@@ -22,7 +22,7 @@ pub fn CrudReadView(
     id: Signal<SerializableId>,
     #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
     #[prop(into)] actions: Signal<Vec<CrudEntityAction>>,
-    #[prop(into)] elements: Signal<Vec<AnyElem>>, // UpdateModel
+    #[prop(into)] elements: Signal<Vec<Elem>>, // UpdateModel
     #[prop(into)] custom_fields: Signal<CustomUpdateFields>,
     #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // UpdateModel field
     #[prop(into)] on_list_view: Callback<()>,

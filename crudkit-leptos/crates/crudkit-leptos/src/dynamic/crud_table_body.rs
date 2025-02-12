@@ -1,6 +1,7 @@
 use crate::dynamic::crud_action::CrudActionTrait;
 use crate::dynamic::crud_field::CrudField;
 use crate::dynamic::crud_instance::CrudInstanceContext;
+use crate::dynamic::crud_instance_config::Header;
 use crate::dynamic::crud_list_view::CrudListViewContext;
 use crate::dynamic::crud_table::NoDataAvailable;
 use crate::dynamic::custom_field::CustomFields;
@@ -15,9 +16,9 @@ use std::sync::Arc;
 #[component]
 pub fn CrudTableBody(
     #[prop(into)] data: Signal<Result<Arc<Vec<AnyModel>>, NoDataAvailable>>, // ReadModel
-    #[prop(into)] headers: Signal<Vec<(AnyField, HeaderOptions)>>,           // ReadModel field
-    #[prop(into)] custom_fields: Signal<CustomFields>,                       // ReadModel
-    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>,  // ReadModel field
+    #[prop(into)] headers: Signal<Vec<Header>>,
+    #[prop(into)] custom_fields: Signal<CustomFields>, // ReadModel
+    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // ReadModel field
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
@@ -83,8 +84,8 @@ pub fn CrudTableBody(
 
                 <For
                     each=move || headers.get()
-                    key=|(field, _options)| field.get_name()
-                    children=move |(field, options)| {
+                    key=|header| header.field.get_name()
+                    children=move |Header { field, options }| {
                         // TODO: Why is this access to stored_entity necessary?
                         let _ = stored_entity.get();
                         let reactive_value = *signals.read_value().get(&field).unwrap();

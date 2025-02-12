@@ -28,14 +28,14 @@ pub struct EntityActionViewInput {
 
 pub struct ResourceActionInput {
     pub payload: Option<AnyActionPayload>,
-    pub after: Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
+    pub and_then: Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
 }
 
 /// The concrete data to perform an entity-action with.
 pub struct EntityActionInput {
     pub update_model: AnyModel,
     pub payload: Option<AnyActionPayload>,
-    pub after: Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
+    pub and_then: Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
 }
 
 #[derive(Clone)]
@@ -124,7 +124,7 @@ pub struct CrudAction {
     pub icon: Option<icondata::Icon>,
     pub button_color: leptonic::components::prelude::ButtonColor,
     pub action: Callback<ResourceActionInput>,
-    pub modal: Option<Callback<ResourceActionViewInput, AnyView>>,
+    pub view: Option<Callback<ResourceActionViewInput, AnyView>>,
 }
 
 impl Debug for CrudAction {
@@ -136,7 +136,7 @@ impl Debug for CrudAction {
                 icon,
                 button_color,
                 action: _,
-                modal: _,
+                view: _,
             } => f
                 .debug_struct("Custom")
                 .field("id", id)
@@ -158,7 +158,7 @@ impl PartialEq for CrudAction {
                     icon: l_icon,
                     button_color: l_button_color,
                     action: _l_action,
-                    modal: _l_modal,
+                    view: _l_modal,
                 },
                 Self {
                     id: r_id,
@@ -166,7 +166,7 @@ impl PartialEq for CrudAction {
                     icon: r_icon,
                     button_color: r_button_color,
                     action: _r_action,
-                    modal: _r_modal,
+                    view: _r_modal,
                 },
             ) => {
                 l_id == r_id

@@ -16,17 +16,17 @@ pub mod prelude {
 
     pub use super::ActionPayload;
     pub use super::AnyActionPayload;
-    pub use super::AnyElem;
-    pub use super::AnyEnclosing;
     pub use super::AnyField;
-    pub use super::AnyGroup;
     pub use super::AnyIdentifiable;
     pub use super::AnyModel;
-    pub use super::AnyTab;
+    pub use super::Elem;
+    pub use super::Enclosing;
     pub use super::Field;
+    pub use super::Group;
     pub use super::Identifiable;
     pub use super::Model;
     pub use super::NamedProperty;
+    pub use super::Tab;
 
     pub use super::crud_rest_data_provider::CreateOne;
     pub use super::crud_rest_data_provider::CrudRestDataProvider;
@@ -228,35 +228,35 @@ impl Deref for AnyActionPayload {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum AnyElem {
-    Enclosing(AnyEnclosing),
+pub enum Elem {
+    Enclosing(Enclosing),
     Field((AnyField, FieldOptions)),
     Separator,
 }
 
-impl AnyElem {
+impl Elem {
     pub fn field(field: impl Field, options: FieldOptions) -> Self {
         Self::Field((AnyField::from(field), options))
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum AnyEnclosing {
-    None(AnyGroup),
-    Tabs(Vec<AnyTab>),
-    Card(AnyGroup),
+pub enum Enclosing {
+    None(Group),
+    Tabs(Vec<Tab>),
+    Card(Group),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AnyTab {
+pub struct Tab {
     /// A unique identifier for this tab.
     pub id: TabId,
     pub label: Label,
-    pub group: AnyGroup,
+    pub group: Group,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct AnyGroup {
+pub struct Group {
     pub layout: Layout,
-    pub children: Vec<AnyElem>,
+    pub children: Vec<Elem>,
 }
