@@ -99,6 +99,8 @@ impl Into<ConditionClauseValue> for crudkit_id::IdValue {
 #[serde(untagged)]
 pub enum ConditionElement {
     Clause(ConditionClause),
+
+    #[schema(no_recursion)]
     Condition(Box<Condition>),
 }
 
