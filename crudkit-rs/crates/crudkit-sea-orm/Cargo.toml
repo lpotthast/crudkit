@@ -19,5 +19,5 @@ sea-query = { version = "0.30.7" }
 serde = { version = "1.0.197", features = ["derive"] }
 snafu = { version = "0.8.2", features = ["backtrace"] }
 tracing = "0.1.40"
-utoipa = "4.2.0"
+utoipa = { version = "5.3.1", features = ["time", "uuid"] }
 uuid = { version = "1.8.0", features = ["v4", "v7", "serde"] }

@@ -36,9 +36,7 @@ pub struct ConditionClause {
 pub enum ConditionClauseValue {
     String(String),
     Json(String),
-    #[schema(value_type = String)]
     UuidV4(uuid::Uuid),
-    #[schema(value_type = String)]
     UuidV7(uuid::Uuid),
     Bool(bool),
     I32(i32),

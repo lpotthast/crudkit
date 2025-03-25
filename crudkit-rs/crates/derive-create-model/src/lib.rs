@@ -9,8 +9,10 @@ use syn::{parse_macro_input, DeriveInput};
 // TODO: Automatically derive Eq on new type if source type is already able to derive it!
 
 #[derive(Debug, FromField)]
-#[darling(attributes(ck_create_model))]
+#[darling(attributes(ck_create_model), forward_attrs(schema, serde))]
 struct MyFieldReceiver {
+    attrs: Vec<syn::Attribute>,
+
     ident: Option<syn::Ident>,
 
     ty: syn::Type,
@@ -74,10 +76,17 @@ pub fn store(input: TokenStream) -> TokenStream {
             let vis = &field.vis;
             let ident = &field.ident;
             let ty = &field.ty;
+            let attrs = &field.attrs;
             if field.is_optional() {
-                quote! { #vis #ident: Option<#ty> }
+                quote! {
+                    #(#attrs)*
+                    #vis #ident: Option<#ty>
+                }
             } else {
-                quote! { #vis #ident: #ty }
+                quote! {
+                    #(#attrs)*
+                    #vis #ident: #ty
+                }
             }
         });
 

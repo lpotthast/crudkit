@@ -24,7 +24,7 @@ pub struct CreateOne<T> {
 
 #[tracing::instrument(level = "info", skip(context, res_context))]
 pub async fn create_one<R: CrudResource, Ro: Role>(
-    keycloak_token: Option<KeycloakToken<Ro>>,
+    keycloak_token: KeycloakToken<Ro>,
     context: Arc<CrudContext<R>>,
     res_context: Arc<R::Context>,
     body: CreateOne<R::CreateModel>,
@@ -47,7 +47,7 @@ pub async fn create_one<R: CrudResource, Ro: Role>(
         &mut active_model,
         &res_context,
         RequestContext {
-            keycloak_uuid: keycloak_token.map(|it| uuid::Uuid::parse_str(&it.subject).unwrap()),
+            keycloak_uuid: uuid::Uuid::parse_str(&keycloak_token.subject).unwrap(),
         },
         hook_data,
     )

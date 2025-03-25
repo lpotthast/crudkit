@@ -3,7 +3,6 @@ use std::sync::Arc;
 use indexmap::IndexMap;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, ModelTrait, PaginatorTrait};
 use snafu::{Backtrace, ResultExt, Snafu};
-use utoipa::ToSchema;
 
 use crudkit_rs::{
     repository::{DeleteResult, Repository, RepositoryError},
@@ -25,7 +24,7 @@ impl SeaOrmRepo {
     }
 }
 
-#[derive(Debug, Snafu, ToSchema)]
+#[derive(Debug, Snafu)]
 pub enum SeaOrmRepoError {
     #[snafu(display("SeaOrmRepoError: Database error."))]
     Db { source: DbErr, backtrace: Backtrace },

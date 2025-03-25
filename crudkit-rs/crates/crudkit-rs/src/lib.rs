@@ -116,7 +116,7 @@ pub mod prelude {
 }
 
 pub struct RequestContext {
-    pub keycloak_uuid: Option<uuid::Uuid>,
+    pub keycloak_uuid: uuid::Uuid,
 }
 
 pub trait ValidatorModel<I: Id> {

@@ -1,4 +1,5 @@
 use indexmap::IndexMap;
+use std::future::Future;
 
 use crudkit_condition::Condition;
 use crudkit_shared::Order;
@@ -8,51 +9,60 @@ use crate::resource::CrudResource;
 pub trait Repository<R: CrudResource> {
     type Error: RepositoryError + Send + Sync + 'static;
 
-    async fn insert(&self, model: R::ActiveModel) -> Result<R::Model, Self::Error>;
+    fn insert(
+        &self,
+        model: R::ActiveModel,
+    ) -> impl Future<Output = Result<R::Model, Self::Error>> + Send;
 
-    async fn count(
+    fn count(
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
         order_by: Option<IndexMap<R::CrudColumn, Order>>,
         condition: Option<&Condition>,
-    ) -> Result<u64, Self::Error>;
+    ) -> impl Future<Output = Result<u64, Self::Error>> + Send;
 
-    async fn fetch_one(
+    fn fetch_one(
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
         order_by: Option<IndexMap<R::CrudColumn, Order>>,
         condition: Option<&Condition>,
-    ) -> Result<Option<R::Model>, Self::Error>;
+    ) -> impl Future<Output = Result<Option<R::Model>, Self::Error>> + Send;
 
-    async fn fetch_many(
+    fn fetch_many(
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
         order_by: Option<IndexMap<R::CrudColumn, Order>>,
         condition: Option<&Condition>,
-    ) -> Result<Vec<R::Model>, Self::Error>;
+    ) -> impl Future<Output = Result<Vec<R::Model>, Self::Error>> + Send;
 
-    async fn read_one(
+    fn read_one(
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
         order_by: Option<IndexMap<R::ReadViewCrudColumn, Order>>,
         condition: Option<&Condition>,
-    ) -> Result<Option<R::ReadViewModel>, Self::Error>;
+    ) -> impl Future<Output = Result<Option<R::ReadViewModel>, Self::Error>> + Send;
 
-    async fn read_many(
+    fn read_many(
         &self,
         limit: Option<u64>,
         skip: Option<u64>,
         order_by: Option<IndexMap<R::ReadViewCrudColumn, Order>>,
         condition: Option<&Condition>,
-    ) -> Result<Vec<R::ReadViewModel>, Self::Error>;
+    ) -> impl Future<Output = Result<Vec<R::ReadViewModel>, Self::Error>> + Send;
 
-    async fn update(&self, model: R::ActiveModel) -> Result<R::Model, Self::Error>;
+    fn update(
+        &self,
+        model: R::ActiveModel,
+    ) -> impl Future<Output = Result<R::Model, Self::Error>> + Send;
 
-    async fn delete(&self, model: R::Model) -> Result<DeleteResult, Self::Error>;
+    fn delete(
+        &self,
+        model: R::Model,
+    ) -> impl Future<Output = Result<DeleteResult, Self::Error>> + Send;
 }
 
 #[derive(Debug)]

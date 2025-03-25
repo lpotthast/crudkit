@@ -133,18 +133,17 @@ macro_rules! impl_add_crud_routes {
                     post,
                     path = "/" $name "/crud/read-count",
                     request_body = ReadCount,
-                    responses(
-                        (status = 200, description = "count was successfully calculated", body = u64),
-                        (status = 500, description = "count could not be calculated", body = AxumCrudError),
-                    ),
+                    //responses(
+                    //    (status = 200, description = "count was successfully calculated", body = u64),
+                    //    (status = 500, description = "count could not be calculated", body = String),
+                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_count(
-                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
+                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadCount>,
                 ) -> Response {
-                    let keycloak_token = keycloak_token.map(|it| it.0);
                     let result: Result<u64, AxumCrudError> = crudkit_rs::read::read_count::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
@@ -164,18 +163,17 @@ macro_rules! impl_add_crud_routes {
                     post,
                     path = "/" $name "/crud/read-one",
                     request_body = ReadOne<$resource_type>,
-                    responses(
-                        (status = 200, description = "one entity was read", body = <$resource_type as CrudResource>::ReadViewModel),
-                        (status = 500, description = "entity could not be read", body = AxumCrudError),
-                    ),
+                    //responses(
+                    //    (status = 200, description = "one entity was read", body = <$resource_type as CrudResource>::ReadViewModel),
+                    //    (status = 500, description = "entity could not be read", body = AxumCrudError),
+                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_one(
-                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
+                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadOne<$resource_type>>,
                 ) -> Response {
-                    let keycloak_token = keycloak_token.map(|it| it.0);
                     let result: Result<<$resource_type as CrudResource>::ReadViewModel, AxumCrudError> = crudkit_rs::read::read_one::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
@@ -195,18 +193,17 @@ macro_rules! impl_add_crud_routes {
                     post,
                     path = "/" $name "/crud/read-many",
                     request_body = ReadMany<$resource_type>,
-                    responses(
-                        (status = 200, description = "entities were read", body = Vec<<$resource_type as CrudResource>::ReadViewModel>),
-                        (status = 500, description = "entities could not be read", body = AxumCrudError),
-                    ),
+                    //responses(
+                    //    (status = 200, description = "entities were read", body = Vec<<$resource_type as CrudResource>::ReadViewModel>),
+                    //    (status = 500, description = "entities could not be read", body = AxumCrudError),
+                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_many(
-                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
+                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadMany<$resource_type>>,
                 ) -> Response {
-                    let keycloak_token = keycloak_token.map(|it| it.0);
                     let result: Result<Vec<<$resource_type as CrudResource>::ReadViewModel>, AxumCrudError> = crudkit_rs::read::read_many::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
@@ -226,19 +223,18 @@ macro_rules! impl_add_crud_routes {
                     post,
                     path = "/" $name "/crud/create-one",
                     request_body = CreateOne<<$resource_type as CrudResource>::CreateModel>,
-                    responses(
-                        (status = 200, description = "entity was created", body = SaveResult<<$resource_type as CrudResource>::Model>),
-                        (status = 500, description = "entity could not be created", body = AxumCrudError),
-                    ),
+                    //responses(
+                    //    (status = 200, description = "entity was created", body = SaveResult<<$resource_type as CrudResource>::Model>),
+                    //    (status = 500, description = "entity could not be created", body = AxumCrudError),
+                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn create_one(
-                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
+                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<CreateOne<<$resource_type as CrudResource>::CreateModel>>,
                 ) -> Response {
-                    let keycloak_token = keycloak_token.map(|it| it.0);
                     let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
@@ -258,19 +254,18 @@ macro_rules! impl_add_crud_routes {
                     post,
                     path = "/" $name "/crud/update-one",
                     request_body = UpdateOne<<$resource_type as CrudResource>::UpdateModel>,
-                    responses(
-                        (status = 200, description = "entity was updated", body = SaveResult<<$resource_type as CrudResource>::Model>),
-                        (status = 500, description = "entity could not be updated", body = AxumCrudError),
-                    ),
+                    //responses(
+                    //    (status = 200, description = "entity was updated", body = SaveResult<<$resource_type as CrudResource>::Model>),
+                    //    (status = 500, description = "entity could not be updated", body = String),
+                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn update_one(
-                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
+                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<UpdateOne<<$resource_type as CrudResource>::UpdateModel>>,
                 ) -> Response {
-                    let keycloak_token = keycloak_token.map(|it| it.0);
                     let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
@@ -290,19 +285,18 @@ macro_rules! impl_add_crud_routes {
                     post,
                     path = "/" $name "/crud/delete-by-id",
                     request_body = DeleteById,
-                    responses(
-                        (status = 200, description = "entity was deleted", body = DeleteResult),
-                        (status = 500, description = "entity could not be deleted", body = AxumCrudError),
-                    ),
+                    //responses(
+                    //    (status = 200, description = "entity was deleted", body = DeleteResult),
+                    //    (status = 500, description = "entity could not be deleted", body = String),
+                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_by_id(
-                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
+                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<DeleteById>,
                 ) -> Response {
-                    let keycloak_token = keycloak_token.map(|it| it.0);
                     let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
@@ -321,20 +315,19 @@ macro_rules! impl_add_crud_routes {
                 #[utoipa::path(
                     post,
                     path = "/" $name "/crud/delete-one",
-                    request_body = DeleteOne,
-                    responses(
-                        (status = 200, description = "entity was deleted", body = DeleteResult),
-                        (status = 500, description = "entity could not be deleted", body = AxumCrudError),
-                    ),
+                    request_body = DeleteOne<$resource_type>,
+                    //responses(
+                    //    (status = 200, description = "entity was deleted", body = DeleteResult),
+                    //    (status = 500, description = "entity could not be deleted", body = String),
+                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_one(
-                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
+                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
                     Json(body): Json<DeleteOne<$resource_type>>,
                 ) -> Response {
-                    let keycloak_token = keycloak_token.map(|it| it.0);
                     let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
@@ -354,18 +347,17 @@ macro_rules! impl_add_crud_routes {
                     post,
                     path = "/" $name "/crud/delete-many",
                     request_body = DeleteMany,
-                    responses(
-                        (status = 200, description = "entities were deleted", body = DeleteResult),
-                        (status = 500, description = "entities could not be deleted", body = AxumCrudError),
-                    ),
+                    //responses(
+                    //    (status = 200, description = "entities were deleted", body = DeleteResult),
+                    //    (status = 500, description = "entities could not be deleted", body = String),
+                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_many(
-                    keycloak_token: Option<Extension<KeycloakToken<$role_type>>>,
+                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteMany>,
                 ) -> Response {
-                    let keycloak_token = keycloak_token.map(|it| it.0);
                     let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
@@ -411,8 +403,6 @@ macro_rules! impl_add_crud_routes {
                         schemas(crudkit_condition::ConditionClauseValue),
                         schemas(crudkit_condition::Operator),
                         schemas(crudkit_id::SerializableId),
-                        schemas(crudkit_rs::error::CrudError),
-                        schemas(crudkit_rs::axum_routes::AxumCrudError),
                         schemas(crudkit_rs::create::CreateOne<CrtCreateModel>),
                         schemas(crudkit_rs::read::ReadCount),
                         schemas(crudkit_rs::read::ReadOne<Crt>),

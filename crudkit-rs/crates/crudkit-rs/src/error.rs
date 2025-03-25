@@ -1,11 +1,8 @@
+use crate::repository::RepositoryError;
+use snafu::{Backtrace, Snafu};
 use std::sync::Arc;
 
-use snafu::{Backtrace, Snafu};
-use utoipa::ToSchema;
-
-use crate::repository::RepositoryError;
-
-#[derive(Debug, Snafu, ToSchema)]
+#[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum CrudError {
     #[snafu(display("CrudError: Repository error.\n\nCaused by:\n{reason:?}"))]
