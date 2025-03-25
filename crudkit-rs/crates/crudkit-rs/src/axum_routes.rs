@@ -83,6 +83,14 @@ macro_rules! impl_add_crud_routes {
                 use sea_orm::JsonValue;
                 use serde_json::json;
 
+                // We define this 'ResourceType' use statement, as `$resource_type` can not be used in the utoipa block below...
+                use $resource_type as ResourceType;
+                type Context = <$resource_type as CrudResource>::Context;
+                type ReadViewModel = <$resource_type as CrudResource>::ReadViewModel;
+                type CreateModel = <$resource_type as CrudResource>::CreateModel;
+                type Model = <$resource_type as CrudResource>::Model;
+                type UpdateModel = <$resource_type as CrudResource>::UpdateModel;
+
                 // https://github.com/tokio-rs/axum/discussions/358
                 // states which requirements R must meet in order for this to compile!
                 pub fn add_crud_routes(
@@ -164,7 +172,7 @@ macro_rules! impl_add_crud_routes {
                     path = "/" $name "/crud/read-one",
                     request_body = ReadOne<$resource_type>,
                     //responses(
-                    //    (status = 200, description = "one entity was read", body = <$resource_type as CrudResource>::ReadViewModel),
+                    //    (status = 200, description = "one entity was read", body = ReadViewModel),
                     //    (status = 500, description = "entity could not be read", body = AxumCrudError),
                     //),
                 )]
@@ -174,7 +182,7 @@ macro_rules! impl_add_crud_routes {
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadOne<$resource_type>>,
                 ) -> Response {
-                    let result: Result<<$resource_type as CrudResource>::ReadViewModel, AxumCrudError> = crudkit_rs::read::read_one::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
+                    let result: Result<ReadViewModel, AxumCrudError> = crudkit_rs::read::read_one::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -194,7 +202,7 @@ macro_rules! impl_add_crud_routes {
                     path = "/" $name "/crud/read-many",
                     request_body = ReadMany<$resource_type>,
                     //responses(
-                    //    (status = 200, description = "entities were read", body = Vec<<$resource_type as CrudResource>::ReadViewModel>),
+                    //    (status = 200, description = "entities were read", body = Vec<ReadViewModel>),
                     //    (status = 500, description = "entities could not be read", body = AxumCrudError),
                     //),
                 )]
@@ -204,7 +212,7 @@ macro_rules! impl_add_crud_routes {
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadMany<$resource_type>>,
                 ) -> Response {
-                    let result: Result<Vec<<$resource_type as CrudResource>::ReadViewModel>, AxumCrudError> = crudkit_rs::read::read_many::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
+                    let result: Result<Vec<ReadViewModel>, AxumCrudError> = crudkit_rs::read::read_many::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -222,9 +230,9 @@ macro_rules! impl_add_crud_routes {
                 #[utoipa::path(
                     post,
                     path = "/" $name "/crud/create-one",
-                    request_body = CreateOne<<$resource_type as CrudResource>::CreateModel>,
+                    request_body = CreateOne<CreateModel>,
                     //responses(
-                    //    (status = 200, description = "entity was created", body = SaveResult<<$resource_type as CrudResource>::Model>),
+                    //    (status = 200, description = "entity was created", body = SaveResult<Model>),
                     //    (status = 500, description = "entity could not be created", body = AxumCrudError),
                     //),
                 )]
@@ -232,10 +240,10 @@ macro_rules! impl_add_crud_routes {
                 async fn create_one(
                     Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
-                    Json(body): Json<CreateOne<<$resource_type as CrudResource>::CreateModel>>,
+                    Extension(res_context): Extension<Arc<Context>>,
+                    Json(body): Json<CreateOne<CreateModel>>,
                 ) -> Response {
-                    let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
+                    let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -253,9 +261,9 @@ macro_rules! impl_add_crud_routes {
                 #[utoipa::path(
                     post,
                     path = "/" $name "/crud/update-one",
-                    request_body = UpdateOne<<$resource_type as CrudResource>::UpdateModel>,
+                    request_body = UpdateOne<UpdateModel>,
                     //responses(
-                    //    (status = 200, description = "entity was updated", body = SaveResult<<$resource_type as CrudResource>::Model>),
+                    //    (status = 200, description = "entity was updated", body = SaveResult<Model>),
                     //    (status = 500, description = "entity could not be updated", body = String),
                     //),
                 )]
@@ -263,10 +271,10 @@ macro_rules! impl_add_crud_routes {
                 async fn update_one(
                     Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
-                    Json(body): Json<UpdateOne<<$resource_type as CrudResource>::UpdateModel>>,
+                    Extension(res_context): Extension<Arc<Context>>,
+                    Json(body): Json<UpdateOne<UpdateModel>>,
                 ) -> Response {
-                    let result: Result<SaveResult<<$resource_type as CrudResource>::Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
+                    let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -294,7 +302,7 @@ macro_rules! impl_add_crud_routes {
                 async fn delete_by_id(
                     Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
+                    Extension(res_context): Extension<Arc<Context>>,
                     Json(body): Json<DeleteById>,
                 ) -> Response {
                     let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
@@ -325,7 +333,7 @@ macro_rules! impl_add_crud_routes {
                 async fn delete_one(
                     Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Extension(res_context): Extension<Arc<<$resource_type as CrudResource>::Context>>,
+                    Extension(res_context): Extension<Arc<Context>>,
                     Json(body): Json<DeleteOne<$resource_type>>,
                 ) -> Response {
                     let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
@@ -370,47 +378,36 @@ macro_rules! impl_add_crud_routes {
                     }
                 }
 
-                use utoipa::OpenApi;
-
-                // We define this Crt ('CrudResourceType') use statement, as `$resource_type` can not be used in the utoipa block below...
-                use $resource_type as Crt;
-                type CrtModel = <$resource_type as CrudResource>::Model;
-                type CrtReadModel = <$resource_type as CrudResource>::ReadViewModel;
-                type CrtCreateModel = <$resource_type as CrudResource>::CreateModel;
-
-                #[derive(OpenApi)]
+                #[derive(utoipa::OpenApi)]
                 #[openapi(
                     paths(
-                        read_count,
-                        read_one,
-                        read_many,
-                        create_one,
-                        update_one,
-                        delete_by_id,
-                        delete_one,
-                        delete_many,
+                        //read_count,
+                        //read_one,
+                        //read_many,
+                        //create_one,
+                        //update_one,
+                        //delete_by_id,
+                        //delete_one,
+                        //delete_many,
                     ),
                     components(
-                        //schemas(<$resource_type as CrudResource>::Model as CrtModel),
-                        //schemas(<$resource_type as CrudResource>::ReadViewModel as CrtReadModel),
-                        //schemas(<$resource_type as CrudResource>::CreateModel as CrtCreateModel),
-                        schemas(crudkit_shared::DeleteResult),
-                        schemas(crudkit_shared::SaveResult<CrtModel>),
-                        schemas(crudkit_shared::Saved<CrtModel>),
-                        schemas(crudkit_condition::Condition),
-                        schemas(crudkit_condition::ConditionElement),
-                        schemas(crudkit_condition::ConditionClause),
-                        schemas(crudkit_condition::ConditionClauseValue),
-                        schemas(crudkit_condition::Operator),
-                        schemas(crudkit_id::SerializableId),
-                        schemas(crudkit_rs::create::CreateOne<CrtCreateModel>),
-                        schemas(crudkit_rs::read::ReadCount),
-                        schemas(crudkit_rs::read::ReadOne<Crt>),
-                        schemas(crudkit_rs::read::ReadMany<Crt>),
-                        schemas(crudkit_rs::update::UpdateOne<Crt>),
-                        schemas(crudkit_rs::delete::DeleteById),
-                        schemas(crudkit_rs::delete::DeleteOne<Crt>),
-                        schemas(crudkit_rs::delete::DeleteMany),
+                        //schemas(crudkit_shared::DeleteResult),
+                        //schemas(crudkit_shared::SaveResult<Model>),
+                        //schemas(crudkit_shared::Saved<Model>),
+                        //schemas(crudkit_condition::Condition),
+                        //schemas(crudkit_condition::ConditionElement),
+                        //schemas(crudkit_condition::ConditionClause),
+                        //schemas(crudkit_condition::ConditionClauseValue),
+                        //schemas(crudkit_condition::Operator),
+                        //schemas(crudkit_id::SerializableId),
+                        //schemas(crudkit_rs::create::CreateOne<CreateModel>),
+                        //schemas(crudkit_rs::read::ReadCount),
+                        //schemas(crudkit_rs::read::ReadOne<ResourceType>),
+                        //schemas(crudkit_rs::read::ReadMany<ResourceType>),
+                        //schemas(crudkit_rs::update::UpdateOne<ResourceType>),
+                        //schemas(crudkit_rs::delete::DeleteById),
+                        //schemas(crudkit_rs::delete::DeleteOne<ResourceType>),
+                        //schemas(crudkit_rs::delete::DeleteMany),
                     ),
                 )]
                 pub struct ApiDoc; // We just use `ApiDoc` instead of `[< $name _ApiDoc >]` as we are already in a named module.
