@@ -18,7 +18,7 @@ derive-validation-model = { path = "../derive-validation-model" }
 
 async-trait = "0.1.79"
 axum = "0.8.1"
-axum-keycloak-auth = "0.8.1"
+axum-keycloak-auth = "0.8.3"
 indexmap = { version = "2.2.6", features = ["serde"] }
 paste = "1.0.14"
 sea-orm = { version = "0.12.15", features = [
