@@ -1,7 +1,7 @@
 [package]
 name = "crudkit-validation"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 crudkit-id = { path = "../crudkit-id/crates/crudkit-id" }
