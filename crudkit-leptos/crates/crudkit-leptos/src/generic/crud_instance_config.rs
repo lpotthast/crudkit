@@ -5,7 +5,7 @@ use crudkit_condition::Condition;
 use crudkit_shared::Order;
 use crudkit_web::generic::prelude::*;
 use crudkit_web::reqwest_executor::NewClientPerRequestExecutor;
-use indexmap::{indexmap, IndexMap};
+use indexmap::{IndexMap, indexmap};
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -70,7 +70,7 @@ impl<O: Debug + Clone + PartialEq + Eq + Hash + CrudSelectableTrait + 'static>
                 });
                 load_action.dispatch(());
                 let load_action_value = load_action.value();
-                load_action_value.read_only().into()
+                load_action_value.into()
             }
         }
     }

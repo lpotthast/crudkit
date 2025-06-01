@@ -68,37 +68,35 @@ pub fn CrudReadView(
     // Update the `entity` signal whenever we fetched a new version of the edited entity.
     Effect::new(move |_prev| {
         set_entity.set(match entity_resource.get() {
-            Some(result) => {
-                match result.take() {
-                    Ok(data) => match data {
-                        Some(read_model) => {
-                            let update_model = instance_ctx
+            Some(result) => match result {
+                Ok(data) => match data {
+                    Some(read_model) => {
+                        let update_model = instance_ctx
+                            .static_config
+                            .read_value()
+                            .model_handler
+                            .read_model_to_update_model
+                            .run((read_model,));
+
+                        // Creating signals for all fields of the loaded entity, so that input fields can work on the data.
+                        set_sig.set({
+                            let signals = instance_ctx
                                 .static_config
                                 .read_value()
                                 .model_handler
-                                .read_model_to_update_model
-                                .run((read_model,));
+                                .update_model_to_signal_map
+                                .run((update_model.clone(),));
+                            StoredValue::new(signals)
+                        });
 
-                            // Creating signals for all fields of the loaded entity, so that input fields can work on the data.
-                            set_sig.set({
-                                let signals = instance_ctx
-                                    .static_config
-                                    .read_value()
-                                    .model_handler
-                                    .update_model_to_signal_map
-                                    .run((update_model.clone(),));
-                                StoredValue::new(signals)
-                            });
-
-                            Ok(RwSignal::new(update_model).read_only())
-                        }
-                        None => Err(NoDataAvailable::RequestReturnedNoData(format!(
-                            "Eintrag existiert nicht."
-                        ))),
-                    },
-                    Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
-                }
-            }
+                        Ok(RwSignal::new(update_model).read_only())
+                    }
+                    None => Err(NoDataAvailable::RequestReturnedNoData(format!(
+                        "Eintrag existiert nicht."
+                    ))),
+                },
+                Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
+            },
             None => Err(NoDataAvailable::NotYetLoaded),
         })
     });

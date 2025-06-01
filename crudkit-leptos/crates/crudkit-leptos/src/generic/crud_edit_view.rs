@@ -101,33 +101,31 @@ where
     // Update the `entity` signal whenever we fetched a new version of the edited entity.
     Effect::new(move |_prev| {
         set_entity.set(match entity_resource.get() {
-            Some(result) => {
-                match result.take() {
-                    Ok(data) => match data {
-                        Some(data) => {
-                            let update_model = data.into();
-                            // Creating signals for all fields of the loaded entity, so that input fields can work on the data.
-                            set_sig.set({
-                                let mut map = HashMap::new();
-                                for field in T::UpdateModel::get_all_fields() {
-                                    let initial = field.get_value(&update_model);
-                                    map.insert(field, initial.into_reactive_value());
-                                }
-                                StoredValue::new(map)
-                            });
+            Some(result) => match result {
+                Ok(data) => match data {
+                    Some(data) => {
+                        let update_model = data.into();
+                        // Creating signals for all fields of the loaded entity, so that input fields can work on the data.
+                        set_sig.set({
+                            let mut map = HashMap::new();
+                            for field in T::UpdateModel::get_all_fields() {
+                                let initial = field.get_value(&update_model);
+                                map.insert(field, initial.into_reactive_value());
+                            }
+                            StoredValue::new(map)
+                        });
 
-                            // Copying the loaded entity data to be our current final input.
-                            set_input.set(Some(update_model.clone()));
+                        // Copying the loaded entity data to be our current final input.
+                        set_input.set(Some(update_model.clone()));
 
-                            Ok(update_model)
-                        }
-                        None => Err(NoDataAvailable::RequestReturnedNoData(format!(
-                            "Eintrag existiert nicht."
-                        ))),
-                    },
-                    Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
-                }
-            }
+                        Ok(update_model)
+                    }
+                    None => Err(NoDataAvailable::RequestReturnedNoData(format!(
+                        "Eintrag existiert nicht."
+                    ))),
+                },
+                Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
+            },
             None => Err(NoDataAvailable::NotYetLoaded),
         })
     });

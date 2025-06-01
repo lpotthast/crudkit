@@ -71,31 +71,29 @@ where
     // Update the `entity` signal whenever we fetched a new version of the edited entity.
     Effect::new(move |_prev| {
         set_entity.set(match entity_resource.get() {
-            Some(result) => {
-                match result.take() {
-                    Ok(data) => match data {
-                        Some(data) => {
-                            let update_model = data.into();
+            Some(result) => match result {
+                Ok(data) => match data {
+                    Some(data) => {
+                        let update_model = data.into();
 
-                            // Creating signals for all fields of the loaded entity, so that input fields can work on the data.
-                            set_sig.set({
-                                let mut map = HashMap::new();
-                                for field in T::UpdateModel::get_all_fields() {
-                                    let initial = field.get_value(&update_model);
-                                    map.insert(field, initial.into_reactive_value());
-                                }
-                                StoredValue::new(map)
-                            });
+                        // Creating signals for all fields of the loaded entity, so that input fields can work on the data.
+                        set_sig.set({
+                            let mut map = HashMap::new();
+                            for field in T::UpdateModel::get_all_fields() {
+                                let initial = field.get_value(&update_model);
+                                map.insert(field, initial.into_reactive_value());
+                            }
+                            StoredValue::new(map)
+                        });
 
-                            Ok(RwSignal::new(update_model).read_only())
-                        }
-                        None => Err(NoDataAvailable::RequestReturnedNoData(format!(
-                            "Eintrag existiert nicht."
-                        ))),
-                    },
-                    Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
-                }
-            }
+                        Ok(RwSignal::new(update_model).read_only())
+                    }
+                    None => Err(NoDataAvailable::RequestReturnedNoData(format!(
+                        "Eintrag existiert nicht."
+                    ))),
+                },
+                Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
+            },
             None => Err(NoDataAvailable::NotYetLoaded),
         })
     });

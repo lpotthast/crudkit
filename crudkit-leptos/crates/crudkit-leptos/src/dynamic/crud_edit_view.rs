@@ -98,41 +98,39 @@ pub fn CrudEditView(
     // Update the `entity` signal whenever we fetched a new version of the edited entity.
     Effect::new(move |_prev| {
         set_entity.set(match entity_resource.get() {
-            Some(result) => {
-                match result.take() {
+            Some(result) => match result {
+                Ok(maybe_data) => match maybe_data {
                     // TODO: This code is shared with read_view
-                    Ok(data) => match data {
-                        Some(read_model) => {
-                            let update_model = instance_ctx
+                    Some(read_model) => {
+                        let update_model = instance_ctx
+                            .static_config
+                            .read_value()
+                            .model_handler
+                            .read_model_to_update_model
+                            .run((read_model,));
+
+                        // Creating signals for all fields of the loaded entity, so that input fields can work on the data.
+                        set_sig.set({
+                            let signals = instance_ctx
                                 .static_config
                                 .read_value()
                                 .model_handler
-                                .read_model_to_update_model
-                                .run((read_model,));
+                                .update_model_to_signal_map
+                                .run((update_model.clone(),));
+                            StoredValue::new(signals)
+                        });
 
-                            // Creating signals for all fields of the loaded entity, so that input fields can work on the data.
-                            set_sig.set({
-                                let signals = instance_ctx
-                                    .static_config
-                                    .read_value()
-                                    .model_handler
-                                    .update_model_to_signal_map
-                                    .run((update_model.clone(),));
-                                StoredValue::new(signals)
-                            });
+                        // Copying the loaded entity data to be our current final input.
+                        set_input.set(Some(update_model.clone()));
 
-                            // Copying the loaded entity data to be our current final input.
-                            set_input.set(Some(update_model.clone()));
-
-                            Ok(update_model)
-                        }
-                        None => Err(NoDataAvailable::RequestReturnedNoData(format!(
-                            "Eintrag existiert nicht."
-                        ))),
-                    },
-                    Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
-                }
-            }
+                        Ok(update_model)
+                    }
+                    None => Err(NoDataAvailable::RequestReturnedNoData(format!(
+                        "Eintrag existiert nicht."
+                    ))),
+                },
+                Err(request_error) => Err(NoDataAvailable::RequestFailed(request_error)),
+            },
             None => Err(NoDataAvailable::NotYetLoaded),
         })
     });

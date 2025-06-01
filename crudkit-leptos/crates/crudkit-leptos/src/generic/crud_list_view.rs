@@ -132,7 +132,7 @@ where
     let page = Memo::new(move |_prev| match page_resource.get() {
         Some(result) => {
             tracing::debug!("loaded list data");
-            match result.take() {
+            match result {
                 Ok(data) => Ok(Arc::new(data)),
                 Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
             }
@@ -200,11 +200,11 @@ where
         {multiselect_info}
 
         // Pagination
-        {move || match count_resource.get().deref() {
+        {move || match count_resource.get() {
             Some(Ok(count)) => {
                 view! {
                     <CrudPagination
-                        item_count=*count
+                        item_count=count
                         items_per_page=instance_ctx.items_per_page
                         current_page=instance_ctx.current_page
                         set_current_page=move |page_number| instance_ctx.set_page(page_number)
