@@ -74,7 +74,7 @@ pub fn CrudOptionalStringField(
                     attr:class="crud-input-field"
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get().unwrap_or_default())
-                    set=move |new| value_changed.run((Ok(Value::String(new)),))
+                    set=move |new| value_changed.run((Ok(Value::OptionalString(Some(new))),))
                 />
             </div>
         }

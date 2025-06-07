@@ -6,8 +6,8 @@ use crudkit_web::dynamic::prelude::*;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
 use std::collections::HashMap;
-// TODO: Propagate tab selection...
 
+// TODO: Propagate tab selection...
 #[component]
 pub fn CrudFields(
     custom_fields: Signal<CustomFields>,
@@ -106,7 +106,10 @@ pub fn CrudFields(
                             field_mode=mode.clone()
                             signals=signals
                             value=signals.with_value(|map| {
-                                *map.get(&field).expect("Signal map to contain signal for field")
+                                match map.get(&field) {
+                                    Some(value) => *value,
+                                    None => panic!("Signal map to contain signal for field: {}", field.get_name()),
+                                }
                             })
                             value_changed=value_changed
                         />
