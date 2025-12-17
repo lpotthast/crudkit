@@ -22,7 +22,7 @@ pub fn CrudActionButtons(
                 valid_in
                     .contains(&required_state)
                     .then(|| {
-                        if let Some(modal_generator) = view {
+                        if let Some(view_generator) = view {
                             view! {
                                 <Button
                                     color=button_color
@@ -33,7 +33,7 @@ pub fn CrudActionButtons(
                                     {name.clone()}
                                 </Button>
 
-                                {modal_generator
+                                {view_generator
                                     .run(EntityActionViewInput {
                                         show_when: Signal::derive(move || { action_ctx.is_action_requested(id) }),
                                         state: input.into(),

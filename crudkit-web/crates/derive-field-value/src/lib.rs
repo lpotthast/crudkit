@@ -115,8 +115,10 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::OrderedF64 => quote! { entity.#field_ident.into() },
             ValueType::PrimitiveDateTime => quote! { entity.#field_ident.clone() },
             ValueType::OffsetDateTime => quote! { entity.#field_ident.clone() },
+            ValueType::Duration => quote! { entity.#field_ident.clone() },
             ValueType::OptionalPrimitiveDateTime => quote! { entity.#field_ident.clone() },
             ValueType::OptionalOffsetDateTime => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalDuration => quote! { entity.#field_ident.clone() },
             ValueType::Select => quote! { entity.#field_ident.clone().into() },
             ValueType::Multiselect => quote! { entity.#field_ident.clone().into() },
             ValueType::OptionalSelect => quote! { entity.#field_ident.clone().map(Into::into) },
@@ -185,8 +187,10 @@ pub fn store(input: TokenStream) -> TokenStream {
             ValueType::OrderedF64 => quote! { entity.#field_ident = value.take_f64().into() },
             ValueType::PrimitiveDateTime => quote! { entity.#field_ident = value.take_primitive_date_time() },
             ValueType::OffsetDateTime => quote! { entity.#field_ident = value.take_offset_date_time() },
+            ValueType::Duration => quote! { entity.#field_ident = value.take_duration() },
             ValueType::OptionalPrimitiveDateTime => quote! { entity.#field_ident = value.take_optional_primitive_date_time() },
             ValueType::OptionalOffsetDateTime => quote! { entity.#field_ident = value.take_optional_offset_date_time() },
+            ValueType::OptionalDuration => quote! { entity.#field_ident = value.take_optional_duration() },
             ValueType::Select => quote! { entity.#field_ident = value.take_select_downcast_to::<#field_ty>().into() },
             ValueType::Multiselect => quote! { entity.#field_ident = value.take_multiselect_downcast_to().into() },
             ValueType::OptionalSelect => quote! { entity.#field_ident = value.take_optional_select_downcast_to().into() },
@@ -230,6 +234,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Describes the type of value without carrying any actual value.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, FromMeta, Deserialize)]
 enum ValueType {
     String,
@@ -255,8 +260,10 @@ enum ValueType {
     OrderedF64,
     PrimitiveDateTime,
     OffsetDateTime,
+    Duration,
     OptionalPrimitiveDateTime,
     OptionalOffsetDateTime,
+    OptionalDuration,
     Select,
     Multiselect,
     OptionalSelect,
@@ -294,8 +301,10 @@ impl From<ValueType> for Ident {
                 ValueType::OrderedF64 => "F64",
                 ValueType::PrimitiveDateTime => "PrimitiveDateTime",
                 ValueType::OffsetDateTime => "OffsetDateTime",
+                ValueType::Duration => "Duration",
                 ValueType::OptionalPrimitiveDateTime => "OptionalPrimitiveDateTime",
                 ValueType::OptionalOffsetDateTime => "OptionalOffsetDateTime",
+                ValueType::OptionalDuration => "OptionalDuration",
                 ValueType::Select => "Select",
                 ValueType::Multiselect => "Multiselect",
                 ValueType::OptionalSelect => "OptionalSelect",
@@ -341,6 +350,7 @@ impl From<&syn::Type> for ValueType {
                 "UuidV7" => ValueType::UuidV7,
                 "time::PrimitiveDateTime" => ValueType::PrimitiveDateTime,
                 "time::OffsetDateTime" => ValueType::OffsetDateTime,
+                "TimeDuration" => ValueType::Duration,
                 "Option<i64>" => ValueType::OptionalI64,
                 "Option<i32>" => ValueType::OptionalI32,
                 "Option<u32>" => ValueType::OptionalU32,
@@ -348,6 +358,7 @@ impl From<&syn::Type> for ValueType {
                 "Option<serde_json::Value>" => ValueType::OptionalJson,
                 "Option<time::PrimitiveDateTime>" => ValueType::OptionalPrimitiveDateTime,
                 "Option<time::OffsetDateTime>" => ValueType::OptionalOffsetDateTime,
+                "Option<TimeDuration>" => ValueType::OptionalDuration,
                 other => {
                     let span = ty.span();
                     let message = format!("Unknown type {other:?}. Expected a known type.");

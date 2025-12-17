@@ -192,6 +192,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
 fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
     let span = ty.span();
+    // TODO: This should dynamically check types by absolute (resolved) path!
     let fun_name = match ty {
         syn::Type::Path(path) => match join_path(&path.path).as_str() {
             "bool" => "to_bool",
@@ -211,6 +212,7 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
             "crudkit_shared::UuidV7" => "to_uuid_v7",
             "time::PrimitiveDateTime" => "to_primitive_date_time",
             "time::OffsetDateTime" => "to_offset_date_time",
+            "time::Time" => "to_time",
             "Option<u32>" => "to_u32",
             "Option<i32>" => "to_i32",
             "Option<i64>" => "to_i64",
@@ -218,6 +220,7 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
             "Option<serde_json::Value>" => "to_json_value",
             "Option<time::PrimitiveDateTime>" => "to_primitive_date_time",
             "Option<time::OffsetDateTime>" => "to_offset_date_time",
+            "Option<TimeDuration>" => "to_time_duration",
             other => {
                 let message =
                     format!("derive-crud-columns: Unknown type {other:?}. Expected a known type.");
@@ -228,8 +231,9 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
             }
         },
         other => {
-            let message =
-                format!("derive-crud-columns: Unknown type {other:?}. Not a 'Path' type. Expected a known type.");
+            let message = format!(
+                "derive-crud-columns: Unknown type {other:?}. Not a 'Path' type. Expected a known type."
+            );
             abort!(
                 span, message;
                 help = "use one of the following types: [...]";

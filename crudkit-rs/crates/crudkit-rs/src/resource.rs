@@ -9,6 +9,11 @@ use sea_orm::{
 use serde::{de::DeserializeOwned, Serialize};
 use std::{fmt::Debug, hash::Hash};
 
+// TODO: Can this be a member of CrudContext?
+/// Every crud resource needs its own resource context in which any data imaginable can be presented.
+/// This context is used in some operations specific to this contexts resource.
+pub trait CrudResourceContext {}
+
 pub trait CrudResource: Sized + Debug {
     // The 'real' entity used when reading / querying entities. Might as well be a SQL view instead of a real table ;)
     type ReadViewEntity: EntityTrait<Model = Self::ReadViewModel, Column = Self::ReadViewColumn>

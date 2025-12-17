@@ -34,7 +34,7 @@ pub fn CrudTableBody(
                 .read_value()
                 .model_handler
                 .read_model_to_signal_map
-                .run((entity.clone(),)),
+                .run(entity.clone()),
         ); // TODO: Can we get rid of this clone???
 
         // TODO: Check https://github.com/rust-lang/rfcs/issues/2407, we might be able to remove explicit clones in the future!
@@ -88,7 +88,7 @@ pub fn CrudTableBody(
                     children=move |Header { field, options }| {
                         // TODO: Why is this access to stored_entity necessary?
                         let _ = stored_entity.get();
-                        let reactive_value = *signals.read_value().get(&field).unwrap();
+                        let reactive_value = *signals.read_value().get(&field).unwrap_or_else(|| panic!("Expected reactive value for field '{}'", field.get_name()));
                         view! {
                             // TODO: Is it ok to recreate this reactive value on the fly?
                             // TODO: Optimize. Do we still need a StoredEntity?

@@ -29,7 +29,7 @@ where
     let update_order_of_field = move |field: <T::ReadModel as CrudDataTrait>::Field| {
         instance_ctx.oder_by(field, OrderByUpdateOptions { append: false })
     };
-    let select_all = Callback::from(move || {
+    let select_all = Callback::new(move |()| {
         list_ctx.toggle_select_all();
     });
     view! {
@@ -44,7 +44,7 @@ where
                     children=move |(field, options)| {
                         move || {
                             let field_clone = field.clone();
-                            let update_order = Callback::from(move || { update_order_of_field(field_clone.clone()); });
+                            let update_order = Callback::new(move |()| { update_order_of_field(field_clone.clone()); });
                             view! {
                                 <Header name=options.display_name.clone() order=order_by.read().get(&field).cloned() ordering_allowed=options.ordering_allowed update_order apply_min_width_class=options.min_width/>
                             }

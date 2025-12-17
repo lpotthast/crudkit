@@ -1,9 +1,9 @@
 use crate::{
-    error::CrudError,
-    lifetime::{Abort, CrudLifetime},
+    error::CrudError, lifetime::{Abort, CrudLifetime},
     prelude::*,
     validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
-    GetIdFromModel, RequestContext,
+    GetIdFromModel,
+    RequestContext,
 };
 
 use axum_keycloak_auth::{decode::KeycloakToken, role::Role};
@@ -22,11 +22,10 @@ pub struct CreateOne<T> {
     pub entity: T,
 }
 
-#[tracing::instrument(level = "info", skip(context, res_context))]
+#[tracing::instrument(level = "info", skip(context))]
 pub async fn create_one<R: CrudResource, Ro: Role>(
     keycloak_token: KeycloakToken<Ro>,
     context: Arc<CrudContext<R>>,
-    res_context: Arc<R::Context>,
     body: CreateOne<R::CreateModel>,
 ) -> Result<SaveResult<R::Model>, CrudError> {
     // Use the "CreateModel" to deserialize the given JSON. Some not required members are allowed to be missing.
@@ -45,7 +44,7 @@ pub async fn create_one<R: CrudResource, Ro: Role>(
     let (abort, hook_data) = R::Lifetime::before_create(
         &create_model_clone,
         &mut active_model,
-        &res_context,
+        &context.res_context,
         RequestContext {
             keycloak_uuid: uuid::Uuid::parse_str(&keycloak_token.subject).unwrap(),
         },
@@ -105,7 +104,7 @@ pub async fn create_one<R: CrudResource, Ro: Role>(
     let _hook_data = R::Lifetime::after_create(
         &create_model_clone,
         &inserted_entity,
-        &res_context,
+        &context.res_context,
         hook_data,
     )
     .await;

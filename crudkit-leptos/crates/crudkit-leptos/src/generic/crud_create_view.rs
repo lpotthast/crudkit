@@ -6,8 +6,8 @@ use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_shared::{SaveResult, Saved};
-use crudkit_web::generic::prelude::*;
 use crudkit_web::TabId;
+use crudkit_web::generic::prelude::*;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -36,7 +36,9 @@ fn default_create_model<T: CrudMainTrait + 'static>(
                 .set_value(&mut entity, value.clone().into());
             tracing::info!("successfully set parent id to reference field");
         } else {
-            tracing::error!("CrudInstance is configured to be a nested instance but no parent id was passed down!");
+            tracing::error!(
+                "CrudInstance is configured to be a nested instance but no parent id was passed down!"
+            );
         }
     }
     entity
@@ -58,15 +60,15 @@ pub fn CrudCreateView<T>(
     #[prop(into)] field_config: Signal<
         HashMap<<T::CreateModel as CrudDataTrait>::Field, DynSelectConfig>,
     >,
-    #[prop(into)] on_edit_view: Callback<(T::UpdateModelId,)>,
+    #[prop(into)] on_edit_view: Callback<T::UpdateModelId>,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
     // TODO: consolidate these into one "on_entity_creation_attempt" with type Result<CreateResult<T::UpdateModel>, SomeErrorType>?
-    #[prop(into)] on_entity_created: Callback<(Saved<T::UpdateModel>,)>,
-    #[prop(into)] on_entity_creation_aborted: Callback<(String,)>,
+    #[prop(into)] on_entity_created: Callback<Saved<T::UpdateModel>>,
+    #[prop(into)] on_entity_creation_aborted: Callback<String>,
     #[prop(into)] on_entity_not_created_critical_errors: Callback<()>,
-    #[prop(into)] on_entity_creation_failed: Callback<(RequestError,)>,
-    #[prop(into)] on_tab_selected: Callback<(TabId,)>,
+    #[prop(into)] on_entity_creation_failed: Callback<RequestError>,
+    #[prop(into)] on_tab_selected: Callback<TabId>,
     // /// Required because when creating the initial CreateModel, we have to set the "parent id" field of that model to the given id.
     // /// TODO: Only a subset of the parent id might be required to for matching. Consider a CreateModel#initialize_with_parent_id(ParentId)...
     // pub parent_id: Option<SerializableId>,
@@ -103,7 +105,7 @@ where
     let (show_leave_modal, set_show_leave_modal) = signal(false);
 
     let force_leave = move || instance_ctx.list();
-    let request_leave = Callback::from(move || set_user_wants_to_leave.set(true));
+    let request_leave = Callback::new(move |()| set_user_wants_to_leave.set(true));
 
     Effect::new(
         move |_prev| match (user_wants_to_leave.get(), input_changed.get()) {
@@ -142,15 +144,15 @@ where
                 Ok(save_result) => match save_result {
                     SaveResult::Saved(saved) => {
                         let id = saved.entity.get_id();
-                        on_entity_created.run((saved,));
+                        on_entity_created.run(saved);
                         match and_then {
-                            Then::OpenEditView => on_edit_view.run((id,)),
+                            Then::OpenEditView => on_edit_view.run(id),
                             Then::OpenListView => on_list_view.run(()),
                             Then::OpenCreateView => on_create_view.run(()),
                         }
                     }
                     SaveResult::Aborted { reason } => {
-                        on_entity_creation_aborted.run((reason,));
+                        on_entity_creation_aborted.run(reason);
                     }
                     SaveResult::CriticalValidationErrors => {
                         tracing::info!("Entity was not created due to critical validation errors.");
@@ -162,13 +164,13 @@ where
                         "Could not create entity due to RequestError: {}",
                         request_error.to_string()
                     );
-                    on_entity_creation_failed.run((request_error,));
+                    on_entity_creation_failed.run(request_error);
                 }
             }
         }
     });
 
-    let save = Callback::from(move |then| {
+    let save = Callback::new(move |then| {
         save_action.dispatch((input.get(), then));
     });
 
@@ -235,7 +237,7 @@ where
 #[component]
 fn Actions(
     save_disabled: Signal<bool>,
-    save: Callback<(Then,)>,
+    save: Callback<Then>,
     request_leave: Callback<()>,
 ) -> impl IntoView {
     view! {
@@ -246,21 +248,21 @@ fn Actions(
                         <Button
                             color=ButtonColor::Primary
                             disabled=save_disabled
-                            on_press=move |_| { save.run((Then::OpenEditView,)); }
+                            on_press=move |_| { save.run(Then::OpenEditView); }
                         >
                             "Speichern"
                         </Button>
                         <Button
                             color=ButtonColor::Primary
                             disabled=save_disabled
-                            on_press=move |_| { save.run((Then::OpenListView,)); }
+                            on_press=move |_| { save.run(Then::OpenListView); }
                         >
                             "Speichern und zurück"
                         </Button>
                         <Button
                             color=ButtonColor::Primary
                             disabled=save_disabled
-                            on_press=move |_| { save.run((Then::OpenCreateView,)); }
+                            on_press=move |_| { save.run(Then::OpenCreateView); }
                         >
                             "Speichern und neu"
                         </Button>

@@ -18,7 +18,7 @@ pub fn CrudFields<T>(
     current_view: CrudSimpleView,
     value_changed: Callback<(T::Field, Result<Value, String>)>,
     // active_tab: Option<Label>,
-    on_tab_selection: Callback<(TabId,)>,
+    on_tab_selection: Callback<TabId>,
 ) -> impl IntoView
 where
     T: CrudDataTrait + 'static,
@@ -61,7 +61,7 @@ where
                                                     name=tab.id
                                                     label=move || tab.label.name.clone()
                                                     on_show=move |()| {
-                                                        on_tab_selection1.run((id.clone(),))
+                                                        on_tab_selection1.run(id.clone())
                                                     }
                                                 >
                                                     <CrudFields

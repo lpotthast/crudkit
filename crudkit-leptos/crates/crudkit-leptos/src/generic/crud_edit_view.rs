@@ -48,11 +48,11 @@ pub fn CrudEditView<T>(
     >,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
-    #[prop(into)] on_entity_updated: Callback<(Saved<T::UpdateModel>,)>,
-    #[prop(into)] on_entity_update_aborted: Callback<(String,)>,
+    #[prop(into)] on_entity_updated: Callback<Saved<T::UpdateModel>>,
+    #[prop(into)] on_entity_update_aborted: Callback<String>,
     #[prop(into)] on_entity_not_updated_critical_errors: Callback<()>,
-    #[prop(into)] on_entity_update_failed: Callback<(RequestError,)>,
-    #[prop(into)] on_tab_selected: Callback<(TabId,)>,
+    #[prop(into)] on_entity_update_failed: Callback<RequestError>,
+    #[prop(into)] on_tab_selected: Callback<TabId>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
@@ -193,7 +193,7 @@ where
                 Ok(save_result) => match save_result {
                     SaveResult::Saved(saved) => {
                         set_entity.set(Ok(saved.entity.clone()));
-                        on_entity_updated.run((saved,));
+                        on_entity_updated.run(saved);
                         match and_then {
                             Then::DoNothing => {}
                             Then::OpenListView => force_leave.run(()),
@@ -201,7 +201,7 @@ where
                         }
                     }
                     SaveResult::Aborted { reason } => {
-                        on_entity_update_aborted.run((reason,));
+                        on_entity_update_aborted.run(reason);
                     }
                     SaveResult::CriticalValidationErrors => {
                         tracing::info!("Entity was not updated due to critical validation errors.");
@@ -214,7 +214,7 @@ where
                         "Could not update entity due to RequestError: {}",
                         request_error.to_string()
                     );
-                    on_entity_update_failed.run((request_error,));
+                    on_entity_update_failed.run(request_error);
                 }
             }
         }

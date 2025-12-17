@@ -11,7 +11,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     let ident = ast.ident;
 
     quote! {
-        impl crudkit_rs::context::CrudResourceContext for #ident {}
+        impl crudkit_rs::resource::CrudResourceContext for #ident {}
     }
     .into()
 }

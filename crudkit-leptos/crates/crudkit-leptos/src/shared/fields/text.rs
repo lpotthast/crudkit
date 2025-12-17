@@ -11,7 +11,7 @@ pub fn CrudTextField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<String>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
@@ -35,14 +35,14 @@ pub fn CrudTextField(
                     attr:class="crud-input-field"
                     value=value
                     set_value=move |new| {
-                        value_changed.run((
+                        value_changed.run(
                             Ok(Value::Text(
                                 match new {
                                     TiptapContent::Html(content) => content,
                                     TiptapContent::Json(content) => content,
                                 }
                             ))
-                        ,))
+                        )
                     }
                     disabled=field_options.disabled
                 />

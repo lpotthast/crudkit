@@ -6,15 +6,17 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use std::{collections::HashMap, error::Error};
 
+pub type CustomFieldRenderer = ViewCallback<(
+    StoredValue<HashMap<AnyField, ReactiveValue>>, // signals
+    FieldMode,                                     // field_mode
+    FieldOptions,                                  // field_options
+    ReactiveValue,                                 // value
+    Callback<Result<Value, Arc<dyn Error>>>,       // value_changed
+)>;
+
 #[derive(Clone)]
 pub struct CustomField {
-    pub renderer: ViewCallback<(
-        StoredValue<HashMap<AnyField, ReactiveValue>>, // signals
-        FieldMode,                                     // field_mode
-        FieldOptions,                                  // field_options
-        ReactiveValue,                                 // value
-        Callback<(Result<Value, Arc<dyn Error>>,)>,    // value_changed
-    )>,
+    pub renderer: CustomFieldRenderer,
 }
 
 impl Debug for CustomField {

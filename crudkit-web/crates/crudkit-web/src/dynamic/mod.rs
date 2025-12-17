@@ -1,4 +1,4 @@
-use crate::{FieldOptions, Label, Layout, TabId, Value};
+use crate::{CrudFieldNameTrait, FieldOptions, Label, Layout, TabId, Value};
 use crudkit_id::SerializableId;
 use dyn_clone::DynClone;
 use dyn_eq::DynEq;
@@ -54,6 +54,7 @@ dyn_clone::clone_trait_object!(Identifiable);
 
 pub type AnyIdentifiable = Arc<dyn Identifiable>;
 
+// TODO: Drop this trait? Rename CrudFieldNameTrait to NamedProperty.
 pub trait NamedProperty: Send + Sync {
     fn get_name(&self) -> String;
 }
@@ -62,7 +63,7 @@ pub trait NamedProperty: Send + Sync {
 /// expected to be provided through configuration.
 #[typetag::serde] // Required for serialize/deserialize on AnyElem.
 pub trait Field:
-    Debug + NamedProperty + DynClone + DynEq + DynHash + SerializeAsKey + Send + Sync
+    Debug + CrudFieldNameTrait + DynClone + DynEq + DynHash + SerializeAsKey + Send + Sync
 {
     fn set_value(&self, model: &mut AnyModel, value: Value);
 }

@@ -10,7 +10,7 @@ pub fn CrudStringField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<String>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
@@ -35,7 +35,7 @@ pub fn CrudStringField(
                     attr:class="crud-input-field"
                     disabled=field_options.disabled
                     get=value
-                    set=move |new| value_changed.run((Ok(Value::String(new)),))
+                    set=move |new| value_changed.run(Ok(Value::String(new)))
                 />
             </div>
         }
@@ -49,7 +49,7 @@ pub fn CrudOptionalStringField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<String>>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
@@ -74,7 +74,7 @@ pub fn CrudOptionalStringField(
                     attr:class="crud-input-field"
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get().unwrap_or_default())
-                    set=move |new| value_changed.run((Ok(Value::OptionalString(Some(new))),))
+                    set=move |new| value_changed.run(Ok(Value::OptionalString(Some(new))))
                 />
             </div>
         }

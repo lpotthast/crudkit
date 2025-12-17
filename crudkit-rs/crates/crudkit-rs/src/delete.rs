@@ -38,11 +38,10 @@ pub struct DeleteMany {
     pub condition: Option<Condition>,
 }
 
-#[tracing::instrument(level = "info", skip(context, res_context))]
+#[tracing::instrument(level = "info", skip(context))]
 pub async fn delete_by_id<R: CrudResource, Ro: Role>(
     keycloak_token: KeycloakToken<Ro>,
     context: Arc<CrudContext<R>>,
-    res_context: Arc<R::Context>,
     body: DeleteById,
 ) -> Result<DeleteResult, CrudError> {
     // TODO: This initially fetched Model, not ReadViewModel...
@@ -73,7 +72,7 @@ pub async fn delete_by_id<R: CrudResource, Ro: Role>(
     // TODO: Make sure that the user really has the right to delete this entry!!! Maybe an additional lifetime check?
 
     let hook_data = R::HookData::default();
-    let (abort, hook_data) = R::Lifetime::before_delete(&model, &res_context, hook_data)
+    let (abort, hook_data) = R::Lifetime::before_delete(&model, &context.res_context, hook_data)
         .await
         .expect("before_create to no error");
 
@@ -127,7 +126,8 @@ pub async fn delete_by_id<R: CrudResource, Ro: Role>(
                 backtrace: Backtrace::generate(),
             })?;
 
-    let _hook_data = R::Lifetime::after_delete(&deleted_model, &res_context, hook_data).await;
+    let _hook_data =
+        R::Lifetime::after_delete(&deleted_model, &context.res_context, hook_data).await;
 
     // Deleting the entity could have introduced new validation errors in other parts ot the system.
     // TODO: let validation run again...
@@ -150,11 +150,10 @@ pub async fn delete_by_id<R: CrudResource, Ro: Role>(
     Ok(DeleteResult::Deleted(delete_result.entities_affected))
 }
 
-#[tracing::instrument(level = "info", skip(context, res_context))]
+#[tracing::instrument(level = "info", skip(context))]
 pub async fn delete_one<R: CrudResource, Ro: Role>(
     keycloak_token: KeycloakToken<Ro>,
     context: Arc<CrudContext<R>>,
-    res_context: Arc<R::Context>,
     body: DeleteOne<R>,
 ) -> Result<DeleteResult, CrudError> {
     let model = context
@@ -170,7 +169,7 @@ pub async fn delete_one<R: CrudResource, Ro: Role>(
         })?;
 
     let hook_data = R::HookData::default();
-    let (abort, hook_data) = R::Lifetime::before_delete(&model, &res_context, hook_data)
+    let (abort, hook_data) = R::Lifetime::before_delete(&model, &context.res_context, hook_data)
         .await
         .expect("before_create to no error");
 
@@ -224,7 +223,8 @@ pub async fn delete_one<R: CrudResource, Ro: Role>(
                 backtrace: Backtrace::generate(),
             })?;
 
-    let _hook_data = R::Lifetime::after_delete(&deleted_model, &res_context, hook_data).await;
+    let _hook_data =
+        R::Lifetime::after_delete(&deleted_model, &context.res_context, hook_data).await;
 
     // All previous validations regarding this entity must be deleted!
     context

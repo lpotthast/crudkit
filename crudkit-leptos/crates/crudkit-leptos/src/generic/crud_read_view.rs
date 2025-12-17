@@ -30,7 +30,7 @@ pub fn CrudReadView<T>(
         HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>,
     >,
     #[prop(into)] on_list_view: Callback<()>,
-    #[prop(into)] on_tab_selected: Callback<(TabId,)>,
+    #[prop(into)] on_tab_selected: Callback<TabId>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,

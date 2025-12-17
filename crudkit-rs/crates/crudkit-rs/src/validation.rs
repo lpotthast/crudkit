@@ -140,7 +140,7 @@ impl<I: Id> EntityValidationsExt for EntityViolations<I> {
 
 #[async_trait]
 pub trait ValidationResultSaverTrait<I: Id> {
-    type Error: snafu::Error + RepositoryError + 'static;
+    type Error: RepositoryError + 'static;
 
     async fn delete_all_for(&self, entity_id: &I) -> Result<(), Self::Error>;
 

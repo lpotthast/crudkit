@@ -18,7 +18,7 @@ pub fn CrudFields(
     current_view: CrudSimpleView,
     value_changed: Callback<(AnyField, Result<Value, String>)>,
     // active_tab: Option<Label>,
-    on_tab_selection: Callback<(TabId,)>,
+    on_tab_selection: Callback<TabId>,
 ) -> impl IntoView {
     move || {
         elements
@@ -42,7 +42,7 @@ pub fn CrudFields(
                                     on_tab_selection=on_tab_selection.clone()
                                 />
                             }
-                            .into_any(),
+                                .into_any(),
                             Enclosing::Tabs(tabs) => view! {
                                 <Tabs>
                                     // active_tab={ctx.props().active_tab.clone()}
@@ -57,7 +57,7 @@ pub fn CrudFields(
                                                     name=tab.id
                                                     label=move || tab.label.name.clone()
                                                     on_show=move |()| {
-                                                        on_tab_selection1.run((id.clone(),))
+                                                        on_tab_selection1.run(id.clone())
                                                     }
                                                 >
                                                     <CrudFields
@@ -77,7 +77,7 @@ pub fn CrudFields(
                                     }
                                 </Tabs>
                             }
-                            .into_any(),
+                                .into_any(),
                             Enclosing::Card(group) => view! {
                                 <Card>
                                     <CrudFields
@@ -93,7 +93,7 @@ pub fn CrudFields(
                                     />
                                 </Card>
                             }
-                            .into_any(),
+                                .into_any(),
                         }
                     }
                     Elem::Field((field, field_options)) => view! {
@@ -114,7 +114,7 @@ pub fn CrudFields(
                             value_changed=value_changed
                         />
                     }
-                    .into_any(),
+                        .into_any(),
                     Elem::Separator => view! { <Separator/> }.into_any(),
                 }
             })

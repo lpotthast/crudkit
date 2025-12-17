@@ -11,7 +11,7 @@ pub fn CrudUuidV4Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Uuid>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get().to_string()}</div> }.into_any(),
@@ -37,7 +37,7 @@ pub fn CrudUuidV7Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Uuid>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get().to_string()}</div> }.into_any(),

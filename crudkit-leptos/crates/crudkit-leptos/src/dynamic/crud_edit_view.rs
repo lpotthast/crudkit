@@ -1,3 +1,4 @@
+use crate::ReactiveValue;
 use crate::dynamic::crud_action::{CrudEntityAction, States};
 use crate::dynamic::crud_action_buttons::CrudActionButtons;
 use crate::dynamic::crud_action_context::CrudActionContext;
@@ -7,8 +8,7 @@ use crate::dynamic::crud_table::NoDataAvailable;
 use crate::dynamic::custom_field::CustomUpdateFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
-use crate::ReactiveValue;
-use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
+use crudkit_condition::{IntoAllEqualCondition, merge_conditions};
 use crudkit_id::SerializableId;
 use crudkit_shared::{SaveResult, Saved};
 use crudkit_web::dynamic::prelude::*;
@@ -45,11 +45,11 @@ pub fn CrudEditView(
     #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // UpdateModel field
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
-    #[prop(into)] on_entity_updated: Callback<(Saved<AnyModel>,)>, // UpdateModel
-    #[prop(into)] on_entity_update_aborted: Callback<(String,)>,
+    #[prop(into)] on_entity_updated: Callback<Saved<AnyModel>>, // UpdateModel
+    #[prop(into)] on_entity_update_aborted: Callback<String>,
     #[prop(into)] on_entity_not_updated_critical_errors: Callback<()>,
-    #[prop(into)] on_entity_update_failed: Callback<(RequestError,)>,
-    #[prop(into)] on_tab_selected: Callback<(TabId,)>,
+    #[prop(into)] on_entity_update_failed: Callback<RequestError>,
+    #[prop(into)] on_tab_selected: Callback<TabId>,
 ) -> impl IntoView {
     let instance_ctx = expect_context::<CrudInstanceContext>();
 
@@ -80,7 +80,7 @@ pub fn CrudEditView(
                     .read_value()
                     .model_handler
                     .deserialize_read_one_response
-                    .run((json,))
+                    .run(json)
                     .map_err(|de_err| RequestError::Deserialize(de_err.to_string()))
             })
     });
@@ -107,7 +107,7 @@ pub fn CrudEditView(
                             .read_value()
                             .model_handler
                             .read_model_to_update_model
-                            .run((read_model,));
+                            .run(read_model);
 
                         // Creating signals for all fields of the loaded entity, so that input fields can work on the data.
                         set_sig.set({
@@ -116,7 +116,7 @@ pub fn CrudEditView(
                                 .read_value()
                                 .model_handler
                                 .update_model_to_signal_map
-                                .run((update_model.clone(),));
+                                .run(update_model.clone());
                             StoredValue::new(signals)
                         });
 
@@ -178,7 +178,7 @@ pub fn CrudEditView(
                             .read_value()
                             .model_handler
                             .deserialize_update_one_response
-                            .run((json,))
+                            .run(json)
                             .map_err(|de_err| RequestError::Deserialize(de_err.to_string()))
                     }),
                 and_then,
@@ -198,7 +198,7 @@ pub fn CrudEditView(
                 Ok(save_result) => match save_result {
                     SaveResult::Saved(saved) => {
                         set_entity.set(Ok(saved.entity.clone()));
-                        on_entity_updated.run((saved,));
+                        on_entity_updated.run(saved);
                         match and_then {
                             Then::DoNothing => {}
                             Then::OpenListView => force_leave.run(()),
@@ -206,7 +206,7 @@ pub fn CrudEditView(
                         }
                     }
                     SaveResult::Aborted { reason } => {
-                        on_entity_update_aborted.run((reason,));
+                        on_entity_update_aborted.run(reason);
                     }
                     SaveResult::CriticalValidationErrors => {
                         tracing::info!("Entity was not updated due to critical validation errors.");
@@ -219,7 +219,7 @@ pub fn CrudEditView(
                         "Could not update entity due to RequestError: {}",
                         request_error.to_string()
                     );
-                    on_entity_update_failed.run((request_error,));
+                    on_entity_update_failed.run(request_error);
                 }
             }
         }
@@ -241,7 +241,7 @@ pub fn CrudEditView(
 
     let value_changed =
         Callback::<(AnyField, Result<Value, String>)>::new(move |(field, result)| {
-            tracing::info!(?field, ?result, "value changed");
+            //tracing::debug!(?field, ?result, "value changed");
             match result {
                 Ok(value) => {
                     set_input.update(|input| match input {

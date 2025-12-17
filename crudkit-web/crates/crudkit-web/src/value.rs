@@ -1,5 +1,6 @@
 use crate::CrudSelectableTrait;
 use crudkit_condition::ConditionClauseValue;
+use crudkit_shared::TimeDuration;
 use std::fmt::Display;
 use time::format_description::well_known::Rfc3339;
 use tracing::warn;
@@ -30,8 +31,10 @@ pub enum Value {
     ValidationStatus(bool),
     PrimitiveDateTime(time::PrimitiveDateTime),
     OffsetDateTime(time::OffsetDateTime),
+    Duration(TimeDuration),
     OptionalPrimitiveDateTime(Option<time::PrimitiveDateTime>),
     OptionalOffsetDateTime(Option<time::OffsetDateTime>),
+    OptionalDuration(Option<TimeDuration>),
     OneToOneRelation(Option<u32>),
     Reference(Vec<Box<dyn crudkit_id::IdField>>), // TODO: This variant should probably be named "Reference". Can it carry a "SerializableId" (as it is of known size)?
     Custom(()),
@@ -102,6 +105,7 @@ impl Into<Value> for crudkit_shared::Value {
             crudkit_shared::Value::Bool(value) => Value::Bool(value),
             crudkit_shared::Value::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
             crudkit_shared::Value::OffsetDateTime(value) => Value::OffsetDateTime(value),
+            crudkit_shared::Value::Duration(value) => Value::Duration(value),
         }
     }
 }
@@ -202,7 +206,7 @@ impl Value {
         match self {
             Self::I32(i32) => i32,
             // This has some potential data loss...
-            // TODO: Can we remove this? Without, this created a panic in agnite/servers/labels/new
+            // TODO: Can we remove this? Without, this created a panic in startblock/servers/labels/new
             Self::U32(u32) => u32 as i32,
             other => panic!("unsupported type provided: {other:?} "),
         }
@@ -211,7 +215,7 @@ impl Value {
         match self {
             Self::I64(i64) => i64,
             // This has some potential data loss...
-            // TODO: Can we remove this? Without, this created a panic in agnite/servers/labels/new
+            // TODO: Can we remove this? Without, this created a panic in startblock/servers/labels/new
             //Self::U32(u32) => u32 as i32,
             other => panic!("unsupported type provided: {other:?} "),
         }
@@ -296,6 +300,12 @@ impl Value {
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
+    pub fn take_duration(self) -> TimeDuration {
+        match self {
+            Self::Duration(duration) => duration,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
     pub fn take_optional_primitive_date_time(self) -> Option<time::PrimitiveDateTime> {
         match self {
             Self::PrimitiveDateTime(primitive_date_time) => Some(primitive_date_time),
@@ -315,6 +325,13 @@ impl Value {
             Self::OptionalOffsetDateTime(optional_offset_date_time) => optional_offset_date_time,
             // TODO: We might want to catch parsing errors and return an empty optional here.
             Self::String(string) => Some(time::OffsetDateTime::parse(&string, &Rfc3339).unwrap()),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_duration(self) -> Option<TimeDuration> {
+        match self {
+            Self::Duration(duration) => Some(duration),
+            Self::OptionalDuration(optional_duration) => optional_duration,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -368,7 +385,9 @@ impl Value {
             Value::U32(u32) => Some(u32),
             Value::OptionalU32(optional_u32) => optional_u32,
             Value::OneToOneRelation(optional_u32) => optional_u32,
-            other => panic!("Expected Value of variant 'U32', 'OptionalU32' or 'OneToOneRelation'. Received: {other:?}"),
+            other => panic!(
+                "Expected Value of variant 'U32', 'OptionalU32' or 'OneToOneRelation'. Received: {other:?}"
+            ),
         }
     }
     pub fn take_reference(self) -> Vec<Box<dyn crudkit_id::IdField>> {
@@ -470,6 +489,15 @@ impl Display for Value {
                 }
                 None => f.write_str("NONE"),
             },
+            // TODO: Correct formatting? Should we do a manual: [h]:[m]:[s]?
+            Value::Duration(value) => f.write_str(&value.0.to_string()),
+            Value::OptionalDuration(value) => match value {
+                Some(value) => {
+                    f.write_str(&value.0.to_string())?;
+                    Ok(())
+                }
+                None => f.write_str("NONE"),
+            },
         }
     }
 }
@@ -508,6 +536,8 @@ impl Into<ConditionClauseValue> for Value {
             Value::Multiselect(_value) => todo!(),
             Value::OptionalSelect(_value) => todo!(),
             Value::OptionalMultiselect(_value) => todo!(),
+            Value::Duration(_value) => todo!(),
+            Value::OptionalDuration(_) => todo!(),
         }
     }
 }

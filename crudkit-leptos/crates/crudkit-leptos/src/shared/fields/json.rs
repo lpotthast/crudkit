@@ -12,7 +12,7 @@ pub fn CrudJsonField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<JsonValue>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => {
@@ -41,14 +41,14 @@ pub fn CrudJsonField(
                     attr:class="crud-input-field"
                     value=Signal::derive(move || value.get().get_string_representation().to_owned())
                     set_value=move |new| {
-                        value_changed.run((
+                        value_changed.run(
                             match new {
                                 TiptapContent::Html(content) => serde_json::from_str(&content),
                                 TiptapContent::Json(content) => serde_json::from_str(&content),
                             }
                                 .map(|json_value| Value::Json(JsonValue::new(json_value)))
                                 .map_err(|err| Arc::new(err) as Arc<dyn std::error::Error>)
-                        ,));
+                        );
                     }
 
                     disabled=field_options.disabled
@@ -65,7 +65,7 @@ pub fn CrudOptionalJsonField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<JsonValue>>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! {

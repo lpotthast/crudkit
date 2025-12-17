@@ -10,7 +10,7 @@ pub fn CrudU32Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<u32>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
@@ -35,7 +35,7 @@ pub fn CrudU32Field(
                     attr:class="crud-input-field"
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get() as f64)
-                    set=move |new: f64| { value_changed.run((Ok(Value::U32(new as u32)),)) }
+                    set=move |new: f64| { value_changed.run(Ok(Value::U32(new as u32))) }
                 />
             </div>
         }
@@ -49,7 +49,7 @@ pub fn CrudU64Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<u64>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
@@ -74,7 +74,7 @@ pub fn CrudU64Field(
                     attr:class="crud-input-field"
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get() as f64)
-                    set=move |new: f64| { value_changed.run((Ok(Value::U64(new as u64)),)) }
+                    set=move |new: f64| { value_changed.run(Ok(Value::U64(new as u64))) }
                 />
             </div>
         }
@@ -88,7 +88,7 @@ pub fn CrudOptionalU32Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<u32>>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => {
@@ -120,7 +120,7 @@ pub fn CrudOptionalU32Field(
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                     set=move |new: f64| {
-                        value_changed.run((Ok(Value::OptionalU32(Some(new as u32))),))
+                        value_changed.run(Ok(Value::OptionalU32(Some(new as u32))))
                     }
                 />
             </div>
@@ -135,7 +135,7 @@ pub fn CrudOptionalU64Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<u64>>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => {
@@ -167,7 +167,7 @@ pub fn CrudOptionalU64Field(
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                     set=move |new: f64| {
-                        value_changed.run((Ok(Value::OptionalU64(Some(new as u64))),))
+                        value_changed.run(Ok(Value::OptionalU64(Some(new as u64))))
                     }
                 />
             </div>
@@ -182,7 +182,7 @@ pub fn CrudI32Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<i32>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
@@ -207,7 +207,7 @@ pub fn CrudI32Field(
                     attr:class="crud-input-field"
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get() as f64)
-                    set=move |new: f64| { value_changed.run((Ok(Value::I32(new as i32)),)) }
+                    set=move |new: f64| { value_changed.run(Ok(Value::I32(new as i32))) }
                 />
             </div>
         }
@@ -221,7 +221,7 @@ pub fn CrudOptionalI32Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<i32>>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => {
@@ -253,7 +253,7 @@ pub fn CrudOptionalI32Field(
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                     set=move |new: f64| {
-                        value_changed.run((Ok(Value::OptionalI32(Some(new as i32))),))
+                        value_changed.run(Ok(Value::OptionalI32(Some(new as i32))))
                     }
                 />
             </div>
@@ -268,7 +268,7 @@ pub fn CrudI64Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<i64>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
@@ -293,7 +293,7 @@ pub fn CrudI64Field(
                     attr:class="crud-input-field"
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get() as f64)
-                    set=move |new: f64| { value_changed.run((Ok(Value::I64(new as i64)),)) }
+                    set=move |new: f64| { value_changed.run(Ok(Value::I64(new as i64))) }
                 />
             </div>
         }
@@ -307,7 +307,7 @@ pub fn CrudOptionalI64Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<i64>>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => {
@@ -339,7 +339,7 @@ pub fn CrudOptionalI64Field(
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                     set=move |new: f64| {
-                        value_changed.run((Ok(Value::OptionalI64(Some(new as i64))),))
+                        value_changed.run(Ok(Value::OptionalI64(Some(new as i64))))
                     }
                 />
             </div>
@@ -354,7 +354,7 @@ pub fn CrudF32Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<f32>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
@@ -379,7 +379,7 @@ pub fn CrudF32Field(
                     attr:class="crud-input-field"
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get() as f64)
-                    set=move |new: f64| { value_changed.run((Ok(Value::F32(new as f32)),)) }
+                    set=move |new: f64| { value_changed.run(Ok(Value::F32(new as f32))) }
                 />
             </div>
         }
@@ -393,7 +393,7 @@ pub fn CrudF64Field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<f64>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
@@ -418,7 +418,7 @@ pub fn CrudF64Field(
                     attr:class="crud-input-field"
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get())
-                    set=move |new: f64| { value_changed.run((Ok(Value::F64(new)),)) }
+                    set=move |new: f64| { value_changed.run(Ok(Value::F64(new))) }
                 />
             </div>
         }

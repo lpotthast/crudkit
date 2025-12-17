@@ -199,12 +199,14 @@ pub fn CrudInstance(
     let parent = StoredValue::new(parent);
     let parent_id = Signal::derive(move || {
         parent
-            .get_value()
+            .read_value()
+            .as_ref()
             .and_then(|parent| get_parent_id(&parent, mgr))
     });
     let parent_id_referencing_condition = Signal::derive(move || {
         parent
-            .get_value()
+            .read_value()
+            .as_ref()
             .and_then(|parent| get_parent_id(&parent, mgr).map(|id| (parent, id)))
             .map(|(parent, id)| {
                 let (_name, value) =
@@ -405,10 +407,13 @@ pub fn CrudInstance(
 fn get_parent_id(parent: &CrudParentConfig, mgr: CrudInstanceMgrContext) -> Option<SerializableId> {
     let parent_state = mgr
         .instances
-        .get()
+        // Must be an untracked access!
+        // Otherwise, at instance nesting depth 3, rendering the instance and registering it would
+        // case instance at depth 2 to register this change here and force a field-rerender.
+        .read_untracked()
         .get_by_name(parent.name)
         .expect("parent to be managed");
-    match parent_state.view.get() {
+    match parent_state.view.get_untracked() {
         SerializableCrudView::List => None,
         SerializableCrudView::Create => None,
         SerializableCrudView::Read(id) => Some(id),

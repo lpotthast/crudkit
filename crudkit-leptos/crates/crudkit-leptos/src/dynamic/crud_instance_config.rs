@@ -69,19 +69,19 @@ pub enum CreateElements {
 #[derive(Debug, Clone)]
 pub struct ModelHandler {
     pub deserialize_read_many_response:
-        Callback<(serde_json::Value,), Result<Vec<AnyModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<Vec<AnyModel>, serde_json::Error>>,
     pub deserialize_read_one_response:
-        Callback<(serde_json::Value,), Result<Option<AnyModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<Option<AnyModel>, serde_json::Error>>,
     pub deserialize_create_one_response:
-        Callback<(serde_json::Value,), Result<SaveResult<AnyModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<SaveResult<AnyModel>, serde_json::Error>>,
     pub deserialize_update_one_response:
-        Callback<(serde_json::Value,), Result<SaveResult<AnyModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<SaveResult<AnyModel>, serde_json::Error>>,
 
-    pub read_model_to_update_model: Callback<(AnyModel,), AnyModel>,
-    pub create_model_to_signal_map: Callback<(AnyModel,), HashMap<AnyField, ReactiveValue>>,
-    pub read_model_to_signal_map: Callback<(AnyModel,), HashMap<AnyField, ReactiveValue>>,
-    pub update_model_to_signal_map: Callback<(AnyModel,), HashMap<AnyField, ReactiveValue>>,
-    pub get_create_model_field: Callback<(String,), AnyField>,
+    pub read_model_to_update_model: Callback<AnyModel, AnyModel>,
+    pub create_model_to_signal_map: Callback<AnyModel, HashMap<AnyField, ReactiveValue>>,
+    pub read_model_to_signal_map: Callback<AnyModel, HashMap<AnyField, ReactiveValue>>,
+    pub update_model_to_signal_map: Callback<AnyModel, HashMap<AnyField, ReactiveValue>>,
+    pub get_create_model_field: Callback<String, AnyField>,
     pub get_default_create_model: Callback<(), AnyModel>,
 }
 
@@ -96,16 +96,16 @@ impl ModelHandler {
         <Update as CrudDataTrait>::Field: Field,
     {
         ModelHandler {
-            deserialize_read_many_response: Callback::from(move |json| {
+            deserialize_read_many_response: Callback::new(move |json| {
                 Ok(serde_json::from_value::<Vec<Read>>(json)?
                     .into_iter()
                     .map(AnyModel::from)
                     .collect::<Vec<AnyModel>>())
             }),
-            deserialize_read_one_response: Callback::from(move |json| {
+            deserialize_read_one_response: Callback::new(move |json| {
                 Ok(serde_json::from_value::<Option<Read>>(json)?.map(AnyModel::from))
             }),
-            deserialize_create_one_response: Callback::from(move |json| {
+            deserialize_create_one_response: Callback::new(move |json| {
                 let result: SaveResult<Update> = serde_json::from_value(json)?;
                 let result: SaveResult<AnyModel> = match result {
                     SaveResult::Saved(saved) => SaveResult::Saved(Saved {
@@ -117,7 +117,7 @@ impl ModelHandler {
                 };
                 Ok(result)
             }),
-            deserialize_update_one_response: Callback::from(move |json| {
+            deserialize_update_one_response: Callback::new(move |json| {
                 let result: SaveResult<Update> = serde_json::from_value(json)?;
                 let result: SaveResult<AnyModel> = match result {
                     SaveResult::Saved(saved) => SaveResult::Saved(Saved {
@@ -129,10 +129,10 @@ impl ModelHandler {
                 };
                 Ok(result)
             }),
-            read_model_to_update_model: Callback::from(move |read_model: AnyModel| {
+            read_model_to_update_model: Callback::new(move |read_model: AnyModel| {
                 AnyModel::from(Update::from(read_model.downcast::<Read>()))
             }),
-            create_model_to_signal_map: Callback::from(move |create_model: AnyModel| {
+            create_model_to_signal_map: Callback::new(move |create_model: AnyModel| {
                 let create_model: &Create = create_model.downcast_ref::<Create>();
                 let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
                 for field in Create::get_all_fields() {
@@ -141,7 +141,7 @@ impl ModelHandler {
                 }
                 map
             }),
-            read_model_to_signal_map: Callback::from(move |read_model: AnyModel| {
+            read_model_to_signal_map: Callback::new(move |read_model: AnyModel| {
                 let read_model: &Read = read_model.downcast_ref::<Read>();
                 let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
                 for field in Read::get_all_fields() {
@@ -150,7 +150,7 @@ impl ModelHandler {
                 }
                 map
             }),
-            update_model_to_signal_map: Callback::from(move |update_model: AnyModel| {
+            update_model_to_signal_map: Callback::new(move |update_model: AnyModel| {
                 let update_model: &Update = update_model.downcast_ref::<Update>();
                 let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
                 for field in Update::get_all_fields() {
@@ -159,10 +159,10 @@ impl ModelHandler {
                 }
                 map
             }),
-            get_create_model_field: Callback::from(move |field_name: String| {
+            get_create_model_field: Callback::new(move |field_name: String| {
                 AnyField::from(Create::get_field(&field_name))
             }),
-            get_default_create_model: Callback::from(move || AnyModel::from(Create::default())),
+            get_default_create_model: Callback::new(move |()| AnyModel::from(Create::default())),
         }
     }
 }

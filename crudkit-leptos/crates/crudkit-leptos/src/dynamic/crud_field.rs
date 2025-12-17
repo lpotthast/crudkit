@@ -21,17 +21,17 @@ pub fn CrudField(
     value: ReactiveValue,
     value_changed: Callback<(AnyField, Result<Value, String>)>, // how can we handle all possible types? serialization? TODO: Only take Value, not Result?; TODO: Use WriteSignal from ReactiveValue?
 ) -> impl IntoView {
+    // TODO: This wrapping closure could be removed safely.
     move || {
         let id: String = format!("f{}", Uuid::new_v4().to_string());
 
         let field_clone = field.clone();
         let field_clone3 = field.clone();
 
-        let value_changed: Callback<(Result<Value, Arc<dyn Error>>,)> =
-            Callback::new(move |(result,)| match result {
-                Ok(new) => value_changed.run((field_clone.clone(), Ok(new))),
-                Err(err) => tracing::error!("Could not get input value: {}", err),
-            });
+        let value_changed = Callback::new(move |result| match result {
+            Ok(new) => value_changed.run((field_clone.clone(), Ok(new))),
+            Err(err) => tracing::error!("Could not get input value: {}", err),
+        });
 
         let field_config: Option<Box<dyn SelectConfigTrait>> =
             field_config.with(|map| map.get(&field).cloned());

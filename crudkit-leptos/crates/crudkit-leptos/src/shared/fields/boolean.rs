@@ -10,7 +10,7 @@ pub fn CrudBoolField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<bool>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
@@ -26,7 +26,7 @@ pub fn CrudBoolField(
                 {render_label(field_options.label.clone())} <div id=id.clone() class="crud-input-field">
                     <Toggle
                         state=value
-                        set_state=move |new| { value_changed.run((Ok(Value::Bool(new)),)) }
+                        set_state=move |new| { value_changed.run(Ok(Value::Bool(new))) }
                         disabled=field_options.disabled
                     />
                 </div>

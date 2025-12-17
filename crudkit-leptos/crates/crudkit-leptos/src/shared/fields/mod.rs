@@ -4,6 +4,7 @@ use crate::shared::fields::boolean::CrudBoolField;
 use crate::shared::fields::date_time::{
     CrudOptionalPrimitiveDateTimeField, CrudPrimitiveDateTimeField,
 };
+use crate::shared::fields::duration::{CrudDurationField, CrudOptionalDurationField};
 use crate::shared::fields::json::{CrudJsonField, CrudOptionalJsonField};
 use crate::shared::fields::number::{
     CrudF32Field, CrudF64Field, CrudI32Field, CrudI64Field, CrudOptionalI32Field,
@@ -22,6 +23,7 @@ use std::sync::Arc;
 
 pub mod boolean;
 pub mod date_time;
+pub mod duration;
 pub mod json;
 pub mod number;
 pub mod select;
@@ -41,12 +43,18 @@ pub fn render_field(
     field_options: FieldOptions,
     field_mode: FieldMode,
     field_config: Option<Box<dyn SelectConfigTrait>>,
-    value_changed: Callback<(Result<Value, Arc<dyn Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn Error>>>,
     // TODO: can this be ViewFnOnce?
     custom_field_renderer: Option<ViewFn>,
-) -> impl IntoView {
+) -> AnyView {
+    //info!("render field {:?}", field_options.label);
     match custom_field_renderer {
-        Some(custom_field_renderer) => custom_field_renderer.run(),
+        Some(custom_field_renderer) => {
+            // This additional closure is required so that each custom field, which may be another
+            // crud instance, or, in general, anything that might `provide_context(T)`, have their
+            // own context to do so and not override sibling data.
+            (move || custom_field_renderer.run()).into_any()
+        },
         None => match value {
             ReactiveValue::String(value) => {
                 view! {
@@ -302,6 +310,28 @@ pub fn render_field(
                     }.into_any()
             },
             ReactiveValue::OptionalMultiselect(_) => view! { "TODO: Render ReactiveValue::OptionalMultiselect" }.into_any(),
+            ReactiveValue::Duration(value) => {
+                view! {
+                        <CrudDurationField
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_any()
+            },
+            ReactiveValue::OptionalDuration(value) => {
+                view! {
+                        <CrudOptionalDurationField
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_any()
+            },
         }
     }
 }

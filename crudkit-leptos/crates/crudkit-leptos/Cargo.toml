@@ -27,7 +27,7 @@ leptos = "0.8.2"
 serde = { version = "1.0.217", features = ["derive"] }
 # TODO: Only required to handle TipTap content. Can we get rid of this?
 serde_json = { version = "1.0.138", features = ["raw_value"] }
-time = { version = "0.3.37", features = [
+time = { version = "0.3.44", features = [
     "macros",
     "local-offset", # TODO: Describe why this feature is required.
     "wasm-bindgen",

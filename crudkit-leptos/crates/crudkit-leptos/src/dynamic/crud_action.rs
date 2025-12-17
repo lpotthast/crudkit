@@ -33,8 +33,14 @@ pub struct ResourceActionInput {
 
 /// The concrete data to perform an entity-action with.
 pub struct EntityActionInput {
+    /// The current state of this entity when the action is invoked. This includes all unsaved
+    /// changes.
     pub update_model: AnyModel,
+
+    /// A payload for this action.
     pub payload: Option<AnyActionPayload>,
+
+    /// This callback should be run after the action was performed to tell the system its outcome.
     pub and_then: Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
 }
 
@@ -48,7 +54,7 @@ pub struct CrudEntityAction {
     pub valid_in: Vec<States>,
     pub action: Callback<EntityActionInput>,
     /// The view to be shown for this action.
-    /// If not provided, triggering the action executes it immediately.
+    /// If not provided, triggering the action executes it immediately without any specific payload.
     pub view: Option<Callback<EntityActionViewInput, AnyView>>,
 }
 

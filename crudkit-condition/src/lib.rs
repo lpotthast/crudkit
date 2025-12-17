@@ -1,6 +1,6 @@
-use std::fmt::Debug;
-
+use crudkit_shared::Value;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 use utoipa::ToSchema;
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
@@ -52,26 +52,27 @@ pub enum ConditionClauseValue {
 }
 
 // TODO: Use result type instead of panicking!
-impl Into<ConditionClauseValue> for crudkit_shared::Value {
+impl Into<ConditionClauseValue> for Value {
     fn into(self) -> ConditionClauseValue {
         match self {
-            crudkit_shared::Value::String(value) => ConditionClauseValue::String(value),
-            crudkit_shared::Value::Json(value) => ConditionClauseValue::Json(value.to_string()),
-            crudkit_shared::Value::UuidV4(value) => ConditionClauseValue::UuidV4(value),
-            crudkit_shared::Value::UuidV7(value) => ConditionClauseValue::UuidV7(value),
-            crudkit_shared::Value::I32(value) => ConditionClauseValue::I32(value),
-            crudkit_shared::Value::I64(value) => ConditionClauseValue::I64(value),
-            crudkit_shared::Value::U8Vec(values) => ConditionClauseValue::U8Vec(values),
-            crudkit_shared::Value::I32Vec(values) => ConditionClauseValue::I32Vec(values),
-            crudkit_shared::Value::I64Vec(value) => ConditionClauseValue::I64Vec(value),
-            crudkit_shared::Value::U32(value) => ConditionClauseValue::U32(value),
-            crudkit_shared::Value::U64(value) => ConditionClauseValue::U64(value),
-            crudkit_shared::Value::F32(value) => ConditionClauseValue::F32(value),
-            crudkit_shared::Value::F64(value) => ConditionClauseValue::F64(value),
-            crudkit_shared::Value::Bool(value) => ConditionClauseValue::Bool(value),
+            Value::String(value) => ConditionClauseValue::String(value),
+            Value::Json(value) => ConditionClauseValue::Json(value.to_string()),
+            Value::UuidV4(value) => ConditionClauseValue::UuidV4(value),
+            Value::UuidV7(value) => ConditionClauseValue::UuidV7(value),
+            Value::I32(value) => ConditionClauseValue::I32(value),
+            Value::I64(value) => ConditionClauseValue::I64(value),
+            Value::U8Vec(values) => ConditionClauseValue::U8Vec(values),
+            Value::I32Vec(values) => ConditionClauseValue::I32Vec(values),
+            Value::I64Vec(value) => ConditionClauseValue::I64Vec(value),
+            Value::U32(value) => ConditionClauseValue::U32(value),
+            Value::U64(value) => ConditionClauseValue::U64(value),
+            Value::F32(value) => ConditionClauseValue::F32(value),
+            Value::F64(value) => ConditionClauseValue::F64(value),
+            Value::Bool(value) => ConditionClauseValue::Bool(value),
             //crudkit_shared::Value::DateTime(value) => ConditionClauseValue::DateTime(value), // TODO: implement
-            crudkit_shared::Value::PrimitiveDateTime(_value) => panic!("Not implemented...."),
-            crudkit_shared::Value::OffsetDateTime(_value) => panic!("Not implemented...."),
+            Value::PrimitiveDateTime(_value) => unimplemented!(),
+            Value::OffsetDateTime(_value) => unimplemented!(),
+            Value::Duration(_value) => unimplemented!(),
         }
     }
 }

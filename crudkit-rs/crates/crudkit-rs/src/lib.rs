@@ -64,8 +64,8 @@ pub mod prelude {
     pub use super::error::CrudError;
 
     pub use super::context::CrudContext;
-    pub use super::context::CrudResourceContext;
     pub use super::resource::CrudResource;
+    pub use super::resource::CrudResourceContext;
     pub use super::websocket::CrudWebsocketController;
 
     pub use super::AsColType;
@@ -324,4 +324,22 @@ pub fn to_offset_date_time(value: ConditionClauseValue) -> Result<Value, String>
             "{value:?} can not be converted to an OffsetDateTime. Expected String."
         )),
     }
+}
+
+//pub fn to_time(value: ConditionClauseValue) -> Result<Value, String> {
+//    match value {
+//        ConditionClauseValue::String(string) => {
+//            let format = format_description!("[hour]:[minute]:[second]");
+//            time::Time::parse(&string, &format)
+//                .map_err(|err| err.to_string())
+//                .map(Value::Time)
+//        }
+//        _ => Err(format!(
+//            "{value:?} can not be converted to a Duration. Expected String with format '[hour]:[minute]:[second]'!"
+//        )),
+//    }
+//}
+
+pub fn to_time_duration(_value: ConditionClauseValue) -> Result<Value, String> {
+    unimplemented!()
 }

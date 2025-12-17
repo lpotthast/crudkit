@@ -71,4 +71,7 @@ pub struct DeleteResult {
 }
 
 /// Marker error trait for error types used in repository implementations.
-pub trait RepositoryError: std::error::Error + std::fmt::Debug + Send + Sync {} // TODO: Use Display trait instead?
+pub trait RepositoryError: std::fmt::Debug + Send + Sync {} // TODO: Use Display trait instead?
+
+/// Support error-stack `Report`s being used as repository error types.
+impl<T: RepositoryError> RepositoryError for error_stack::Report<T> {}

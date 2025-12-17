@@ -1,3 +1,5 @@
+use crate::newtypes::TimeDuration;
+use crate::repo::SeaOrmRepoError;
 use crudkit_condition::{Condition, ConditionElement, Operator};
 use crudkit_rs::prelude::*;
 use crudkit_shared::{Order, Value};
@@ -9,8 +11,6 @@ use sea_orm::{
 use serde::de::DeserializeOwned;
 use snafu::{Backtrace, GenerateImplicitData};
 use std::hash::Hash;
-
-use crate::repo::SeaOrmRepoError;
 
 pub fn build_insert_query<R: CrudResource>(
     active_entity: R::ActiveModel,
@@ -182,13 +182,22 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
                                 Value::OffsetDateTime(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }
+                                Value::Duration(val) => {
+                                    tree = add_condition(
+                                        tree,
+                                        col,
+                                        clause.operator,
+                                        // Convert to our sea-orm enabled TimeDuration type.
+                                        TimeDuration(val.0),
+                                    )
+                                }
                             }
                         }
                         None => {
                             return Err(SeaOrmRepoError::UnknownColumnSpecified {
                                 column_name: clause.column_name.clone(),
                                 backtrace: Backtrace::generate(),
-                            })
+                            });
                         }
                     },
                     ConditionElement::Condition(nested_condition) => {

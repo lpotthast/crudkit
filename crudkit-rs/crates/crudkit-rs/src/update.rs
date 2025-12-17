@@ -15,7 +15,7 @@ use crate::{
     error::CrudError,
     lifetime::{Abort, CrudLifetime},
     prelude::*,
-    validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
+    validation::{CrudAction, ValidationContext, ValidationTrigger, When, into_persistable},
 };
 
 #[derive(Debug, ToSchema, Deserialize)]
@@ -24,11 +24,10 @@ pub struct UpdateOne<T> {
     pub entity: T,
 }
 
-#[tracing::instrument(level = "info", skip(context, res_context))]
+#[tracing::instrument(level = "info", skip(context))]
 pub async fn update_one<R: CrudResource, Ro: Role>(
     keycloak_token: KeycloakToken<Ro>,
     context: Arc<CrudContext<R>>,
-    res_context: Arc<R::Context>,
     body: UpdateOne<R::UpdateModel>,
 ) -> Result<SaveResult<R::Model>, CrudError> {
     let model = context
@@ -51,10 +50,14 @@ pub async fn update_one<R: CrudResource, Ro: Role>(
     let hook_data = R::HookData::default();
 
     // Before update
-    let (abort, hook_data) =
-        R::Lifetime::before_update(&update_model, &mut active_model, &res_context, hook_data)
-            .await
-            .expect("before_update to not error");
+    let (abort, hook_data) = R::Lifetime::before_update(
+        &update_model,
+        &mut active_model,
+        &context.res_context,
+        hook_data,
+    )
+    .await
+    .expect("before_update to not error");
 
     if let Abort::Yes { reason } = abort {
         return Ok(SaveResult::Aborted { reason });
@@ -154,9 +157,10 @@ pub async fn update_one<R: CrudResource, Ro: Role>(
         })?;
 
     // After update
-    let _hook_data = R::Lifetime::after_update(&update_model, &result, &res_context, hook_data)
-        .await
-        .expect("after_update to not error");
+    let _hook_data =
+        R::Lifetime::after_update(&update_model, &result, &context.res_context, hook_data)
+            .await
+            .expect("after_update to not error");
 
     // Inform all participants that the entity was updated.
     // TODO: Exclude the current user!

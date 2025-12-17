@@ -85,7 +85,6 @@ macro_rules! impl_add_crud_routes {
 
                 // We define this 'ResourceType' use statement, as `$resource_type` can not be used in the utoipa block below...
                 use $resource_type as ResourceType;
-                type Context = <$resource_type as CrudResource>::Context;
                 type ReadViewModel = <$resource_type as CrudResource>::ReadViewModel;
                 type CreateModel = <$resource_type as CrudResource>::CreateModel;
                 type Model = <$resource_type as CrudResource>::Model;
@@ -240,10 +239,9 @@ macro_rules! impl_add_crud_routes {
                 async fn create_one(
                     Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Extension(res_context): Extension<Arc<Context>>,
                     Json(body): Json<CreateOne<CreateModel>>,
                 ) -> Response {
-                    let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
+                    let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -271,10 +269,9 @@ macro_rules! impl_add_crud_routes {
                 async fn update_one(
                     Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Extension(res_context): Extension<Arc<Context>>,
                     Json(body): Json<UpdateOne<UpdateModel>>,
                 ) -> Response {
-                    let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
+                    let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -302,10 +299,9 @@ macro_rules! impl_add_crud_routes {
                 async fn delete_by_id(
                     Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Extension(res_context): Extension<Arc<Context>>,
                     Json(body): Json<DeleteById>,
                 ) -> Response {
-                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
+                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -333,10 +329,9 @@ macro_rules! impl_add_crud_routes {
                 async fn delete_one(
                     Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Extension(res_context): Extension<Arc<Context>>,
                     Json(body): Json<DeleteOne<$resource_type>>,
                 ) -> Response {
-                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type, $role_type>(keycloak_token, context.clone(), res_context.clone(), body)
+                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {

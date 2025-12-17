@@ -13,7 +13,7 @@ pub fn CrudPrimitiveDateTimeField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<PrimitiveDateTime>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => match field_options.date_time_display {
@@ -51,7 +51,7 @@ pub fn CrudPrimitiveDateTimeField(
                             match v {
                                 Some(v) => {
                                     value_changed
-                                        .run((Ok(Value::PrimitiveDateTime(PrimitiveDateTime::new(v.date(), v.time()))),))
+                                        .run(Ok(Value::PrimitiveDateTime(PrimitiveDateTime::new(v.date(), v.time()))))
                                 }
                                 None => {}
                             }
@@ -70,7 +70,7 @@ pub fn CrudOptionalPrimitiveDateTimeField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<PrimitiveDateTime>>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => match field_options.date_time_display {

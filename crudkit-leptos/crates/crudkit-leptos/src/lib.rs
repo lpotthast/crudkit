@@ -19,6 +19,7 @@ pub mod stores;
 pub use crudkit_condition;
 pub use crudkit_id;
 pub use crudkit_shared;
+use crudkit_shared::TimeDuration;
 pub use crudkit_validation;
 pub use crudkit_web;
 use crudkit_web::value::{JsonValue, Value};
@@ -92,8 +93,10 @@ pub enum ReactiveValue {
     ValidationStatus(RwSignal<bool>),
     PrimitiveDateTime(RwSignal<time::PrimitiveDateTime>),
     OffsetDateTime(RwSignal<time::OffsetDateTime>),
+    Duration(RwSignal<TimeDuration>),
     OptionalPrimitiveDateTime(RwSignal<Option<time::PrimitiveDateTime>>),
     OptionalOffsetDateTime(RwSignal<Option<time::OffsetDateTime>>),
+    OptionalDuration(RwSignal<Option<TimeDuration>>),
     OneToOneRelation(RwSignal<Option<u32>>),
     Reference(RwSignal<Vec<Box<dyn crudkit_id::IdField>>>),
     Custom(RwSignal<()>),
@@ -149,6 +152,8 @@ impl IntoReactiveValue for Value {
             Value::OptionalMultiselect(value) => {
                 ReactiveValue::OptionalMultiselect(RwSignal::new(value))
             }
+            Value::Duration(value) => ReactiveValue::Duration(RwSignal::new(value)),
+            Value::OptionalDuration(value) => ReactiveValue::OptionalDuration(RwSignal::new(value)),
         }
     }
 }
@@ -196,6 +201,8 @@ impl ReactiveValue {
             ReactiveValue::OptionalMultiselect(sig) => {
                 sig.set(v.take_optional_multiselect_downcast_to())
             }
+            ReactiveValue::Duration(sig) => sig.set(v.take_duration()),
+            ReactiveValue::OptionalDuration(sig) => sig.set(v.take_optional_duration()),
         }
     }
 

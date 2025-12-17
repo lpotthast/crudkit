@@ -26,7 +26,7 @@ pub fn CrudReadView(
     #[prop(into)] custom_fields: Signal<CustomUpdateFields>,
     #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // UpdateModel field
     #[prop(into)] on_list_view: Callback<()>,
-    #[prop(into)] on_tab_selected: Callback<(TabId,)>,
+    #[prop(into)] on_tab_selected: Callback<TabId>,
 ) -> impl IntoView {
     let instance_ctx = expect_context::<CrudInstanceContext>();
 
@@ -50,7 +50,7 @@ pub fn CrudReadView(
                     .read_value()
                     .model_handler
                     .deserialize_read_one_response
-                    .run((json,))
+                    .run(json)
                     .map_err(|de_err| RequestError::Deserialize(de_err.to_string()))
             })
     });
@@ -76,7 +76,7 @@ pub fn CrudReadView(
                             .read_value()
                             .model_handler
                             .read_model_to_update_model
-                            .run((read_model,));
+                            .run(read_model);
 
                         // Creating signals for all fields of the loaded entity, so that input fields can work on the data.
                         set_sig.set({
@@ -85,7 +85,7 @@ pub fn CrudReadView(
                                 .read_value()
                                 .model_handler
                                 .update_model_to_signal_map
-                                .run((update_model.clone(),));
+                                .run(update_model.clone());
                             StoredValue::new(signals)
                         });
 

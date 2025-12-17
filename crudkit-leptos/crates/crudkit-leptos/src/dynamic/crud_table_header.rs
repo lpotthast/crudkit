@@ -22,9 +22,11 @@ pub fn CrudTableHeader(
     let instance_ctx = expect_context::<CrudInstanceContext>();
     let list_ctx = expect_context::<CrudListViewContext>();
 
-    let update_order_of_field =
-        move |field: AnyField| instance_ctx.oder_by(field, OrderByUpdateOptions { append: false });
-    let select_all = Callback::from(move || {
+    let update_order_of_field = move |field: AnyField| {
+        tracing::info!("update order of {:?}", field);
+        instance_ctx.oder_by(field, OrderByUpdateOptions { append: false });
+    };
+    let select_all = Callback::new(move |()| {
         list_ctx.toggle_select_all();
     });
     view! {
@@ -39,9 +41,15 @@ pub fn CrudTableHeader(
                     children=move |Header { field, options }| {
                         move || {
                             let field_clone = field.clone();
-                            let update_order = Callback::from(move || { update_order_of_field(field_clone.clone()); });
+                            let update_order = Callback::new(move |()| { update_order_of_field(field_clone.clone()); });
                             view! {
-                                <HeaderCell name=options.display_name.clone() order=order_by.read().get(&field).cloned() ordering_allowed=options.ordering_allowed update_order apply_min_width_class=options.min_width/>
+                                <HeaderCell
+                                    name=options.display_name.clone()
+                                    order=order_by.read().get(&field).cloned()
+                                    ordering_allowed=options.ordering_allowed
+                                    update_order
+                                    apply_min_width_class=options.min_width
+                                />
                             }
                         }
                     }
@@ -73,12 +81,14 @@ fn HeaderCell(
     update_order: Callback<()>,
     apply_min_width_class: bool,
 ) -> impl IntoView {
+    let name_clone = name.clone();
     view! {
         <TableHeaderCell
             class:crud-column-ordered=order.is_some()
             class:crud-order-by-trigger=ordering_allowed
             class:min-width=apply_min_width_class
             on:click=move |_| {
+                tracing::info!("Clicked on {}", name_clone);
                 if ordering_allowed {
                     update_order.run(())
                 }

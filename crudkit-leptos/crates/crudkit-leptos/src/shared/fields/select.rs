@@ -12,7 +12,7 @@ pub fn CrudSelectField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Box<dyn CrudSelectableTrait>>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => { move || format!("{:?}", value.get()) }.into_any(),
@@ -31,7 +31,7 @@ pub fn CrudSelectField(
                     Some(field_config) => {
                         field_config.render_select(
                             value,
-                            Callback::new(move |o| { value_changed.run((Ok(Value::Select(o)),)) }),
+                            Callback::new(move |o| { value_changed.run(Ok(Value::Select(o))) }),
                         )
                     }
                 }}
@@ -51,7 +51,7 @@ pub fn CrudSelectField(
                     Some(field_config) =>
                         field_config.render_select(
                             value,
-                            Callback::new(move |o| { value_changed.run((Ok(Value::Select(o)),)) }),
+                            Callback::new(move |o| { value_changed.run(Ok(Value::Select(o))) }),
                         )
                 }}
             </div>
@@ -66,7 +66,7 @@ pub fn CrudOptionalSelectField(
     field_options: FieldOptions,
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<Box<dyn CrudSelectableTrait>>>,
-    value_changed: Callback<(Result<Value, Arc<dyn std::error::Error>>,)>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => { move || format!("{:?}", value.get()) }.into_any(),
@@ -85,7 +85,7 @@ pub fn CrudOptionalSelectField(
                     Some(field_config) => {
                         field_config.render_optional_select(
                             value,
-                            Callback::new(move |o| { value_changed.run((Ok(Value::OptionalSelect(o)),)) }),
+                            Callback::new(move |o| { value_changed.run(Ok(Value::OptionalSelect(o))) }),
                         )
                     }
                 }}
@@ -108,7 +108,7 @@ pub fn CrudOptionalSelectField(
                     Some(field_config) => {
                         field_config.render_optional_select(
                             value,
-                            Callback::new(move |o| { value_changed.run((Ok(Value::OptionalSelect(o)),)) }),
+                            Callback::new(move |o| { value_changed.run(Ok(Value::OptionalSelect(o))) }),
                         )
                     }
                 }}

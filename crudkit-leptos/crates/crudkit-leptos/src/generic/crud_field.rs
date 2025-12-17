@@ -31,11 +31,10 @@ where
         let field_clone = field.clone();
         let field_clone3 = field.clone();
 
-        let value_changed: Callback<(Result<Value, Arc<dyn Error>>,)> =
-            Callback::new(move |(result,)| match result {
-                Ok(new) => value_changed.run((field_clone.clone(), Ok(new))),
-                Err(err) => tracing::error!("Could not get input value: {}", err),
-            });
+        let value_changed = Callback::new(move |result| match result {
+            Ok(new) => value_changed.run((field_clone.clone(), Ok(new))),
+            Err(err) => tracing::error!("Could not get input value: {}", err),
+        });
 
         let field_config: Option<Box<dyn SelectConfigTrait>> =
             field_config.with(|map| map.get(&field).cloned());

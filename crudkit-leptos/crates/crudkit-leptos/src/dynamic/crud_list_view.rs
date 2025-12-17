@@ -7,14 +7,15 @@ use crate::dynamic::custom_field::CustomReadFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_pagination::CrudPagination;
 use crudkit_shared::Order;
-use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::SerializableField;
+use crudkit_web::dynamic::prelude::*;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tracing::info;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CrudListViewContext {
@@ -132,7 +133,7 @@ pub fn CrudListView(
                     .read_value()
                     .model_handler
                     .deserialize_read_many_response
-                    .run((json,))
+                    .run(json)
                     .map_err(|de_err| RequestError::Deserialize(de_err.to_string()))
             })
     });
@@ -163,13 +164,13 @@ pub fn CrudListView(
     provide_context(CrudListViewContext {
         data: page,
         has_data: Signal::derive(move || {
-            let data = page.get();
+            let data = page.read();
             data.is_ok() && data.as_ref().unwrap().len() > 0
         }),
         selected,
         set_selected,
         all_selected: Signal::derive(move || {
-            let data = page.get();
+            let data = page.read();
             let selected = selected.get();
             data.is_ok() // TODO: Performance, memo?
                 && selected.len() == data.as_ref().unwrap().len()

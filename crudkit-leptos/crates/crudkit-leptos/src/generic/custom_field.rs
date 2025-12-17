@@ -13,7 +13,7 @@ pub struct CustomField<T: CrudDataTrait + 'static> {
         FieldMode,                                     // field_mode
         FieldOptions,                                  // field_options
         ReactiveValue,                                 // value
-        Callback<(Result<Value, Arc<dyn Error>>,)>,    // value_changed
+        Callback<Result<Value, Arc<dyn Error>>>,       // value_changed
     )>,
 }
 
