@@ -120,12 +120,12 @@ where
 
         data_provider
             .get()
-            .read_many(ReadMany {
-                limit: Some(items_per_page),
-                skip: Some(items_per_page * (page - 1)),
-                order_by: Some(instance_ctx.order_by.get()),
-                condition: instance_ctx.base_condition.get(),
-            })
+            .read_many(
+                ReadMany::paged(page.0, items_per_page.0)
+                    .order_by(Some(instance_ctx.order_by.get()))
+                    .condition(instance_ctx.base_condition.get())
+                    .build(),
+            )
             .await
     });
 

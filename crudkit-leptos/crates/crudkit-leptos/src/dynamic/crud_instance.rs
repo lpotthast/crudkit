@@ -3,10 +3,11 @@ use crate::dynamic::crud_create_view::CrudCreateView;
 use crate::dynamic::crud_delete_modal::CrudDeleteModal;
 use crate::dynamic::crud_edit_view::CrudEditView;
 use crate::dynamic::crud_instance_config::{
-    CrudInstanceConfig, CrudParentConfig, CrudStaticInstanceConfig,
+    CrudInstanceConfig, CrudMutableInstanceConfig, CrudParentConfig, CrudStaticInstanceConfig,
 };
 use crate::dynamic::crud_list_view::CrudListView;
 use crate::dynamic::crud_read_view::CrudReadView;
+use crate::shared::crud_instance_config::{ItemsPerPage, PageNr};
 use crate::shared::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
 use crudkit_id::SerializableId;
 use crudkit_shared::{DeleteResult, Order};
@@ -26,7 +27,7 @@ use uuid::Uuid;
 /// Signal setters should generally not be pub. Define custom functions providing the required functionality.
 #[derive(Debug, Clone, Copy)]
 pub struct CrudInstanceContext {
-    default_config: StoredValue<CrudInstanceConfig>,
+    default_config: StoredValue<CrudMutableInstanceConfig>,
     pub static_config: StoredValue<CrudStaticInstanceConfig>,
 
     /// The current "view" of this instance. Can be List, Create, Edit, Read, ... Acts like a router...
@@ -34,12 +35,12 @@ pub struct CrudInstanceContext {
     set_view: WriteSignal<SerializableCrudView>,
 
     /// The page the user is currently on in the list view.
-    pub current_page: ReadSignal<u64>,
-    set_current_page: WriteSignal<u64>,
+    pub current_page: ReadSignal<PageNr>,
+    set_current_page: WriteSignal<PageNr>,
 
     /// The amount of items shown per page in the list view.
-    pub items_per_page: ReadSignal<u64>,
-    set_items_per_page: WriteSignal<u64>,
+    pub items_per_page: ReadSignal<ItemsPerPage>,
+    set_items_per_page: WriteSignal<ItemsPerPage>,
 
     /// How data should be ordered when querying data for the ist view.
     pub order_by: ReadSignal<IndexMap<AnyField, Order>>, // Read model field
@@ -89,11 +90,11 @@ impl CrudInstanceContext {
         self.set_view.set(SerializableCrudView::Edit(entity_id));
     }
 
-    pub fn set_page(&self, page_number: u64) {
+    pub fn set_page(&self, page_number: PageNr) {
         self.set_current_page.set(page_number);
     }
 
-    pub fn set_items_per_page(&self, items_per_page: u64) {
+    pub fn set_items_per_page(&self, items_per_page: ItemsPerPage) {
         self.set_items_per_page.set(items_per_page);
     }
 
@@ -172,10 +173,11 @@ impl CrudInstanceContext {
 pub fn CrudInstance(
     name: &'static str,
     config: CrudInstanceConfig,
-    static_config: CrudStaticInstanceConfig,
     #[prop(optional)] parent: Option<CrudParentConfig>,
     #[prop(optional)] on_context_created: Option<Callback<CrudInstanceContext>>,
 ) -> impl IntoView {
+    let (config, static_config) = config.split();
+
     let static_config = StoredValue::new(static_config);
 
     let (api_base_url, set_api_base_url) = signal(config.api_base_url.clone());

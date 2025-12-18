@@ -1,11 +1,11 @@
 use crate::dynamic::crud_action::{CrudAction, CrudEntityAction};
 use crate::dynamic::custom_field::{CustomCreateFields, CustomReadFields, CustomUpdateFields};
-use crate::shared::crud_instance_config::DynSelectConfig;
+use crate::shared::crud_instance_config::{DynSelectConfig, ItemsPerPage, PageNr};
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_condition::Condition;
 use crudkit_shared::{Order, SaveResult, Saved};
 use crudkit_web::dynamic::prelude::*;
-use indexmap::{indexmap, IndexMap};
+use indexmap::IndexMap;
 use leptos::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -13,9 +13,11 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+/// Definition of a column, shown in list view.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Header {
-    pub field: AnyField, // Read model field!
+    /// **NOTE** Only use READ model fields here.
+    pub field: AnyField,
     pub options: HeaderOptions,
 }
 
@@ -34,16 +36,79 @@ impl From<(AnyField, HeaderOptions)> for Header {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)] // TODO: Serialize, Deserialize
+#[derive(Debug, Clone)]
 pub struct CrudInstanceConfig {
+    /* Later to-be mutable data. */
+    pub api_base_url: String,
+    pub view: SerializableCrudView,
+    pub list_columns: Vec<Header>,
+    pub create_elements: CreateElements,
+    pub elements: Vec<Elem>,                 // UpdateModel
+    pub order_by: IndexMap<AnyField, Order>, // Read model field name!
+    /// The number of items shown per page in the list view.
+    pub items_per_page: ItemsPerPage,
+    /// The current page to display, e.g. `Page::first()`. One-based index.
+    pub page_nr: PageNr,
+    /// The active tab. If set, must reference a tab name chosen when defining `elements`.
+    pub active_tab: Option<Label>,
+    pub base_condition: Option<Condition>,
+
+    /* Immutable data */
+    pub resource_name: String,
+    pub reqwest_executor: Arc<dyn ReqwestExecutor>,
+    pub model_handler: ModelHandler,
+    pub actions: Vec<CrudAction>,
+    pub entity_actions: Vec<CrudEntityAction>,
+    pub create_field_select_config: HashMap<AnyField, DynSelectConfig>, // CreateModel field
+    pub read_field_select_config: HashMap<AnyField, DynSelectConfig>,   // ReadModel field
+    pub update_field_select_config: HashMap<AnyField, DynSelectConfig>, // UpdateModel field
+    pub custom_read_fields: CustomReadFields,
+    pub custom_create_fields: CustomCreateFields,
+    pub custom_update_fields: CustomUpdateFields,
+}
+
+impl CrudInstanceConfig {
+    pub fn split(self) -> (CrudMutableInstanceConfig, CrudStaticInstanceConfig) {
+        (
+            CrudMutableInstanceConfig {
+                api_base_url: self.api_base_url,
+                view: self.view,
+                headers: self.list_columns,
+                create_elements: self.create_elements,
+                elements: self.elements,
+                order_by: self.order_by,
+                items_per_page: self.items_per_page,
+                page: self.page_nr,
+                active_tab: self.active_tab,
+                base_condition: self.base_condition,
+            },
+            CrudStaticInstanceConfig {
+                resource_name: self.resource_name,
+                reqwest_executor: self.reqwest_executor,
+                model_handler: self.model_handler,
+                actions: self.actions,
+                entity_actions: self.entity_actions,
+                create_field_select_config: self.create_field_select_config,
+                read_field_select_config: self.read_field_select_config,
+                update_field_select_config: self.update_field_select_config,
+                custom_read_fields: self.custom_read_fields,
+                custom_create_fields: self.custom_create_fields,
+                custom_update_fields: self.custom_update_fields,
+            },
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)] // TODO: Serialize, Deserialize
+pub(crate) struct CrudMutableInstanceConfig {
     pub api_base_url: String,
     pub view: SerializableCrudView,
     pub headers: Vec<Header>,
     pub create_elements: CreateElements,
     pub elements: Vec<Elem>,                 // UpdateModel
     pub order_by: IndexMap<AnyField, Order>, // Read model field name!
-    pub items_per_page: u64,
-    pub page: u64,
+    pub items_per_page: ItemsPerPage,
+    pub page: PageNr,
     pub active_tab: Option<Label>,
     pub base_condition: Option<Condition>,
 }
@@ -169,7 +234,7 @@ impl ModelHandler {
 
 /// This config is non-serializable. Every piece of runtime-changing data relevant to be tracked and reloaded should be part of the CrudInstanceConfig struct.
 #[derive(Debug, Clone)]
-pub struct CrudStaticInstanceConfig {
+pub(crate) struct CrudStaticInstanceConfig {
     pub resource_name: String,
     pub reqwest_executor: Arc<dyn ReqwestExecutor>,
     pub model_handler: ModelHandler,
@@ -183,54 +248,7 @@ pub struct CrudStaticInstanceConfig {
     pub custom_update_fields: CustomUpdateFields,
 }
 
-//impl Default for CrudStaticInstanceConfig {
-//    fn default() -> Self {
-//        Self {
-//            resource_name: "undefined".to_owned(),
-//            reqwest_executor: Arc::new(NewClientPerRequestExecutor),
-//            actions: Default::default(),
-//            deserialize_read_many_response: Default::default(),
-//            //entity_actions: Default::default(),
-//            //create_field_select_config: Default::default(),
-//            //read_field_select_config: Default::default(),
-//            //update_field_select_config: Default::default(),
-//            //custom_read_fields: Default::default(),
-//            //custom_create_fields: Default::default(),
-//            //custom_update_fields: Default::default(),
-//        }
-//    }
-//}
-
-impl Default for CrudInstanceConfig {
-    fn default() -> Self {
-        Self {
-            api_base_url: "".to_owned(),
-            view: SerializableCrudView::List,
-            // headers: vec![( // TODO: build from id fields_iter
-            //     T::ReadModel::get_id_field(),
-            //     HeaderOptions {
-            //         display_name: "ID".to_owned(),
-            //         min_width: true,
-            //         ordering_allowed: true,
-            //         date_time_display: DateTimeDisplay::LocalizedLocal,
-            //     },
-            // )],
-            headers: vec![],
-            create_elements: CreateElements::None,
-            elements: vec![],
-            // order_by: indexmap! { // TODO: Nothing? First id field? All id fields?
-            //     T::ReadModel::get_id_field() => Order::Asc,
-            // },
-            order_by: indexmap! {},
-            items_per_page: 10,
-            page: 1,
-            active_tab: None,
-            base_condition: None,
-        }
-    }
-}
-
-impl CrudInstanceConfig {
+impl CrudMutableInstanceConfig {
     // TODO: unused?
     pub fn update_order_by(&mut self, field: AnyField, options: OrderByUpdateOptions) {
         let prev = self.order_by.get(&field).cloned();

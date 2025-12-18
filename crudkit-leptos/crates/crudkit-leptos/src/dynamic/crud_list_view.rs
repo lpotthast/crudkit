@@ -7,8 +7,8 @@ use crate::dynamic::custom_field::CustomReadFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_pagination::CrudPagination;
 use crudkit_shared::Order;
-use crudkit_web::dynamic::SerializableField;
 use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::SerializableField;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
@@ -108,8 +108,8 @@ pub fn CrudListView(
 
     let page_resource = LocalResource::new(move || async move {
         let _ = instance_ctx.reload.get();
-        let items_per_page = instance_ctx.items_per_page.get();
-        let page = instance_ctx.current_page.get();
+        let items_per_page = instance_ctx.items_per_page.get().0;
+        let page = instance_ctx.current_page.get().0;
 
         data_provider
             .get()

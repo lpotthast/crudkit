@@ -1,11 +1,13 @@
 use crate::generic::crud_action::{CrudAction, CrudEntityAction};
 use crate::generic::custom_field::{CustomCreateFields, CustomReadFields, CustomUpdateFields};
-use crate::shared::crud_instance_config::{DynSelectConfig, SelectConfigTrait};
+use crate::shared::crud_instance_config::{
+    DynSelectConfig, ItemsPerPage, PageNr, SelectConfigTrait,
+};
 use crudkit_condition::Condition;
 use crudkit_shared::Order;
 use crudkit_web::generic::prelude::*;
 use crudkit_web::reqwest_executor::NewClientPerRequestExecutor;
-use indexmap::{IndexMap, indexmap};
+use indexmap::{indexmap, IndexMap};
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -24,8 +26,8 @@ pub struct CrudInstanceConfig<T: CrudMainTrait> {
     #[serde(bound = "")]
     pub elements: Vec<Elem<T::UpdateModel>>,
     pub order_by: IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>,
-    pub items_per_page: u64,
-    pub page: u64,
+    pub items_per_page: ItemsPerPage,
+    pub page_nr: PageNr,
     pub active_tab: Option<Label>,
     pub base_condition: Option<Condition>,
 }
@@ -242,8 +244,8 @@ impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {
             //     T::ReadModel::get_id_field() => Order::Asc,
             // },
             order_by: indexmap! {},
-            items_per_page: 10,
-            page: 1,
+            items_per_page: ItemsPerPage::default(),
+            page_nr: PageNr::first(),
             active_tab: None,
             base_condition: None,
         }

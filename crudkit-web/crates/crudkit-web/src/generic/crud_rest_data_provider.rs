@@ -9,18 +9,30 @@ use indexmap::IndexMap;
 use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
 use std::{fmt::Debug, marker::PhantomData};
+use typed_builder::TypedBuilder;
 
 #[derive(Debug, Serialize)]
 pub struct ReadCount {
     pub condition: Option<Condition>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, TypedBuilder, Serialize)]
 pub struct ReadMany<T: CrudDataTrait> {
     pub limit: Option<u64>,
     pub skip: Option<u64>,
     pub order_by: Option<IndexMap<T::Field, Order>>,
     pub condition: Option<Condition>,
+}
+
+impl<T: CrudDataTrait> ReadMany<T> {
+    pub fn paged(
+        page: u64,
+        items_per_page: u64,
+    ) -> ReadManyBuilder<T, ((Option<u64>,), (Option<u64>,), (), ())> {
+        ReadMany::builder()
+            .limit(Some(items_per_page))
+            .skip(Some(items_per_page * (page - 1)))
+    }
 }
 
 #[derive(Debug, Serialize)]

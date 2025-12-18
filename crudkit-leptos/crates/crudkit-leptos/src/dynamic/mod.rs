@@ -30,5 +30,5 @@ pub mod prelude {
     pub use super::crud_instance::CrudInstance;
     pub use super::crud_instance_config::CreateElements;
     pub use super::crud_instance_config::CrudInstanceConfig;
-    pub use super::crud_instance_config::CrudStaticInstanceConfig;
+    pub use super::crud_instance_config::CrudParentConfig;
 }

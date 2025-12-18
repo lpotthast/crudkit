@@ -7,6 +7,7 @@ use crate::generic::crud_instance_config::{
 };
 use crate::generic::crud_list_view::CrudListView;
 use crate::generic::crud_read_view::CrudReadView;
+use crate::shared::crud_instance_config::{ItemsPerPage, PageNr};
 use crate::shared::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
 use crudkit_id::{Id, SerializableId};
 use crudkit_shared::{DeleteResult, Order};
@@ -34,12 +35,12 @@ pub struct CrudInstanceContext<T: CrudMainTrait + 'static> {
     set_view: WriteSignal<CrudView<T::ReadModelId, T::UpdateModelId>>,
 
     /// The page the user is currently on in the list view.
-    pub current_page: ReadSignal<u64>,
-    set_current_page: WriteSignal<u64>,
+    pub current_page: ReadSignal<PageNr>,
+    set_current_page: WriteSignal<PageNr>,
 
     /// The amount of items shown per page in the list view.
-    pub items_per_page: ReadSignal<u64>,
-    set_items_per_page: WriteSignal<u64>,
+    pub items_per_page: ReadSignal<ItemsPerPage>,
+    set_items_per_page: WriteSignal<ItemsPerPage>,
 
     /// How data should be ordered when querying data for the ist view.
     pub order_by: ReadSignal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
@@ -92,11 +93,11 @@ impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
         self.set_view.set(CrudView::Edit(entity_id));
     }
 
-    pub fn set_page(&self, page_number: u64) {
+    pub fn set_page(&self, page_number: PageNr) {
         self.set_current_page.set(page_number);
     }
 
-    pub fn set_items_per_page(&self, items_per_page: u64) {
+    pub fn set_items_per_page(&self, items_per_page: ItemsPerPage) {
         self.set_items_per_page.set(items_per_page);
     }
 
@@ -167,7 +168,7 @@ impl<T: CrudMainTrait + 'static> CrudInstanceContext<T> {
     pub fn reset(&self) {
         let default = self.default_config.get_value();
         self.set_deletion_request.set(None);
-        self.set_current_page.set(default.page);
+        self.set_current_page.set(default.page_nr);
         self.set_items_per_page.set(default.items_per_page);
         self.set_order_by.set(default.order_by.clone());
         // TODO: Should there be functions resetting individual views? This always resets everything and sets the view to be the List view...
@@ -202,7 +203,7 @@ where
     );
 
     let (headers, set_headers) = signal(config.headers.clone());
-    let (current_page, set_current_page) = signal(config.page.clone());
+    let (current_page, set_current_page) = signal(config.page_nr.clone());
     let (items_per_page, set_items_per_page) = signal(config.items_per_page.clone());
     let (order_by, set_order_by) = signal(config.order_by.clone());
 
