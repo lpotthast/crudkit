@@ -76,21 +76,21 @@ impl JsonValue {
     }
 }
 
-impl Into<serde_json::Value> for JsonValue {
-    fn into(self) -> serde_json::Value {
-        self.value
+impl From<JsonValue> for serde_json::Value {
+    fn from(value: JsonValue) -> Self {
+        value.value
     }
 }
 
-impl Into<String> for JsonValue {
-    fn into(self) -> String {
-        self.string_representation
+impl From<JsonValue> for String {
+    fn from(value: JsonValue) -> Self {
+        value.string_representation
     }
 }
 
-impl Into<Value> for crudkit_shared::Value {
-    fn into(self) -> Value {
-        match self {
+impl From<crudkit_shared::Value> for Value {
+    fn from(value: crudkit_shared::Value) -> Self {
+        match value {
             crudkit_shared::Value::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
             crudkit_shared::Value::Json(value) => Value::Json(JsonValue::new(value)),
             crudkit_shared::Value::Uuid(value) => Value::Uuid(value),
@@ -111,9 +111,9 @@ impl Into<Value> for crudkit_shared::Value {
     }
 }
 
-impl Into<Value> for IdValue {
-    fn into(self) -> Value {
-        match self {
+impl From<IdValue> for Value {
+    fn from(id_value: IdValue) -> Self {
+        match id_value {
             IdValue::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
             IdValue::Uuid(value) => Value::Uuid(value),
             IdValue::I32(value) => Value::I32(value),
