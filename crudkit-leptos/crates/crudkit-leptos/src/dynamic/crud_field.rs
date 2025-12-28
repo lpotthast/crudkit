@@ -5,8 +5,7 @@ use crate::ReactiveValue;
 use crudkit_web::dynamic::prelude::*;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
-use std::sync::Arc;
-use std::{collections::HashMap, error::Error};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 #[component]

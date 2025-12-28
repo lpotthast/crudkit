@@ -15,7 +15,6 @@ use leptonic::prelude::*;
 use leptos::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tracing::info;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CrudListViewContext {

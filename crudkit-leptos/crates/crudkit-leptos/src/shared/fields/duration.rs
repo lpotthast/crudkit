@@ -308,9 +308,9 @@ pub fn CrudOptionalDurationField(
                         attr:class="crud-input-field"
                         disabled=false
                         get=Signal::derive(move || { value.get().map(|it| it.0) })
-                        set=(move |new: Option<time::Duration>| {
+                        set={move |new: Option<time::Duration>| {
                             value_changed.run(Ok(Value::OptionalDuration(new.map(|it| TimeDuration(it)))))
-                        })
+                        }}
                     />
                 </div>
             }
@@ -326,9 +326,9 @@ pub fn CrudOptionalDurationField(
                         attr:class="crud-input-field"
                         disabled=false
                         get=Signal::derive(move || { value.get().map(|it| it.0) })
-                        set=(move |new: Option<time::Duration>| {
+                        set={move |new: Option<time::Duration>| {
                             value_changed.run(Ok(Value::OptionalDuration(new.map(|it| TimeDuration(it)))))
-                        })
+                        }}
                     />
                 </div>
             }

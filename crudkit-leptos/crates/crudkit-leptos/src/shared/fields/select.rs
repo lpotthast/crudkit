@@ -15,7 +15,11 @@ pub fn CrudSelectField(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => { move || format!("{:?}", value.get()) }.into_any(),
+        FieldMode::Display => view! {
+            <span>
+                { move || format!("{:?}", value.read()) }
+            </span>
+        }.into_any(),
         FieldMode::Readable => view! {
             <div class="crud-field">
                 {render_label(field_options.label.clone())}

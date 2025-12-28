@@ -6,7 +6,7 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 use utoipa::openapi::Type;
-use utoipa::{PartialSchema, ToSchema};
+use utoipa::ToSchema;
 
 #[derive(Default, PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
 pub enum Order {

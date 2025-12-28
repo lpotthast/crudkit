@@ -64,7 +64,7 @@ impl CrudActionContext {
         });
     }
 
-    pub fn trigger_action(
+    pub(crate) fn trigger_action(
         &self,
         action_id: ActionId,
         action_payload: Option<AnyActionPayload>,

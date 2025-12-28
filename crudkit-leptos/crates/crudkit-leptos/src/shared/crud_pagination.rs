@@ -144,6 +144,27 @@ impl Display for ItemsPerPageEntry {
 
 #[derive(Debug, Clone)]
 struct PageOptions {
+    /// Options for pages to which navigation can occur.
+    ///
+    /// Occurrences of `None` describe "gaps" in the available numbers to go to. These can either
+    /// be ignored or rendered using a special non-interactable symbol.
+    ///
+    /// Example:
+    /// ```
+    /// [
+    ///     Some(1),
+    ///     Some(2),
+    ///     None,
+    ///     Some(11),
+    ///     Some(12),
+    ///     Some(13), // Current page!
+    ///     Some(14),
+    ///     Some(15),
+    ///     None,
+    ///     Some(41),
+    ///     Some(42),
+    /// ]
+    /// ```
     options: Vec<Option<PageNr>>,
     for_current_page: PageNr,
 }
