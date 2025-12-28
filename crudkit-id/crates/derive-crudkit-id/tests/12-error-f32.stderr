@@ -1,0 +1,18 @@
+error: f32 is not supported for ID fields (not Eq comparable)
+
+         = help: Supported ID field types:
+         - Integers: i32, u32, i64, u64, i128, u128
+         - Strings: String
+         - Booleans: bool
+         - UUIDs: uuid::Uuid
+         - Time: time::PrimitiveDateTime, time::OffsetDateTime
+
+       Note:
+         - Floating point types (f32, f64) are not supported (not Eq comparable)
+         - Optional types (Option<T>) are not supported for ID fields
+         - Use exact type paths as shown above
+
+ --> tests/12-error-f32.rs:8:9
+  |
+8 |     id: f32,
+  |         ^^^

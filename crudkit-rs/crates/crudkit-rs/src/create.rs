@@ -112,7 +112,7 @@ pub async fn create_one<R: CrudResource, Ro: Role>(
     let entity_id = inserted_entity.get_id();
     //.expect("Already inserted entities must have an ID!");
 
-    let serializable_id = entity_id.into_serializable_id();
+    let serializable_id = entity_id.to_serializable_id();
 
     // TODO: Performing another conversion into the ActiveModel seems unnecessary. Can we avoid this?
     let active_inserted_entity: R::ActiveModel = inserted_entity.clone().into();

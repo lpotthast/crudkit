@@ -33,7 +33,7 @@ time = { version = "0.3.44", features = [
     "wasm-bindgen",
 ] }
 tracing = "0.1.41"
-uuid = { version = "1.12.1", features = ["js", "v4", "v7", "serde"] }
+uuid = { version = "1.19.0", features = ["js", "v4", "v7", "serde"] }
 
 [build-dependencies]
 anyhow = "1.0.79"

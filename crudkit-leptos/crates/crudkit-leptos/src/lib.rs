@@ -28,7 +28,7 @@ pub use crudkit_websocket;
 use leptos::prelude::*;
 
 // TODO: This prelude should only contain types always required when using the lib.
-pub(crate) mod prelude {
+pub mod prelude {
     pub use crudkit_condition;
     pub use crudkit_id;
     pub use crudkit_id::*;
@@ -64,10 +64,10 @@ pub trait SignalsTrait {
     ) -> Self;
 }
 
-/// Theoretically, all `Value` types are already defined through crudkit_web::Value.
-/// But we want to have fine-grained reactivity in this library.
-/// Therefore this type exists, mapping each crudkit_web::Value to the same type wrapped inside an `RwSignal`.
-/// This allows to to reactively work with individual fields of an entity, not just the whole entity itself.
+/// Theoretically, all `Value` types are already defined through `crudkit_web::Value`.
+/// But we want to have fine-grained reactivity in this library. Therefore, this type exists,
+/// mapping each `crudkit_web::Value` to the same type wrapped inside an `RwSignal`. This allows
+/// us to reactively work with individual fields of an entity, not just the whole entity itself.
 // TODO: Move into own module
 #[derive(Debug, Clone, Copy)]
 pub enum ReactiveValue {
@@ -76,12 +76,13 @@ pub enum ReactiveValue {
     Text(RwSignal<String>),    // TODO: Add optional text!
     Json(RwSignal<JsonValue>), // TODO: Add optional json value
     OptionalJson(RwSignal<Option<JsonValue>>),
-    UuidV4(RwSignal<uuid::Uuid>), // TODO: Add optional UuidV4 value
-    UuidV7(RwSignal<uuid::Uuid>), // TODO: Add optional UuidV7 value
+    Uuid(RwSignal<uuid::Uuid>), // TODO: Add OptionalUuid variant
     I32(RwSignal<i32>),
     U32(RwSignal<u32>),
     I64(RwSignal<i64>),
     U64(RwSignal<u64>),
+    I128(RwSignal<i128>),
+    U128(RwSignal<u128>),
     OptionalI32(RwSignal<Option<i32>>),
     OptionalI64(RwSignal<Option<i64>>),
     OptionalU32(RwSignal<Option<u32>>),
@@ -119,12 +120,13 @@ impl IntoReactiveValue for Value {
             Value::Text(value) => ReactiveValue::Text(RwSignal::new(value)),
             Value::Json(value) => ReactiveValue::Json(RwSignal::new(value)),
             Value::OptionalJson(value) => ReactiveValue::OptionalJson(RwSignal::new(value)),
-            Value::UuidV4(value) => ReactiveValue::UuidV4(RwSignal::new(value)),
-            Value::UuidV7(value) => ReactiveValue::UuidV7(RwSignal::new(value)),
+            Value::Uuid(value) => ReactiveValue::Uuid(RwSignal::new(value)),
             Value::I32(value) => ReactiveValue::I32(RwSignal::new(value)),
-            Value::I64(value) => ReactiveValue::I64(RwSignal::new(value)),
             Value::U32(value) => ReactiveValue::U32(RwSignal::new(value)),
+            Value::I64(value) => ReactiveValue::I64(RwSignal::new(value)),
             Value::U64(value) => ReactiveValue::U64(RwSignal::new(value)),
+            Value::I128(value) => ReactiveValue::I128(RwSignal::new(value)),
+            Value::U128(value) => ReactiveValue::U128(RwSignal::new(value)),
             Value::OptionalI32(value) => ReactiveValue::OptionalI32(RwSignal::new(value)),
             Value::OptionalI64(value) => ReactiveValue::OptionalI64(RwSignal::new(value)),
             Value::OptionalU32(value) => ReactiveValue::OptionalU32(RwSignal::new(value)),
@@ -170,12 +172,13 @@ impl ReactiveValue {
             ReactiveValue::Text(sig) => sig.set(v.take_text()),
             ReactiveValue::Json(sig) => sig.set(v.take_json_value()),
             ReactiveValue::OptionalJson(sig) => sig.set(v.take_optional_json_value()),
-            ReactiveValue::UuidV4(sig) => sig.set(v.take_uuid_v4()),
-            ReactiveValue::UuidV7(sig) => sig.set(v.take_uuid_v7()),
+            ReactiveValue::Uuid(sig) => sig.set(v.take_uuid()),
             ReactiveValue::I32(sig) => sig.set(v.take_i32()),
-            ReactiveValue::I64(sig) => sig.set(v.take_i64()),
             ReactiveValue::U32(sig) => sig.set(v.take_u32()),
+            ReactiveValue::I64(sig) => sig.set(v.take_i64()),
             ReactiveValue::U64(sig) => sig.set(v.take_u64()),
+            ReactiveValue::I128(sig) => sig.set(v.take_i128()),
+            ReactiveValue::U128(sig) => sig.set(v.take_u128()),
             ReactiveValue::OptionalU32(sig) => sig.set(v.take_optional_u32()),
             ReactiveValue::OptionalI32(sig) => sig.set(v.take_optional_i32()),
             ReactiveValue::OptionalI64(sig) => sig.set(v.take_optional_i64()),

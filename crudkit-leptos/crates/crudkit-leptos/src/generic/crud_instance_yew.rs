@@ -373,7 +373,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                         }
                         None => {
                             info!("no parent config");
-                            warn!("does .instance_views_store.get(nested.parent_instance.as_str()) work correctly now that we have a generic store?");
+                            warn!(
+                                "does .instance_views_store.get(nested.parent_instance.as_str()) work correctly now that we have a generic store?"
+                            );
                             false
                         }
                     }
@@ -608,14 +610,26 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                     Some(deletable_model) => {
                         let data_provider = self.data_provider.clone();
                         let serializable_id = match deletable_model {
-                            DeletableModel::Read(read_model) => read_model.get_id().into_serializable_id(),
-                            DeletableModel::Update(update_model) => update_model.get_id().into_serializable_id(),
+                            DeletableModel::Read(read_model) => {
+                                read_model.get_id().to_serializable_id()
+                            }
+                            DeletableModel::Update(update_model) => {
+                                update_model.get_id().to_serializable_id()
+                            }
                         };
                         ctx.link().send_future(async move {
-                            Msg::Deleted(data_provider.delete_by_id(DeleteById { id: serializable_id }).await)
+                            Msg::Deleted(
+                                data_provider
+                                    .delete_by_id(DeleteById {
+                                        id: serializable_id,
+                                    })
+                                    .await,
+                            )
                         });
-                    },
-                    None => warn!("Delete was approved, but instance already lost track of the 'entity_to_delete'!"),
+                    }
+                    None => warn!(
+                        "Delete was approved, but instance already lost track of the 'entity_to_delete'!"
+                    ),
                 }
                 false
             }
@@ -648,7 +662,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                                         match &self.config.view {
                                             CrudView::Read(id) => {
                                                 // TODO: We cannot do anything here as the UpdateModel cannot be converted into the ReadModel and the ReadModelId cannot be converted into an UpdateModelId...
-                                                warn!("possibly needs implementation... crud_instance#Msg::Deleted handler");
+                                                warn!(
+                                                    "possibly needs implementation... crud_instance#Msg::Deleted handler"
+                                                );
                                             }
                                             CrudView::Edit(id) => {
                                                 if id == &update_model.get_id() {
@@ -683,7 +699,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             false
                         }
                         DeleteResult::CriticalValidationErrors => {
-                            warn!("Server did not respond with an error but also did not send the deleted entity back. Something seems wrong..");
+                            warn!(
+                                "Server did not respond with an error but also did not send the deleted entity back. Something seems wrong.."
+                            );
                             false
                         }
                     },
@@ -728,7 +746,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 if let Some(view_link) = &self.view_link {
                     match view_link {
                         ViewLink::List(_link) => {
-                            warn!("Ignoring 'SaveInput' message as we are currently in the list view, which is unable to save any user inputs.");
+                            warn!(
+                                "Ignoring 'SaveInput' message as we are currently in the list view, which is unable to save any user inputs."
+                            );
                         }
                         ViewLink::Create(link) => match field {
                             CreateOrUpdateField::CreateField(field) => {
@@ -739,12 +759,16 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                                     );
                             }
                             CreateOrUpdateField::UpdateField(field) => {
-                                error!("CrudInstance: Cannot 'SaveInput' from 'UpdateModel' field '{field:?}' when being in the create view. You must declare an 'CreateModel' field for this view.")
+                                error!(
+                                    "CrudInstance: Cannot 'SaveInput' from 'UpdateModel' field '{field:?}' when being in the create view. You must declare an 'CreateModel' field for this view."
+                                )
                             }
                         },
                         ViewLink::Edit(link) => match field {
                             CreateOrUpdateField::CreateField(field) => {
-                                error!("CrudInstance: Cannot 'SaveInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'UpdateModel' field for this view.")
+                                error!(
+                                    "CrudInstance: Cannot 'SaveInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'UpdateModel' field for this view."
+                                )
                             }
                             CreateOrUpdateField::UpdateField(field) => {
                                 link.send_message(
@@ -755,11 +779,16 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             }
                         },
                         ViewLink::Read(_link) => {
-                            warn!("Ignoring 'SaveInput' message as we are currently in the read view, which is unable to save any user inputs.");
+                            warn!(
+                                "Ignoring 'SaveInput' message as we are currently in the read view, which is unable to save any user inputs."
+                            );
                         }
                     }
                 } else {
-                    warn!("Could not forward SaveInput message, as no view link was registered in instance {:?}.", self.config);
+                    warn!(
+                        "Could not forward SaveInput message, as no view link was registered in instance {:?}.",
+                        self.config
+                    );
                 }
                 false
             }
@@ -767,7 +796,9 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                 if let Some(view_link) = &self.view_link {
                     match view_link {
                         ViewLink::List(_link) => {
-                            warn!("Ignoring 'GetInput' message as we are currently in the list view, which is unable to retrieve any user inputs.");
+                            warn!(
+                                "Ignoring 'GetInput' message as we are currently in the list view, which is unable to retrieve any user inputs."
+                            );
                         }
                         ViewLink::Create(link) => match field {
                             CreateOrUpdateField::CreateField(field) => {
@@ -778,12 +809,16 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                                     );
                             }
                             CreateOrUpdateField::UpdateField(field) => {
-                                error!("CrudInstance: Cannot 'GetInput' from 'UpdateModel' field '{field:?}' when being in the create view. You must declare an 'CreateModel' field for this view.")
+                                error!(
+                                    "CrudInstance: Cannot 'GetInput' from 'UpdateModel' field '{field:?}' when being in the create view. You must declare an 'CreateModel' field for this view."
+                                )
                             }
                         },
                         ViewLink::Edit(link) => match field {
                             CreateOrUpdateField::CreateField(field) => {
-                                error!("CrudInstance: Cannot 'GetInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'UpdateModel' field for this view.")
+                                error!(
+                                    "CrudInstance: Cannot 'GetInput' from 'CreateModel' field '{field:?}' when being in the edit view. You must declare an 'UpdateModel' field for this view."
+                                )
                             }
                             CreateOrUpdateField::UpdateField(field) => {
                                 link.send_message(
@@ -795,11 +830,15 @@ impl<T: 'static + CrudMainTrait> Component for CrudInstance<T> {
                             }
                         },
                         ViewLink::Read(_link) => {
-                            warn!("Ignoring 'GetInput' message as we are currently in the read view, which is unable to retrieve any user inputs.");
+                            warn!(
+                                "Ignoring 'GetInput' message as we are currently in the read view, which is unable to retrieve any user inputs."
+                            );
                         }
                     }
                 } else {
-                    warn!("Could not forward GetInput message, as neither a create view nor an edit view registered.");
+                    warn!(
+                        "Could not forward GetInput message, as neither a create view nor an edit view registered."
+                    );
                 }
                 false
             }

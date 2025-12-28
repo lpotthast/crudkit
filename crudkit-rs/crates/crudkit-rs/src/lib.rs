@@ -286,20 +286,11 @@ pub fn to_json_value(value: ConditionClauseValue) -> Result<Value, String> {
     }
 }
 
-pub fn to_uuid_v4(value: ConditionClauseValue) -> Result<Value, String> {
+pub fn to_uuid(value: ConditionClauseValue) -> Result<Value, String> {
     match value {
-        ConditionClauseValue::UuidV4(uuid) => Ok(Value::UuidV4(uuid)),
+        ConditionClauseValue::Uuid(uuid) => Ok(Value::Uuid(uuid)),
         _ => Err(format!(
-            "{value:?} can not be converted to a UuidV4. Expected UuidV4."
-        )),
-    }
-}
-
-pub fn to_uuid_v7(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::UuidV7(uuid) => Ok(Value::UuidV7(uuid)),
-        _ => Err(format!(
-            "{value:?} can not be converted to a UuidV7. Expected UuidV7."
+            "{value:?} can not be converted to a Uuid. Expected Uuid."
         )),
     }
 }

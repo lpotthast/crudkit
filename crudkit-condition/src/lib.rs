@@ -1,3 +1,4 @@
+use crudkit_id::IdValue;
 use crudkit_shared::Value;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -34,20 +35,23 @@ pub struct ConditionClause {
 // TODO: Drop in favor of "crudkit_shared::Value" type??
 #[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
 pub enum ConditionClauseValue {
-    String(String),
-    Json(String),
-    UuidV4(uuid::Uuid),
-    UuidV7(uuid::Uuid),
-    Bool(bool),
     I32(i32),
-    I64(i64),
     U32(u32),
+    I64(i64),
     U64(u64),
+    I128(i128),
+    U128(u128),
     F32(f32),
     F64(f64),
+    Bool(bool),
+    String(String),
+    Json(String),
+    Uuid(uuid::Uuid),
+    UuidV7(uuid::Uuid),
     U8Vec(Vec<u8>),
     I32Vec(Vec<i32>),
     I64Vec(Vec<i64>),
+    // TODO: Add additional vec types
     //DateTime(time::OffsetDateTime), // TODO: Enable time
 }
 
@@ -57,8 +61,7 @@ impl Into<ConditionClauseValue> for Value {
         match self {
             Value::String(value) => ConditionClauseValue::String(value),
             Value::Json(value) => ConditionClauseValue::Json(value.to_string()),
-            Value::UuidV4(value) => ConditionClauseValue::UuidV4(value),
-            Value::UuidV7(value) => ConditionClauseValue::UuidV7(value),
+            Value::Uuid(value) => ConditionClauseValue::Uuid(value),
             Value::I32(value) => ConditionClauseValue::I32(value),
             Value::I64(value) => ConditionClauseValue::I64(value),
             Value::U8Vec(values) => ConditionClauseValue::U8Vec(values),
@@ -78,20 +81,21 @@ impl Into<ConditionClauseValue> for Value {
 }
 
 // TODO: Use result type instead of panicking!
-impl Into<ConditionClauseValue> for crudkit_id::IdValue {
+impl Into<ConditionClauseValue> for IdValue {
     fn into(self) -> ConditionClauseValue {
         match self {
-            crudkit_id::IdValue::String(value) => ConditionClauseValue::String(value),
-            crudkit_id::IdValue::UuidV4(value) => ConditionClauseValue::UuidV4(value),
-            crudkit_id::IdValue::UuidV7(value) => ConditionClauseValue::UuidV7(value),
-            crudkit_id::IdValue::I32(value) => ConditionClauseValue::I32(value),
-            crudkit_id::IdValue::I64(value) => ConditionClauseValue::I64(value),
-            crudkit_id::IdValue::U32(value) => ConditionClauseValue::U32(value),
-            crudkit_id::IdValue::U64(value) => ConditionClauseValue::U64(value),
-            crudkit_id::IdValue::Bool(value) => ConditionClauseValue::Bool(value),
+            IdValue::I32(value) => ConditionClauseValue::I32(value),
+            IdValue::U32(value) => ConditionClauseValue::U32(value),
+            IdValue::I64(value) => ConditionClauseValue::I64(value),
+            IdValue::U64(value) => ConditionClauseValue::U64(value),
+            IdValue::I128(value) => ConditionClauseValue::I128(value),
+            IdValue::U128(value) => ConditionClauseValue::U128(value),
+            IdValue::Bool(value) => ConditionClauseValue::Bool(value),
+            IdValue::String(value) => ConditionClauseValue::String(value),
+            IdValue::Uuid(value) => ConditionClauseValue::Uuid(value),
             //crudkit_id::IdValue::DateTime(value) => ConditionClauseValue::DateTime(value), // TODO: implement
-            crudkit_id::IdValue::PrimitiveDateTime(_value) => panic!("Not implemented...."),
-            crudkit_id::IdValue::OffsetDateTime(_value) => panic!("Not implemented...."),
+            IdValue::PrimitiveDateTime(_value) => panic!("Not implemented...."),
+            IdValue::OffsetDateTime(_value) => panic!("Not implemented...."),
         }
     }
 }

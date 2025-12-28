@@ -29,6 +29,6 @@ fn main() {
                 .map(|field| (field.name().to_owned(), field.to_value(),))
                 .collect()
         ),
-        id.into_serializable_id()
+        id.to_serializable_id()
     );
 }

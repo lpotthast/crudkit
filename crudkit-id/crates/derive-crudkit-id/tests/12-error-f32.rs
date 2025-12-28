@@ -5,7 +5,7 @@ use derive_crudkit_id::CkId;
 #[derive(CkId)]
 pub struct Foo {
     #[ck_id(id)]
-    id: i32,
+    id: f32,
 }
 
 fn main() {}

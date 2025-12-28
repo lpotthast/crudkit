@@ -60,31 +60,6 @@ fn duration_to_string(duration: time::Duration) -> String {
     )
 }
 
-fn string_to_duration(s: &str) -> Result<time::Duration, Box<dyn std::error::Error>> {
-    let parts: Vec<&str> = s.split(':').collect();
-    if parts.len() != 3 {
-        return Err("Invalid format: expected HH:MM:SS.CC".into());
-    }
-
-    let hours: i64 = parts[0].parse()?;
-    let minutes: i64 = parts[1].parse()?;
-
-    let seconds_parts: Vec<&str> = parts[2].split('.').collect();
-    if seconds_parts.len() != 2 {
-        return Err("Invalid format: expected seconds with centiseconds".into());
-    }
-
-    let seconds: i64 = seconds_parts[0].parse()?;
-    let centiseconds: i64 = seconds_parts[1].parse()?;
-
-    let total_seconds = hours * 3600 + minutes * 60 + seconds;
-    let milliseconds = centiseconds * 10;
-
-    Ok(time::Duration::milliseconds(
-        total_seconds * 1000 + milliseconds,
-    ))
-}
-
 #[component]
 fn DurationInput(
     #[prop(into)] get: Signal<time::Duration>,

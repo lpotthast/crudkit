@@ -15,7 +15,7 @@ use crate::{
     error::CrudError,
     lifetime::{Abort, CrudLifetime},
     prelude::*,
-    validation::{CrudAction, ValidationContext, ValidationTrigger, When, into_persistable},
+    validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
 };
 
 #[derive(Debug, ToSchema, Deserialize)]
@@ -70,7 +70,7 @@ pub async fn update_one<R: CrudResource, Ro: Role>(
     let entity_id = R::CrudColumn::get_id_active(&active_model)
         .expect("Updatable entities must be stored and therefor have an ID!");
 
-    let serializable_id = entity_id.into_serializable_id();
+    let serializable_id = entity_id.to_serializable_id();
 
     // Run validations ON THE NEW STATE(!) but before updating the entity in the database.
     let trigger = ValidationTrigger::CrudAction(ValidationContext {

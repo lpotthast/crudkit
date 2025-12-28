@@ -7,13 +7,14 @@ use crate::shared::fields::date_time::{
 use crate::shared::fields::duration::{CrudDurationField, CrudOptionalDurationField};
 use crate::shared::fields::json::{CrudJsonField, CrudOptionalJsonField};
 use crate::shared::fields::number::{
-    CrudF32Field, CrudF64Field, CrudI32Field, CrudI64Field, CrudOptionalI32Field,
-    CrudOptionalI64Field, CrudOptionalU32Field, CrudOptionalU64Field, CrudU32Field, CrudU64Field,
+    CrudF32Field, CrudF64Field, CrudI128Field, CrudI32Field, CrudI64Field, CrudOptionalI32Field,
+    CrudOptionalI64Field, CrudOptionalU32Field, CrudOptionalU64Field, CrudU128Field, CrudU32Field,
+    CrudU64Field,
 };
 use crate::shared::fields::select::{CrudOptionalSelectField, CrudSelectField};
 use crate::shared::fields::string::{CrudOptionalStringField, CrudStringField};
 use crate::shared::fields::text::CrudTextField;
-use crate::shared::fields::uuid::{CrudUuidV4Field, CrudUuidV7Field};
+use crate::shared::fields::uuid::CrudUuidField;
 use crate::shared::fields::validation_status::CrudValidationStatusField;
 use crate::ReactiveValue;
 use crudkit_web::{FieldMode, FieldOptions, Label, Value};
@@ -111,20 +112,9 @@ pub fn render_field(
                         />
                     }.into_any()
             },
-            ReactiveValue::UuidV4(value) => {
+            ReactiveValue::Uuid(value) => {
                 view! {
-                        <CrudUuidV4Field
-                            id=id.clone()
-                            field_options=field_options
-                            field_mode=field_mode
-                            value=value
-                            value_changed=value_changed
-                        />
-                    }.into_any()
-            },
-            ReactiveValue::UuidV7(value) => {
-                view! {
-                        <CrudUuidV7Field
+                        <CrudUuidField
                             id=id.clone()
                             field_options=field_options
                             field_mode=field_mode
@@ -169,6 +159,28 @@ pub fn render_field(
             ReactiveValue::U64(value) => {
                 view! {
                         <CrudU64Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_any()
+            },
+            ReactiveValue::I128(value) => {
+                view! {
+                        <CrudI128Field
+                            id=id.clone()
+                            field_options=field_options
+                            field_mode=field_mode
+                            value=value
+                            value_changed=value_changed
+                        />
+                    }.into_any()
+            },
+            ReactiveValue::U128(value) => {
+                view! {
+                        <CrudU128Field
                             id=id.clone()
                             field_options=field_options
                             field_mode=field_mode

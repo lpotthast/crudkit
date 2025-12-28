@@ -68,7 +68,7 @@ pub struct CrudInstanceConfig {
 }
 
 impl CrudInstanceConfig {
-    pub fn split(self) -> (CrudMutableInstanceConfig, CrudStaticInstanceConfig) {
+    pub(crate) fn split(self) -> (CrudMutableInstanceConfig, CrudStaticInstanceConfig) {
         (
             CrudMutableInstanceConfig {
                 api_base_url: self.api_base_url,

@@ -1,5 +1,6 @@
 use crate::CrudSelectableTrait;
 use crudkit_condition::ConditionClauseValue;
+use crudkit_id::IdValue;
 use crudkit_shared::TimeDuration;
 use std::fmt::Display;
 use time::format_description::well_known::Rfc3339;
@@ -14,12 +15,13 @@ pub enum Value {
     Text(String), // TODO: Add optional text!, TODO: Remove this variant altogether and make "text" an optional editing mode for string values!
     Json(JsonValue), // TODO: Add optional json value
     OptionalJson(Option<JsonValue>),
-    UuidV4(uuid::Uuid), // TODO: Add optional UuidV4 value
-    UuidV7(uuid::Uuid), // TODO: Add optional UuidV7 value
+    Uuid(uuid::Uuid), // TODO: Add OptionalUuid variant
     I32(i32),
-    I64(i64),
     U32(u32),
+    I64(i64),
     U64(u64),
+    I128(i128),
+    U128(u128),
     OptionalI32(Option<i32>),
     OptionalI64(Option<i64>),
     OptionalU32(Option<u32>),
@@ -91,8 +93,7 @@ impl Into<Value> for crudkit_shared::Value {
         match self {
             crudkit_shared::Value::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
             crudkit_shared::Value::Json(value) => Value::Json(JsonValue::new(value)),
-            crudkit_shared::Value::UuidV4(value) => Value::UuidV4(value),
-            crudkit_shared::Value::UuidV7(value) => Value::UuidV7(value),
+            crudkit_shared::Value::Uuid(value) => Value::Uuid(value),
             crudkit_shared::Value::I32(value) => Value::I32(value),
             crudkit_shared::Value::I64(value) => Value::I64(value),
             crudkit_shared::Value::U8Vec(_values) => todo!("support vector types"),
@@ -110,19 +111,20 @@ impl Into<Value> for crudkit_shared::Value {
     }
 }
 
-impl Into<Value> for crudkit_id::IdValue {
+impl Into<Value> for IdValue {
     fn into(self) -> Value {
         match self {
-            crudkit_id::IdValue::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
-            crudkit_id::IdValue::UuidV4(value) => Value::UuidV4(value),
-            crudkit_id::IdValue::UuidV7(value) => Value::UuidV7(value),
-            crudkit_id::IdValue::I32(value) => Value::I32(value),
-            crudkit_id::IdValue::I64(value) => Value::I64(value),
-            crudkit_id::IdValue::U32(value) => Value::U32(value),
-            crudkit_id::IdValue::U64(value) => Value::U64(value),
-            crudkit_id::IdValue::Bool(value) => Value::Bool(value),
-            crudkit_id::IdValue::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
-            crudkit_id::IdValue::OffsetDateTime(value) => Value::OffsetDateTime(value),
+            IdValue::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
+            IdValue::Uuid(value) => Value::Uuid(value),
+            IdValue::I32(value) => Value::I32(value),
+            IdValue::U32(value) => Value::U32(value),
+            IdValue::I64(value) => Value::I64(value),
+            IdValue::U64(value) => Value::U64(value),
+            IdValue::I128(value) => Value::I128(value),
+            IdValue::U128(value) => Value::U128(value),
+            IdValue::Bool(value) => Value::Bool(value),
+            IdValue::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
+            IdValue::OffsetDateTime(value) => Value::OffsetDateTime(value),
         }
     }
 }
@@ -165,15 +167,9 @@ impl Value {
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
-    pub fn take_uuid_v4(self) -> uuid::Uuid {
+    pub fn take_uuid(self) -> uuid::Uuid {
         match self {
-            Self::UuidV4(uuid) => uuid,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_uuid_v7(self) -> uuid::Uuid {
-        match self {
-            Self::UuidV7(uuid) => uuid,
+            Self::Uuid(uuid) => uuid,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -186,6 +182,18 @@ impl Value {
     pub fn take_u64(self) -> u64 {
         match self {
             Self::U64(u64) => u64,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_i128(self) -> i128 {
+        match self {
+            Self::I128(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_u128(self) -> u128 {
+        match self {
+            Self::U128(value) => value,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -418,12 +426,13 @@ impl Display for Value {
                 Some(value) => f.write_str(value.get_string_representation()),
                 None => f.write_str("-"),
             },
-            Value::UuidV4(value) => f.write_str(&value.to_string()),
-            Value::UuidV7(value) => f.write_str(&value.to_string()),
+            Value::Uuid(value) => f.write_str(&value.to_string()),
             Value::I32(value) => f.write_str(&value.to_string()),
-            Value::I64(value) => f.write_str(&value.to_string()),
             Value::U32(value) => f.write_str(&value.to_string()),
+            Value::I64(value) => f.write_str(&value.to_string()),
             Value::U64(value) => f.write_str(&value.to_string()),
+            Value::I128(value) => f.write_str(&value.to_string()),
+            Value::U128(value) => f.write_str(&value.to_string()),
             Value::OptionalI32(value) => match value {
                 Some(value) => f.write_str(&value.to_string()),
                 None => f.write_str("-"),
@@ -511,12 +520,13 @@ impl Into<ConditionClauseValue> for Value {
             Value::Text(value) => ConditionClauseValue::String(value),
             Value::Json(value) => ConditionClauseValue::Json(value.into()),
             Value::OptionalJson(_value) => todo!(),
-            Value::UuidV4(value) => ConditionClauseValue::UuidV4(value),
-            Value::UuidV7(value) => ConditionClauseValue::UuidV7(value),
+            Value::Uuid(value) => ConditionClauseValue::Uuid(value),
             Value::I32(value) => ConditionClauseValue::I32(value),
-            Value::I64(value) => ConditionClauseValue::I64(value),
             Value::U32(value) => ConditionClauseValue::U32(value),
+            Value::I64(value) => ConditionClauseValue::I64(value),
             Value::U64(value) => ConditionClauseValue::U64(value),
+            Value::I128(value) => ConditionClauseValue::I128(value),
+            Value::U128(value) => ConditionClauseValue::U128(value),
             Value::OptionalI32(_value) => todo!(),
             Value::OptionalI64(_value) => todo!(),
             Value::OptionalU32(_value) => todo!(),

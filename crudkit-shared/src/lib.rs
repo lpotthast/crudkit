@@ -6,10 +6,7 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 use utoipa::openapi::Type;
-use utoipa::ToSchema;
-
-pub type UuidV4 = uuid::Uuid;
-pub type UuidV7 = uuid::Uuid;
+use utoipa::{PartialSchema, ToSchema};
 
 #[derive(Default, PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
 pub enum Order {
@@ -78,8 +75,7 @@ impl utoipa::PartialSchema for TimeDuration {
 pub enum Value {
     String(String),
     Json(serde_json::Value),
-    UuidV4(uuid::Uuid),
-    UuidV7(uuid::Uuid),
+    Uuid(uuid::Uuid),
     I32(i32),
     I64(i64),
     U32(u32),

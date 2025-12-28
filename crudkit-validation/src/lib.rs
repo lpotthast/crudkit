@@ -190,7 +190,7 @@ impl<I: Id> Into<SerializableAggregateViolations> for EntityViolations<I> {
 
         for (entity_id, validators) in self.entity_violations {
             if let Some(entity_id) = entity_id {
-                let serializable_id = entity_id.into_serializable_id();
+                let serializable_id = entity_id.to_serializable_id();
 
                 let entity_violations = aggregate_violations
                     .by_entity

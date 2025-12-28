@@ -11,4 +11,8 @@ fn tests() {
     t.pass("tests/07-display-struct.rs");
     t.pass("tests/08-display-enum.rs");
     t.pass("tests/09-serialize-deserialize.rs");
+    t.pass("tests/10-all-supported-types.rs");
+    t.compile_fail("tests/11-error-optional.rs");
+    t.compile_fail("tests/12-error-f32.rs");
+    t.compile_fail("tests/13-error-unknown-type.rs");
 }

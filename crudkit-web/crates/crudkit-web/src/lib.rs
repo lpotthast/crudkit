@@ -151,7 +151,8 @@ pub struct EmptyActionPayload {}
 
 impl CrudActionPayload for EmptyActionPayload {}
 
-// Note: This does not have CrudIdTrait as a super trait, as not all data model (namely the CreateModel) can supply an ID!
+/// This does not have CrudIdTrait as a super trait, as not all data models
+/// (namely the CreateModel) can supply an ID!
 pub trait CrudDataTrait:
     PartialEq + Clone + Debug + Serialize + DeserializeOwned + Send + Sync
 {

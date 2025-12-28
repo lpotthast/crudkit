@@ -43,4 +43,4 @@ time = { version = "0.3.23", features = [
     "wasm-bindgen",
 ] }
 tracing = "0.1.37"
-uuid = { version = "1.6.1", features = ["js", "v4", "v7", "serde"] }
+uuid = { version = "1.19.0", features = ["js", "v4", "v7", "serde"] }

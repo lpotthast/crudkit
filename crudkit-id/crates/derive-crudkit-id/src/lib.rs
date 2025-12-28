@@ -3,20 +3,23 @@
 
 use darling::*;
 use proc_macro::TokenStream;
-use proc_macro2::Span;
 use proc_macro_error::{abort, proc_macro_error};
 use proc_macro_type_name::ToTypeName;
+use proc_macro2::Span;
 use quote::quote;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident, Type};
+use syn::{DeriveInput, Ident, parse_macro_input, spanned::Spanned};
 
 #[derive(Debug, FromField)]
 #[darling(attributes(ck_id))]
 struct MyFieldReceiver {
     ident: Option<Ident>,
 
-    ty: Type,
+    ty: syn::Type,
 
-    /// Whether or not this field is part of the entities primary key.
+    /// Whether this field is part of the entities primary key.
+    ///
+    /// This can be set by specifying `#[ck_id(id)]` on a field. Only required for fields not
+    /// named `id`.
     id: Option<bool>,
 }
 
@@ -185,7 +188,6 @@ pub fn store(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     quote! {
-        // Implements the '*Id' struct as well as the 'Id' trait.
         #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, serde::Serialize, serde::Deserialize)]
         pub struct #id_struct_ident {
             #(#struct_fields),*
@@ -214,7 +216,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                 ]
             }
 
-            fn into_serializable_id(&self) -> crudkit_id::SerializableId {
+            fn to_serializable_id(&self) -> crudkit_id::SerializableId {
                 crudkit_id::SerializableId(
                     self.fields_iter()
                         .map(|field| (
@@ -260,54 +262,114 @@ pub fn store(input: TokenStream) -> TokenStream {
 }
 
 fn to_id_value(ty: &syn::Type) -> proc_macro2::TokenStream {
+    const SUPPORTED_TYPES_HELP: &str = indoc::indoc! {
+        r#"
+        Supported ID field types:
+          - Integers: i32, u32, i64, u64, i128, u128
+          - Strings: String
+          - Booleans: bool
+          - UUIDs: uuid::Uuid
+          - Time: time::PrimitiveDateTime, time::OffsetDateTime
+
+        Note:
+          - Floating point types (f32, f64) are not supported (not Eq comparable)
+          - Optional types (Option<T>) are not supported for ID fields
+          - Use exact type paths as shown above
+        "#
+    };
+
     let span = ty.span();
-    match &ty {
-        syn::Type::Path(path) => match join_path(&path.path).as_str() {
-            "bool" => quote! { crudkit_id::IdValue::Bool },
-            "u32" => quote! { crudkit_id::IdValue::U32 },
-            "i32" => quote! { crudkit_id::IdValue::I32 },
-            "i64" => quote! { crudkit_id::IdValue::I64 },
-            "f32" => abort!(
-                span, "f32 is an invalid type for an ID field as it is not `Eq` comparable!";
-                help = "use one of the following types: [...]";
-            ),
-            "String" => quote! { crudkit_id::IdValue::String },
-            "crudkit_shared::UuidV4" => quote! { crudkit_id::IdValue::UuidV4 },
-            "crudkit_shared::UuidV7" => quote! { crudkit_id::IdValue::UuidV7 },
-            "time::PrimitiveDateTime" => quote! { crudkit_id::IdValue::PrimitiveDateTime },
-            "time::OffsetDateTime" => quote! { crudkit_id::IdValue::OffsetDateTime },
-            "Option<i64>" => quote! { crudkit_id::IdValue::OptionalI64 },
-            "Option<i32>" => quote! { crudkit_id::IdValue::OptionalI32 },
-            "Option<u32>" => quote! { crudkit_id::IdValue::OptionalU32 },
-            "Option<f32>" => abort!(
-                span, "Option<f32> is an invalid type for an ID field as f32 it is not `Eq` comparable!";
-                help = "use one of the following types: [...]";
-            ),
-            "Option<String>" => quote! { crudkit_id::IdValue::OptionalString },
-            "Option<time::PrimitiveDateTime>" => {
-                quote! { crudkit_id::IdValue::OptionalPrimitiveDateTime }
-            }
-            "Option<time::OffsetDateTime>" => {
-                quote! { crudkit_id::IdValue::OptionalOffsetDateTime }
-            }
-            other => {
-                let span = ty.span();
-                let message =
-                    format!("to_id_value found unknown type {other:?}. Expected a known type.");
+
+    match ty {
+        syn::Type::Path(type_path) => {
+            let path = &type_path.path;
+
+            // Reject Option<T> types early.
+            if is_option_type(path) {
                 abort!(
-                    span, message;
-                    help = "use one of the following types: [...]";
+                    span,
+                    "Option<T> types are not supported for ID fields";
+                    help = "ID fields must have concrete, non-optional values.\n{}", SUPPORTED_TYPES_HELP;
                 );
             }
-        },
-        other => {
-            let span = ty.span();
-            let message = format!("Unknown type {other:?}. Expected a 'Path' type variant.");
-            abort!(span, message);
+
+            // Match primitives (unqualified, single-segment paths).
+            if path.segments.len() == 1 {
+                if let Some(ident) = get_final_segment_ident(path) {
+                    match ident.to_string().as_str() {
+                        "i32" => return quote! { crudkit_id::IdValue::I32 },
+                        "u32" => return quote! { crudkit_id::IdValue::U32 },
+                        "i64" => return quote! { crudkit_id::IdValue::I64 },
+                        "u64" => return quote! { crudkit_id::IdValue::U64 },
+                        "i128" => return quote! { crudkit_id::IdValue::I128 },
+                        "u128" => return quote! { crudkit_id::IdValue::U128 },
+                        "bool" => return quote! { crudkit_id::IdValue::Bool },
+                        "String" => return quote! { crudkit_id::IdValue::String },
+                        "f32" => abort!(
+                            span,
+                            "f32 is not supported for ID fields (not Eq comparable)";
+                            help = SUPPORTED_TYPES_HELP;
+                        ),
+                        "f64" => abort!(
+                            span,
+                            "f64 is not supported for ID fields (not Eq comparable)";
+                            help = SUPPORTED_TYPES_HELP;
+                        ),
+                        _ => {} // Fall through to qualified type matching.
+                    }
+                }
+            }
+
+            // Match qualified types (require exact paths)
+            let path_str = path_to_string(path);
+            match path_str.as_str() {
+                "uuid::Uuid" => {
+                    return quote! { crudkit_id::IdValue::Uuid };
+                }
+                "time::PrimitiveDateTime" => {
+                    return quote! { crudkit_id::IdValue::PrimitiveDateTime };
+                }
+                "time::OffsetDateTime" => {
+                    return quote! { crudkit_id::IdValue::OffsetDateTime };
+                }
+                _ => {}
+            }
+
+            // Type not recognized - generate helpful error
+            abort!(
+                span,
+                "Unsupported type '{}' for ID field", path_str;
+                help = SUPPORTED_TYPES_HELP;
+            );
+        }
+        _ => {
+            abort!(
+                span,
+                "Expected a type path for ID field, found {:?}", ty;
+                help = SUPPORTED_TYPES_HELP;
+            );
         }
     }
 }
 
-fn join_path(path: &syn::Path) -> String {
-    path.to_token_stream().to_string().replace(' ', "")
+/// Extract the final segment identifier from a path (e.g., "i32", "String", "UuidV4")
+fn get_final_segment_ident(path: &syn::Path) -> Option<&syn::Ident> {
+    path.segments.last().map(|seg| &seg.ident)
+}
+
+/// Convert path to display string for error messages
+fn path_to_string(path: &syn::Path) -> String {
+    path.segments
+        .iter()
+        .map(|seg| seg.ident.to_string())
+        .collect::<Vec<_>>()
+        .join("::")
+}
+
+/// Check if path represents Option<T>
+fn is_option_type(path: &syn::Path) -> bool {
+    path.segments
+        .last()
+        .map(|seg| seg.ident == "Option")
+        .unwrap_or(false)
 }

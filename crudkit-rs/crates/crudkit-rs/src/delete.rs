@@ -83,7 +83,7 @@ pub async fn delete_by_id<R: CrudResource, Ro: Role>(
     let entity_id = model.get_id();
     //.expect("Stored entity without an ID should be impossible!");
 
-    let serializable_id = entity_id.into_serializable_id();
+    let serializable_id = entity_id.to_serializable_id();
 
     let active_model = model.clone().into();
 
@@ -180,7 +180,7 @@ pub async fn delete_one<R: CrudResource, Ro: Role>(
     let entity_id = model.get_id();
     //.expect("Stored entity without an ID should be impossible!");
 
-    let serializable_id = entity_id.into_serializable_id();
+    let serializable_id = entity_id.to_serializable_id();
 
     let active_model = model.clone().into();
 

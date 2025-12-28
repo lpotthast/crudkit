@@ -184,7 +184,7 @@ pub fn CrudInstance<T>(
     config: CrudInstanceConfig<T>,
     static_config: CrudStaticInstanceConfig<T>,
     #[prop(optional)] parent: Option<CrudParentConfig>,
-    #[prop(optional)] on_context_created: Option<Callback<CrudInstanceContext<T>>>,
+    //#[prop(optional)] on_context_created: Option<Callback<CrudInstanceContext<T>>>,
 ) -> impl IntoView
 where
     T: CrudMainTrait + 'static,
@@ -274,9 +274,9 @@ where
         set_reload,
     };
     provide_context(ctx);
-    if let Some(on_context_created) = on_context_created {
-        on_context_created.run(ctx)
-    }
+    //if let Some(on_context_created) = on_context_created {
+    //    on_context_created.run(ctx)
+    //}
 
     let custom_read_fields = Signal::derive(move || static_config.custom_read_fields.clone());
     let custom_create_fields = Signal::derive(move || static_config.custom_create_fields.clone());
@@ -319,8 +319,8 @@ where
     let on_accept_delete = Callback::new(
         move |entity: DeletableModel<T::ReadModel, T::UpdateModel>| {
             let entity_id = match &entity {
-                DeletableModel::Read(entity) => entity.get_id().into_serializable_id(),
-                DeletableModel::Update(entity) => entity.get_id().into_serializable_id(),
+                DeletableModel::Read(entity) => entity.get_id().to_serializable_id(),
+                DeletableModel::Update(entity) => entity.get_id().to_serializable_id(),
             };
             delete_action.dispatch(entity_id);
         },

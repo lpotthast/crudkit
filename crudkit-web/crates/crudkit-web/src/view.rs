@@ -44,8 +44,8 @@ where
         match self {
             CrudView::List => SerializableCrudView::List,
             CrudView::Create => SerializableCrudView::Create,
-            CrudView::Read(id) => SerializableCrudView::Read(id.into_serializable_id()),
-            CrudView::Edit(id) => SerializableCrudView::Edit(id.into_serializable_id()),
+            CrudView::Read(id) => SerializableCrudView::Read(id.to_serializable_id()),
+            CrudView::Edit(id) => SerializableCrudView::Edit(id.to_serializable_id()),
         }
     }
 }
