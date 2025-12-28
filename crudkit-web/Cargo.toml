@@ -4,7 +4,7 @@ members = ["crates/*"]
 default-members = ["crates/crudkit-web"]
 
 [workspace.dependencies]
-darling = "0.20.10"
+darling = "0.23.0"
 proc-macro-error = "1.0.4"
 proc-macro2 = "1.0.94"
 quote = "1.0.40"

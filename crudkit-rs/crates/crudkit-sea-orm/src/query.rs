@@ -140,9 +140,6 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
                                 Value::Uuid(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }
-                                Value::UuidV7(val) => {
-                                    tree = add_condition(tree, col, clause.operator, val)
-                                }
                                 Value::I32(val) => {
                                     tree = add_condition(tree, col, clause.operator, val)
                                 }

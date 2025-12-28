@@ -19,24 +19,24 @@ derive-field = { path = "../../../crudkit-web/crates/derive-field" }
 derive-field-signals = { path = "../derive-field-signals" }
 derive-field-value = { path = "../../../crudkit-web/crates/derive-field-value" }
 
-dyn-clone = "1.0.17"
-indexmap = { version = "2.7.1", features = ["serde"] }
+dyn-clone = "1.0.20"
+indexmap = { version = "2.12.1", features = ["serde"] }
 #leptonic = { path = "../../../../leptonic/leptonic", features = ["tiptap"] }
 leptonic = { version = "0.5.0", git = "https://github.com/lpotthast/leptonic", branch = "migrate-to-leptos-0.8", features = ["tiptap"] }
-leptos = "0.8.2"
-serde = { version = "1.0.217", features = ["derive"] }
+leptos = "0.8.15"
+serde = { version = "1.0.228", features = ["derive"] }
 # TODO: Only required to handle TipTap content. Can we get rid of this?
-serde_json = { version = "1.0.138", features = ["raw_value"] }
+serde_json = { version = "1.0.148", features = ["raw_value"] }
 time = { version = "0.3.44", features = [
     "macros",
     "local-offset", # TODO: Describe why this feature is required.
     "wasm-bindgen",
 ] }
-tracing = "0.1.41"
+tracing = "0.1.44"
 uuid = { version = "1.19.0", features = ["js", "v4", "v7", "serde"] }
 
 [build-dependencies]
-anyhow = "1.0.79"
-cargo_toml = "0.22.1"
-lazy_static = "1.4.0"
+anyhow = "1.0.100"
+cargo_toml = "0.22.3"
 crudkit-leptos-theme = { path = "../../../crudkit-leptos-theme" }
+lazy_static = "1.5.0"
