@@ -2,17 +2,39 @@ use crate::ReactiveValue;
 use crudkit_web::dynamic::prelude::*;
 use leptonic::prelude::ViewCallback;
 use leptos::prelude::*;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::{collections::HashMap, error::Error};
 
-pub type CustomFieldRenderer = ViewCallback<(
-    StoredValue<HashMap<AnyField, ReactiveValue>>, // signals
-    FieldMode,                                     // field_mode
-    FieldOptions,                                  // field_options
-    ReactiveValue,                                 // value
-    Callback<Result<Value, Arc<dyn Error>>>,       // value_changed
-)>;
+#[derive(Clone)]
+pub struct CustomFieldRenderer {
+    pub(crate) view_cb: ViewCallback<(
+        StoredValue<HashMap<AnyField, ReactiveValue>>, // signals
+        FieldMode,                                     // field_mode
+        FieldOptions,                                  // field_options
+        ReactiveValue,                                 // value
+        Callback<Result<Value, Arc<dyn std::error::Error>>>, // value_changed
+    )>,
+}
+
+impl CustomFieldRenderer {
+    pub fn new(
+        view_fn: impl Fn(
+            StoredValue<HashMap<AnyField, ReactiveValue>>,
+            FieldMode,
+            FieldOptions,
+            ReactiveValue,
+            Callback<Result<Value, Arc<dyn std::error::Error>>>,
+        ) -> AnyView
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        Self {
+            view_cb: ViewCallback::new(Callback::from(view_fn)),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct CustomField {

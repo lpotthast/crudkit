@@ -26,7 +26,7 @@ use uuid::Uuid;
 ///
 /// Signal setters should generally not be pub. Define custom functions providing the required functionality.
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct CrudInstanceContext {
+pub struct CrudInstanceContext {
     default_config: StoredValue<CrudMutableInstanceConfig>,
     pub static_config: StoredValue<CrudStaticInstanceConfig>,
 
@@ -174,7 +174,7 @@ pub fn CrudInstance(
     name: &'static str,
     config: CrudInstanceConfig,
     #[prop(optional)] parent: Option<CrudParentConfig>,
-    //#[prop(optional)] on_context_created: Option<Callback<CrudInstanceContext>>,
+    #[prop(optional)] on_context_created: Option<Callback<CrudInstanceContext>>,
 ) -> impl IntoView {
     let (config, static_config) = config.split();
 

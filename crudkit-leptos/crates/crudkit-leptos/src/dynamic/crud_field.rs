@@ -49,7 +49,7 @@ pub fn CrudField(
                         view! {
                             { render_label(field_options.label.clone()) }
                             <div class="crud-field">
-                                { custom_field.renderer.run((signals, field_mode, field_options.clone(), value, value_changed)) }
+                                { custom_field.renderer.view_cb.run((signals, field_mode, field_options.clone(), value, value_changed)) }
                             </div>
                         }.into_any()
                     },
