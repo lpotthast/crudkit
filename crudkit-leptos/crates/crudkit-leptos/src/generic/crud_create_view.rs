@@ -6,8 +6,8 @@ use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_shared::{SaveResult, Saved};
-use crudkit_web::TabId;
 use crudkit_web::generic::prelude::*;
+use crudkit_web::TabId;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -53,7 +53,6 @@ fn default_create_model<T: CrudMainTrait + 'static>(
 #[component]
 pub fn CrudCreateView<T>(
     _phantom: PhantomData<T>,
-    #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
     #[prop(into)] create_elements: Signal<CreateElements<T>>,
     #[prop(into)] custom_fields: Signal<CustomCreateFields<T>>,
@@ -207,7 +206,6 @@ where
                     <CrudFields
                         custom_fields=custom_fields
                         field_config=field_config
-                        api_base_url=api_base_url
                         elements=create_elements
                         signals=signals
                         mode=FieldMode::Editable

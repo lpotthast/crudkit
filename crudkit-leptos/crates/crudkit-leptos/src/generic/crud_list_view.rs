@@ -82,7 +82,6 @@ impl<T: CrudMainTrait + 'static> CrudListViewContext<T> {
 #[component]
 pub fn CrudListView<T>(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
-    #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
     #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
     #[prop(into)] custom_fields: Signal<CustomReadFields<T>>,
@@ -185,7 +184,6 @@ where
 
         <CrudTable
             _phantom={PhantomData::<T>::default()}
-            api_base_url=api_base_url
             headers=headers
             order_by=order_by
             data=page

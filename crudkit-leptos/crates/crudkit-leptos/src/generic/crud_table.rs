@@ -23,7 +23,6 @@ pub enum NoDataAvailable {
 #[component]
 pub fn CrudTable<T>(
     _phantom: PhantomData<T>,
-    #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
     #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
     #[prop(into)] data: Signal<Result<Arc<Vec<T::ReadModel>>, NoDataAvailable>>,
@@ -64,7 +63,6 @@ where
                 <CrudTableBody
                     _phantom={PhantomData::<T>::default()}
                     data=data
-                    api_base_url=api_base_url
                     headers=headers
                     custom_fields=custom_fields
                     field_config=field_config

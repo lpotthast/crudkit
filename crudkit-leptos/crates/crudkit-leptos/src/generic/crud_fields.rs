@@ -11,7 +11,6 @@ use std::collections::HashMap;
 pub fn CrudFields<T>(
     custom_fields: Signal<CustomFields<T>>,
     field_config: Signal<HashMap<T::Field, DynSelectConfig>>,
-    api_base_url: Signal<String>,
     #[prop(into)] elements: Signal<Vec<Elem<T>>>,
     #[prop(into)] signals: StoredValue<HashMap<T::Field, ReactiveValue>>,
     mode: FieldMode,
@@ -36,7 +35,6 @@ where
                                 <CrudFields
                                     custom_fields=custom_fields
                                     field_config=field_config
-                                    api_base_url=api_base_url
                                     elements=group.children.clone()
                                     signals=signals
                                     mode=mode.clone()
@@ -67,7 +65,6 @@ where
                                                     <CrudFields
                                                         custom_fields=custom_fields
                                                         field_config=field_config
-                                                        api_base_url=api_base_url
                                                         elements=tab.group.children.clone()
                                                         signals=signals
                                                         mode=mode.clone()
@@ -88,7 +85,6 @@ where
                                     <CrudFields
                                         custom_fields=custom_fields
                                         field_config=field_config
-                                        api_base_url=api_base_url
                                         elements=group.children.clone()
                                         signals=signals
                                         mode=mode.clone()
@@ -106,7 +102,6 @@ where
                         <CrudField
                             custom_fields=custom_fields
                             field_config=field_config
-                            api_base_url=api_base_url
                             current_view=current_view
                             field=field.clone()
                             field_options=field_options.clone()

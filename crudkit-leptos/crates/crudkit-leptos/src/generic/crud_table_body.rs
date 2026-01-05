@@ -17,7 +17,6 @@ use std::{collections::HashMap, marker::PhantomData};
 pub fn CrudTableBody<T>(
     _phantom: PhantomData<T>,
     #[prop(into)] data: Signal<Result<Arc<Vec<T::ReadModel>>, NoDataAvailable>>,
-    #[prop(into)] api_base_url: Signal<String>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
     #[prop(into)] custom_fields: Signal<CustomFields<T::ReadModel>>,
     #[prop(into)] field_config: Signal<
@@ -108,7 +107,6 @@ where
                                     // children={ctx.props().children.clone()} // TODO: make this work
                                     custom_fields=custom_fields
                                     field_config=field_config
-                                    api_base_url=api_base_url
                                     current_view=CrudSimpleView::List
                                     field=field.clone()
                                     field_options=FieldOptions {

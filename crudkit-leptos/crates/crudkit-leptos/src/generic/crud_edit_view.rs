@@ -35,7 +35,6 @@ pub enum Then {
 #[component]
 pub fn CrudEditView<T>(
     _phantom: PhantomData<T>,
-    #[prop(into)] api_base_url: Signal<String>,
     /// The ID of the entity being edited.
     #[prop(into)]
     id: Signal<T::UpdateModelId>,
@@ -324,7 +323,6 @@ where
                     <CrudFields
                         custom_fields=custom_fields
                         field_config=field_config
-                        api_base_url=api_base_url
                         elements=elements
                         signals=signals
                         mode=FieldMode::Editable

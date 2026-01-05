@@ -332,7 +332,6 @@ where
                 {move || match view.get() {
                     CrudView::List => view! {
                         <CrudListView
-                            api_base_url=api_base_url
                             data_provider=data_provider
                             headers=headers
                             order_by=order_by
@@ -344,7 +343,6 @@ where
                     CrudView::Create => view! {
                         <CrudCreateView
                             _phantom={PhantomData::<T>::default()}
-                            api_base_url=api_base_url
                             data_provider=data_provider
                             create_elements=create_elements
                             custom_fields=custom_create_fields
@@ -364,7 +362,6 @@ where
                     CrudView::Read(id) => view! {
                         <CrudReadView
                             _phantom={PhantomData::<T>::default()}
-                            api_base_url=api_base_url
                             id=id
                             data_provider=data_provider
                             actions=entity_actions
@@ -380,7 +377,6 @@ where
                     CrudView::Edit(id) => view! {
                         <CrudEditView
                             _phantom={PhantomData::<T>::default()}
-                            api_base_url=api_base_url
                             id=id
                             data_provider=data_provider
                             actions=entity_actions

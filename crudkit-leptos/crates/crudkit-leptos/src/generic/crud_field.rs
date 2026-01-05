@@ -12,7 +12,6 @@ use uuid::Uuid;
 pub fn CrudField<T>(
     custom_fields: Signal<CustomFields<T>>,
     field_config: Signal<HashMap<T::Field, DynSelectConfig>>,
-    api_base_url: Signal<String>,
     current_view: CrudSimpleView,
     field: T::Field,
     field_options: FieldOptions,
