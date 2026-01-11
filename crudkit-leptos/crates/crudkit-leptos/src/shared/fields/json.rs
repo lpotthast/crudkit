@@ -1,5 +1,5 @@
 use crate::shared::fields::render_label;
-use crudkit_web::{FieldMode, FieldOptions, JsonValue, Value};
+use crudkit_web::{FieldMode, FieldOptions, Value};
 use leptonic::components::prelude::*;
 use leptonic::prelude::TiptapContent;
 use leptos::prelude::*;
@@ -11,12 +11,12 @@ pub fn CrudJsonField(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    #[prop(into)] value: Signal<JsonValue>,
+    #[prop(into)] value: Signal<serde_json::Value>,
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => {
-            view! { <div>{move || value.get().get_string_representation().to_owned()}</div> }
+            view! { <div>{move || serde_json::to_string(&*value.read()).unwrap()}</div> }
         }
         .into_any(),
         FieldMode::Readable => view! {
@@ -26,7 +26,7 @@ pub fn CrudJsonField(
                 <TiptapEditor
                     attr:id=id.clone()
                     attr:class="crud-input-field"
-                    value=Signal::derive(move || value.get().get_string_representation().to_owned())
+                    value=Signal::derive(move || serde_json::to_string(&*value.read()).unwrap())
                     disabled=true
                 />
             </div>
@@ -39,14 +39,14 @@ pub fn CrudJsonField(
                 <TiptapEditor
                     attr:id=id.clone()
                     attr:class="crud-input-field"
-                    value=Signal::derive(move || value.get().get_string_representation().to_owned())
+                    value=Signal::derive(move || serde_json::to_string(&*value.read()).unwrap())
                     set_value=move |new| {
                         value_changed.run(
                             match new {
                                 TiptapContent::Html(content) => serde_json::from_str(&content),
                                 TiptapContent::Json(content) => serde_json::from_str(&content),
                             }
-                                .map(|json_value| Value::Json(JsonValue::new(json_value)))
+                                .map(|json_value| Value::Json(json_value))
                                 .map_err(|err| Arc::new(err) as Arc<dyn std::error::Error>)
                         );
                     }
@@ -64,7 +64,7 @@ pub fn CrudOptionalJsonField(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    #[prop(into)] value: Signal<Option<JsonValue>>,
+    #[prop(into)] value: Signal<Option<serde_json::Value>>,
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
@@ -74,7 +74,7 @@ pub fn CrudOptionalJsonField(
                     value
                         .get()
                         .as_ref()
-                        .map(|it| Cow::Owned(it.get_string_representation().to_owned()))
+                        .map(|it| Cow::Owned(serde_json::to_string(it).unwrap()))
                         .unwrap_or(Cow::Borrowed(""))
                 }}
 

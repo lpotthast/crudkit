@@ -4,10 +4,11 @@ use crate::dynamic::crud_list_view::CrudListViewContext;
 use crate::dynamic::crud_table_body::CrudTableBody;
 use crate::dynamic::crud_table_footer::CrudTableFooter;
 use crate::dynamic::crud_table_header::CrudTableHeader;
-use crate::dynamic::custom_field::CustomFields;
+use crate::dynamic::custom_field::CustomReadFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crudkit_shared::Order;
 use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::{AnyReadField, AnyReadModel};
 use indexmap::IndexMap;
 use leptonic::components::table::{Table, TableContainer};
 use leptos::prelude::*;
@@ -24,10 +25,10 @@ pub enum NoDataAvailable {
 #[component]
 pub fn CrudTable(
     #[prop(into)] headers: Signal<Vec<Header>>,
-    #[prop(into)] order_by: Signal<IndexMap<AnyField, Order>>, // ReadModel field
-    #[prop(into)] data: Signal<Result<Arc<Vec<AnyModel>>, NoDataAvailable>>, // ReadModel
-    #[prop(into)] custom_fields: Signal<CustomFields>,         // ReadModel
-    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // ReadModel field
+    #[prop(into)] order_by: Signal<IndexMap<AnyReadField, Order>>,
+    #[prop(into)] data: Signal<Result<Arc<Vec<AnyReadModel>>, NoDataAvailable>>,
+    #[prop(into)] custom_fields: Signal<CustomReadFields>,
+    #[prop(into)] field_config: Signal<HashMap<AnyReadField, DynSelectConfig>>,
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,

@@ -1,6 +1,7 @@
 use crate::dynamic::crud_action::{EntityActionInput, ResourceActionInput};
 use crate::dynamic::crud_instance::CrudInstanceContext;
 use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::AnyUpdateModel;
 use leptos::prelude::*;
 
 pub type ActionId = &'static str;
@@ -111,7 +112,7 @@ impl CrudActionContext {
     pub fn trigger_entity_action(
         &self,
         action_id: ActionId,
-        update_model: AnyModel,
+        update_model: AnyUpdateModel,
         action_payload: Option<AnyActionPayload>,
         action: Callback<EntityActionInput>,
         instance_ctx: CrudInstanceContext,

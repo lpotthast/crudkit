@@ -3,6 +3,7 @@ use crate::dynamic::crud_instance_config::Header;
 use crate::dynamic::crud_list_view::CrudListViewContext;
 use crudkit_shared::Order;
 use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::AnyReadField;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
@@ -11,7 +12,7 @@ use std::borrow::Cow;
 #[component]
 pub fn CrudTableHeader(
     #[prop(into)] headers: Signal<Vec<Header>>,
-    #[prop(into)] order_by: Signal<IndexMap<AnyField, Order>>, // ReadModel field
+    #[prop(into)] order_by: Signal<IndexMap<AnyReadField, Order>>,
     // Whether an action column should be displayed.
     #[prop(into)] with_actions: Signal<bool>,
     /// Recommended to be set to false when the table body does not actually display content.
@@ -22,7 +23,7 @@ pub fn CrudTableHeader(
     let instance_ctx = expect_context::<CrudInstanceContext>();
     let list_ctx = expect_context::<CrudListViewContext>();
 
-    let update_order_of_field = move |field: AnyField| {
+    let update_order_of_field = move |field: AnyReadField| {
         tracing::info!("update order of {:?}", field);
         instance_ctx.oder_by(field, OrderByUpdateOptions { append: false });
     };

@@ -1,7 +1,7 @@
 use crate::dynamic::crud_action::{CrudEntityAction, EntityActionViewInput, States};
 use crate::dynamic::crud_action_context::CrudActionContext;
 use crate::dynamic::crud_instance::CrudInstanceContext;
-use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::AnyUpdateModel;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
 
@@ -9,7 +9,7 @@ use leptos::prelude::*;
 pub fn CrudActionButtons(
     action_ctx: CrudActionContext,
     #[prop(into)] actions: Signal<Vec<CrudEntityAction>>,
-    #[prop(into)] input: Signal<Option<AnyModel>>,
+    #[prop(into)] input: Signal<Option<AnyUpdateModel>>,
     required_state: States,
 ) -> impl IntoView {
     let instance_ctx = expect_context::<CrudInstanceContext>();

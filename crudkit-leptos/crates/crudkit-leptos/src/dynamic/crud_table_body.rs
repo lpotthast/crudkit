@@ -1,12 +1,13 @@
 use crate::dynamic::crud_action::CrudActionTrait;
-use crate::dynamic::crud_field::CrudField;
+use crate::dynamic::crud_field::CrudReadField;
 use crate::dynamic::crud_instance::CrudInstanceContext;
 use crate::dynamic::crud_instance_config::Header;
 use crate::dynamic::crud_list_view::CrudListViewContext;
 use crate::dynamic::crud_table::NoDataAvailable;
-use crate::dynamic::custom_field::CustomFields;
+use crate::dynamic::custom_field::CustomReadFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::{AnyReadField, AnyReadModel, AnyReadOrUpdateModel};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -15,10 +16,10 @@ use std::sync::Arc;
 
 #[component]
 pub fn CrudTableBody(
-    #[prop(into)] data: Signal<Result<Arc<Vec<AnyModel>>, NoDataAvailable>>, // ReadModel
+    #[prop(into)] data: Signal<Result<Arc<Vec<AnyReadModel>>, NoDataAvailable>>,
     #[prop(into)] headers: Signal<Vec<Header>>,
-    #[prop(into)] custom_fields: Signal<CustomFields>, // ReadModel
-    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // ReadModel field
+    #[prop(into)] custom_fields: Signal<CustomReadFields>,
+    #[prop(into)] field_config: Signal<HashMap<AnyReadField, DynSelectConfig>>,
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
@@ -26,7 +27,7 @@ pub fn CrudTableBody(
 ) -> impl IntoView {
     let ctx = expect_context::<CrudInstanceContext>();
 
-    let render_entry = move |entity: AnyModel| {
+    let render_entry = move |entity: AnyReadModel| {
         // A signal map is required to render custom fields,
         // as each custom field may want to access values of other fields to determine its rendering output or processing!
         let signals = StoredValue::new(
@@ -38,8 +39,7 @@ pub fn CrudTableBody(
         ); // TODO: Can we get rid of this clone???
 
         // TODO: Check https://github.com/rust-lang/rfcs/issues/2407, we might be able to remove explicit clones in the future!
-        let stored_entity: ReadSignal<AnyModel> = // ReadModel
-            RwSignal::new(entity).read_only(); // TODO: Move signal creation up
+        let stored_entity: ReadSignal<AnyReadModel> = RwSignal::new(entity).read_only(); // TODO: Move signal creation up
 
         let with_actions = Signal::derive(move || {
             !additional_item_actions.get().is_empty()
@@ -63,12 +63,14 @@ pub fn CrudTableBody(
         let toggle_selected = move || list_ctx.toggle_entity_selection(stored_entity.get());
 
         // TODO: These closures are now identical...
-        let read = move |entity: AnyModel| instance_ctx.read(entity.get_id());
-        let edit = move |entity: AnyModel| instance_ctx.edit(entity.get_id());
-        let delete = move |entity: AnyModel| instance_ctx.request_deletion_of(entity);
+        let read = move |entity: AnyReadModel| instance_ctx.read(entity.get_id());
+        let edit = move |entity: AnyReadModel| instance_ctx.edit(entity.get_id());
+        let delete = move |entity: AnyReadModel| {
+            instance_ctx.request_deletion_of(AnyReadOrUpdateModel::Read(entity))
+        };
         // TODO: why is this Arc<Box<...>>?
         let trigger_action =
-            move |_entity: AnyModel, _action: Arc<Box<dyn CrudActionTrait>>| todo!();
+            move |_entity: AnyReadModel, _action: Arc<Box<dyn CrudActionTrait>>| todo!();
 
         let dummy_value_changed_callback = Callback::new(move |_| {});
 
@@ -94,7 +96,7 @@ pub fn CrudTableBody(
                             // TODO: Optimize. Do we still need a StoredEntity?
 
                             <TableCell class:fit-content=options.min_width>
-                                <CrudField
+                                <CrudReadField
                                     custom_fields=custom_fields
                                     field_config=field_config
                                     current_view=CrudSimpleView::List

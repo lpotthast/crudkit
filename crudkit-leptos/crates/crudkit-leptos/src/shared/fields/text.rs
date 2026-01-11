@@ -36,7 +36,7 @@ pub fn CrudTextField(
                     value=value
                     set_value=move |new| {
                         value_changed.run(
-                            Ok(Value::Text(
+                            Ok(Value::String(
                                 match new {
                                     TiptapContent::Html(content) => content,
                                     TiptapContent::Json(content) => content,

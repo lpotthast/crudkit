@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::AnyUpdateModel;
 use leptonic::prelude::icondata;
 use leptos::prelude::*;
 use std::{fmt::Debug, rc::Rc};
@@ -21,7 +22,7 @@ pub struct ResourceActionViewInput {
 #[derive(Clone, Copy)]
 pub struct EntityActionViewInput {
     pub show_when: Signal<bool>,
-    pub state: Signal<Option<AnyModel>>,
+    pub state: Signal<Option<AnyUpdateModel>>,
     pub cancel: Callback<()>,
     pub execute: Callback<Option<AnyActionPayload>>,
 }
@@ -35,7 +36,7 @@ pub struct ResourceActionInput {
 pub struct EntityActionInput {
     /// The current state of this entity when the action is invoked. This includes all unsaved
     /// changes.
-    pub update_model: AnyModel,
+    pub update_model: AnyUpdateModel,
 
     /// A payload for this action.
     pub payload: Option<AnyActionPayload>,

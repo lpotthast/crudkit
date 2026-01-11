@@ -30,3 +30,36 @@ pub fn CrudUuidField(
         .into_any(),
     }
 }
+
+#[component]
+pub fn CrudOptionalUuidField(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<Uuid>>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! { <div>{move || match value.get() {
+            Some(uuid) => uuid.to_string(),
+            None => "-".to_string(),
+        }}</div> }
+        .into_any(),
+        // Never editable, TODO: why though? we could allow editing uuids if we can guarantee their validity.
+        FieldMode::Readable | FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <TextInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || match value.get() {
+                        Some(uuid) => uuid.to_string(),
+                        None => "-".to_string(),
+                    })
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}

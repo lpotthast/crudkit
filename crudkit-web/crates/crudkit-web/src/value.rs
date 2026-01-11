@@ -3,19 +3,15 @@ use crudkit_condition::ConditionClauseValue;
 use crudkit_id::IdValue;
 use crudkit_shared::TimeDuration;
 use std::fmt::Display;
+use thiserror::Error;
 use time::format_description::well_known::Rfc3339;
 use tracing::warn;
 
+/// The value of a field.
 /// All variants should be stateless / copy-replaceable.
 // TODO: DEFERRED: Implement Serialize and Deserialize with typetag when wasm is supported in typetag. Comment in "typetag" occurrences.
 #[derive(Debug, Clone)]
 pub enum Value {
-    String(String),
-    OptionalString(Option<String>),
-    Text(String), // TODO: Add optional text!, TODO: Remove this variant altogether and make "text" an optional editing mode for string values!
-    Json(JsonValue), // TODO: Add optional json value
-    OptionalJson(Option<JsonValue>),
-    Uuid(uuid::Uuid), // TODO: Add OptionalUuid variant
     I32(i32),
     U32(u32),
     I64(i64),
@@ -26,17 +22,31 @@ pub enum Value {
     OptionalI64(Option<i64>),
     OptionalU32(Option<u32>),
     OptionalU64(Option<u64>),
+    OptionalI128(Option<i128>),
+    OptionalU128(Option<u128>),
     F32(f32),
     F64(f64),
     Bool(bool),
+    String(String),
+    OptionalString(Option<String>),
+    // Ecosystem support.
+    // -- serde
+    Json(serde_json::Value),
+    OptionalJson(Option<serde_json::Value>),
+    // -- uuid
+    Uuid(uuid::Uuid),
+    OptionalUuid(Option<uuid::Uuid>),
+    // -- time
+    PrimitiveDateTime(time::PrimitiveDateTime),
+    OptionalPrimitiveDateTime(Option<time::PrimitiveDateTime>),
+    OffsetDateTime(time::OffsetDateTime),
+    OptionalOffsetDateTime(Option<time::OffsetDateTime>),
+    Duration(TimeDuration),
+    OptionalDuration(Option<TimeDuration>),
+
     // Specialized bool-case, render as a green check mark if false and an orange exclamation mark if true.
     ValidationStatus(bool),
-    PrimitiveDateTime(time::PrimitiveDateTime),
-    OffsetDateTime(time::OffsetDateTime),
-    Duration(TimeDuration),
-    OptionalPrimitiveDateTime(Option<time::PrimitiveDateTime>),
-    OptionalOffsetDateTime(Option<time::OffsetDateTime>),
-    OptionalDuration(Option<TimeDuration>),
+
     OneToOneRelation(Option<u32>),
     Reference(Vec<Box<dyn crudkit_id::IdField>>), // TODO: This variant should probably be named "Reference". Can it carry a "SerializableId" (as it is of known size)?
     Custom(()),
@@ -91,8 +101,8 @@ impl From<JsonValue> for String {
 impl From<crudkit_shared::Value> for Value {
     fn from(value: crudkit_shared::Value) -> Self {
         match value {
-            crudkit_shared::Value::String(value) => Value::String(value), // TODO: How can we differentiate between String and Text?
-            crudkit_shared::Value::Json(value) => Value::Json(JsonValue::new(value)),
+            crudkit_shared::Value::String(value) => Value::String(value),
+            crudkit_shared::Value::Json(value) => Value::Json(value),
             crudkit_shared::Value::Uuid(value) => Value::Uuid(value),
             crudkit_shared::Value::I32(value) => Value::I32(value),
             crudkit_shared::Value::I64(value) => Value::I64(value),
@@ -133,7 +143,6 @@ impl Value {
     pub fn take_string(self) -> String {
         match self {
             Self::String(string) => string,
-            Self::Text(string) => string,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -143,33 +152,27 @@ impl Value {
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
-    pub fn take_text(self) -> String {
+    pub fn take_json_value(self) -> serde_json::Value {
         match self {
-            Self::Text(string) => string,
+            Self::Json(value) => value,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
-    pub fn take_json_value(self) -> JsonValue {
+    pub fn take_optional_json_value(self) -> Option<serde_json::Value> {
         match self {
-            Self::Json(json) => json,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_inner_json_value(self) -> serde_json::Value {
-        match self {
-            Self::Json(json) => json.into(),
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_json_value(self) -> Option<JsonValue> {
-        match self {
-            Self::OptionalJson(json) => json,
+            Self::OptionalJson(value) => value,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
     pub fn take_uuid(self) -> uuid::Uuid {
         match self {
             Self::Uuid(uuid) => uuid,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_uuid(self) -> Option<uuid::Uuid> {
+        match self {
+            Self::OptionalUuid(uuid) => uuid,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -257,6 +260,28 @@ impl Value {
             Self::String(value) => value
                 .parse::<u64>()
                 .map_err(|err| warn!("take_optional_u64 could not pase string: {err}"))
+                .ok(),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_i128(self) -> Option<i128> {
+        match self {
+            Self::I128(value) => Some(value),
+            Self::OptionalI128(value) => value,
+            Self::String(value) => value
+                .parse::<i128>()
+                .map_err(|err| warn!("take_optional_i128 could not pase string: {err}"))
+                .ok(),
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_u128(self) -> Option<u128> {
+        match self {
+            Self::U128(value) => Some(value),
+            Self::OptionalU128(value) => value,
+            Self::String(value) => value
+                .parse::<u128>()
+                .map_err(|err| warn!("take_optional_u128 could not pase string: {err}"))
                 .ok(),
             other => panic!("unsupported type provided: {other:?} "),
         }
@@ -420,13 +445,16 @@ impl Display for Value {
                 Some(value) => f.write_str(value),
                 None => f.write_str("-"),
             },
-            Value::Text(value) => f.write_str(value),
-            Value::Json(value) => f.write_str(value.get_string_representation()),
+            Value::Json(value) => f.write_str(&serde_json::to_string(value).unwrap()),
             Value::OptionalJson(value) => match value {
-                Some(value) => f.write_str(value.get_string_representation()),
+                Some(value) => f.write_str(&serde_json::to_string(value).unwrap()),
                 None => f.write_str("-"),
             },
             Value::Uuid(value) => f.write_str(&value.to_string()),
+            Value::OptionalUuid(value) => match value {
+                Some(value) => f.write_str(&value.to_string()),
+                None => f.write_str("-"),
+            },
             Value::I32(value) => f.write_str(&value.to_string()),
             Value::U32(value) => f.write_str(&value.to_string()),
             Value::I64(value) => f.write_str(&value.to_string()),
@@ -446,6 +474,14 @@ impl Display for Value {
                 None => f.write_str("-"),
             },
             Value::OptionalU64(value) => match value {
+                Some(value) => f.write_str(&value.to_string()),
+                None => f.write_str("-"),
+            },
+            Value::OptionalI128(value) => match value {
+                Some(value) => f.write_str(&value.to_string()),
+                None => f.write_str("-"),
+            },
+            Value::OptionalU128(value) => match value {
                 Some(value) => f.write_str(&value.to_string()),
                 None => f.write_str("-"),
             },
@@ -511,43 +547,56 @@ impl Display for Value {
     }
 }
 
-impl Into<ConditionClauseValue> for Value {
-    fn into(self) -> ConditionClauseValue {
+#[derive(Debug, Error)]
+#[error("The value '{value:?}' cannot be used in a condition clause.")]
+pub struct NotConditionClauseCompatible {
+    value: Value,
+}
+
+impl TryInto<ConditionClauseValue> for Value {
+    type Error = NotConditionClauseCompatible;
+
+    fn try_into(self) -> Result<ConditionClauseValue, Self::Error> {
         match self {
-            // TODO: Complete mapping!!
-            Value::String(value) => ConditionClauseValue::String(value),
-            Value::OptionalString(_value) => todo!(),
-            Value::Text(value) => ConditionClauseValue::String(value),
-            Value::Json(value) => ConditionClauseValue::Json(value.into()),
-            Value::OptionalJson(_value) => todo!(),
-            Value::Uuid(value) => ConditionClauseValue::Uuid(value),
-            Value::I32(value) => ConditionClauseValue::I32(value),
-            Value::U32(value) => ConditionClauseValue::U32(value),
-            Value::I64(value) => ConditionClauseValue::I64(value),
-            Value::U64(value) => ConditionClauseValue::U64(value),
-            Value::I128(value) => ConditionClauseValue::I128(value),
-            Value::U128(value) => ConditionClauseValue::U128(value),
-            Value::OptionalI32(_value) => todo!(),
-            Value::OptionalI64(_value) => todo!(),
-            Value::OptionalU32(_value) => todo!(),
-            Value::OptionalU64(_value) => todo!(),
-            Value::F32(value) => ConditionClauseValue::F32(value),
-            Value::F64(value) => ConditionClauseValue::F64(value),
-            Value::Bool(value) => ConditionClauseValue::Bool(value),
-            Value::ValidationStatus(_value) => todo!(),
-            Value::PrimitiveDateTime(_value) => todo!(),
-            Value::OffsetDateTime(_value) => todo!(),
-            Value::OptionalPrimitiveDateTime(_value) => todo!(),
-            Value::OptionalOffsetDateTime(_value) => todo!(),
-            Value::OneToOneRelation(_value) => todo!(),
-            Value::Reference(_value) => todo!(),
-            Value::Custom(_value) => todo!(),
-            Value::Select(_value) => todo!(),
-            Value::Multiselect(_value) => todo!(),
-            Value::OptionalSelect(_value) => todo!(),
-            Value::OptionalMultiselect(_value) => todo!(),
-            Value::Duration(_value) => todo!(),
-            Value::OptionalDuration(_) => todo!(),
+            Value::String(value) => Ok(ConditionClauseValue::String(value)),
+            value @ Value::OptionalString(_) => Err(NotConditionClauseCompatible { value }),
+            Value::Json(value) => Ok(ConditionClauseValue::Json(
+                serde_json::to_string(&value).unwrap(),
+            )),
+            value @ Value::OptionalJson(_) => Err(NotConditionClauseCompatible { value }),
+            Value::Uuid(value) => Ok(ConditionClauseValue::Uuid(value)),
+            value @ Value::OptionalUuid(_) => Err(NotConditionClauseCompatible { value }),
+            Value::I32(value) => Ok(ConditionClauseValue::I32(value)),
+            Value::U32(value) => Ok(ConditionClauseValue::U32(value)),
+            Value::I64(value) => Ok(ConditionClauseValue::I64(value)),
+            Value::U64(value) => Ok(ConditionClauseValue::U64(value)),
+            Value::I128(value) => Ok(ConditionClauseValue::I128(value)),
+            Value::U128(value) => Ok(ConditionClauseValue::U128(value)),
+            value @ Value::OptionalI32(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalI64(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalU32(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalU64(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalI128(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalU128(_) => Err(NotConditionClauseCompatible { value }),
+            Value::F32(value) => Ok(ConditionClauseValue::F32(value)),
+            Value::F64(value) => Ok(ConditionClauseValue::F64(value)),
+            Value::Bool(value) => Ok(ConditionClauseValue::Bool(value)),
+            value @ Value::ValidationStatus(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::PrimitiveDateTime(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OffsetDateTime(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalPrimitiveDateTime(_) => {
+                Err(NotConditionClauseCompatible { value })
+            }
+            value @ Value::OptionalOffsetDateTime(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OneToOneRelation(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::Reference(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::Custom(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::Select(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::Multiselect(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalSelect(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalMultiselect(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::Duration(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalDuration(_) => Err(NotConditionClauseCompatible { value }),
         }
     }
 }

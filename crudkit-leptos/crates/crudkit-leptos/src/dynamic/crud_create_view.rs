@@ -1,4 +1,4 @@
-use crate::dynamic::crud_fields::CrudFields;
+use crate::dynamic::crud_fields::CrudCreateFields;
 use crate::dynamic::crud_instance::CrudInstanceContext;
 use crate::dynamic::crud_instance_config::CreateElements;
 use crate::dynamic::custom_field::CustomCreateFields;
@@ -8,6 +8,7 @@ use crate::ReactiveValue;
 use crudkit_id::SerializableId;
 use crudkit_shared::{SaveResult, Saved};
 use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::{AnyCreateField, AnyCreateModel, AnyUpdateModel, CreateField};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -21,8 +22,8 @@ pub enum Then {
 }
 
 // TODO: Make this a signal? How would we act upon changes?
-fn default_create_model(ctx: &CrudInstanceContext) -> AnyModel {
-    let mut entity: AnyModel = ctx
+fn default_create_model(ctx: &CrudInstanceContext) -> AnyCreateModel {
+    let mut entity = ctx
         .static_config
         .read_value()
         .model_handler
@@ -63,12 +64,12 @@ pub fn CrudCreateView(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
     #[prop(into)] create_elements: Signal<CreateElements>,
     #[prop(into)] custom_fields: Signal<CustomCreateFields>,
-    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // CreateModel field
-    #[prop(into)] on_edit_view: Callback<SerializableId>,                   // UpdateModel id
+    #[prop(into)] field_config: Signal<HashMap<AnyCreateField, DynSelectConfig>>,
+    #[prop(into)] on_edit_view: Callback<SerializableId>, // UpdateModel id
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
     // TODO: consolidate these into one "on_entity_creation_attempt" with type Result<CreateResult<T::UpdateModel>, SomeErrorType>?
-    #[prop(into)] on_entity_created: Callback<Saved<AnyModel>>, // UpdateModel
+    #[prop(into)] on_entity_created: Callback<Saved<AnyUpdateModel>>,
     #[prop(into)] on_entity_creation_aborted: Callback<String>,
     #[prop(into)] on_entity_not_created_critical_errors: Callback<()>,
     #[prop(into)] on_entity_creation_failed: Callback<RequestError>,
@@ -79,9 +80,9 @@ pub fn CrudCreateView(
 ) -> impl IntoView {
     let ctx = expect_context::<CrudInstanceContext>();
 
-    let default_create_model: AnyModel = default_create_model(&ctx);
+    let default_create_model = default_create_model(&ctx);
 
-    let signals: StoredValue<HashMap<AnyField, ReactiveValue>> = // CrateModel field
+    let signals: StoredValue<HashMap<AnyCreateField, ReactiveValue>> = // CrateModel field
         StoredValue::new(
             ctx.static_config
                 .read_value()
@@ -93,12 +94,12 @@ pub fn CrudCreateView(
     // The CreateModel enforces a `Default` value! We cannot deserialize a loaded model, so we have to create one from scratch with which the UI can be initialized.
     // We therefore do not have to deal with None states in the create case, compared to the edit view.
     // All modifications made through the UI are stored in this signal.
-    let (input, set_input) = signal::<AnyModel>(default_create_model.clone());
+    let (input, set_input) = signal(default_create_model.clone());
 
     let input_changed = Signal::derive(move || input.get() != default_create_model);
 
     // The state of the `input` signal should be considered to be erroneous if at least one field is contained in this error list.
-    let (_input_errors, set_input_errors) = signal(HashMap::<AnyField, String>::new());
+    let (_input_errors, set_input_errors) = signal(HashMap::<AnyCreateField, String>::new());
 
     let (user_wants_to_leave, set_user_wants_to_leave) = signal(false);
     let (show_leave_modal, set_show_leave_modal) = signal(false);
@@ -115,29 +116,30 @@ pub fn CrudCreateView(
     );
 
     // TODO: Can we get rid of new_local?
-    let save_action = Action::new_local(move |(create_model, and_then): &(AnyModel, Then)| {
-        let create_model: AnyModel = create_model.clone();
-        let and_then = and_then.clone();
-        let data_provider = data_provider.get(); // TODO: This does not track!!
-        async move {
-            (
-                data_provider
-                    .create_one(CreateOne {
-                        entity: create_model,
-                    })
-                    .await
-                    .and_then(|json| {
-                        ctx.static_config
-                            .read_value()
-                            .model_handler
-                            .deserialize_create_one_response
-                            .run(json)
-                            .map_err(|de_err| RequestError::Deserialize(de_err.to_string()))
-                    }),
-                and_then,
-            )
-        }
-    });
+    let save_action =
+        Action::new_local(move |(create_model, and_then): &(AnyCreateModel, Then)| {
+            let create_model = create_model.clone();
+            let and_then = and_then.clone();
+            let data_provider = data_provider.get(); // TODO: This does not track!!
+            async move {
+                (
+                    data_provider
+                        .create_one(CreateOne {
+                            entity: create_model,
+                        })
+                        .await
+                        .and_then(|json| {
+                            ctx.static_config
+                                .read_value()
+                                .model_handler
+                                .deserialize_create_one_response
+                                .run(json)
+                                .map_err(|de_err| RequestError::Deserialize(de_err.to_string()))
+                        }),
+                    and_then,
+                )
+            }
+        });
 
     let save_disabled = Signal::derive(move || {
         save_action.pending().get() // Note (lukas): We deliberately ignore the input_changed state here, as the default input should always be saveable!
@@ -182,7 +184,7 @@ pub fn CrudCreateView(
 
     // TODO: Refactor this code. Much of it is shared with the edit_view!
     let value_changed =
-        Callback::<(AnyField, Result<Value, String>)>::new(move |(field, result)| {
+        Callback::<(AnyCreateField, Result<Value, String>)>::new(move |(field, result)| {
             tracing::info!(?field, ?result, "value changed");
             match result {
                 Ok(value) => {
@@ -208,7 +210,7 @@ pub fn CrudCreateView(
             CreateElements::None => view! { "Keine Felder definiert." }.into_any(),
             CreateElements::Custom(create_elements) => {
                 view! {
-                    <CrudFields
+                    <CrudCreateFields
                         custom_fields=custom_fields
                         field_config=field_config
                         elements=create_elements

@@ -7,6 +7,7 @@ use proc_macro2::{Ident, Span};
 use proc_macro_error::proc_macro_error;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
+use types::ModelType;
 
 #[derive(Debug, FromField)]
 #[darling(attributes(ck_field, ck_id))]
@@ -32,6 +33,11 @@ impl MyFieldReceiver {
 #[darling(attributes(ck_field, ck_id), supports(struct_any))]
 struct MyInputReceiver {
     ident: syn::Ident,
+
+    /// Whether this is a `create`, `read` or `update` model.
+    /// Depending on this required information, the generated fields enum either implements the
+    /// `CreateField`, `ReadField` or `UpdateField` trait.
+    model: ModelType,
 
     data: ast::Data<(), MyFieldReceiver>,
 }
@@ -79,6 +85,14 @@ pub fn store(input: TokenStream) -> TokenStream {
 
     let name = &input.ident;
     let field_name = Ident::new(format!("{name}Field").as_str(), name.span());
+
+    let direct_field_accessors = input.fields().iter().enumerate().map(|(i, field)| {
+        let name = field.ident.as_ref().expect("Expected named field!");
+        let type_name = field_name_as_type_name(&name.to_string());
+        let type_ident = Ident::new(type_name.as_str(), Span::call_site());
+
+        quote! { pub const #type_ident: #field_name = #field_name::#type_ident; }
+    });
 
     let id_fields = input
         .fields()
@@ -171,7 +185,61 @@ pub fn store(input: TokenStream) -> TokenStream {
         },
     };
 
+    let model_type_based_model_trait_impl = match input.model {
+        ModelType::Create => quote! {
+            #[typetag::serde]
+            impl crudkit_web::dynamic::CreateModel for #name {
+            }
+        },
+        ModelType::Read => quote! {
+            #[typetag::serde]
+            impl crudkit_web::dynamic::ReadModel for #name {
+            }
+        },
+        ModelType::Update => quote! {
+            #[typetag::serde]
+            impl crudkit_web::dynamic::UpdateModel for #name {
+            }
+        },
+    };
+
+    let model_type_based_field_trait_impl = match input.model {
+        ModelType::Create => quote! {
+            #[typetag::serde]
+            impl crudkit_web::dynamic::CreateField for #field_name {
+                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyCreateModel, value: crudkit_web::value::Value) {
+                    let model = model.downcast_mut::<#name>();
+                    crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
+                }
+            }
+        },
+        ModelType::Read => quote! {
+            #[typetag::serde]
+            impl crudkit_web::dynamic::ReadField for #field_name {
+                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyReadModel, value: crudkit_web::value::Value) {
+                    let model = model.downcast_mut::<#name>();
+                    crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
+                }
+            }
+        },
+        ModelType::Update => quote! {
+            #[typetag::serde]
+            impl crudkit_web::dynamic::UpdateField for #field_name {
+                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyUpdateModel, value: crudkit_web::value::Value) {
+                    let model = model.downcast_mut::<#name>();
+                    crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
+                }
+            }
+        },
+    };
+
     quote! {
+        impl #name {
+            #(#direct_field_accessors)*
+        }
+
+        #model_type_based_model_trait_impl
+
         #[derive(PartialEq, Eq, Hash, Clone, Debug, serde::Serialize, serde::Deserialize)]
         pub enum #field_name {
             #(#typified_fields),*
@@ -196,6 +264,31 @@ pub fn store(input: TokenStream) -> TokenStream {
                 #get_field_impl
             }
         }
+
+        #[typetag::serde]
+        impl crudkit_web::dynamic::Field for #field_name {
+            fn set_value(&self, model: &mut crudkit_web::dynamic::AnyModel, value: crudkit_web::value::Value) {
+                let model = model.downcast_mut::<#name>();
+                crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
+            }
+        }
+
+        #model_type_based_field_trait_impl
+
+        impl crudkit_web::dynamic::SerializeAsKey for #field_name {
+            fn serialize_as_key(&self) -> String {
+                serde_json::to_string(self).unwrap()
+            }
+        }
+
+        impl crudkit_web::dynamic::NamedProperty for #field_name {
+            fn get_name(&self) -> String {
+                crudkit_web::CrudFieldNameTrait::get_name(self).to_string()
+            }
+        }
+
+        #[typetag::serde]
+        impl crudkit_web::dynamic::Model for #name {}
     }
-    .into()
+        .into()
 }

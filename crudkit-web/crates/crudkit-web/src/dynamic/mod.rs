@@ -59,9 +59,8 @@ pub trait NamedProperty: Send + Sync {
     fn get_name(&self) -> String;
 }
 
-/// A `#[typetag::serde]` annotation was omitted intentionally, as custom serializers are
-/// expected to be provided through configuration.
-#[typetag::serde] // Required for serialize/deserialize on AnyElem.
+/// The `#[typetag::serde]` annotation is required for serialize/deserialize on [`AnyField`].
+#[typetag::serde]
 pub trait Field:
     Debug + CrudFieldNameTrait + DynClone + DynEq + DynHash + SerializeAsKey + Send + Sync
 {
@@ -71,42 +70,93 @@ dyn_eq::eq_trait_object!(Field);
 dyn_clone::clone_trait_object!(Field);
 dyn_hash::hash_trait_object!(Field);
 
-#[derive(Debug, Clone, Eq, Hash, Serialize, Deserialize)]
-pub struct AnyField {
-    inner: Arc<dyn Field>,
+/// A field known to be part of a `create` model.
+///
+/// The `#[typetag::serde]` annotation is required for serialize/deserialize on [`AnyField`].
+#[typetag::serde]
+pub trait CreateField: Field {
+    fn set_value(&self, model: &mut AnyCreateModel, value: Value);
 }
+dyn_eq::eq_trait_object!(CreateField);
+dyn_clone::clone_trait_object!(CreateField);
+dyn_hash::hash_trait_object!(CreateField);
 
-impl PartialEq for AnyField {
-    fn eq(&self, other: &Self) -> bool {
-        self.inner.dyn_eq(other.inner.as_any())
-    }
+/// The `#[typetag::serde]` annotation is required for serialize/deserialize on [`AnyField`].
+#[typetag::serde]
+pub trait ReadField: Field {
+    fn set_value(&self, model: &mut AnyReadModel, value: Value);
 }
+dyn_eq::eq_trait_object!(ReadField);
+dyn_clone::clone_trait_object!(ReadField);
+dyn_hash::hash_trait_object!(ReadField);
 
-impl AnyField {
-    pub fn from<Concrete: Field>(concrete: Concrete) -> Self {
-        Self {
-            inner: Arc::new(concrete),
+/// The `#[typetag::serde]` annotation is required for serialize/deserialize on [`AnyField`].
+#[typetag::serde]
+pub trait UpdateField: Field {
+    fn set_value(&self, model: &mut AnyUpdateModel, value: Value);
+}
+dyn_eq::eq_trait_object!(UpdateField);
+dyn_clone::clone_trait_object!(UpdateField);
+dyn_hash::hash_trait_object!(UpdateField);
+
+macro_rules! impl_any_field {
+    ($any_ty:tt, $concrete_ty:tt, $any_model_ty:tt) => {
+        /// Any field. Usable in collections.
+        #[derive(Debug, Clone, Eq, Hash, Serialize, Deserialize)]
+        pub struct $any_ty {
+            inner: Arc<dyn $concrete_ty>,
         }
-    }
 
-    //pub fn downcast<Concrete: Field>(self) -> Concrete {
-    //    *self.inner.downcast::<Concrete>().expect("correct")
-    //}
-    //pub fn downcast_ref<Concrete: Field>(&self) -> &Concrete {
-    //    self.inner.downcast_ref::<Concrete>().expect("correct")
-    //}
-    //pub fn downcast_mut<Concrete: Field>(&mut self) -> &mut Concrete {
-    //    self.inner.downcast_mut::<Concrete>().expect("correct")
-    //}
+        impl PartialEq for $any_ty {
+            fn eq(&self, other: &Self) -> bool {
+                self.inner.dyn_eq(DynEq::as_any(&other.inner))
+            }
+        }
+
+        impl<T: $concrete_ty> From<T> for $any_ty {
+            fn from(value: T) -> Self {
+                Self {
+                    inner: Arc::new(value),
+                }
+            }
+        }
+
+        impl $any_ty {
+            pub fn new<Concrete: $concrete_ty>(concrete: Concrete) -> Self {
+                Self {
+                    inner: Arc::new(concrete),
+                }
+            }
+
+            pub fn set_value(&self, model: &mut $any_model_ty, value: Value) {
+                $concrete_ty::set_value(self.inner.deref(), model, value);
+            }
+
+            //pub fn downcast<Concrete: Field>(self) -> Concrete {
+            //    *self.inner.downcast::<Concrete>().expect("correct")
+            //}
+            //pub fn downcast_ref<Concrete: Field>(&self) -> &Concrete {
+            //    self.inner.downcast_ref::<Concrete>().expect("correct")
+            //}
+            //pub fn downcast_mut<Concrete: Field>(&mut self) -> &mut Concrete {
+            //    self.inner.downcast_mut::<Concrete>().expect("correct")
+            //}
+        }
+
+        impl Deref for $any_ty {
+            type Target = dyn $concrete_ty;
+
+            fn deref(&self) -> &Self::Target {
+                self.inner.as_ref()
+            }
+        }
+    };
 }
 
-impl Deref for AnyField {
-    type Target = dyn Field;
-
-    fn deref(&self) -> &Self::Target {
-        self.inner.as_ref()
-    }
-}
+impl_any_field!(AnyField, Field, AnyModel);
+impl_any_field!(AnyCreateField, CreateField, AnyCreateModel);
+impl_any_field!(AnyReadField, ReadField, AnyReadModel);
+impl_any_field!(AnyUpdateField, UpdateField, AnyUpdateModel);
 
 /// Configuration trait for field serialization
 pub trait SerializeAsKey: Send + Sync {
@@ -114,36 +164,36 @@ pub trait SerializeAsKey: Send + Sync {
 }
 
 #[derive(Debug, Eq, Hash)]
-pub struct SerializableField {
-    field: AnyField,
+pub struct SerializableReadField {
+    field: AnyReadField,
 }
 
-impl PartialEq for SerializableField {
+impl PartialEq for SerializableReadField {
     fn eq(&self, other: &Self) -> bool {
-        self.field.dyn_eq(other.field.as_any())
+        self.field.dyn_eq(DynEq::as_any(&other.field))
     }
 }
 
-impl SerializableField {
-    pub fn into_inner(self) -> AnyField {
+impl SerializableReadField {
+    pub fn into_inner(self) -> AnyReadField {
         self.field
     }
 }
 
-impl Serialize for SerializableField {
+impl Serialize for SerializableReadField {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.field.serialize_as_key().as_str().trim_matches('\"'))
     }
 }
 
-impl From<AnyField> for SerializableField {
-    fn from(field: AnyField) -> Self {
-        SerializableField { field }
+impl From<AnyReadField> for SerializableReadField {
+    fn from(field: AnyReadField) -> Self {
+        SerializableReadField { field }
     }
 }
 
-impl AsRef<AnyField> for SerializableField {
-    fn as_ref(&self) -> &AnyField {
+impl AsRef<AnyReadField> for SerializableReadField {
+    fn as_ref(&self) -> &AnyReadField {
         &self.field
     }
 }
@@ -157,37 +207,84 @@ dyn_eq::eq_trait_object!(Model);
 dyn_clone::clone_trait_object!(Model);
 downcast_rs::impl_downcast!(Model);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AnyModel {
-    inner: Box<dyn Model>,
-}
+#[typetag::serde]
+pub trait CreateModel: Model {}
+dyn_eq::eq_trait_object!(CreateModel);
+dyn_clone::clone_trait_object!(CreateModel);
+downcast_rs::impl_downcast!(CreateModel);
 
-impl AnyModel {
-    pub fn from<Concrete: Model>(concrete: Concrete) -> Self {
-        Self {
-            inner: Box::new(concrete),
+#[typetag::serde]
+pub trait UpdateModel: Model {}
+dyn_eq::eq_trait_object!(UpdateModel);
+dyn_clone::clone_trait_object!(UpdateModel);
+downcast_rs::impl_downcast!(UpdateModel);
+
+#[typetag::serde]
+pub trait ReadModel: Model {}
+dyn_eq::eq_trait_object!(ReadModel);
+dyn_clone::clone_trait_object!(ReadModel);
+downcast_rs::impl_downcast!(ReadModel);
+
+macro_rules! impl_any_model {
+    ($any_ty:tt, $concrete_ty:tt) => {
+        #[derive(Debug, Clone, Eq)]
+        pub struct $any_ty {
+            inner: Box<dyn $concrete_ty>,
         }
-    }
 
-    pub fn downcast<Concrete: Model>(self) -> Concrete {
-        *self.inner.downcast::<Concrete>().expect("correct")
-    }
+        impl PartialEq for $any_ty {
+            fn eq(&self, other: &Self) -> bool {
+                self.inner.dyn_eq(DynEq::as_any(&other.inner))
+            }
+        }
 
-    pub fn downcast_ref<Concrete: Model>(&self) -> &Concrete {
-        self.inner.downcast_ref::<Concrete>().expect("correct")
-    }
+        impl<T: $concrete_ty> From<T> for $any_ty {
+            fn from(value: T) -> Self {
+                Self {
+                    inner: Box::new(value),
+                }
+            }
+        }
 
-    pub fn downcast_mut<Concrete: Model>(&mut self) -> &mut Concrete {
-        self.inner.downcast_mut::<Concrete>().expect("correct")
-    }
+        impl $any_ty {
+            pub fn new<Concrete: $concrete_ty>(concrete: Concrete) -> Self {
+                Self {
+                    inner: Box::new(concrete),
+                }
+            }
+
+            pub fn downcast<Concrete: $concrete_ty>(self) -> Concrete {
+                *self.inner.downcast::<Concrete>().expect("correct")
+            }
+
+            pub fn downcast_ref<Concrete: $concrete_ty>(&self) -> &Concrete {
+                self.inner.downcast_ref::<Concrete>().expect("correct")
+            }
+
+            pub fn downcast_mut<Concrete: $concrete_ty>(&mut self) -> &mut Concrete {
+                self.inner.downcast_mut::<Concrete>().expect("correct")
+            }
+        }
+
+        impl Deref for $any_ty {
+            type Target = dyn $concrete_ty;
+
+            fn deref(&self) -> &Self::Target {
+                self.inner.as_ref()
+            }
+        }
+    };
 }
 
-impl Deref for AnyModel {
-    type Target = dyn Model;
+impl_any_model!(AnyModel, Model);
+impl_any_model!(AnyCreateModel, CreateModel);
+impl_any_model!(AnyReadModel, ReadModel);
+impl_any_model!(AnyUpdateModel, UpdateModel);
 
-    fn deref(&self) -> &Self::Target {
-        self.inner.as_ref()
-    }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AnyReadOrUpdateModel {
+    Read(AnyReadModel),
+    Update(AnyUpdateModel),
 }
 
 pub trait ActionPayload: Debug + DynClone + DynEq + downcast_rs::Downcast + Send + Sync {}
@@ -229,35 +326,41 @@ impl Deref for AnyActionPayload {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Elem {
-    Enclosing(Enclosing),
-    Field((AnyField, FieldOptions)),
+pub enum Elem<F> {
+    Enclosing(Enclosing<F>),
+    Field((F, FieldOptions)),
     Separator,
 }
 
-impl Elem {
-    pub fn field(field: impl Field, options: FieldOptions) -> Self {
-        Self::Field((AnyField::from(field), options))
+impl Elem<AnyCreateField> {
+    pub fn create_field(field: impl CreateField, options: FieldOptions) -> Self {
+        Self::Field((field.into(), options))
+    }
+}
+
+impl Elem<AnyUpdateField> {
+    pub fn field(field: impl UpdateField, options: FieldOptions) -> Self {
+        Self::Field((field.into(), options))
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Enclosing {
-    None(Group),
-    Tabs(Vec<Tab>),
-    Card(Group),
+pub enum Enclosing<F> {
+    None(Group<F>),
+    Tabs(Vec<Tab<F>>),
+    Card(Group<F>),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Tab {
+pub struct Tab<F> {
     /// A unique identifier for this tab.
     pub id: TabId,
     pub label: Label,
-    pub group: Group,
+    pub group: Group<F>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Group {
+pub struct Group<F> {
     pub layout: Layout,
-    pub children: Vec<Elem>,
+    pub children: Vec<Elem<F>>,
 }

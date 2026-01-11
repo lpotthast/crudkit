@@ -1,8 +1,9 @@
 use crate::dynamic::crud_action::{CrudEntityAction, States};
 use crate::dynamic::crud_action_buttons::CrudActionButtons;
 use crate::dynamic::crud_action_context::CrudActionContext;
-use crate::dynamic::crud_fields::CrudFields;
+use crate::dynamic::crud_fields::CrudUpdateFields;
 use crate::dynamic::crud_instance::CrudInstanceContext;
+use crate::dynamic::crud_instance_config::UpdateElements;
 use crate::dynamic::crud_table::NoDataAvailable;
 use crate::dynamic::custom_field::CustomUpdateFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
@@ -10,11 +11,17 @@ use crate::ReactiveValue;
 use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
 use crudkit_id::SerializableId;
 use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::{AnyUpdateField, AnyUpdateModel};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
 use std::collections::HashMap;
 
+/// The `read`-view is equivalent to the `update`-view but does not allow for any mutation of the
+/// shown content.
+///
+/// Despite being named `read`-view, this also uses the `update`-model of the resource we are
+/// operating on. Only the `list`-view uses the `read`-model.
 #[component]
 pub fn CrudReadView(
     /// The ID of the entity being edited.
@@ -22,9 +29,9 @@ pub fn CrudReadView(
     id: Signal<SerializableId>,
     #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
     #[prop(into)] actions: Signal<Vec<CrudEntityAction>>,
-    #[prop(into)] elements: Signal<Vec<Elem>>, // UpdateModel
+    #[prop(into)] elements: Signal<UpdateElements>,
     #[prop(into)] custom_fields: Signal<CustomUpdateFields>,
-    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // UpdateModel field
+    #[prop(into)] field_config: Signal<HashMap<AnyUpdateField, DynSelectConfig>>,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_tab_selected: Callback<TabId>,
 ) -> impl IntoView {
@@ -57,13 +64,14 @@ pub fn CrudReadView(
 
     // Stores the current state of the entity or an error, if no entity could be fetched.
     // Until the initial fetch request is completed, this is in the `Err(NoDataAvailable::NotYetLoaded` state!
-    let (entity, set_entity) = signal(Result::<ReadSignal<AnyModel>, NoDataAvailable>::Err(
+    let (entity, set_entity) = signal(Result::<ReadSignal<AnyUpdateModel>, NoDataAvailable>::Err(
         NoDataAvailable::NotYetLoaded,
     ));
 
     // TODO: Read and Edit view have some things in common, like loading the current entity and creating the signals map. Can this be simplified or extracted?
-    let (signals, set_sig) =
-        signal::<StoredValue<HashMap<AnyField, ReactiveValue>>>(StoredValue::new(HashMap::new()));
+    let (signals, set_sig) = signal::<StoredValue<HashMap<AnyUpdateField, ReactiveValue>>>(
+        StoredValue::new(HashMap::new()),
+    );
 
     // Update the `entity` signal whenever we fetched a new version of the edited entity.
     Effect::new(move |_prev| {
@@ -147,7 +155,7 @@ pub fn CrudReadView(
                         }
                     }}
 
-                    <CrudFields
+                    <CrudUpdateFields
                         custom_fields=custom_fields
                         field_config=field_config
                         elements=elements

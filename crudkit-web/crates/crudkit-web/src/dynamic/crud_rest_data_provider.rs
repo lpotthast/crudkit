@@ -1,5 +1,5 @@
 use crate::dynamic::requests::request_post;
-use crate::dynamic::{AnyModel, SerializableField};
+use crate::dynamic::{AnyCreateModel, AnyUpdateModel, SerializableReadField};
 use crate::prelude::{RequestError, ReqwestExecutor};
 use crudkit_condition::{merge_conditions, Condition};
 use crudkit_id::SerializableId;
@@ -18,27 +18,27 @@ pub struct ReadCount {
 pub struct ReadMany {
     pub limit: Option<u64>,
     pub skip: Option<u64>,
-    pub order_by: Option<IndexMap<SerializableField, Order>>,
+    pub order_by: Option<IndexMap<SerializableReadField, Order>>,
     pub condition: Option<Condition>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ReadOne {
     pub skip: Option<u64>,
-    pub order_by: Option<IndexMap<SerializableField, Order>>,
+    pub order_by: Option<IndexMap<SerializableReadField, Order>>,
     pub condition: Option<Condition>,
 }
 
 /// Not `Serialize`, as we perform custom serialization of the model on use.
 #[derive(Debug)]
 pub struct CreateOne {
-    pub entity: AnyModel,
+    pub entity: AnyCreateModel,
 }
 
 /// Not `Serialize`, as we perform custom serialization of the model on use.
 #[derive(Debug)]
 pub struct UpdateOne {
-    pub entity: AnyModel,
+    pub entity: AnyUpdateModel,
     pub condition: Option<Condition>,
 }
 

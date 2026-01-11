@@ -5,6 +5,10 @@ use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_condition::Condition;
 use crudkit_shared::{Order, SaveResult, Saved};
 use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::{
+    AnyCreateField, AnyCreateModel, AnyReadField, AnyReadModel, AnyUpdateField, AnyUpdateModel,
+    CreateField, CreateModel, ReadField, ReadModel, UpdateField, UpdateModel,
+};
 use indexmap::IndexMap;
 use leptos::prelude::*;
 use serde::de::DeserializeOwned;
@@ -16,22 +20,21 @@ use std::sync::Arc;
 /// Definition of a column, shown in list view.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Header {
-    /// **NOTE** Only use READ model fields here.
-    pub field: AnyField,
+    pub field: AnyReadField,
     pub options: HeaderOptions,
 }
 
 impl Header {
-    pub fn showing(field: impl Field, options: HeaderOptions) -> Header {
+    pub fn showing(field: impl ReadField, options: HeaderOptions) -> Header {
         Self {
-            field: AnyField::from(field),
+            field: AnyReadField::new(field),
             options,
         }
     }
 }
 
-impl From<(AnyField, HeaderOptions)> for Header {
-    fn from((field, options): (AnyField, HeaderOptions)) -> Self {
+impl From<(AnyReadField, HeaderOptions)> for Header {
+    fn from((field, options): (AnyReadField, HeaderOptions)) -> Self {
         Self { field, options }
     }
 }
@@ -43,8 +46,8 @@ pub struct CrudInstanceConfig {
     pub view: SerializableCrudView,
     pub list_columns: Vec<Header>,
     pub create_elements: CreateElements,
-    pub elements: Vec<Elem>,                 // UpdateModel
-    pub order_by: IndexMap<AnyField, Order>, // Read model field name!
+    pub elements: UpdateElements,
+    pub order_by: IndexMap<AnyReadField, Order>,
     /// The number of items shown per page in the list view.
     pub items_per_page: ItemsPerPage,
     /// The current page to display, e.g. `Page::first()`. One-based index.
@@ -59,9 +62,9 @@ pub struct CrudInstanceConfig {
     pub model_handler: ModelHandler,
     pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction>,
-    pub create_field_select_config: HashMap<AnyField, DynSelectConfig>, // CreateModel field
-    pub read_field_select_config: HashMap<AnyField, DynSelectConfig>,   // ReadModel field
-    pub update_field_select_config: HashMap<AnyField, DynSelectConfig>, // UpdateModel field
+    pub create_field_select_config: HashMap<AnyCreateField, DynSelectConfig>,
+    pub read_field_select_config: HashMap<AnyReadField, DynSelectConfig>,
+    pub update_field_select_config: HashMap<AnyUpdateField, DynSelectConfig>,
     pub custom_read_fields: CustomReadFields,
     pub custom_create_fields: CustomCreateFields,
     pub custom_update_fields: CustomUpdateFields,
@@ -105,8 +108,8 @@ pub(crate) struct CrudMutableInstanceConfig {
     pub view: SerializableCrudView,
     pub headers: Vec<Header>,
     pub create_elements: CreateElements,
-    pub elements: Vec<Elem>,                 // UpdateModel
-    pub order_by: IndexMap<AnyField, Order>, // Read model field name!
+    pub elements: UpdateElements,
+    pub order_by: IndexMap<AnyReadField, Order>,
     pub items_per_page: ItemsPerPage,
     pub page: PageNr,
     pub active_tab: Option<Label>,
@@ -125,56 +128,60 @@ pub struct CrudParentConfig {
     pub referencing_field: String, // TODO: This should be: T::ReadModel::Field? (ClusterCertificateField::CreatedAt)
 }
 
+pub type UpdateElements = Vec<Elem<AnyUpdateField>>;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CreateElements {
     None,
-    Custom(Vec<Elem>), // CreateModel
+    Custom(Vec<Elem<AnyCreateField>>),
 }
 
 #[derive(Debug, Clone)]
 pub struct ModelHandler {
     pub deserialize_read_many_response:
-        Callback<serde_json::Value, Result<Vec<AnyModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<Vec<AnyReadModel>, serde_json::Error>>,
     pub deserialize_read_one_response:
-        Callback<serde_json::Value, Result<Option<AnyModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<Option<AnyReadModel>, serde_json::Error>>,
     pub deserialize_create_one_response:
-        Callback<serde_json::Value, Result<SaveResult<AnyModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<SaveResult<AnyUpdateModel>, serde_json::Error>>,
     pub deserialize_update_one_response:
-        Callback<serde_json::Value, Result<SaveResult<AnyModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<SaveResult<AnyUpdateModel>, serde_json::Error>>,
 
-    pub read_model_to_update_model: Callback<AnyModel, AnyModel>,
-    pub create_model_to_signal_map: Callback<AnyModel, HashMap<AnyField, ReactiveValue>>,
-    pub read_model_to_signal_map: Callback<AnyModel, HashMap<AnyField, ReactiveValue>>,
-    pub update_model_to_signal_map: Callback<AnyModel, HashMap<AnyField, ReactiveValue>>,
-    pub get_create_model_field: Callback<String, AnyField>,
-    pub get_default_create_model: Callback<(), AnyModel>,
+    pub read_model_to_update_model: Callback<AnyReadModel, AnyUpdateModel>,
+    pub create_model_to_signal_map:
+        Callback<AnyCreateModel, HashMap<AnyCreateField, ReactiveValue>>,
+    pub read_model_to_signal_map: Callback<AnyReadModel, HashMap<AnyReadField, ReactiveValue>>,
+    pub update_model_to_signal_map:
+        Callback<AnyUpdateModel, HashMap<AnyUpdateField, ReactiveValue>>,
+    pub get_create_model_field: Callback<String, AnyCreateField>,
+    pub get_default_create_model: Callback<(), AnyCreateModel>,
 }
 
 impl ModelHandler {
     pub fn new<Create, Read, Update>() -> ModelHandler
     where
-        Create: Model + DeserializeOwned + CrudDataTrait + Default,
-        Read: Model + DeserializeOwned + CrudDataTrait,
-        Update: Model + DeserializeOwned + CrudDataTrait + From<Read>,
-        <Read as CrudDataTrait>::Field: Field,
-        <Create as CrudDataTrait>::Field: Field,
-        <Update as CrudDataTrait>::Field: Field,
+        Create: CreateModel + DeserializeOwned + CrudDataTrait + Default,
+        Read: ReadModel + DeserializeOwned + CrudDataTrait,
+        Update: UpdateModel + DeserializeOwned + CrudDataTrait + From<Read>,
+        <Read as CrudDataTrait>::Field: ReadField,
+        <Create as CrudDataTrait>::Field: CreateField,
+        <Update as CrudDataTrait>::Field: UpdateField,
     {
         ModelHandler {
             deserialize_read_many_response: Callback::new(move |json| {
                 Ok(serde_json::from_value::<Vec<Read>>(json)?
                     .into_iter()
-                    .map(AnyModel::from)
-                    .collect::<Vec<AnyModel>>())
+                    .map(AnyReadModel::from)
+                    .collect::<Vec<AnyReadModel>>())
             }),
             deserialize_read_one_response: Callback::new(move |json| {
-                Ok(serde_json::from_value::<Option<Read>>(json)?.map(AnyModel::from))
+                Ok(serde_json::from_value::<Option<Read>>(json)?.map(AnyReadModel::from))
             }),
             deserialize_create_one_response: Callback::new(move |json| {
                 let result: SaveResult<Update> = serde_json::from_value(json)?;
-                let result: SaveResult<AnyModel> = match result {
+                let result: SaveResult<AnyUpdateModel> = match result {
                     SaveResult::Saved(saved) => SaveResult::Saved(Saved {
-                        entity: AnyModel::from(saved.entity),
+                        entity: AnyUpdateModel::from(saved.entity),
                         with_validation_errors: saved.with_validation_errors,
                     }),
                     SaveResult::Aborted { reason } => SaveResult::Aborted { reason },
@@ -184,9 +191,9 @@ impl ModelHandler {
             }),
             deserialize_update_one_response: Callback::new(move |json| {
                 let result: SaveResult<Update> = serde_json::from_value(json)?;
-                let result: SaveResult<AnyModel> = match result {
+                let result: SaveResult<AnyUpdateModel> = match result {
                     SaveResult::Saved(saved) => SaveResult::Saved(Saved {
-                        entity: AnyModel::from(saved.entity),
+                        entity: AnyUpdateModel::from(saved.entity),
                         with_validation_errors: saved.with_validation_errors,
                     }),
                     SaveResult::Aborted { reason } => SaveResult::Aborted { reason },
@@ -194,40 +201,42 @@ impl ModelHandler {
                 };
                 Ok(result)
             }),
-            read_model_to_update_model: Callback::new(move |read_model: AnyModel| {
-                AnyModel::from(Update::from(read_model.downcast::<Read>()))
+            read_model_to_update_model: Callback::new(move |read_model: AnyReadModel| {
+                AnyUpdateModel::from(Update::from(read_model.downcast::<Read>()))
             }),
-            create_model_to_signal_map: Callback::new(move |create_model: AnyModel| {
+            create_model_to_signal_map: Callback::new(move |create_model: AnyCreateModel| {
                 let create_model: &Create = create_model.downcast_ref::<Create>();
-                let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
+                let mut map: HashMap<AnyCreateField, ReactiveValue> = HashMap::new();
                 for field in Create::get_all_fields() {
                     let initial = CrudFieldValueTrait::get_value(&field, create_model);
-                    map.insert(AnyField::from(field), initial.into_reactive_value());
+                    map.insert(AnyCreateField::from(field), initial.into_reactive_value());
                 }
                 map
             }),
-            read_model_to_signal_map: Callback::new(move |read_model: AnyModel| {
+            read_model_to_signal_map: Callback::new(move |read_model: AnyReadModel| {
                 let read_model: &Read = read_model.downcast_ref::<Read>();
-                let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
+                let mut map: HashMap<AnyReadField, ReactiveValue> = HashMap::new();
                 for field in Read::get_all_fields() {
                     let initial = CrudFieldValueTrait::get_value(&field, read_model);
-                    map.insert(AnyField::from(field), initial.into_reactive_value());
+                    map.insert(AnyReadField::from(field), initial.into_reactive_value());
                 }
                 map
             }),
-            update_model_to_signal_map: Callback::new(move |update_model: AnyModel| {
+            update_model_to_signal_map: Callback::new(move |update_model: AnyUpdateModel| {
                 let update_model: &Update = update_model.downcast_ref::<Update>();
-                let mut map: HashMap<AnyField, ReactiveValue> = HashMap::new();
+                let mut map: HashMap<AnyUpdateField, ReactiveValue> = HashMap::new();
                 for field in Update::get_all_fields() {
                     let initial = CrudFieldValueTrait::get_value(&field, update_model);
-                    map.insert(AnyField::from(field), initial.into_reactive_value());
+                    map.insert(AnyUpdateField::from(field), initial.into_reactive_value());
                 }
                 map
             }),
             get_create_model_field: Callback::new(move |field_name: String| {
-                AnyField::from(Create::get_field(&field_name))
+                AnyCreateField::from(Create::get_field(&field_name))
             }),
-            get_default_create_model: Callback::new(move |()| AnyModel::from(Create::default())),
+            get_default_create_model: Callback::new(move |()| {
+                AnyCreateModel::from(Create::default())
+            }),
         }
     }
 }
@@ -240,9 +249,9 @@ pub(crate) struct CrudStaticInstanceConfig {
     pub model_handler: ModelHandler,
     pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction>,
-    pub create_field_select_config: HashMap<AnyField, DynSelectConfig>, // CreateModel field
-    pub read_field_select_config: HashMap<AnyField, DynSelectConfig>,   // ReadModel field
-    pub update_field_select_config: HashMap<AnyField, DynSelectConfig>, // UpdateModel field
+    pub create_field_select_config: HashMap<AnyCreateField, DynSelectConfig>,
+    pub read_field_select_config: HashMap<AnyReadField, DynSelectConfig>,
+    pub update_field_select_config: HashMap<AnyUpdateField, DynSelectConfig>,
     pub custom_read_fields: CustomReadFields,
     pub custom_create_fields: CustomCreateFields,
     pub custom_update_fields: CustomUpdateFields,
@@ -250,7 +259,7 @@ pub(crate) struct CrudStaticInstanceConfig {
 
 impl CrudMutableInstanceConfig {
     // TODO: unused?
-    pub fn update_order_by(&mut self, field: AnyField, options: OrderByUpdateOptions) {
+    pub fn update_order_by(&mut self, field: AnyReadField, options: OrderByUpdateOptions) {
         let prev = self.order_by.get(&field).cloned();
         if !options.append {
             self.order_by.clear();

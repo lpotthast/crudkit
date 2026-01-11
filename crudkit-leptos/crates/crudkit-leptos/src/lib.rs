@@ -22,7 +22,7 @@ pub use crudkit_shared;
 use crudkit_shared::TimeDuration;
 pub use crudkit_validation;
 pub use crudkit_web;
-use crudkit_web::value::{JsonValue, Value};
+use crudkit_web::value::Value;
 use crudkit_web::CrudSelectableTrait;
 pub use crudkit_websocket;
 use leptos::prelude::*;
@@ -73,10 +73,10 @@ pub trait SignalsTrait {
 pub enum ReactiveValue {
     String(RwSignal<String>),
     OptionalString(RwSignal<Option<String>>),
-    Text(RwSignal<String>),    // TODO: Add optional text!
-    Json(RwSignal<JsonValue>), // TODO: Add optional json value
-    OptionalJson(RwSignal<Option<JsonValue>>),
-    Uuid(RwSignal<uuid::Uuid>), // TODO: Add OptionalUuid variant
+    Json(RwSignal<serde_json::Value>),
+    OptionalJson(RwSignal<Option<serde_json::Value>>),
+    Uuid(RwSignal<uuid::Uuid>),
+    OptionalUuid(RwSignal<Option<uuid::Uuid>>),
     I32(RwSignal<i32>),
     U32(RwSignal<u32>),
     I64(RwSignal<i64>),
@@ -87,6 +87,8 @@ pub enum ReactiveValue {
     OptionalI64(RwSignal<Option<i64>>),
     OptionalU32(RwSignal<Option<u32>>),
     OptionalU64(RwSignal<Option<u64>>),
+    OptionalI128(RwSignal<Option<i128>>),
+    OptionalU128(RwSignal<Option<u128>>),
     F32(RwSignal<f32>),
     F64(RwSignal<f64>),
     Bool(RwSignal<bool>),
@@ -117,10 +119,10 @@ impl IntoReactiveValue for Value {
         match self {
             Value::String(value) => ReactiveValue::String(RwSignal::new(value)),
             Value::OptionalString(value) => ReactiveValue::OptionalString(RwSignal::new(value)),
-            Value::Text(value) => ReactiveValue::Text(RwSignal::new(value)),
             Value::Json(value) => ReactiveValue::Json(RwSignal::new(value)),
             Value::OptionalJson(value) => ReactiveValue::OptionalJson(RwSignal::new(value)),
             Value::Uuid(value) => ReactiveValue::Uuid(RwSignal::new(value)),
+            Value::OptionalUuid(value) => ReactiveValue::OptionalUuid(RwSignal::new(value)),
             Value::I32(value) => ReactiveValue::I32(RwSignal::new(value)),
             Value::U32(value) => ReactiveValue::U32(RwSignal::new(value)),
             Value::I64(value) => ReactiveValue::I64(RwSignal::new(value)),
@@ -131,6 +133,8 @@ impl IntoReactiveValue for Value {
             Value::OptionalI64(value) => ReactiveValue::OptionalI64(RwSignal::new(value)),
             Value::OptionalU32(value) => ReactiveValue::OptionalU32(RwSignal::new(value)),
             Value::OptionalU64(value) => ReactiveValue::OptionalU64(RwSignal::new(value)),
+            Value::OptionalI128(value) => ReactiveValue::OptionalI128(RwSignal::new(value)),
+            Value::OptionalU128(value) => ReactiveValue::OptionalU128(RwSignal::new(value)),
             Value::F32(value) => ReactiveValue::F32(RwSignal::new(value)),
             Value::F64(value) => ReactiveValue::F64(RwSignal::new(value)),
             Value::Bool(value) => ReactiveValue::Bool(RwSignal::new(value)),
@@ -169,10 +173,10 @@ impl ReactiveValue {
         match self {
             ReactiveValue::String(sig) => sig.set(v.take_string()),
             ReactiveValue::OptionalString(sig) => sig.set(v.take_optional_string()),
-            ReactiveValue::Text(sig) => sig.set(v.take_text()),
             ReactiveValue::Json(sig) => sig.set(v.take_json_value()),
             ReactiveValue::OptionalJson(sig) => sig.set(v.take_optional_json_value()),
             ReactiveValue::Uuid(sig) => sig.set(v.take_uuid()),
+            ReactiveValue::OptionalUuid(sig) => sig.set(v.take_optional_uuid()),
             ReactiveValue::I32(sig) => sig.set(v.take_i32()),
             ReactiveValue::U32(sig) => sig.set(v.take_u32()),
             ReactiveValue::I64(sig) => sig.set(v.take_i64()),
@@ -183,6 +187,8 @@ impl ReactiveValue {
             ReactiveValue::OptionalI32(sig) => sig.set(v.take_optional_i32()),
             ReactiveValue::OptionalI64(sig) => sig.set(v.take_optional_i64()),
             ReactiveValue::OptionalU64(sig) => sig.set(v.take_optional_u64()),
+            ReactiveValue::OptionalI128(sig) => sig.set(v.take_optional_i128()),
+            ReactiveValue::OptionalU128(sig) => sig.set(v.take_optional_u128()),
             ReactiveValue::F32(sig) => sig.set(v.take_f32()),
             ReactiveValue::F64(sig) => sig.set(v.take_f64()),
             ReactiveValue::Bool(sig) => sig.set(v.take_bool()),

@@ -8,7 +8,7 @@ use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_pagination::CrudPagination;
 use crudkit_shared::Order;
 use crudkit_web::dynamic::prelude::*;
-use crudkit_web::dynamic::SerializableField;
+use crudkit_web::dynamic::{AnyReadField, AnyReadModel, SerializableReadField};
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
@@ -18,11 +18,11 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CrudListViewContext {
-    pub data: Memo<Result<Arc<Vec<AnyModel>>, NoDataAvailable>>, // ReadModel
+    pub data: Memo<Result<Arc<Vec<AnyReadModel>>, NoDataAvailable>>,
     pub has_data: Signal<bool>,
 
-    pub selected: ReadSignal<Arc<Vec<AnyModel>>>, // ReadModel
-    set_selected: WriteSignal<Arc<Vec<AnyModel>>>, // ReadModel
+    pub selected: ReadSignal<Arc<Vec<AnyReadModel>>>,
+    set_selected: WriteSignal<Arc<Vec<AnyReadModel>>>,
     pub all_selected: Signal<bool>,
 }
 
@@ -44,7 +44,7 @@ impl CrudListViewContext {
         }
     }
 
-    pub fn select(&self, entity: AnyModel, state: bool) {
+    pub fn select(&self, entity: AnyReadModel, state: bool) {
         self.set_selected.update(|list| {
             let mut selected = list.as_ref().clone();
 
@@ -62,7 +62,7 @@ impl CrudListViewContext {
         });
     }
 
-    pub fn toggle_entity_selection(&self, entity: AnyModel) {
+    pub fn toggle_entity_selection(&self, entity: AnyReadModel) {
         self.set_selected.update(|list| {
             let mut selected = list.as_ref().clone();
 
@@ -83,9 +83,9 @@ impl CrudListViewContext {
 pub fn CrudListView(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
     #[prop(into)] headers: Signal<Vec<Header>>,
-    #[prop(into)] order_by: Signal<IndexMap<AnyField, Order>>, // ReadModel field
+    #[prop(into)] order_by: Signal<IndexMap<AnyReadField, Order>>,
     #[prop(into)] custom_fields: Signal<CustomReadFields>,
-    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // ReadModel field
+    #[prop(into)] field_config: Signal<HashMap<AnyReadField, DynSelectConfig>>,
     #[prop(into)] actions: Signal<Vec<CrudAction>>,
 ) -> impl IntoView {
     let instance_ctx = expect_context::<CrudInstanceContext>();
@@ -119,7 +119,7 @@ pub fn CrudListView(
                     let original = instance_ctx.order_by.get();
                     let mut new = IndexMap::new();
                     for (field, order) in original {
-                        new.insert(SerializableField::from(field), order.clone());
+                        new.insert(SerializableReadField::from(field), order.clone());
                     }
                     new
                 }),
@@ -158,7 +158,7 @@ pub fn CrudListView(
             .await
     });
 
-    let (selected, set_selected) = signal(Arc::new(Vec::<AnyModel>::new())); // ReadModel
+    let (selected, set_selected) = signal(Arc::new(Vec::<AnyReadModel>::new()));
 
     provide_context(CrudListViewContext {
         data: page,

@@ -1,17 +1,19 @@
-use crate::ReactiveValue;
 use crate::dynamic::crud_action::{CrudEntityAction, States};
 use crate::dynamic::crud_action_buttons::CrudActionButtons;
 use crate::dynamic::crud_action_context::CrudActionContext;
-use crate::dynamic::crud_fields::CrudFields;
+use crate::dynamic::crud_fields::CrudUpdateFields;
 use crate::dynamic::crud_instance::CrudInstanceContext;
+use crate::dynamic::crud_instance_config::UpdateElements;
 use crate::dynamic::crud_table::NoDataAvailable;
 use crate::dynamic::custom_field::CustomUpdateFields;
 use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
-use crudkit_condition::{IntoAllEqualCondition, merge_conditions};
+use crate::ReactiveValue;
+use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
 use crudkit_id::SerializableId;
 use crudkit_shared::{SaveResult, Saved};
 use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::{AnyReadOrUpdateModel, AnyUpdateField, AnyUpdateModel};
 use crudkit_web::request_error::RequestError;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
@@ -40,12 +42,12 @@ pub fn CrudEditView(
     id: Signal<SerializableId>, // UpdateModel id
     #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
     #[prop(into)] actions: Signal<Vec<CrudEntityAction>>,
-    #[prop(into)] elements: Signal<Vec<Elem>>,
+    #[prop(into)] elements: Signal<UpdateElements>,
     #[prop(into)] custom_fields: Signal<CustomUpdateFields>,
-    #[prop(into)] field_config: Signal<HashMap<AnyField, DynSelectConfig>>, // UpdateModel field
+    #[prop(into)] field_config: Signal<HashMap<AnyUpdateField, DynSelectConfig>>,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
-    #[prop(into)] on_entity_updated: Callback<Saved<AnyModel>>, // UpdateModel
+    #[prop(into)] on_entity_updated: Callback<Saved<AnyUpdateModel>>,
     #[prop(into)] on_entity_update_aborted: Callback<String>,
     #[prop(into)] on_entity_not_updated_critical_errors: Callback<()>,
     #[prop(into)] on_entity_update_failed: Callback<RequestError>,
@@ -57,7 +59,7 @@ pub fn CrudEditView(
     // then this signal becomes a copy of the current (loaded) entity state.
     // We cannot use a `Default` value. The UpdateModel type may contain fields for which no default is available.
     // All modifications made through the UI are stored in this signal.
-    let (input, set_input) = signal(Option::<AnyModel>::None);
+    let (input, set_input) = signal(Option::<AnyUpdateModel>::None);
 
     // TODO: Do not use LocalResouce, allow loading on server.
     let entity_resource = LocalResource::new(move || async move {
@@ -87,11 +89,11 @@ pub fn CrudEditView(
 
     // Stores the current state of the entity or an error, if no entity could be fetched.
     // Until the initial fetch request is completed, this is in the `Err(NoDataAvailable::NotYetLoaded` state!
-    let (entity, set_entity) = signal(Result::<AnyModel, NoDataAvailable>::Err(
+    let (entity, set_entity) = signal(Result::<AnyUpdateModel, NoDataAvailable>::Err(
         NoDataAvailable::NotYetLoaded,
     ));
 
-    let (signals, set_sig) = signal(StoredValue::<HashMap<AnyField, ReactiveValue>>::new(
+    let (signals, set_sig) = signal(StoredValue::<HashMap<AnyUpdateField, ReactiveValue>>::new(
         HashMap::new(),
     ));
 
@@ -141,7 +143,7 @@ pub fn CrudEditView(
     });
 
     // The state of the `input` signal should be considered to be erroneous if at least one field is contained in this error list.
-    let (_input_errors, set_input_errors) = signal(HashMap::<AnyField, String>::new());
+    let (_input_errors, set_input_errors) = signal(HashMap::<AnyUpdateField, String>::new());
 
     let (user_wants_to_leave, set_user_wants_to_leave) = signal(false);
     let (show_leave_modal, set_show_leave_modal) = signal(false);
@@ -157,8 +159,8 @@ pub fn CrudEditView(
         },
     );
 
-    let save_action = Action::new_local(move |(entity, and_then): &(AnyModel, Then)| {
-        let entity: AnyModel = entity.clone();
+    let save_action = Action::new_local(move |(entity, and_then): &(AnyUpdateModel, Then)| {
+        let entity: AnyUpdateModel = entity.clone();
         let and_then = and_then.clone();
         async move {
             (
@@ -234,13 +236,15 @@ pub fn CrudEditView(
         move || save_action.dispatch((input.get().unwrap(), Then::OpenCreateView));
 
     let trigger_delete = move || {
-        instance_ctx.request_deletion_of(input.get().expect("Entity to be already loaded"));
+        instance_ctx.request_deletion_of(AnyReadOrUpdateModel::Update(
+            input.get().expect("Entity to be already loaded"),
+        ));
     };
 
     let action_ctx = CrudActionContext::new();
 
     let value_changed =
-        Callback::<(AnyField, Result<Value, String>)>::new(move |(field, result)| {
+        Callback::<(AnyUpdateField, Result<Value, String>)>::new(move |(field, result)| {
             //tracing::debug!(?field, ?result, "value changed");
             match result {
                 Ok(value) => {
@@ -322,7 +326,7 @@ pub fn CrudEditView(
                         </Row>
                     </Grid>
 
-                    <CrudFields
+                    <CrudUpdateFields
                         custom_fields=custom_fields
                         field_config=field_config
                         elements=elements

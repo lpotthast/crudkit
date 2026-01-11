@@ -12,6 +12,7 @@ use crate::shared::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
 use crudkit_id::SerializableId;
 use crudkit_shared::{DeleteResult, Order};
 use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::{AnyReadField, AnyReadOrUpdateModel};
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
@@ -43,8 +44,8 @@ pub struct CrudInstanceContext {
     set_items_per_page: WriteSignal<ItemsPerPage>,
 
     /// How data should be ordered when querying data for the ist view.
-    pub order_by: ReadSignal<IndexMap<AnyField, Order>>, // Read model field
-    set_order_by: WriteSignal<IndexMap<AnyField, Order>>, // Read model field
+    pub order_by: ReadSignal<IndexMap<AnyReadField, Order>>,
+    set_order_by: WriteSignal<IndexMap<AnyReadField, Order>>,
 
     /// Configuration of a parent, if present.
     pub parent: StoredValue<Option<CrudParentConfig>>,
@@ -60,8 +61,8 @@ pub struct CrudInstanceContext {
     pub base_condition: Signal<Option<crudkit_condition::Condition>>,
 
     /// Whenever the user requests to delete something, this is the place that information is stored.
-    pub deletion_request: ReadSignal<Option<AnyModel>>, // Read or update model
-    set_deletion_request: WriteSignal<Option<AnyModel>>, // Read or update model
+    pub deletion_request: ReadSignal<Option<AnyReadOrUpdateModel>>,
+    set_deletion_request: WriteSignal<Option<AnyReadOrUpdateModel>>,
 
     /// Whenever this signal changes, the current view should "refresh" by reloading all server provided data.
     /// It simply provides a new random ID on each invocation.
@@ -99,9 +100,9 @@ impl CrudInstanceContext {
     }
 
     // TODO: Why is this here and CrudInstanceConfig#update_order_by exists?
-    pub fn oder_by(&self, field: AnyField, options: OrderByUpdateOptions) {
+    pub fn oder_by(&self, field: AnyReadField, options: OrderByUpdateOptions) {
         self.set_order_by
-            .update(|order_by: &mut IndexMap<AnyField, Order>| {
+            .update(|order_by: &mut IndexMap<AnyReadField, Order>| {
                 let prev = order_by.get(&field).cloned();
                 tracing::debug!(?field, ?options, "order by");
                 if !options.append {
@@ -124,7 +125,7 @@ impl CrudInstanceContext {
         tracing::info!(?tab_id, "tab_selected");
     }
 
-    pub fn request_deletion_of(&self, entity: AnyModel) {
+    pub fn request_deletion_of(&self, entity: AnyReadOrUpdateModel) {
         // TODO: Use upcasting instead of helper function when Rust 1.86 lands. (see: dyn upcasting coercion")
         self.set_deletion_request.set(Some(entity));
     }
@@ -326,8 +327,12 @@ pub fn CrudInstance(
         }
     });
 
-    let on_accept_delete = Callback::new(move |entity: AnyModel| {
-        delete_action.dispatch(entity.get_id());
+    let on_accept_delete = Callback::new(move |entity: AnyReadOrUpdateModel| {
+        let id = match entity {
+            AnyReadOrUpdateModel::Read(model) => model.get_id(),
+            AnyReadOrUpdateModel::Update(model) => model.get_id(),
+        };
+        delete_action.dispatch(id);
     });
 
     view! {

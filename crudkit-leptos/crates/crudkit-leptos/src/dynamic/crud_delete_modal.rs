@@ -1,4 +1,5 @@
 use crudkit_web::dynamic::prelude::*;
+use crudkit_web::dynamic::AnyReadOrUpdateModel;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -6,9 +7,9 @@ use leptos::prelude::*;
 #[component]
 pub fn CrudDeleteModal(
     // Modal is shown when this Signal contains a Some value.
-    #[prop(into)] entity: Signal<Option<AnyModel>>,
+    #[prop(into)] entity: Signal<Option<AnyReadOrUpdateModel>>,
     #[prop(into)] on_cancel: Callback<()>,
-    #[prop(into)] on_accept: Callback<AnyModel>,
+    #[prop(into)] on_accept: Callback<AnyReadOrUpdateModel>,
 ) -> impl IntoView {
     let show_when = Signal::derive(move || entity.get().is_some());
 
@@ -21,7 +22,12 @@ pub fn CrudDeleteModal(
                         entity
                             .get()
                             .map(|it| {
-                                format!("Löschen - {:?}", it.get_id()) // TODO: Use other stringify method
+                                // TODO: Use other (customizable) stringify method.
+                                let id = match it {
+                                    AnyReadOrUpdateModel::Read(model) => model.get_id(),
+                                    AnyReadOrUpdateModel::Update(model) => model.get_id(),
+                                };
+                                format!("Löschen - {id:?}")
                             })
                     }}
 
