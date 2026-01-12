@@ -4,7 +4,6 @@ use crate::generic::crud_instance::CrudInstanceContext;
 use crate::generic::crud_list_view::CrudListViewContext;
 use crate::generic::crud_table::NoDataAvailable;
 use crate::generic::custom_field::CustomFields;
-use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_web::generic::prelude::*;
 use leptonic::components::prelude::*;
@@ -19,9 +18,6 @@ pub fn CrudTableBody<T>(
     #[prop(into)] data: Signal<Result<Arc<Vec<T::ReadModel>>, NoDataAvailable>>,
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
     #[prop(into)] custom_fields: Signal<CustomFields<T::ReadModel>>,
-    #[prop(into)] field_config: Signal<
-        HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>,
-    >,
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
@@ -106,7 +102,6 @@ where
                                 <CrudField
                                     // children={ctx.props().children.clone()} // TODO: make this work
                                     custom_fields=custom_fields
-                                    field_config=field_config
                                     current_view=CrudSimpleView::List
                                     field=field.clone()
                                     field_options=FieldOptions {

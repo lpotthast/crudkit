@@ -5,6 +5,84 @@ use leptos::prelude::*;
 use std::sync::Arc;
 
 #[component]
+pub fn CrudU8Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<u8>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get() as f64)
+                />
+            </div>
+        }
+        .into_any(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get() as f64)
+                    set=move |new: f64| { value_changed.run(Ok(Value::U8(new as u8))) }
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}
+
+#[component]
+pub fn CrudU16Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<u16>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get() as f64)
+                />
+            </div>
+        }
+        .into_any(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get() as f64)
+                    set=move |new: f64| { value_changed.run(Ok(Value::U16(new as u16))) }
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}
+
+#[component]
 pub fn CrudU32Field(
     id: String,
     field_options: FieldOptions,
@@ -122,6 +200,100 @@ pub fn CrudU128Field(
 }
 
 #[component]
+pub fn CrudOptionalU8Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<u8>>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => {
+            move || match value.get() {
+                Some(value) => view! { <div>{value}</div> }.into_any(),
+                None => view! { <div>"-"</div> }.into_any(),
+            }
+        }
+        .into_any(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
+                />
+            </div>
+        }
+        .into_any(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
+                    set=move |new: f64| {
+                        value_changed.run(Ok(Value::OptionalU8(Some(new as u8))))
+                    }
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}
+
+#[component]
+pub fn CrudOptionalU16Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<u16>>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => {
+            move || match value.get() {
+                Some(value) => view! { <div>{value}</div> }.into_any(),
+                None => view! { <div>"-"</div> }.into_any(),
+            }
+        }
+        .into_any(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
+                />
+            </div>
+        }
+        .into_any(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
+                    set=move |new: f64| {
+                        value_changed.run(Ok(Value::OptionalU16(Some(new as u16))))
+                    }
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}
+
+#[component]
 pub fn CrudOptionalU32Field(
     id: String,
     field_options: FieldOptions,
@@ -216,6 +388,131 @@ pub fn CrudOptionalU64Field(
 }
 
 #[component]
+pub fn CrudOptionalU128Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<u128>>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => {
+            move || match value.get() {
+                Some(value) => view! { <div>{value}</div> }.into_any(),
+                None => view! { <div>"-"</div> }.into_any(),
+            }
+        }
+        .into_any(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
+                />
+            </div>
+        }
+        .into_any(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
+                    set=move |new: f64| {
+                        value_changed.run(Ok(Value::OptionalU128(Some(new as u128))))
+                    }
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}
+
+#[component]
+pub fn CrudI8Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<i8>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get() as f64)
+                />
+            </div>
+        }
+        .into_any(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get() as f64)
+                    set=move |new: f64| { value_changed.run(Ok(Value::I8(new as i8))) }
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}
+
+#[component]
+pub fn CrudI16Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<i16>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get() as f64)
+                />
+            </div>
+        }
+        .into_any(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get() as f64)
+                    set=move |new: f64| { value_changed.run(Ok(Value::I16(new as i16))) }
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}
+
+#[component]
 pub fn CrudI32Field(
     id: String,
     field_options: FieldOptions,
@@ -247,6 +544,178 @@ pub fn CrudI32Field(
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get() as f64)
                     set=move |new: f64| { value_changed.run(Ok(Value::I32(new as i32))) }
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}
+
+#[component]
+pub fn CrudI64Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<i64>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get() as f64)
+                />
+            </div>
+        }
+        .into_any(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get() as f64)
+                    set=move |new: f64| { value_changed.run(Ok(Value::I64(new as i64))) }
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}
+
+#[component]
+pub fn CrudI128Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<i128>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get() as f64)
+                />
+            </div>
+        }
+        .into_any(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get() as f64)
+                    set=move |new: f64| { value_changed.run(Ok(Value::I128(new as i128))) }
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}
+
+#[component]
+pub fn CrudOptionalI8Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<i8>>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => {
+            move || match value.get() {
+                Some(value) => view! { <div>{value}</div> }.into_any(),
+                None => view! { <div>"-"</div> }.into_any(),
+            }
+        }
+        .into_any(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
+                />
+            </div>
+        }
+        .into_any(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
+                    set=move |new: f64| {
+                        value_changed.run(Ok(Value::OptionalI8(Some(new as i8))))
+                    }
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}
+
+#[component]
+pub fn CrudOptionalI16Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<i16>>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => {
+            move || match value.get() {
+                Some(value) => view! { <div>{value}</div> }.into_any(),
+                None => view! { <div>"-"</div> }.into_any(),
+            }
+        }
+        .into_any(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
+                />
+            </div>
+        }
+        .into_any(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
+                    set=move |new: f64| {
+                        value_changed.run(Ok(Value::OptionalI16(Some(new as i16))))
+                    }
                 />
             </div>
         }
@@ -302,45 +771,6 @@ pub fn CrudOptionalI32Field(
 }
 
 #[component]
-pub fn CrudI64Field(
-    id: String,
-    field_options: FieldOptions,
-    field_mode: FieldMode,
-    #[prop(into)] value: Signal<i64>,
-    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
-) -> impl IntoView {
-    match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
-        FieldMode::Readable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())}
-                <NumberInput
-                    attr:id=id.clone()
-                    // TODO: This should not be necessary. We can style the leptonic-input directly.
-                    attr:class="crud-input-field"
-                    disabled=true
-                    get=Signal::derive(move || value.get() as f64)
-                />
-            </div>
-        }
-        .into_any(),
-        FieldMode::Editable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())}
-                <NumberInput
-                    attr:id=id.clone()
-                    attr:class="crud-input-field"
-                    disabled=field_options.disabled
-                    get=Signal::derive(move || value.get() as f64)
-                    set=move |new: f64| { value_changed.run(Ok(Value::I64(new as i64))) }
-                />
-            </div>
-        }
-        .into_any(),
-    }
-}
-
-#[component]
 pub fn CrudOptionalI64Field(
     id: String,
     field_options: FieldOptions,
@@ -388,45 +818,6 @@ pub fn CrudOptionalI64Field(
 }
 
 #[component]
-pub fn CrudI128Field(
-    id: String,
-    field_options: FieldOptions,
-    field_mode: FieldMode,
-    #[prop(into)] value: Signal<i128>,
-    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
-) -> impl IntoView {
-    match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
-        FieldMode::Readable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())}
-                <NumberInput
-                    attr:id=id.clone()
-                    // TODO: This should not be necessary. We can style the leptonic-input directly.
-                    attr:class="crud-input-field"
-                    disabled=true
-                    get=Signal::derive(move || value.get() as f64)
-                />
-            </div>
-        }
-        .into_any(),
-        FieldMode::Editable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())}
-                <NumberInput
-                    attr:id=id.clone()
-                    attr:class="crud-input-field"
-                    disabled=field_options.disabled
-                    get=Signal::derive(move || value.get() as f64)
-                    set=move |new: f64| { value_changed.run(Ok(Value::I128(new as i128))) }
-                />
-            </div>
-        }
-        .into_any(),
-    }
-}
-
-#[component]
 pub fn CrudOptionalI128Field(
     id: String,
     field_options: FieldOptions,
@@ -465,53 +856,6 @@ pub fn CrudOptionalI128Field(
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                     set=move |new: f64| {
                         value_changed.run(Ok(Value::OptionalI128(Some(new as i128))))
-                    }
-                />
-            </div>
-        }
-        .into_any(),
-    }
-}
-
-#[component]
-pub fn CrudOptionalU128Field(
-    id: String,
-    field_options: FieldOptions,
-    field_mode: FieldMode,
-    #[prop(into)] value: Signal<Option<u128>>,
-    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
-) -> impl IntoView {
-    match field_mode {
-        FieldMode::Display => {
-            move || match value.get() {
-                Some(value) => view! { <div>{value}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
-            }
-        }
-        .into_any(),
-        FieldMode::Readable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())}
-                <NumberInput
-                    attr:id=id.clone()
-                    // TODO: This should not be necessary. We can style the leptonic-input directly.
-                    attr:class="crud-input-field"
-                    disabled=true
-                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
-                />
-            </div>
-        }
-        .into_any(),
-        FieldMode::Editable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())}
-                <NumberInput
-                    attr:id=id.clone()
-                    attr:class="crud-input-field"
-                    disabled=field_options.disabled
-                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
-                    set=move |new: f64| {
-                        value_changed.run(Ok(Value::OptionalU128(Some(new as u128))))
                     }
                 />
             </div>
@@ -591,6 +935,99 @@ pub fn CrudF64Field(
                     disabled=field_options.disabled
                     get=Signal::derive(move || value.get())
                     set=move |new: f64| { value_changed.run(Ok(Value::F64(new))) }
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}
+
+#[component]
+pub fn CrudOptionalF32Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<f32>>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => {
+            move || match value.get() {
+                Some(value) => view! { <div>{value}</div> }.into_any(),
+                None => view! { <div>"-"</div> }.into_any(),
+            }
+        }
+        .into_any(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
+                />
+            </div>
+        }
+        .into_any(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get().unwrap_or_default() as f64)
+                    set=move |new: f64| {
+                        value_changed.run(Ok(Value::OptionalF32(Some(new as f32))))
+                    }
+                />
+            </div>
+        }
+        .into_any(),
+    }
+}
+#[component]
+pub fn CrudOptionalF64Field(
+    id: String,
+    field_options: FieldOptions,
+    field_mode: FieldMode,
+    #[prop(into)] value: Signal<Option<f64>>,
+    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+) -> impl IntoView {
+    match field_mode {
+        FieldMode::Display => {
+            move || match value.get() {
+                Some(value) => view! { <div>{value}</div> }.into_any(),
+                None => view! { <div>"-"</div> }.into_any(),
+            }
+        }
+        .into_any(),
+        FieldMode::Readable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=Signal::derive(move || value.get().unwrap_or_default())
+                />
+            </div>
+        }
+        .into_any(),
+        FieldMode::Editable => view! {
+            <div class="crud-field">
+                {render_label(field_options.label.clone())}
+                <NumberInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || value.get().unwrap_or_default())
+                    set=move |new: f64| {
+                        value_changed.run(Ok(Value::OptionalF64(Some(new))))
+                    }
                 />
             </div>
         }

@@ -5,7 +5,6 @@ use crate::generic::crud_fields::CrudFields;
 use crate::generic::crud_instance::CrudInstanceContext;
 use crate::generic::crud_table::NoDataAvailable;
 use crate::generic::custom_field::CustomUpdateFields;
-use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
@@ -42,9 +41,6 @@ pub fn CrudEditView<T>(
     #[prop(into)] actions: Signal<Vec<CrudEntityAction<T>>>,
     #[prop(into)] elements: Signal<Vec<Elem<T::UpdateModel>>>,
     #[prop(into)] custom_fields: Signal<CustomUpdateFields<T>>,
-    #[prop(into)] field_config: Signal<
-        HashMap<<T::UpdateModel as CrudDataTrait>::Field, DynSelectConfig>,
-    >,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
     #[prop(into)] on_entity_updated: Callback<Saved<T::UpdateModel>>,
@@ -322,7 +318,6 @@ where
 
                     <CrudFields
                         custom_fields=custom_fields
-                        field_config=field_config
                         elements=elements
                         signals=signals
                         mode=FieldMode::Editable

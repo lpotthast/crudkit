@@ -1,18 +1,15 @@
 use crate::dynamic::crud_action::CrudActionTrait;
-use crate::dynamic::crud_instance_config::Header;
+use crate::dynamic::crud_instance_config::{FieldRendererRegistry, Header};
 use crate::dynamic::crud_list_view::CrudListViewContext;
 use crate::dynamic::crud_table_body::CrudTableBody;
 use crate::dynamic::crud_table_footer::CrudTableFooter;
 use crate::dynamic::crud_table_header::CrudTableHeader;
-use crate::dynamic::custom_field::CustomReadFields;
-use crate::shared::crud_instance_config::DynSelectConfig;
 use crudkit_shared::Order;
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{AnyReadField, AnyReadModel};
 use indexmap::IndexMap;
 use leptonic::components::table::{Table, TableContainer};
 use leptos::prelude::*;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -27,8 +24,7 @@ pub fn CrudTable(
     #[prop(into)] headers: Signal<Vec<Header>>,
     #[prop(into)] order_by: Signal<IndexMap<AnyReadField, Order>>,
     #[prop(into)] data: Signal<Result<Arc<Vec<AnyReadModel>>, NoDataAvailable>>,
-    #[prop(into)] custom_fields: Signal<CustomReadFields>,
-    #[prop(into)] field_config: Signal<HashMap<AnyReadField, DynSelectConfig>>,
+    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyReadField>>,
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
@@ -58,8 +54,7 @@ pub fn CrudTable(
                 <CrudTableBody
                     data=data
                     headers=headers
-                    custom_fields=custom_fields
-                    field_config=field_config
+                    field_renderer_registry=field_renderer_registry
                     read_allowed=read_allowed
                     edit_allowed=edit_allowed
                     delete_allowed=delete_allowed

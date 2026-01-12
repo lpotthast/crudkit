@@ -4,14 +4,13 @@ use crate::generic::crud_table_body::CrudTableBody;
 use crate::generic::crud_table_footer::CrudTableFooter;
 use crate::generic::crud_table_header::CrudTableHeader;
 use crate::generic::custom_field::CustomFields;
-use crate::shared::crud_instance_config::DynSelectConfig;
 use crudkit_shared::Order;
 use crudkit_web::generic::prelude::*;
 use indexmap::IndexMap;
 use leptonic::components::table::{Table, TableContainer};
 use leptos::prelude::*;
 use std::sync::Arc;
-use std::{collections::HashMap, marker::PhantomData};
+use std::marker::PhantomData;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NoDataAvailable {
@@ -27,9 +26,6 @@ pub fn CrudTable<T>(
     #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
     #[prop(into)] data: Signal<Result<Arc<Vec<T::ReadModel>>, NoDataAvailable>>,
     #[prop(into)] custom_fields: Signal<CustomFields<T::ReadModel>>,
-    #[prop(into)] field_config: Signal<
-        HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>,
-    >,
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
@@ -65,7 +61,6 @@ where
                     data=data
                     headers=headers
                     custom_fields=custom_fields
-                    field_config=field_config
                     read_allowed=read_allowed
                     edit_allowed=edit_allowed
                     delete_allowed=delete_allowed

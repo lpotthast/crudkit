@@ -282,12 +282,6 @@ where
     let custom_create_fields = Signal::derive(move || static_config.custom_create_fields.clone());
     let custom_update_fields = Signal::derive(move || static_config.custom_update_fields.clone());
 
-    let create_field_config =
-        Signal::derive(move || static_config.create_field_select_config.clone());
-    let read_field_config = Signal::derive(move || static_config.read_field_select_config.clone());
-    let update_field_config =
-        Signal::derive(move || static_config.update_field_select_config.clone());
-
     let actions = Signal::derive(move || static_config.actions.clone());
     let entity_actions = Signal::derive(move || static_config.entity_actions.clone());
 
@@ -336,7 +330,6 @@ where
                             headers=headers
                             order_by=order_by
                             custom_fields=custom_read_fields
-                            field_config=read_field_config
                             actions=actions
                         />
                     }.into_any(),
@@ -346,7 +339,6 @@ where
                             data_provider=data_provider
                             create_elements=create_elements
                             custom_fields=custom_create_fields
-                            field_config=create_field_config
                             on_edit_view=move |id| ctx.edit(id)
                             on_list_view=move || ctx.list()
                             on_create_view=move || ctx.create()
@@ -367,7 +359,6 @@ where
                             actions=entity_actions
                             elements=update_elements
                             custom_fields=custom_update_fields
-                            field_config=update_field_config
                             on_list_view=move || ctx.list()
                             on_tab_selected=move |tab_id| {
                                 ctx.tab_selected(tab_id)
@@ -382,7 +373,6 @@ where
                             actions=entity_actions
                             elements=update_elements
                             custom_fields=custom_update_fields
-                            field_config=update_field_config
                             on_list_view=move || ctx.list()
                             on_create_view=move || ctx.create()
                             on_entity_updated=move |_saved| {}

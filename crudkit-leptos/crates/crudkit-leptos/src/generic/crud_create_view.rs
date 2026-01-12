@@ -2,7 +2,6 @@ use crate::generic::crud_fields::CrudFields;
 use crate::generic::crud_instance::CrudInstanceContext;
 use crate::generic::crud_instance_config::CreateElements;
 use crate::generic::custom_field::CustomCreateFields;
-use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_shared::{SaveResult, Saved};
@@ -56,9 +55,6 @@ pub fn CrudCreateView<T>(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider<T>>,
     #[prop(into)] create_elements: Signal<CreateElements<T>>,
     #[prop(into)] custom_fields: Signal<CustomCreateFields<T>>,
-    #[prop(into)] field_config: Signal<
-        HashMap<<T::CreateModel as CrudDataTrait>::Field, DynSelectConfig>,
-    >,
     #[prop(into)] on_edit_view: Callback<T::UpdateModelId>,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
@@ -205,7 +201,6 @@ where
                 view! {
                     <CrudFields
                         custom_fields=custom_fields
-                        field_config=field_config
                         elements=create_elements
                         signals=signals
                         mode=FieldMode::Editable

@@ -3,7 +3,6 @@ use crate::generic::crud_action_context::CrudActionContext;
 use crate::generic::crud_instance::CrudInstanceContext;
 use crate::generic::crud_table::{CrudTable, NoDataAvailable};
 use crate::generic::custom_field::CustomReadFields;
-use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_pagination::CrudPagination;
 use crudkit_shared::Order;
 use crudkit_web::generic::prelude::*;
@@ -85,9 +84,6 @@ pub fn CrudListView<T>(
     #[prop(into)] headers: Signal<Vec<(<T::ReadModel as CrudDataTrait>::Field, HeaderOptions)>>,
     #[prop(into)] order_by: Signal<IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>>,
     #[prop(into)] custom_fields: Signal<CustomReadFields<T>>,
-    #[prop(into)] field_config: Signal<
-        HashMap<<T::ReadModel as CrudDataTrait>::Field, DynSelectConfig>,
-    >,
     #[prop(into)] actions: Signal<Vec<CrudAction<T>>>,
 ) -> impl IntoView
 where
@@ -188,7 +184,6 @@ where
             order_by=order_by
             data=page
             custom_fields=custom_fields
-            field_config=field_config
             read_allowed=read_allowed
             edit_allowed=edit_allowed
             delete_allowed=delete_allowed

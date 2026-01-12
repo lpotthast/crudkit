@@ -1,8 +1,8 @@
+use crate::shared::fields::optional::OptionalInput;
 use crate::shared::fields::render_label;
 use crudkit_shared::TimeDuration;
 use crudkit_web::{FieldMode, FieldOptions, Value};
 use leptonic::components::input::NumberInput;
-use leptonic::components::prelude::Toggle;
 use leptonic::Out;
 use leptos::prelude::*;
 use std::sync::Arc;
@@ -200,41 +200,23 @@ fn DurationInput(
 #[component]
 pub fn OptionalDurationInput(
     #[prop(into)] get: Signal<Option<time::Duration>>,
-    #[prop(into, optional)] set: Option<Out<Option<time::Duration>>>,
+    #[prop(into)] set: Out<Option<time::Duration>>,
     #[prop(into, optional)] disabled: Signal<bool>,
 ) -> impl IntoView {
-    // The toggle controls whether the user wants to set a value.
-    let is_not_null = Signal::derive(move || get.get().is_some());
-
-    let disabled_or_null = Signal::derive(move || disabled.get() || !is_not_null.get());
-
     view! {
-        <Toggle
-            state=is_not_null
-            set_state=move |s| {
-                if let Some(set) = set {
-                    match s {
-                        true => {
-                            // User wants to set a value. Reset to default.
-                            set.set(Some(time::Duration::ZERO));
-                        },
-                        false => {
-                            // User no longer wants to set a value. Reset to null/None.
-                            set.set(None);
-                        },
-                    }
-                }
-            }
+        <OptionalInput
+            set=set
+            get=get
             disabled
-            attr:style="font-size: 0.5em; margin-left: 2em;"
-        />
-        <DurationInput
-            disabled=disabled_or_null
-            get=Signal::derive(move || get.get().unwrap_or(time::Duration::ZERO))
-            set=move |new: time::Duration| {
-                if let Some(set) = set {
-                    set.set(Some(new));
-                }
+            default_provider=move || time::Duration::ZERO
+            input_renderer=move |disabled_or_null| view! {
+                <DurationInput
+                    disabled=disabled_or_null
+                    get=Signal::derive(move || get.get().unwrap_or(time::Duration::ZERO))
+                    set=Callback::new(move |new: time::Duration| {
+                        set.set(Some(new));
+                    })
+                />
             }
         />
     }
@@ -308,9 +290,7 @@ pub fn CrudOptionalDurationField(
                         attr:class="crud-input-field"
                         disabled=false
                         get=Signal::derive(move || { value.get().map(|it| it.0) })
-                        set={move |new: Option<time::Duration>| {
-                            value_changed.run(Ok(Value::OptionalDuration(new.map(|it| TimeDuration(it)))))
-                        }}
+                        set={move |_new: Option<time::Duration>| {}}
                     />
                 </div>
             }
@@ -324,7 +304,7 @@ pub fn CrudOptionalDurationField(
                         attr:id=id.clone()
                         // TODO: This should not be necessary. We can style the leptonic-input directly.
                         attr:class="crud-input-field"
-                        disabled=false
+                        disabled=field_options.disabled
                         get=Signal::derive(move || { value.get().map(|it| it.0) })
                         set={move |new: Option<time::Duration>| {
                             value_changed.run(Ok(Value::OptionalDuration(new.map(|it| TimeDuration(it)))))

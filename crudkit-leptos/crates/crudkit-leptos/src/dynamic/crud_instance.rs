@@ -277,27 +277,12 @@ pub fn CrudInstance(
     //    on_context_created.run(ctx)
     //}
 
-    let custom_read_fields =
-        Signal::derive(move || static_config.read_value().custom_read_fields.clone());
-    let custom_create_fields =
-        Signal::derive(move || static_config.read_value().custom_create_fields.clone());
-    let custom_update_fields =
-        Signal::derive(move || static_config.read_value().custom_update_fields.clone());
-
-    let create_field_config = Signal::derive(move || {
-        static_config
-            .read_value()
-            .create_field_select_config
-            .clone()
-    });
-    let read_field_config =
-        Signal::derive(move || static_config.read_value().read_field_select_config.clone());
-    let update_field_config = Signal::derive(move || {
-        static_config
-            .read_value()
-            .update_field_select_config
-            .clone()
-    });
+    let read_field_renderer_registry =
+        Signal::derive(move || static_config.read_value().read_field_renderer.clone());
+    let create_field_renderer_registry =
+        Signal::derive(move || static_config.read_value().create_field_renderer.clone());
+    let update_field_renderer_registry =
+        Signal::derive(move || static_config.read_value().update_field_renderer.clone());
 
     let actions = Signal::derive(move || static_config.get_value().actions.clone());
     let entity_actions = Signal::derive(move || static_config.read_value().entity_actions.clone());
@@ -344,8 +329,7 @@ pub fn CrudInstance(
                             data_provider=data_provider
                             headers=headers
                             order_by=order_by
-                            custom_fields=custom_read_fields
-                            field_config=read_field_config
+                            field_renderer_registry=read_field_renderer_registry
                             actions=actions
                         />
                     }.into_any(),
@@ -353,8 +337,7 @@ pub fn CrudInstance(
                         <CrudCreateView
                             data_provider=data_provider
                             create_elements=create_elements
-                            custom_fields=custom_create_fields
-                            field_config=create_field_config
+                            field_renderer_registry=create_field_renderer_registry
                             on_edit_view=move |id| ctx.edit(id)
                             on_list_view=move || ctx.list()
                             on_create_view=move || ctx.create()
@@ -373,8 +356,7 @@ pub fn CrudInstance(
                             data_provider=data_provider
                             actions=entity_actions
                             elements=update_elements
-                            custom_fields=custom_update_fields
-                            field_config=update_field_config
+                            field_renderer_registry=update_field_renderer_registry
                             on_list_view=move || ctx.list()
                             on_tab_selected=move |tab_id| {
                                 ctx.tab_selected(tab_id)
@@ -387,8 +369,7 @@ pub fn CrudInstance(
                             data_provider=data_provider
                             actions=entity_actions
                             elements=update_elements
-                            custom_fields=custom_update_fields
-                            field_config=update_field_config
+                            field_renderer_registry=update_field_renderer_registry
                             on_list_view=move || ctx.list()
                             on_create_view=move || ctx.create()
                             on_entity_updated=move |_saved| {}

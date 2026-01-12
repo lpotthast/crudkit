@@ -92,46 +92,57 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         // Code that clones or copies the fields value.
         let value_clone = match value_type {
+            ValueType::Void => quote! { () },
+
+            ValueType::Bool => quote! { entity.#field_ident },
+            ValueType::OptionalBool => quote! { entity.#field_ident },
+
+            ValueType::U8 => quote! { entity.#field_ident },
+            ValueType::U16 => quote! { entity.#field_ident },
+            ValueType::U32 => quote! { entity.#field_ident },
+            ValueType::U64 => quote! { entity.#field_ident },
+            ValueType::U128 => quote! { entity.#field_ident },
+            ValueType::OptionalU8 => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalU16 => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalU32 => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalU64 => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalU128 => quote! { entity.#field_ident.clone() },
+
+            ValueType::I8 => quote! { entity.#field_ident },
+            ValueType::I16 => quote! { entity.#field_ident },
+            ValueType::I32 => quote! { entity.#field_ident },
+            ValueType::I64 => quote! { entity.#field_ident },
+            ValueType::I128 => quote! { entity.#field_ident },
+            ValueType::OptionalI8 => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalI16 => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalI32 => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalI64 => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalI128 => quote! { entity.#field_ident.clone() },
+
             ValueType::String => quote! { entity.#field_ident.clone() },
             ValueType::OptionalString => quote! { entity.#field_ident.clone() },
-            ValueType::Text => quote! { entity.#field_ident.clone() },
+
             ValueType::Json => quote! { crudkit_web::JsonValue::new(entity.#field_ident.clone()) },
-            ValueType::OptionalText => quote! { entity.#field_ident.clone().unwrap_or_default() },// We use .unwrap_or_default(), as we feed that string into Value::String (see From<ValueType>). We should get rid of this.
             ValueType::OptionalJson => quote! { entity.#field_ident.clone().map(|it| crudkit_web::JsonValue::new(it)) },
+
             ValueType::Uuid => quote! { entity.#field_ident },
-            ValueType::Bool => quote! { entity.#field_ident },
-            ValueType::ValidationStatus => quote! { entity.#field_ident },
-            ValueType::I32 => quote! { entity.#field_ident },
-            ValueType::U64 => quote! { entity.#field_ident },
-            ValueType::I64 => quote! { entity.#field_ident },
-            ValueType::OptionalI64 => quote! { entity.#field_ident.clone() },
-            ValueType::U32 => quote! { entity.#field_ident },
-            ValueType::OptionalI32 => quote! { entity.#field_ident.clone() },
-            ValueType::OptionalU32 => quote! { entity.#field_ident.clone() },
+            ValueType::OptionalUuid => quote! { entity.#field_ident.clone() },
+
             ValueType::F32 => quote! { entity.#field_ident },
             ValueType::OrderedF32 => quote! { entity.#field_ident.into() },
             ValueType::F64 => quote! { entity.#field_ident },
             ValueType::OrderedF64 => quote! { entity.#field_ident.into() },
+            ValueType::OptionalF32 => quote! { entity.#field_ident.into() },
+            ValueType::OptionalF64 => quote! { entity.#field_ident.into() },
+
             ValueType::PrimitiveDateTime => quote! { entity.#field_ident.clone() },
             ValueType::OffsetDateTime => quote! { entity.#field_ident.clone() },
             ValueType::Duration => quote! { entity.#field_ident.clone() },
             ValueType::OptionalPrimitiveDateTime => quote! { entity.#field_ident.clone() },
             ValueType::OptionalOffsetDateTime => quote! { entity.#field_ident.clone() },
             ValueType::OptionalDuration => quote! { entity.#field_ident.clone() },
-            ValueType::Select => quote! { entity.#field_ident.clone().into() },
-            ValueType::Multiselect => quote! { entity.#field_ident.clone().into() },
-            ValueType::OptionalSelect => quote! { entity.#field_ident.clone().map(Into::into) },
-            ValueType::OptionalMultiselect => {
-                quote! { entity.#field_ident.clone().map(|it| it.map(Into::into)) }
-            }
-            ValueType::OneToOneRelation => quote! { entity.#field_ident },
-            ValueType::Reference => quote! {
-                crudkit_id::Id::fields(&crudkit_web::CrudIdTrait::get_id(&entity))
-                    .into_iter()
-                    .map(|it| Box::new(it) as Box<dyn crudkit_id::IdField>)
-                    .collect::<Vec<_>>()
-            }, // not important, panics anyway...
-            ValueType::Custom => quote! { () }, // not important, panics anyway...
+
+            ValueType::Other => quote! { () }, // not important, panics anyway...
         };
 
         quote! {
@@ -160,46 +171,61 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         // An expression that, given a `value`, constructs the necessary data type value to be assigned to the field.
         let take_op = match field.value_type() {
-            ValueType::String => quote! { entity.#field_ident = value.take_string() },
-            ValueType::Text => quote! { entity.#field_ident = value.take_string() },
-            ValueType::Json => quote! { entity.#field_ident = value.take_inner_json_value() },
-            ValueType::OptionalText => quote! { entity.#field_ident = std::option::Option::Some(value.take_string()) },
-            // TODO: value should contain Option. do not force Some type...
-            ValueType::OptionalString => quote! { entity.#field_ident = value.take_optional_string() },
-            ValueType::OptionalJson => {
-                quote! { entity.#field_ident = std::option::Option::Some(value.take_inner_json_value()) }
+            ValueType::Void => {
+                quote! { ::tracing::warn!("Setting a custom field is not allowed") }
             }
-            ValueType::Uuid => quote! { entity.#field_ident = value.to_uuid() },
+
             ValueType::Bool => quote! { entity.#field_ident = value.take_bool() },
-            ValueType::ValidationStatus => quote! { entity.#field_ident = value.take_bool() },
-            ValueType::I32 => quote! { entity.#field_ident = value.take_i32() },
-            ValueType::U64 => quote! { entity.#field_ident = value.take_u64() },
-            ValueType::I64 => quote! { entity.#field_ident = value.take_i64() },
-            ValueType::OptionalI64 => quote! { entity.#field_ident = value.take_optional_i64() },
+            ValueType::OptionalBool => quote! { entity.#field_ident = value.take_optional_bool() },
+
+            ValueType::U8 => quote! { entity.#field_ident = value.take_u8() },
+            ValueType::U16 => quote! { entity.#field_ident = value.take_u16() },
             ValueType::U32 => quote! { entity.#field_ident = value.take_u32() },
-            ValueType::OptionalI32 => quote! { entity.#field_ident = value.take_optional_i32() },
+            ValueType::U64 => quote! { entity.#field_ident = value.take_u64() },
+            ValueType::U128 => quote! { entity.#field_ident = value.take_u128() },
+            ValueType::OptionalU8 => quote! { entity.#field_ident = value.take_optional_u8() },
+            ValueType::OptionalU16 => quote! { entity.#field_ident = value.take_optional_u16() },
             ValueType::OptionalU32 => quote! { entity.#field_ident = value.take_optional_u32() },
+            ValueType::OptionalU64 => quote! { entity.#field_ident = value.take_optional_u64() },
+            ValueType::OptionalU128 => quote! { entity.#field_ident = value.take_optional_u128() },
+
+            ValueType::I8 => quote! { entity.#field_ident = value.take_i8() },
+            ValueType::I16 => quote! { entity.#field_ident = value.take_i16() },
+            ValueType::I32 => quote! { entity.#field_ident = value.take_i32() },
+            ValueType::I64 => quote! { entity.#field_ident = value.take_i64() },
+            ValueType::I128 => quote! { entity.#field_ident = value.take_i128() },
+            ValueType::OptionalI8 => quote! { entity.#field_ident = value.take_optional_i8() },
+            ValueType::OptionalI16 => quote! { entity.#field_ident = value.take_optional_i16() },
+            ValueType::OptionalI32 => quote! { entity.#field_ident = value.take_optional_i32() },
+            ValueType::OptionalI64 => quote! { entity.#field_ident = value.take_optional_i64() },
+            ValueType::OptionalI128 => quote! { entity.#field_ident = value.take_optional_i128() },
+
             ValueType::F32 => quote! { entity.#field_ident = value.take_f32() },
             ValueType::OrderedF32 => quote! { entity.#field_ident = value.take_f32().into() },
             ValueType::F64 => quote! { entity.#field_ident = value.take_f64() },
             ValueType::OrderedF64 => quote! { entity.#field_ident = value.take_f64().into() },
+            ValueType::OptionalF32 => quote! { entity.#field_ident = value.take_optional_f32() },
+            ValueType::OptionalF64 => quote! { entity.#field_ident = value.take_optional_f64() },
+
+            ValueType::String => quote! { entity.#field_ident = value.take_string() },
+            ValueType::OptionalString => quote! { entity.#field_ident = value.take_optional_string() },
+
+            ValueType::Json => quote! { entity.#field_ident = value.take_inner_json_value() },
+            ValueType::OptionalJson => {
+                quote! { entity.#field_ident = std::option::Option::Some(value.take_inner_json_value()) }
+            }
+
+            ValueType::Uuid => quote! { entity.#field_ident = value.to_uuid() },
+            ValueType::OptionalUuid => quote! { entity.#field_ident = value.to_optional_uuid() },
+
             ValueType::PrimitiveDateTime => quote! { entity.#field_ident = value.take_primitive_date_time() },
             ValueType::OffsetDateTime => quote! { entity.#field_ident = value.take_offset_date_time() },
             ValueType::Duration => quote! { entity.#field_ident = value.take_duration() },
             ValueType::OptionalPrimitiveDateTime => quote! { entity.#field_ident = value.take_optional_primitive_date_time() },
             ValueType::OptionalOffsetDateTime => quote! { entity.#field_ident = value.take_optional_offset_date_time() },
             ValueType::OptionalDuration => quote! { entity.#field_ident = value.take_optional_duration() },
-            ValueType::Select => quote! { entity.#field_ident = value.take_select_downcast_to::<#field_ty>().into() },
-            ValueType::Multiselect => quote! { entity.#field_ident = value.take_multiselect_downcast_to().into() },
-            ValueType::OptionalSelect => quote! { entity.#field_ident = value.take_optional_select_downcast_to().into() },
-            ValueType::OptionalMultiselect => {
-                quote! { entity.#field_ident = value.take_optional_multiselect_downcast_to().into() }
-            }
-            ValueType::OneToOneRelation => quote! { entity.#field_ident = value.take_one_to_one_relation() },
-            ValueType::Reference => {
-                quote! { ::tracing::warn!("Setting a 'reference' dummy field is not allowed") }
-            }
-            ValueType::Custom => {
+
+            ValueType::Other => {
                 quote! { ::tracing::warn!("Setting a custom field is not allowed") }
             }
         };
@@ -235,39 +261,57 @@ pub fn store(input: TokenStream) -> TokenStream {
 /// Describes the type of value without carrying any actual value.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, FromMeta, Deserialize)]
 enum ValueType {
+    Void,
+
+    Bool,
+    OptionalBool,
+
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    OptionalU8,
+    OptionalU16,
+    OptionalU32,
+    OptionalU64,
+    OptionalU128,
+
+    I8,
+    I16,
+    I32,
+    I64,
+    I128,
+    OptionalI8,
+    OptionalI16,
+    OptionalI32,
+    OptionalI64,
+    OptionalI128,
+
+    F32,
+    F64,
+    OptionalF32,
+    OptionalF64,
+    OrderedF32,
+    OrderedF64,
+
     String,
     OptionalString,
-    Text,
-    OptionalText,
+
     Json,
     OptionalJson,
+
     Uuid,
-    Bool,
-    ValidationStatus,
-    I32,
-    U64,
-    I64,
-    OptionalI64,
-    U32,
-    OptionalI32,
-    OptionalU32,
-    F32,
-    OrderedF32,
-    F64,
-    OrderedF64,
+    OptionalUuid,
+
     PrimitiveDateTime,
     OffsetDateTime,
     Duration,
     OptionalPrimitiveDateTime,
     OptionalOffsetDateTime,
     OptionalDuration,
-    Select,
-    Multiselect,
-    OptionalSelect,
-    OptionalMultiselect,
-    OneToOneRelation,
-    Reference,
-    Custom,
+
+    Other,
 }
 
 /// Converts to the name of the `crudkit_web::Value` variant which should be used.
@@ -275,39 +319,57 @@ impl From<ValueType> for Ident {
     fn from(value_type: ValueType) -> Self {
         Ident::new(
             match value_type {
+                ValueType::Void => "Void",
+
+                ValueType::Bool => "Bool",
+                ValueType::OptionalBool => "OptionalBool",
+
+                ValueType::U8 => "U8",
+                ValueType::U16 => "U16",
+                ValueType::U32 => "U32",
+                ValueType::U64 => "U64",
+                ValueType::U128 => "U128",
+                ValueType::OptionalU8 => "OptionalU8",
+                ValueType::OptionalU16 => "OptionalU16",
+                ValueType::OptionalU32 => "OptionalU32",
+                ValueType::OptionalU64 => "OptionalU64",
+                ValueType::OptionalU128 => "OptionalU128",
+
+                ValueType::I8 => "I8",
+                ValueType::I16 => "I16",
+                ValueType::I32 => "I32",
+                ValueType::I64 => "I64",
+                ValueType::I128 => "I128",
+                ValueType::OptionalI8 => "OptionalI8",
+                ValueType::OptionalI32 => "OptionalI32",
+                ValueType::OptionalI64 => "OptionalI64",
+                ValueType::OptionalI16 => "OptionalI16",
+                ValueType::OptionalI128 => "OptionalI128",
+
+                ValueType::F32 => "F32",
+                ValueType::F64 => "F64",
+                ValueType::OrderedF32 => "F32",
+                ValueType::OrderedF64 => "F64",
+                ValueType::OptionalF32 => "OptionalF32",
+                ValueType::OptionalF64 => "OptionalF64",
+
                 ValueType::String => "String",
                 ValueType::OptionalString => "OptionalString",
-                ValueType::Text => "Text",
-                ValueType::OptionalText => "Text",
+
                 ValueType::Json => "Json",
                 ValueType::OptionalJson => "OptionalJson",
+
                 ValueType::Uuid => "Uuid",
-                ValueType::Bool => "Bool",
-                ValueType::ValidationStatus => "ValidationStatus",
-                ValueType::I32 => "I32",
-                ValueType::U64 => "U64",
-                ValueType::I64 => "I64",
-                ValueType::OptionalI64 => "OptionalI64",
-                ValueType::U32 => "U32",
-                ValueType::OptionalI32 => "OptionalI32",
-                ValueType::OptionalU32 => "OptionalU32",
-                ValueType::F32 => "F32",
-                ValueType::OrderedF32 => "F32",
-                ValueType::F64 => "F64",
-                ValueType::OrderedF64 => "F64",
+                ValueType::OptionalUuid => "OptionalUuid",
+
                 ValueType::PrimitiveDateTime => "PrimitiveDateTime",
                 ValueType::OffsetDateTime => "OffsetDateTime",
                 ValueType::Duration => "Duration",
                 ValueType::OptionalPrimitiveDateTime => "OptionalPrimitiveDateTime",
                 ValueType::OptionalOffsetDateTime => "OptionalOffsetDateTime",
                 ValueType::OptionalDuration => "OptionalDuration",
-                ValueType::Select => "Select",
-                ValueType::Multiselect => "Multiselect",
-                ValueType::OptionalSelect => "OptionalSelect",
-                ValueType::OptionalMultiselect => "OptionalMultiselect",
-                ValueType::OneToOneRelation => "OneToOneRelation",
-                ValueType::Reference => "Reference",
-                ValueType::Custom => "Custom",
+
+                ValueType::Other => "Other",
             },
             Span::call_site(),
         )
@@ -321,7 +383,7 @@ impl From<&syn::Type> for ValueType {
                 paren_token: _,
                 elems,
             }) => match elems.is_empty() {
-                true => ValueType::Custom,
+                true => ValueType::Void,
                 false => {
                     let span = ty.span();
                     let message = format!(
@@ -331,37 +393,58 @@ impl From<&syn::Type> for ValueType {
                 }
             },
             syn::Type::Path(path) => match join_path(&path.path).as_str() {
-                "()" => ValueType::Custom,
+                "()" => ValueType::Void,
+
                 "bool" => ValueType::Bool,
+                "Option<bool>" => ValueType::OptionalBool,
+
+                "u8" => ValueType::U8,
+                "u16" => ValueType::U16,
                 "u32" => ValueType::U32,
-                "i32" => ValueType::I32,
                 "u64" => ValueType::U64,
+                "u128" => ValueType::U128,
+                "Option<u8>" => ValueType::OptionalU8,
+                "Option<u16>" => ValueType::OptionalU16,
+                "Option<u32>" => ValueType::OptionalU32,
+                "Option<u64>" => ValueType::OptionalU64,
+                "Option<u128>" => ValueType::OptionalU128,
+
+                "i8" => ValueType::I8,
+                "i16" => ValueType::I16,
+                "i32" => ValueType::I32,
                 "i64" => ValueType::I64,
+                "Option<i8>" => ValueType::OptionalI8,
+                "Option<i16>" => ValueType::OptionalI16,
+                "Option<i32>" => ValueType::OptionalI32,
+                "Option<i64>" => ValueType::OptionalI64,
+                "Option<i128>" => ValueType::OptionalI128,
+
                 "f32" => ValueType::F32,
+                "f64" => ValueType::F64,
                 "OrderedFloat<f32>" => ValueType::OrderedF32,
                 "ordered_float::OrderedFloat<f32>" => ValueType::OrderedF32,
+                "OrderedFloat<f64>" => ValueType::OrderedF64,
+                "ordered_float::OrderedFloat<f64>" => ValueType::OrderedF64,
+                "Option<f32>" => ValueType::OptionalF32,
+                "Option<f64>" => ValueType::OptionalF64,
+
                 "String" => ValueType::String,
+                "Option<String>" => ValueType::OptionalString,
+
                 "serde_json::Value" => ValueType::Json,
+                "Option<serde_json::Value>" => ValueType::OptionalJson,
+
                 "Uuid" => ValueType::Uuid,
+                "Option<Uuid>" => ValueType::OptionalUuid,
+
                 "time::PrimitiveDateTime" => ValueType::PrimitiveDateTime,
                 "time::OffsetDateTime" => ValueType::OffsetDateTime,
                 "TimeDuration" => ValueType::Duration,
-                "Option<i64>" => ValueType::OptionalI64,
-                "Option<i32>" => ValueType::OptionalI32,
-                "Option<u32>" => ValueType::OptionalU32,
-                "Option<String>" => ValueType::OptionalString,
-                "Option<serde_json::Value>" => ValueType::OptionalJson,
                 "Option<time::PrimitiveDateTime>" => ValueType::OptionalPrimitiveDateTime,
                 "Option<time::OffsetDateTime>" => ValueType::OptionalOffsetDateTime,
                 "Option<TimeDuration>" => ValueType::OptionalDuration,
-                other => {
-                    let span = ty.span();
-                    let message = format!("Unknown type {other:?}. Expected a known type.");
-                    abort!(
-                        span, message;
-                        help = "use one of the following types: [...]";
-                    );
-                }
+
+                _other => ValueType::Other,
             },
             other => {
                 let span = ty.span();

@@ -22,8 +22,7 @@ pub use crudkit_shared;
 use crudkit_shared::TimeDuration;
 pub use crudkit_validation;
 pub use crudkit_web;
-use crudkit_web::value::Value;
-use crudkit_web::CrudSelectableTrait;
+use crudkit_web::value::{FieldValue, Value};
 pub use crudkit_websocket;
 use leptos::prelude::*;
 
@@ -52,6 +51,7 @@ pub mod prelude {
 }
 
 /// Anything that can be created from a HashMap of `ReactiveValue`s.
+// TODO: Rename to `Signals`.
 pub trait SignalsTrait {
     type Field;
 
@@ -71,43 +71,58 @@ pub trait SignalsTrait {
 // TODO: Move into own module
 #[derive(Debug, Clone, Copy)]
 pub enum ReactiveValue {
-    String(RwSignal<String>),
-    OptionalString(RwSignal<Option<String>>),
-    Json(RwSignal<serde_json::Value>),
-    OptionalJson(RwSignal<Option<serde_json::Value>>),
-    Uuid(RwSignal<uuid::Uuid>),
-    OptionalUuid(RwSignal<Option<uuid::Uuid>>),
+    Void(RwSignal<()>),
+
+    Bool(RwSignal<bool>),
+    OptionalBool(RwSignal<Option<bool>>),
+
+    I8(RwSignal<i8>),
+    I16(RwSignal<i16>),
     I32(RwSignal<i32>),
-    U32(RwSignal<u32>),
     I64(RwSignal<i64>),
-    U64(RwSignal<u64>),
     I128(RwSignal<i128>),
-    U128(RwSignal<u128>),
+    OptionalI8(RwSignal<Option<i8>>),
+    OptionalI16(RwSignal<Option<i16>>),
     OptionalI32(RwSignal<Option<i32>>),
     OptionalI64(RwSignal<Option<i64>>),
+    OptionalI128(RwSignal<Option<i128>>),
+
+    U8(RwSignal<u8>),
+    U16(RwSignal<u16>),
+    U32(RwSignal<u32>),
+    U64(RwSignal<u64>),
+    U128(RwSignal<u128>),
+    OptionalU8(RwSignal<Option<u8>>),
+    OptionalU16(RwSignal<Option<u16>>),
     OptionalU32(RwSignal<Option<u32>>),
     OptionalU64(RwSignal<Option<u64>>),
-    OptionalI128(RwSignal<Option<i128>>),
     OptionalU128(RwSignal<Option<u128>>),
+
     F32(RwSignal<f32>),
     F64(RwSignal<f64>),
-    Bool(RwSignal<bool>),
-    // Specialized bool-case, render as a green check mark if false and an orange exclamation mark if true.
-    ValidationStatus(RwSignal<bool>),
+    OptionalF32(RwSignal<Option<f32>>),
+    OptionalF64(RwSignal<Option<f64>>),
+
+    String(RwSignal<String>),
+    OptionalString(RwSignal<Option<String>>),
+
+    // Ecosystem support.
+    // -- serde
+    Json(RwSignal<serde_json::Value>),
+    OptionalJson(RwSignal<Option<serde_json::Value>>),
+    // -- uuid
+    Uuid(RwSignal<uuid::Uuid>),
+    OptionalUuid(RwSignal<Option<uuid::Uuid>>),
+    // -- time
     PrimitiveDateTime(RwSignal<time::PrimitiveDateTime>),
     OffsetDateTime(RwSignal<time::OffsetDateTime>),
     Duration(RwSignal<TimeDuration>),
     OptionalPrimitiveDateTime(RwSignal<Option<time::PrimitiveDateTime>>),
     OptionalOffsetDateTime(RwSignal<Option<time::OffsetDateTime>>),
     OptionalDuration(RwSignal<Option<TimeDuration>>),
-    OneToOneRelation(RwSignal<Option<u32>>),
-    Reference(RwSignal<Vec<Box<dyn crudkit_id::IdField>>>),
-    Custom(RwSignal<()>),
-    Select(RwSignal<Box<dyn CrudSelectableTrait>>),
-    Multiselect(RwSignal<Vec<Box<dyn CrudSelectableTrait>>>),
-    OptionalSelect(RwSignal<Option<Box<dyn CrudSelectableTrait>>>),
-    OptionalMultiselect(RwSignal<Option<Vec<Box<dyn CrudSelectableTrait>>>>),
-    //Select(Box<dyn CrudSelectableSource<Selectable = dyn CrudSelectableTrait>>),
+
+    // Extension support.
+    Other(RwSignal<Box<dyn FieldValue>>),
 }
 
 pub trait IntoReactiveValue {
@@ -117,49 +132,61 @@ pub trait IntoReactiveValue {
 impl IntoReactiveValue for Value {
     fn into_reactive_value(self) -> ReactiveValue {
         match self {
-            Value::String(value) => ReactiveValue::String(RwSignal::new(value)),
-            Value::OptionalString(value) => ReactiveValue::OptionalString(RwSignal::new(value)),
-            Value::Json(value) => ReactiveValue::Json(RwSignal::new(value)),
-            Value::OptionalJson(value) => ReactiveValue::OptionalJson(RwSignal::new(value)),
-            Value::Uuid(value) => ReactiveValue::Uuid(RwSignal::new(value)),
-            Value::OptionalUuid(value) => ReactiveValue::OptionalUuid(RwSignal::new(value)),
-            Value::I32(value) => ReactiveValue::I32(RwSignal::new(value)),
+            Value::Void(()) => ReactiveValue::Void(RwSignal::new(())),
+
+            Value::Bool(value) => ReactiveValue::Bool(RwSignal::new(value)),
+            Value::OptionalBool(value) => ReactiveValue::OptionalBool(RwSignal::new(value)),
+
+            Value::U8(value) => ReactiveValue::U8(RwSignal::new(value)),
+            Value::U16(value) => ReactiveValue::U16(RwSignal::new(value)),
             Value::U32(value) => ReactiveValue::U32(RwSignal::new(value)),
-            Value::I64(value) => ReactiveValue::I64(RwSignal::new(value)),
             Value::U64(value) => ReactiveValue::U64(RwSignal::new(value)),
-            Value::I128(value) => ReactiveValue::I128(RwSignal::new(value)),
             Value::U128(value) => ReactiveValue::U128(RwSignal::new(value)),
-            Value::OptionalI32(value) => ReactiveValue::OptionalI32(RwSignal::new(value)),
-            Value::OptionalI64(value) => ReactiveValue::OptionalI64(RwSignal::new(value)),
+            Value::OptionalU8(value) => ReactiveValue::OptionalU8(RwSignal::new(value)),
+            Value::OptionalU16(value) => ReactiveValue::OptionalU16(RwSignal::new(value)),
             Value::OptionalU32(value) => ReactiveValue::OptionalU32(RwSignal::new(value)),
             Value::OptionalU64(value) => ReactiveValue::OptionalU64(RwSignal::new(value)),
-            Value::OptionalI128(value) => ReactiveValue::OptionalI128(RwSignal::new(value)),
             Value::OptionalU128(value) => ReactiveValue::OptionalU128(RwSignal::new(value)),
+
+            Value::I8(value) => ReactiveValue::I8(RwSignal::new(value)),
+            Value::I16(value) => ReactiveValue::I16(RwSignal::new(value)),
+            Value::I32(value) => ReactiveValue::I32(RwSignal::new(value)),
+            Value::I64(value) => ReactiveValue::I64(RwSignal::new(value)),
+            Value::I128(value) => ReactiveValue::I128(RwSignal::new(value)),
+            Value::OptionalI8(value) => ReactiveValue::OptionalI8(RwSignal::new(value)),
+            Value::OptionalI16(value) => ReactiveValue::OptionalI16(RwSignal::new(value)),
+            Value::OptionalI32(value) => ReactiveValue::OptionalI32(RwSignal::new(value)),
+            Value::OptionalI64(value) => ReactiveValue::OptionalI64(RwSignal::new(value)),
+            Value::OptionalI128(value) => ReactiveValue::OptionalI128(RwSignal::new(value)),
+
             Value::F32(value) => ReactiveValue::F32(RwSignal::new(value)),
             Value::F64(value) => ReactiveValue::F64(RwSignal::new(value)),
-            Value::Bool(value) => ReactiveValue::Bool(RwSignal::new(value)),
-            Value::ValidationStatus(value) => ReactiveValue::ValidationStatus(RwSignal::new(value)),
+            Value::OptionalF32(value) => ReactiveValue::OptionalF32(RwSignal::new(value)),
+            Value::OptionalF64(value) => ReactiveValue::OptionalF64(RwSignal::new(value)),
+
+            Value::String(value) => ReactiveValue::String(RwSignal::new(value)),
+            Value::OptionalString(value) => ReactiveValue::OptionalString(RwSignal::new(value)),
+
+            Value::Json(value) => ReactiveValue::Json(RwSignal::new(value)),
+            Value::OptionalJson(value) => ReactiveValue::OptionalJson(RwSignal::new(value)),
+
+            Value::Uuid(value) => ReactiveValue::Uuid(RwSignal::new(value)),
+            Value::OptionalUuid(value) => ReactiveValue::OptionalUuid(RwSignal::new(value)),
+
             Value::PrimitiveDateTime(value) => {
                 ReactiveValue::PrimitiveDateTime(RwSignal::new(value))
             }
             Value::OffsetDateTime(value) => ReactiveValue::OffsetDateTime(RwSignal::new(value)),
+            Value::Duration(value) => ReactiveValue::Duration(RwSignal::new(value)),
             Value::OptionalPrimitiveDateTime(value) => {
                 ReactiveValue::OptionalPrimitiveDateTime(RwSignal::new(value))
             }
             Value::OptionalOffsetDateTime(value) => {
                 ReactiveValue::OptionalOffsetDateTime(RwSignal::new(value))
             }
-            Value::OneToOneRelation(value) => ReactiveValue::OneToOneRelation(RwSignal::new(value)),
-            Value::Reference(value) => ReactiveValue::Reference(RwSignal::new(value)),
-            Value::Custom(value) => ReactiveValue::Custom(RwSignal::new(value)),
-            Value::Select(value) => ReactiveValue::Select(RwSignal::new(value)),
-            Value::Multiselect(value) => ReactiveValue::Multiselect(RwSignal::new(value)),
-            Value::OptionalSelect(value) => ReactiveValue::OptionalSelect(RwSignal::new(value)),
-            Value::OptionalMultiselect(value) => {
-                ReactiveValue::OptionalMultiselect(RwSignal::new(value))
-            }
-            Value::Duration(value) => ReactiveValue::Duration(RwSignal::new(value)),
             Value::OptionalDuration(value) => ReactiveValue::OptionalDuration(RwSignal::new(value)),
+
+            Value::Other(value) => ReactiveValue::Other(RwSignal::new(value)),
         }
     }
 }
@@ -171,47 +198,59 @@ impl ReactiveValue {
     /// Uses the `crudkit_web::Value::take_*` functions to get the expected type out of `v` or fail.
     pub fn set(&self, v: Value) {
         match self {
-            ReactiveValue::String(sig) => sig.set(v.take_string()),
-            ReactiveValue::OptionalString(sig) => sig.set(v.take_optional_string()),
-            ReactiveValue::Json(sig) => sig.set(v.take_json_value()),
-            ReactiveValue::OptionalJson(sig) => sig.set(v.take_optional_json_value()),
-            ReactiveValue::Uuid(sig) => sig.set(v.take_uuid()),
-            ReactiveValue::OptionalUuid(sig) => sig.set(v.take_optional_uuid()),
-            ReactiveValue::I32(sig) => sig.set(v.take_i32()),
+            ReactiveValue::Void(_) => panic!("Calling `set` on a Void value is not allowed."),
+
+            ReactiveValue::Bool(sig) => sig.set(v.take_bool()),
+            ReactiveValue::OptionalBool(sig) => sig.set(v.take_optional_bool()),
+
+            ReactiveValue::U8(sig) => sig.set(v.take_u8()),
+            ReactiveValue::U16(sig) => sig.set(v.take_u16()),
             ReactiveValue::U32(sig) => sig.set(v.take_u32()),
-            ReactiveValue::I64(sig) => sig.set(v.take_i64()),
             ReactiveValue::U64(sig) => sig.set(v.take_u64()),
-            ReactiveValue::I128(sig) => sig.set(v.take_i128()),
             ReactiveValue::U128(sig) => sig.set(v.take_u128()),
+            ReactiveValue::OptionalU8(sig) => sig.set(v.take_optional_u8()),
+            ReactiveValue::OptionalU16(sig) => sig.set(v.take_optional_u16()),
             ReactiveValue::OptionalU32(sig) => sig.set(v.take_optional_u32()),
+            ReactiveValue::OptionalU64(sig) => sig.set(v.take_optional_u64()),
+            ReactiveValue::OptionalU128(sig) => sig.set(v.take_optional_u128()),
+
+            ReactiveValue::I8(sig) => sig.set(v.take_i8()),
+            ReactiveValue::I16(sig) => sig.set(v.take_i16()),
+            ReactiveValue::I32(sig) => sig.set(v.take_i32()),
+            ReactiveValue::I64(sig) => sig.set(v.take_i64()),
+            ReactiveValue::I128(sig) => sig.set(v.take_i128()),
+            ReactiveValue::OptionalI8(sig) => sig.set(v.take_optional_i8()),
+            ReactiveValue::OptionalI16(sig) => sig.set(v.take_optional_i16()),
             ReactiveValue::OptionalI32(sig) => sig.set(v.take_optional_i32()),
             ReactiveValue::OptionalI64(sig) => sig.set(v.take_optional_i64()),
-            ReactiveValue::OptionalU64(sig) => sig.set(v.take_optional_u64()),
             ReactiveValue::OptionalI128(sig) => sig.set(v.take_optional_i128()),
-            ReactiveValue::OptionalU128(sig) => sig.set(v.take_optional_u128()),
+
             ReactiveValue::F32(sig) => sig.set(v.take_f32()),
             ReactiveValue::F64(sig) => sig.set(v.take_f64()),
-            ReactiveValue::Bool(sig) => sig.set(v.take_bool()),
-            ReactiveValue::ValidationStatus(sig) => sig.set(v.take_validation_status()),
+            ReactiveValue::OptionalF32(sig) => sig.set(v.take_optional_f32()),
+            ReactiveValue::OptionalF64(sig) => sig.set(v.take_optional_f64()),
+
+            ReactiveValue::String(sig) => sig.set(v.take_string()),
+            ReactiveValue::OptionalString(sig) => sig.set(v.take_optional_string()),
+
+            ReactiveValue::Json(sig) => sig.set(v.take_json_value()),
+            ReactiveValue::OptionalJson(sig) => sig.set(v.take_optional_json_value()),
+
+            ReactiveValue::Uuid(sig) => sig.set(v.take_uuid()),
+            ReactiveValue::OptionalUuid(sig) => sig.set(v.take_optional_uuid()),
+
             ReactiveValue::PrimitiveDateTime(sig) => sig.set(v.take_primitive_date_time()),
             ReactiveValue::OffsetDateTime(sig) => sig.set(v.take_offset_date_time()),
+            ReactiveValue::Duration(sig) => sig.set(v.take_duration()),
             ReactiveValue::OptionalPrimitiveDateTime(sig) => {
                 sig.set(v.take_optional_primitive_date_time())
             }
             ReactiveValue::OptionalOffsetDateTime(sig) => {
                 sig.set(v.take_optional_offset_date_time())
             }
-            ReactiveValue::OneToOneRelation(sig) => sig.set(v.take_one_to_one_relation()),
-            ReactiveValue::Reference(sig) => sig.set(v.take_reference()),
-            ReactiveValue::Custom(sig) => sig.set(v.take_custom()),
-            ReactiveValue::Select(sig) => sig.set(v.take_select()),
-            ReactiveValue::Multiselect(sig) => sig.set(v.take_multiselect()),
-            ReactiveValue::OptionalSelect(sig) => sig.set(v.take_optional_select_downcast_to()),
-            ReactiveValue::OptionalMultiselect(sig) => {
-                sig.set(v.take_optional_multiselect_downcast_to())
-            }
-            ReactiveValue::Duration(sig) => sig.set(v.take_duration()),
             ReactiveValue::OptionalDuration(sig) => sig.set(v.take_optional_duration()),
+
+            ReactiveValue::Other(sig) => sig.set(v.take_other()),
         }
     }
 
@@ -257,16 +296,9 @@ impl ReactiveValue {
         }
     }
 
-    pub fn expect_select(self) -> RwSignal<Box<dyn CrudSelectableTrait>> {
+    pub fn expect_custom(self) -> RwSignal<Box<dyn FieldValue>> {
         match self {
-            ReactiveValue::Select(sig) => sig,
-            _ => panic!("Expected ReactiveValue of variant: Select"),
-        }
-    }
-
-    pub fn expect_custom(self) -> RwSignal<()> {
-        match self {
-            ReactiveValue::Custom(sig) => sig,
+            ReactiveValue::Other(sig) => sig,
             _ => panic!("Expected ReactiveValue of variant: Custom"),
         }
     }

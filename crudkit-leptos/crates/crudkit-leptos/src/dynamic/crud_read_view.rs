@@ -1,12 +1,10 @@
 use crate::dynamic::crud_action::{CrudEntityAction, States};
 use crate::dynamic::crud_action_buttons::CrudActionButtons;
 use crate::dynamic::crud_action_context::CrudActionContext;
-use crate::dynamic::crud_fields::CrudUpdateFields;
+use crate::dynamic::crud_fields::CrudFields;
 use crate::dynamic::crud_instance::CrudInstanceContext;
-use crate::dynamic::crud_instance_config::UpdateElements;
+use crate::dynamic::crud_instance_config::{FieldRendererRegistry, UpdateElements};
 use crate::dynamic::crud_table::NoDataAvailable;
-use crate::dynamic::custom_field::CustomUpdateFields;
-use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::ReactiveValue;
 use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
 use crudkit_id::SerializableId;
@@ -30,8 +28,7 @@ pub fn CrudReadView(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
     #[prop(into)] actions: Signal<Vec<CrudEntityAction>>,
     #[prop(into)] elements: Signal<UpdateElements>,
-    #[prop(into)] custom_fields: Signal<CustomUpdateFields>,
-    #[prop(into)] field_config: Signal<HashMap<AnyUpdateField, DynSelectConfig>>,
+    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyUpdateField>>,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_tab_selected: Callback<TabId>,
 ) -> impl IntoView {
@@ -155,9 +152,8 @@ pub fn CrudReadView(
                         }
                     }}
 
-                    <CrudUpdateFields
-                        custom_fields=custom_fields
-                        field_config=field_config
+                    <CrudFields
+                        field_renderer_registry=field_renderer_registry
                         elements=elements
                         signals=signals
                         mode=FieldMode::Readable

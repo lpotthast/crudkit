@@ -1,8 +1,6 @@
-use crate::dynamic::crud_fields::CrudCreateFields;
+use crate::dynamic::crud_fields::CrudFields;
 use crate::dynamic::crud_instance::CrudInstanceContext;
-use crate::dynamic::crud_instance_config::CreateElements;
-use crate::dynamic::custom_field::CustomCreateFields;
-use crate::shared::crud_instance_config::DynSelectConfig;
+use crate::dynamic::crud_instance_config::{CreateElements, FieldRendererRegistry};
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::ReactiveValue;
 use crudkit_id::SerializableId;
@@ -63,8 +61,7 @@ fn default_create_model(ctx: &CrudInstanceContext) -> AnyCreateModel {
 pub fn CrudCreateView(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
     #[prop(into)] create_elements: Signal<CreateElements>,
-    #[prop(into)] custom_fields: Signal<CustomCreateFields>,
-    #[prop(into)] field_config: Signal<HashMap<AnyCreateField, DynSelectConfig>>,
+    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyCreateField>>,
     #[prop(into)] on_edit_view: Callback<SerializableId>, // UpdateModel id
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
@@ -210,15 +207,13 @@ pub fn CrudCreateView(
             CreateElements::None => view! { "Keine Felder definiert." }.into_any(),
             CreateElements::Custom(create_elements) => {
                 view! {
-                    <CrudCreateFields
-                        custom_fields=custom_fields
-                        field_config=field_config
+                    <CrudFields
+                        field_renderer_registry=field_renderer_registry
                         elements=create_elements
                         signals=signals
                         mode=FieldMode::Editable
                         current_view=CrudSimpleView::Create
                         value_changed=value_changed
-                        // active_tab={ctx.props().config.active_tab.clone()}
                         on_tab_selection=on_tab_selected
                     />
                 }.into_any()

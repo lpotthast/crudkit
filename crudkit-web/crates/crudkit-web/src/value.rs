@@ -1,101 +1,248 @@
-use crate::CrudSelectableTrait;
 use crudkit_condition::ConditionClauseValue;
 use crudkit_id::IdValue;
 use crudkit_shared::TimeDuration;
-use std::fmt::Display;
+use dyn_clone::DynClone;
+use dyn_eq::DynEq;
+use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 use time::format_description::well_known::Rfc3339;
 use tracing::warn;
+
+/// Any field value must be:
+///
+/// - `Display`: This is our fallback for field rendering should no
+/// specialized rendering have been provided.
+#[typetag::serde]
+pub trait FieldValue: Debug + DynClone /*+ DynEq*/ + Send + Sync + 'static {
+    // TODO: Rendering must support localization! See time::PrimitiveDateTime impl.
+    /// Renders the value. The default implementation uses `Debug`.
+    /// Types implementing `Display` should override to use it instead.
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+dyn_clone::clone_trait_object!(FieldValue);
+//dyn_eq::eq_trait_object!(FieldValue);
+
+#[typetag::serde]
+impl FieldValue for bool {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for u8 {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for u16 {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for u32 {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for u64 {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for u128 {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for i8 {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for i16 {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for i32 {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for i64 {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for i128 {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+
+impl FieldValue for f32 {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for f64 {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for String {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for serde_json::Value {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for time::PrimitiveDateTime {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            &self
+                .format(&Rfc3339)
+                .expect("infallible using well-known format"),
+        )
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for time::OffsetDateTime {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            &self
+                .format(&Rfc3339)
+                .expect("infallible using well-known format"),
+        )
+    }
+}
+
+#[typetag::serde]
+impl FieldValue for TimeDuration {
+    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        // TODO: Correct formatting? Should we do a manual: [h]:[m]:[s]?
+        f.write_fmt(format_args!("{}", &self.0))
+    }
+}
+
+// TODO: The serialize/deserialize impls should be compatible with Option!
+#[derive(Debug, Serialize, Deserialize)]
+enum MaybeFieldValue<V: FieldValue> {
+    None,
+    Some(V),
+}
+
+impl<V: FieldValue> Display for MaybeFieldValue<V> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MaybeFieldValue::None => f.write_str("-"),
+            MaybeFieldValue::Some(v) => v.render(f),
+        }
+    }
+}
+
+//#[typetag::serde]
+//impl<V: FieldValue> FieldValue for MaybeFieldValue<V> {
+//    fn render(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+//        write!(f, "{self}")
+//    }
+//}
 
 /// The value of a field.
 /// All variants should be stateless / copy-replaceable.
 // TODO: DEFERRED: Implement Serialize and Deserialize with typetag when wasm is supported in typetag. Comment in "typetag" occurrences.
 #[derive(Debug, Clone)]
 pub enum Value {
-    I32(i32),
+    Void(()),
+
+    Bool(bool),
+    OptionalBool(Option<bool>),
+
+    U8(u8),
+    U16(u16),
     U32(u32),
-    I64(i64),
     U64(u64),
-    I128(i128),
     U128(u128),
-    OptionalI32(Option<i32>),
-    OptionalI64(Option<i64>),
+    OptionalU8(Option<u8>),
+    OptionalU16(Option<u16>),
     OptionalU32(Option<u32>),
     OptionalU64(Option<u64>),
-    OptionalI128(Option<i128>),
     OptionalU128(Option<u128>),
+
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    I128(i128),
+    OptionalI8(Option<i8>),
+    OptionalI16(Option<i16>),
+    OptionalI32(Option<i32>),
+    OptionalI64(Option<i64>),
+    OptionalI128(Option<i128>),
+
     F32(f32),
     F64(f64),
-    Bool(bool),
+    OptionalF32(Option<f32>),
+    OptionalF64(Option<f64>),
+
     String(String),
     OptionalString(Option<String>),
+
     // Ecosystem support.
     // -- serde
     Json(serde_json::Value),
     OptionalJson(Option<serde_json::Value>),
+
     // -- uuid
     Uuid(uuid::Uuid),
     OptionalUuid(Option<uuid::Uuid>),
+
     // -- time
     PrimitiveDateTime(time::PrimitiveDateTime),
-    OptionalPrimitiveDateTime(Option<time::PrimitiveDateTime>),
     OffsetDateTime(time::OffsetDateTime),
-    OptionalOffsetDateTime(Option<time::OffsetDateTime>),
     Duration(TimeDuration),
+    OptionalPrimitiveDateTime(Option<time::PrimitiveDateTime>),
+    OptionalOffsetDateTime(Option<time::OffsetDateTime>),
     OptionalDuration(Option<TimeDuration>),
 
-    // Specialized bool-case, render as a green check mark if false and an orange exclamation mark if true.
-    ValidationStatus(bool),
-
-    OneToOneRelation(Option<u32>),
-    Reference(Vec<Box<dyn crudkit_id::IdField>>), // TODO: This variant should probably be named "Reference". Can it carry a "SerializableId" (as it is of known size)?
-    Custom(()),
-    Select(Box<dyn CrudSelectableTrait>),
-    Multiselect(Vec<Box<dyn CrudSelectableTrait>>),
-    OptionalSelect(Option<Box<dyn CrudSelectableTrait>>),
-    OptionalMultiselect(Option<Vec<Box<dyn CrudSelectableTrait>>>),
-    //Select(Box<dyn CrudSelectableSource<Selectable = dyn CrudSelectableTrait>>),
-}
-
-#[derive(Debug, Clone)]
-pub struct JsonValue {
-    value: serde_json::Value,
-    string_representation: String,
-}
-
-impl JsonValue {
-    pub fn new(value: serde_json::Value) -> Self {
-        let string_representation = serde_json::to_string(&value).unwrap();
-        Self {
-            value,
-            string_representation,
-        }
-    }
-
-    pub fn set_value(&mut self, value: serde_json::Value) {
-        self.value = value;
-        self.string_representation = serde_json::to_string(&self.value).unwrap();
-    }
-
-    pub fn get_value(&self) -> &serde_json::Value {
-        &self.value
-    }
-
-    pub fn get_string_representation(&self) -> &str {
-        self.string_representation.as_str()
-    }
-}
-
-impl From<JsonValue> for serde_json::Value {
-    fn from(value: JsonValue) -> Self {
-        value.value
-    }
-}
-
-impl From<JsonValue> for String {
-    fn from(value: JsonValue) -> Self {
-        value.string_representation
-    }
+    // Extension support.
+    Other(Box<dyn FieldValue>),
 }
 
 impl From<crudkit_shared::Value> for Value {
@@ -140,6 +287,174 @@ impl From<IdValue> for Value {
 }
 
 impl Value {
+    pub fn take_bool(self) -> bool {
+        match self {
+            Self::Bool(bool) => bool,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_bool(self) -> Option<bool> {
+        match self {
+            Self::OptionalBool(bool) => bool,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_u8(self) -> u8 {
+        match self {
+            Self::U8(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_u16(self) -> u16 {
+        match self {
+            Self::U16(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_u32(self) -> u32 {
+        match self {
+            Self::U32(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_u64(self) -> u64 {
+        match self {
+            Self::U64(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_u128(self) -> u128 {
+        match self {
+            Self::U128(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_u8(self) -> Option<u8> {
+        match self {
+            Self::U8(value) => Some(value),
+            Self::OptionalU8(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_u16(self) -> Option<u16> {
+        match self {
+            Self::U16(value) => Some(value),
+            Self::OptionalU16(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_u32(self) -> Option<u32> {
+        match self {
+            Self::U32(value) => Some(value),
+            Self::OptionalU32(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_u64(self) -> Option<u64> {
+        match self {
+            Self::U64(value) => Some(value),
+            Self::OptionalU64(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_u128(self) -> Option<u128> {
+        match self {
+            Self::U128(value) => Some(value),
+            Self::OptionalU128(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_i8(self) -> i8 {
+        match self {
+            Self::I8(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_i16(self) -> i16 {
+        match self {
+            Self::I16(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_i32(self) -> i32 {
+        match self {
+            Self::I32(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_i64(self) -> i64 {
+        match self {
+            Self::I64(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_i128(self) -> i128 {
+        match self {
+            Self::I128(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_i8(self) -> Option<i8> {
+        match self {
+            Self::I8(value) => Some(value),
+            Self::OptionalI8(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_i16(self) -> Option<i16> {
+        match self {
+            Self::I16(value) => Some(value),
+            Self::OptionalI16(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_i32(self) -> Option<i32> {
+        match self {
+            Self::I32(value) => Some(value),
+            Self::OptionalI32(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_i64(self) -> Option<i64> {
+        match self {
+            Self::I64(value) => Some(value),
+            Self::OptionalI64(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_i128(self) -> Option<i128> {
+        match self {
+            Self::I128(value) => Some(value),
+            Self::OptionalI128(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_f32(self) -> f32 {
+        match self {
+            Self::F32(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_f64(self) -> f64 {
+        match self {
+            Self::F64(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_f32(self) -> Option<f32> {
+        match self {
+            Self::F32(value) => Some(value),
+            Self::OptionalF32(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
+    pub fn take_optional_f64(self) -> Option<f64> {
+        match self {
+            Self::F64(value) => Some(value),
+            Self::OptionalF64(value) => value,
+            other => panic!("unsupported type provided: {other:?} "),
+        }
+    }
     pub fn take_string(self) -> String {
         match self {
             Self::String(string) => string,
@@ -173,149 +488,6 @@ impl Value {
     pub fn take_optional_uuid(self) -> Option<uuid::Uuid> {
         match self {
             Self::OptionalUuid(uuid) => uuid,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_u32(self) -> u32 {
-        match self {
-            Self::U32(u32) => u32,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_u64(self) -> u64 {
-        match self {
-            Self::U64(u64) => u64,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_i128(self) -> i128 {
-        match self {
-            Self::I128(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_u128(self) -> u128 {
-        match self {
-            Self::U128(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_u32_or_parse(self) -> u32 {
-        match self {
-            Self::U32(u32) => u32,
-            Self::String(string) => string.parse().unwrap(),
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_u32(self) -> Option<u32> {
-        match self {
-            Self::OptionalU32(u32) => u32,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_i32(self) -> i32 {
-        match self {
-            Self::I32(i32) => i32,
-            // This has some potential data loss...
-            // TODO: Can we remove this? Without, this created a panic in startblock/servers/labels/new
-            Self::U32(u32) => u32 as i32,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_i64(self) -> i64 {
-        match self {
-            Self::I64(i64) => i64,
-            // This has some potential data loss...
-            // TODO: Can we remove this? Without, this created a panic in startblock/servers/labels/new
-            //Self::U32(u32) => u32 as i32,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_i32(self) -> Option<i32> {
-        match self {
-            Self::I32(value) => Some(value),
-            Self::OptionalI32(value) => value,
-            Self::String(string) => string
-                .parse::<i32>()
-                .map_err(|err| warn!("take_optional_i32 could not pase string: {err}"))
-                .ok(),
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_i64(self) -> Option<i64> {
-        match self {
-            Self::I64(value) => Some(value),
-            Self::OptionalI64(value) => value,
-            Self::String(string) => string
-                .parse::<i64>()
-                .map_err(|err| warn!("take_optional_i64 could not pase string: {err}"))
-                .ok(),
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_u64(self) -> Option<u64> {
-        match self {
-            Self::U64(value) => Some(value),
-            Self::OptionalU64(value) => value,
-            Self::String(value) => value
-                .parse::<u64>()
-                .map_err(|err| warn!("take_optional_u64 could not pase string: {err}"))
-                .ok(),
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_i128(self) -> Option<i128> {
-        match self {
-            Self::I128(value) => Some(value),
-            Self::OptionalI128(value) => value,
-            Self::String(value) => value
-                .parse::<i128>()
-                .map_err(|err| warn!("take_optional_i128 could not pase string: {err}"))
-                .ok(),
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_u128(self) -> Option<u128> {
-        match self {
-            Self::U128(value) => Some(value),
-            Self::OptionalU128(value) => value,
-            Self::String(value) => value
-                .parse::<u128>()
-                .map_err(|err| warn!("take_optional_u128 could not pase string: {err}"))
-                .ok(),
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_f32(self) -> f32 {
-        match self {
-            Self::F32(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_f64(self) -> f64 {
-        match self {
-            Self::F64(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_bool(self) -> bool {
-        match self {
-            Self::Bool(bool) => bool,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    /*
-    pub fn take_bool_or_parse(self) -> bool {
-        match self {
-            Self::Bool(bool) => bool,
-            Self::String(string) => string.parse().unwrap(),
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    */
-    pub fn take_validation_status(self) -> bool {
-        match self {
-            Self::ValidationStatus(bool) => bool,
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
@@ -368,181 +540,10 @@ impl Value {
             other => panic!("unsupported type provided: {other:?} "),
         }
     }
-    pub fn take_select(self) -> Box<dyn CrudSelectableTrait> {
+    pub fn take_other(self) -> Box<dyn FieldValue> {
         match self {
-            Self::Select(selected) => selected,
-            other => panic!("unsupported type, expected select, found: {other:?}"),
-        }
-    }
-    pub fn take_select_downcast_to<T: Clone + 'static>(self) -> T {
-        match self {
-            Self::Select(selected) => selected.as_any().downcast_ref::<T>().unwrap().clone(),
-            other => panic!("Expected variant `Value::Select` but got `{other:?}`."),
-        }
-    }
-    pub fn take_optional_select_downcast_to<T: Clone + 'static>(self) -> Option<T> {
-        match self {
-            Self::OptionalSelect(selected) => {
-                selected.map(|it| it.as_any().downcast_ref::<T>().unwrap().clone())
-            }
-            other => panic!("Expected variant `Value::OptionalSelect` but got `{other:?}`."),
-        }
-    }
-    pub fn take_multiselect(self) -> Vec<Box<dyn CrudSelectableTrait>> {
-        match self {
-            Self::Multiselect(selected) => selected,
-            other => panic!("unsupported type, expected select, found: {other:?}"),
-        }
-    }
-    pub fn take_multiselect_downcast_to<T: Clone + 'static>(self) -> Vec<T> {
-        match self {
-            Self::Multiselect(selected) => selected
-                .into_iter()
-                .map(|value| value.as_any().downcast_ref::<T>().unwrap().clone())
-                .collect(),
-            _ => panic!("unsupported type provided"),
-        }
-    }
-    pub fn take_optional_multiselect_downcast_to<T: Clone + 'static>(self) -> Option<Vec<T>> {
-        match self {
-            Self::OptionalMultiselect(selected) => selected.map(|it| {
-                it.into_iter()
-                    .map(|it| it.as_any().downcast_ref::<T>().unwrap().clone())
-                    .collect()
-            }),
-            _ => panic!("unsupported type provided"),
-        }
-    }
-    pub fn take_one_to_one_relation(self) -> Option<u32> {
-        match self {
-            Value::U32(u32) => Some(u32),
-            Value::OptionalU32(optional_u32) => optional_u32,
-            Value::OneToOneRelation(optional_u32) => optional_u32,
-            other => panic!(
-                "Expected Value of variant 'U32', 'OptionalU32' or 'OneToOneRelation'. Received: {other:?}"
-            ),
-        }
-    }
-    pub fn take_reference(self) -> Vec<Box<dyn crudkit_id::IdField>> {
-        match self {
-            Value::Reference(id) => id,
+            Value::Other(value) => value,
             other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_custom(self) -> () {
-        match self {
-            Value::Custom(nothing) => nothing,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-}
-
-impl Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Value::String(value) => f.write_str(value),
-            Value::OptionalString(value) => match value {
-                Some(value) => f.write_str(value),
-                None => f.write_str("-"),
-            },
-            Value::Json(value) => f.write_str(&serde_json::to_string(value).unwrap()),
-            Value::OptionalJson(value) => match value {
-                Some(value) => f.write_str(&serde_json::to_string(value).unwrap()),
-                None => f.write_str("-"),
-            },
-            Value::Uuid(value) => f.write_str(&value.to_string()),
-            Value::OptionalUuid(value) => match value {
-                Some(value) => f.write_str(&value.to_string()),
-                None => f.write_str("-"),
-            },
-            Value::I32(value) => f.write_str(&value.to_string()),
-            Value::U32(value) => f.write_str(&value.to_string()),
-            Value::I64(value) => f.write_str(&value.to_string()),
-            Value::U64(value) => f.write_str(&value.to_string()),
-            Value::I128(value) => f.write_str(&value.to_string()),
-            Value::U128(value) => f.write_str(&value.to_string()),
-            Value::OptionalI32(value) => match value {
-                Some(value) => f.write_str(&value.to_string()),
-                None => f.write_str("-"),
-            },
-            Value::OptionalI64(value) => match value {
-                Some(value) => f.write_str(&value.to_string()),
-                None => f.write_str("-"),
-            },
-            Value::OptionalU32(value) => match value {
-                Some(value) => f.write_str(&value.to_string()),
-                None => f.write_str("-"),
-            },
-            Value::OptionalU64(value) => match value {
-                Some(value) => f.write_str(&value.to_string()),
-                None => f.write_str("-"),
-            },
-            Value::OptionalI128(value) => match value {
-                Some(value) => f.write_str(&value.to_string()),
-                None => f.write_str("-"),
-            },
-            Value::OptionalU128(value) => match value {
-                Some(value) => f.write_str(&value.to_string()),
-                None => f.write_str("-"),
-            },
-            Value::F32(value) => f.write_str(&value.to_string()),
-            Value::F64(value) => f.write_str(&value.to_string()),
-            Value::Bool(value) => f.write_str(&value.to_string()),
-            Value::ValidationStatus(value) => f.write_str(&value.to_string()),
-            Value::PrimitiveDateTime(value) => f.write_str(&value.format(&Rfc3339).unwrap()),
-            Value::OffsetDateTime(value) => f.write_str(&value.format(&Rfc3339).unwrap()),
-            Value::OptionalPrimitiveDateTime(value) => match value {
-                Some(value) => f.write_str(&value.format(&Rfc3339).unwrap()),
-                None => f.write_str(""),
-            },
-            Value::OptionalOffsetDateTime(value) => match value {
-                Some(value) => f.write_str(&value.format(&Rfc3339).unwrap()),
-                None => f.write_str(""),
-            },
-            Value::OneToOneRelation(value) => match value {
-                Some(value) => f.write_str(&value.to_string()),
-                None => f.write_str(""),
-            },
-            Value::Reference(id) => {
-                for field in id {
-                    f.write_fmt(format_args!(
-                        "'{}': {:?}",
-                        field.name(),
-                        field.to_value() // was: into_dyn_value
-                    ))?;
-                }
-                Ok(())
-            }
-            Value::Custom(_) => f.write_str("Custom"),
-            Value::Select(selected) => f.write_str(&selected.to_string()),
-            Value::OptionalSelect(selected) => match selected {
-                Some(selected) => f.write_str(&selected.to_string()),
-                None => f.write_str("NONE"),
-            },
-            Value::Multiselect(selected) => {
-                for value in selected {
-                    f.write_str(&value.to_string())?
-                }
-                Ok(())
-            }
-            Value::OptionalMultiselect(selected) => match selected {
-                Some(selected) => {
-                    for value in selected {
-                        f.write_str(&value.to_string())?
-                    }
-                    Ok(())
-                }
-                None => f.write_str("NONE"),
-            },
-            // TODO: Correct formatting? Should we do a manual: [h]:[m]:[s]?
-            Value::Duration(value) => f.write_str(&value.0.to_string()),
-            Value::OptionalDuration(value) => match value {
-                Some(value) => {
-                    f.write_str(&value.0.to_string())?;
-                    Ok(())
-                }
-                None => f.write_str("NONE"),
-            },
         }
     }
 }
@@ -558,45 +559,58 @@ impl TryInto<ConditionClauseValue> for Value {
 
     fn try_into(self) -> Result<ConditionClauseValue, Self::Error> {
         match self {
+            value @ Value::Void(()) => Err(NotConditionClauseCompatible { value }),
+
+            Value::Bool(value) => Ok(ConditionClauseValue::Bool(value)),
+            value @ Value::OptionalBool(_) => Err(NotConditionClauseCompatible { value }),
+
+            Value::I8(value) => Ok(ConditionClauseValue::I8(value)),
+            Value::I16(value) => Ok(ConditionClauseValue::I16(value)),
+            Value::I32(value) => Ok(ConditionClauseValue::I32(value)),
+            Value::I64(value) => Ok(ConditionClauseValue::I64(value)),
+            Value::I128(value) => Ok(ConditionClauseValue::I128(value)),
+            value @ Value::OptionalI8(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalI16(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalI32(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalI64(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalI128(_) => Err(NotConditionClauseCompatible { value }),
+
+            Value::U8(value) => Ok(ConditionClauseValue::U8(value)),
+            Value::U16(value) => Ok(ConditionClauseValue::U16(value)),
+            Value::U32(value) => Ok(ConditionClauseValue::U32(value)),
+            Value::U64(value) => Ok(ConditionClauseValue::U64(value)),
+            Value::U128(value) => Ok(ConditionClauseValue::U128(value)),
+            value @ Value::OptionalU8(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalU16(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalU32(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalU64(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalU128(_) => Err(NotConditionClauseCompatible { value }),
+
+            Value::F32(value) => Ok(ConditionClauseValue::F32(value)),
+            Value::F64(value) => Ok(ConditionClauseValue::F64(value)),
+            value @ Value::OptionalF32(_) => Err(NotConditionClauseCompatible { value }),
+            value @ Value::OptionalF64(_) => Err(NotConditionClauseCompatible { value }),
+
             Value::String(value) => Ok(ConditionClauseValue::String(value)),
             value @ Value::OptionalString(_) => Err(NotConditionClauseCompatible { value }),
+
+            // Ecosystem support.
             Value::Json(value) => Ok(ConditionClauseValue::Json(
                 serde_json::to_string(&value).unwrap(),
             )),
             value @ Value::OptionalJson(_) => Err(NotConditionClauseCompatible { value }),
             Value::Uuid(value) => Ok(ConditionClauseValue::Uuid(value)),
             value @ Value::OptionalUuid(_) => Err(NotConditionClauseCompatible { value }),
-            Value::I32(value) => Ok(ConditionClauseValue::I32(value)),
-            Value::U32(value) => Ok(ConditionClauseValue::U32(value)),
-            Value::I64(value) => Ok(ConditionClauseValue::I64(value)),
-            Value::U64(value) => Ok(ConditionClauseValue::U64(value)),
-            Value::I128(value) => Ok(ConditionClauseValue::I128(value)),
-            Value::U128(value) => Ok(ConditionClauseValue::U128(value)),
-            value @ Value::OptionalI32(_) => Err(NotConditionClauseCompatible { value }),
-            value @ Value::OptionalI64(_) => Err(NotConditionClauseCompatible { value }),
-            value @ Value::OptionalU32(_) => Err(NotConditionClauseCompatible { value }),
-            value @ Value::OptionalU64(_) => Err(NotConditionClauseCompatible { value }),
-            value @ Value::OptionalI128(_) => Err(NotConditionClauseCompatible { value }),
-            value @ Value::OptionalU128(_) => Err(NotConditionClauseCompatible { value }),
-            Value::F32(value) => Ok(ConditionClauseValue::F32(value)),
-            Value::F64(value) => Ok(ConditionClauseValue::F64(value)),
-            Value::Bool(value) => Ok(ConditionClauseValue::Bool(value)),
-            value @ Value::ValidationStatus(_) => Err(NotConditionClauseCompatible { value }),
             value @ Value::PrimitiveDateTime(_) => Err(NotConditionClauseCompatible { value }),
             value @ Value::OffsetDateTime(_) => Err(NotConditionClauseCompatible { value }),
             value @ Value::OptionalPrimitiveDateTime(_) => {
                 Err(NotConditionClauseCompatible { value })
             }
             value @ Value::OptionalOffsetDateTime(_) => Err(NotConditionClauseCompatible { value }),
-            value @ Value::OneToOneRelation(_) => Err(NotConditionClauseCompatible { value }),
-            value @ Value::Reference(_) => Err(NotConditionClauseCompatible { value }),
-            value @ Value::Custom(_) => Err(NotConditionClauseCompatible { value }),
-            value @ Value::Select(_) => Err(NotConditionClauseCompatible { value }),
-            value @ Value::Multiselect(_) => Err(NotConditionClauseCompatible { value }),
-            value @ Value::OptionalSelect(_) => Err(NotConditionClauseCompatible { value }),
-            value @ Value::OptionalMultiselect(_) => Err(NotConditionClauseCompatible { value }),
             value @ Value::Duration(_) => Err(NotConditionClauseCompatible { value }),
             value @ Value::OptionalDuration(_) => Err(NotConditionClauseCompatible { value }),
+
+            value @ Value::Other(_) => Err(NotConditionClauseCompatible { value }),
         }
     }
 }

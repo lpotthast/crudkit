@@ -110,7 +110,9 @@ dyn_hash::hash_trait_object!(UpdateField);
 ///
 /// In a context where type-erased fields of any model (create, read or update) should be accepted,
 /// `DynField` can be used.
-pub trait DynField: Debug + Clone + PartialEq + Eq + Hash + Send + Sync + 'static {}
+pub trait DynField: Debug + Clone + PartialEq + Eq + Hash + Send + Sync + 'static {
+    fn get_name(&self) -> &'static str;
+}
 
 macro_rules! impl_any_field {
     ($any_ty:tt, $concrete_ty:tt, $any_model_ty:tt) => {
@@ -154,7 +156,11 @@ macro_rules! impl_any_field {
             }
         }
 
-        impl DynField for $any_ty {}
+        impl DynField for $any_ty {
+            fn get_name(&self) -> &'static str {
+                self.inner.get_name()
+            }
+        }
     };
 }
 

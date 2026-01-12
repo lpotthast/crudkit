@@ -1,10 +1,8 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-use async_trait::async_trait;
 use dyn_clone::DynClone;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::sync::Arc;
 use std::{
     any::Any,
     borrow::Cow,
@@ -33,7 +31,6 @@ pub mod view;
 * which are required for many derive macro implementations.
 */
 use crate::request_error::RequestError;
-pub use crate::value::JsonValue;
 pub use crate::value::Value;
 pub use crudkit_condition;
 pub use crudkit_id;
@@ -72,8 +69,6 @@ pub(crate) mod prelude {
     pub use super::CrudIdTrait;
     pub use super::CrudMainTrait;
     pub use super::CrudResourceTrait;
-    pub use super::CrudSelectableSource;
-    pub use super::CrudSelectableTrait;
     pub use super::DeletableModel;
     pub use super::EmptyActionPayload;
     pub use super::FieldMode;
@@ -192,25 +187,6 @@ pub trait CrudResourceTrait {
     where
         Self: Sized;
 }
-
-#[async_trait]
-pub trait CrudSelectableSource: Debug + Send + Sync {
-    type Selectable: CrudSelectableTrait;
-
-    async fn load(
-        &self,
-    ) -> Result<Vec<Self::Selectable>, Arc<dyn std::error::Error + Send + Sync + 'static>>;
-
-    fn set_selectable(&mut self, selectable: Vec<Self::Selectable>);
-
-    /// May return None if selectable options were not yet loaded.
-    fn get_selectable(&self) -> Option<Vec<Self::Selectable>>;
-}
-
-pub trait CrudSelectableTrait: Debug + Display + DynClone + Send + Sync {
-    fn as_any(&self) -> &dyn Any;
-}
-dyn_clone::clone_trait_object!(CrudSelectableTrait);
 
 pub trait CrudFieldNameTrait {
     fn get_name(&self) -> &'static str;

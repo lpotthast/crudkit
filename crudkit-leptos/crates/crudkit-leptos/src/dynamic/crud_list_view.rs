@@ -1,10 +1,8 @@
 use crate::dynamic::crud_action::{CrudAction, ResourceActionViewInput};
 use crate::dynamic::crud_action_context::CrudActionContext;
 use crate::dynamic::crud_instance::CrudInstanceContext;
-use crate::dynamic::crud_instance_config::Header;
+use crate::dynamic::crud_instance_config::{FieldRendererRegistry, Header};
 use crate::dynamic::crud_table::{CrudTable, NoDataAvailable};
-use crate::dynamic::custom_field::CustomReadFields;
-use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::shared::crud_pagination::CrudPagination;
 use crudkit_shared::Order;
 use crudkit_web::dynamic::prelude::*;
@@ -84,8 +82,7 @@ pub fn CrudListView(
     #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
     #[prop(into)] headers: Signal<Vec<Header>>,
     #[prop(into)] order_by: Signal<IndexMap<AnyReadField, Order>>,
-    #[prop(into)] custom_fields: Signal<CustomReadFields>,
-    #[prop(into)] field_config: Signal<HashMap<AnyReadField, DynSelectConfig>>,
+    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyReadField>>,
     #[prop(into)] actions: Signal<Vec<CrudAction>>,
 ) -> impl IntoView {
     let instance_ctx = expect_context::<CrudInstanceContext>();
@@ -195,8 +192,7 @@ pub fn CrudListView(
             headers=headers
             order_by=order_by
             data=page
-            custom_fields=custom_fields
-            field_config=field_config
+            field_renderer_registry=field_renderer_registry
             read_allowed=read_allowed
             edit_allowed=edit_allowed
             delete_allowed=delete_allowed

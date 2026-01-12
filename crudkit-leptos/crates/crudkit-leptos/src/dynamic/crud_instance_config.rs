@@ -1,6 +1,6 @@
 use crate::dynamic::crud_action::{CrudAction, CrudEntityAction};
-use crate::dynamic::custom_field::{CustomCreateFields, CustomReadFields, CustomUpdateFields};
-use crate::shared::crud_instance_config::{DynSelectConfig, ItemsPerPage, PageNr};
+use crate::shared::crud_instance_config::{ItemsPerPage, PageNr};
+use crate::shared::fields::FieldRenderer;
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_condition::Condition;
 use crudkit_shared::{Order, SaveResult, Saved};
@@ -39,6 +39,54 @@ impl From<(AnyReadField, HeaderOptions)> for Header {
     }
 }
 
+/// We determine the `View` shown for a field using the following sources.
+///
+/// 1. If the layout, specifying where exactly a field should be rendered, also defines a renderer
+///    for the field at this specific position, that renderer is used.
+///
+/// 2. If no specific renderer was specified through the layout, we look if the instance was
+///    configured with a specific renderer that should always be used for this field.
+///
+/// 3. If the instance has no field renderer overrides, we pick a default renderer based on the
+///    fields type.
+///
+/// 4. If the fields type is something we cannot show a default renderer for, an error is rendered
+///    and logged, showing that the instance needs further configuration.
+///
+/// This registry allows to specify (2).
+#[derive(Debug, Clone)]
+pub struct FieldRendererRegistry<F: DynField> {
+    pub(crate) reg: HashMap<F, FieldRenderer<F>>,
+}
+
+impl<F: DynField> FieldRendererRegistry<F> {
+    pub fn builder() -> FieldRendererRegistryBuilder<F> {
+        FieldRendererRegistryBuilder::new()
+    }
+}
+
+#[derive(Debug)]
+pub struct FieldRendererRegistryBuilder<F: DynField> {
+    reg: HashMap<F, FieldRenderer<F>>,
+}
+
+impl<F: DynField> FieldRendererRegistryBuilder<F> {
+    fn new() -> Self {
+        Self {
+            reg: HashMap::new(),
+        }
+    }
+
+    pub fn register(mut self, field: impl Into<F>, renderer: FieldRenderer<F>) -> Self {
+        self.reg.insert(field.into(), renderer);
+        self
+    }
+
+    pub fn build(self) -> FieldRendererRegistry<F> {
+        FieldRendererRegistry { reg: self.reg }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct CrudInstanceConfig {
     /* Later to-be mutable data. */
@@ -62,12 +110,9 @@ pub struct CrudInstanceConfig {
     pub model_handler: ModelHandler,
     pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction>,
-    pub create_field_select_config: HashMap<AnyCreateField, DynSelectConfig>,
-    pub read_field_select_config: HashMap<AnyReadField, DynSelectConfig>,
-    pub update_field_select_config: HashMap<AnyUpdateField, DynSelectConfig>,
-    pub custom_read_fields: CustomReadFields,
-    pub custom_create_fields: CustomCreateFields,
-    pub custom_update_fields: CustomUpdateFields,
+    pub read_field_renderer: FieldRendererRegistry<AnyReadField>,
+    pub create_field_renderer: FieldRendererRegistry<AnyCreateField>,
+    pub update_field_renderer: FieldRendererRegistry<AnyUpdateField>,
 }
 
 impl CrudInstanceConfig {
@@ -91,18 +136,15 @@ impl CrudInstanceConfig {
                 model_handler: self.model_handler,
                 actions: self.actions,
                 entity_actions: self.entity_actions,
-                create_field_select_config: self.create_field_select_config,
-                read_field_select_config: self.read_field_select_config,
-                update_field_select_config: self.update_field_select_config,
-                custom_read_fields: self.custom_read_fields,
-                custom_create_fields: self.custom_create_fields,
-                custom_update_fields: self.custom_update_fields,
+                read_field_renderer: self.read_field_renderer,
+                create_field_renderer: self.create_field_renderer,
+                update_field_renderer: self.update_field_renderer,
             },
         )
     }
 }
 
-#[derive(Debug, Clone, PartialEq)] // TODO: Serialize, Deserialize
+#[derive(Debug, Clone)] // TODO: Serialize, Deserialize
 pub(crate) struct CrudMutableInstanceConfig {
     pub api_base_url: String,
     pub view: SerializableCrudView,
@@ -249,12 +291,9 @@ pub(crate) struct CrudStaticInstanceConfig {
     pub model_handler: ModelHandler,
     pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction>,
-    pub create_field_select_config: HashMap<AnyCreateField, DynSelectConfig>,
-    pub read_field_select_config: HashMap<AnyReadField, DynSelectConfig>,
-    pub update_field_select_config: HashMap<AnyUpdateField, DynSelectConfig>,
-    pub custom_read_fields: CustomReadFields,
-    pub custom_create_fields: CustomCreateFields,
-    pub custom_update_fields: CustomUpdateFields,
+    pub read_field_renderer: FieldRendererRegistry<AnyReadField>,
+    pub create_field_renderer: FieldRendererRegistry<AnyCreateField>,
+    pub update_field_renderer: FieldRendererRegistry<AnyUpdateField>,
 }
 
 impl CrudMutableInstanceConfig {

@@ -1,6 +1,5 @@
 use crate::generic::crud_field::CrudField;
 use crate::generic::custom_field::CustomFields;
-use crate::shared::crud_instance_config::DynSelectConfig;
 use crate::ReactiveValue;
 use crudkit_web::generic::prelude::*;
 use leptonic::components::prelude::*;
@@ -10,7 +9,6 @@ use std::collections::HashMap;
 #[component]
 pub fn CrudFields<T>(
     custom_fields: Signal<CustomFields<T>>,
-    field_config: Signal<HashMap<T::Field, DynSelectConfig>>,
     #[prop(into)] elements: Signal<Vec<Elem<T>>>,
     #[prop(into)] signals: StoredValue<HashMap<T::Field, ReactiveValue>>,
     mode: FieldMode,
@@ -34,7 +32,6 @@ where
                             Enclosing::None(group) => view! {
                                 <CrudFields
                                     custom_fields=custom_fields
-                                    field_config=field_config
                                     elements=group.children.clone()
                                     signals=signals
                                     mode=mode.clone()
@@ -64,7 +61,6 @@ where
                                                 >
                                                     <CrudFields
                                                         custom_fields=custom_fields
-                                                        field_config=field_config
                                                         elements=tab.group.children.clone()
                                                         signals=signals
                                                         mode=mode.clone()
@@ -84,7 +80,6 @@ where
                                 <Card>
                                     <CrudFields
                                         custom_fields=custom_fields
-                                        field_config=field_config
                                         elements=group.children.clone()
                                         signals=signals
                                         mode=mode.clone()
@@ -101,7 +96,6 @@ where
                     Elem::Field((field, field_options)) => view! {
                         <CrudField
                             custom_fields=custom_fields
-                            field_config=field_config
                             current_view=current_view
                             field=field.clone()
                             field_options=field_options.clone()
