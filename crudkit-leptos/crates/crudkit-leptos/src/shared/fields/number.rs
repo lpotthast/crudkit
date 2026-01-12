@@ -1,5 +1,6 @@
 use crate::shared::fields::render_label;
-use crudkit_web::{FieldMode, FieldOptions, Value};
+use crudkit_shared::Value;
+use crudkit_web::{FieldMode, FieldOptions};
 use leptonic::components::input::NumberInput;
 use leptos::prelude::*;
 use std::sync::Arc;

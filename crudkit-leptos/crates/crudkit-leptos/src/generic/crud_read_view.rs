@@ -6,7 +6,7 @@ use crate::generic::crud_instance::CrudInstanceContext;
 use crate::generic::crud_table::NoDataAvailable;
 use crate::generic::custom_field::CustomUpdateFields;
 use crate::{IntoReactiveValue, ReactiveValue};
-use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
+use crudkit_condition::{merge_conditions, TryIntoAllEqualCondition};
 use crudkit_id::{Id, IdField};
 use crudkit_web::generic::prelude::*;
 use leptonic::components::prelude::*;
@@ -38,7 +38,8 @@ where
         let equals_id_condition =
             <T as CrudMainTrait>::ReadModelId::fields_iter(&id) // TODO: This is complex and requires several use statements. Should be made easier.
                 .map(|field| (field.name().to_owned(), field.to_value()))
-                .into_all_equal_condition();
+                .try_into_all_equal_condition()
+                .unwrap();
         data_provider
             .read()
             .read_one(ReadOne {

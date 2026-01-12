@@ -223,7 +223,7 @@ pub fn CrudInstance(
                         crudkit_condition::ConditionClause {
                             column_name: parent.referencing_field.clone(),
                             operator: crudkit_condition::Operator::Equal,
-                            value: value.clone().into(),
+                            value: value.clone().try_into().unwrap(),
                         },
                     ),
                 ])

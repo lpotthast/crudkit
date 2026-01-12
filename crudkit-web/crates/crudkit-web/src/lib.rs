@@ -1,14 +1,8 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-use dyn_clone::DynClone;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{
-    any::Any,
-    borrow::Cow,
-    fmt::{Debug, Display},
-    hash::Hash,
-};
+use std::{borrow::Cow, fmt::Debug, hash::Hash};
 
 pub mod dynamic;
 pub mod error;
@@ -16,7 +10,6 @@ pub mod files;
 pub mod generic;
 pub mod request_error;
 pub mod reqwest_executor;
-pub mod value;
 pub mod view;
 
 /*
@@ -31,7 +24,8 @@ pub mod view;
 * which are required for many derive macro implementations.
 */
 use crate::request_error::RequestError;
-pub use crate::value::Value;
+use crudkit_shared::Value;
+
 pub use crudkit_condition;
 pub use crudkit_id;
 pub use crudkit_shared;
@@ -58,7 +52,6 @@ pub(crate) mod prelude {
     pub use super::files::ListFilesResponse;
     pub use super::request_error::RequestError;
     pub use super::reqwest_executor::ReqwestExecutor;
-    pub use super::value::Value;
     pub use super::view::CrudSimpleView;
     pub use super::view::CrudView;
     pub use super::view::SerializableCrudView;

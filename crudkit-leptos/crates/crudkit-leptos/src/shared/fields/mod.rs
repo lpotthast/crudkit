@@ -15,11 +15,11 @@ use crate::shared::fields::number::{
 use crate::shared::fields::string::{CrudOptionalStringField, CrudStringField};
 use crate::shared::fields::uuid::{CrudOptionalUuidField, CrudUuidField};
 use crate::ReactiveValue;
+use crudkit_shared::Value;
 use crudkit_web::dynamic::prelude::*;
-use crudkit_web::{FieldMode, FieldOptions, Label, Value};
+use crudkit_web::{FieldMode, FieldOptions, Label};
 use leptonic::components::prelude::{Alert, AlertContent, AlertTitle, AlertVariant};
 use leptonic::prelude::ViewCallback;
-use leptos::prelude::*;
 use leptos::prelude::*;
 use std::collections::HashMap;
 use std::error::Error;

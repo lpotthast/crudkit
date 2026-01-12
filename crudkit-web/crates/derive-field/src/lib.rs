@@ -3,10 +3,10 @@
 
 use darling::*;
 use proc_macro::TokenStream;
-use proc_macro2::{Ident, Span};
 use proc_macro_error::proc_macro_error;
+use proc_macro2::{Ident, Span};
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 use types::ModelType;
 
 #[derive(Debug, FromField)]
@@ -207,7 +207,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         ModelType::Create => quote! {
             #[typetag::serde]
             impl crudkit_web::dynamic::CreateField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyCreateModel, value: crudkit_web::value::Value) {
+                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyCreateModel, value: crudkit_shared::Value) {
                     let model = model.downcast_mut::<#name>();
                     crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
                 }
@@ -216,7 +216,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         ModelType::Read => quote! {
             #[typetag::serde]
             impl crudkit_web::dynamic::ReadField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyReadModel, value: crudkit_web::value::Value) {
+                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyReadModel, value: crudkit_shared::Value) {
                     let model = model.downcast_mut::<#name>();
                     crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
                 }
@@ -225,7 +225,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         ModelType::Update => quote! {
             #[typetag::serde]
             impl crudkit_web::dynamic::UpdateField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyUpdateModel, value: crudkit_web::value::Value) {
+                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyUpdateModel, value: crudkit_shared::Value) {
                     let model = model.downcast_mut::<#name>();
                     crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
                 }
@@ -267,7 +267,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         #[typetag::serde]
         impl crudkit_web::dynamic::Field for #field_name {
-            fn set_value(&self, model: &mut crudkit_web::dynamic::AnyModel, value: crudkit_web::value::Value) {
+            fn set_value(&self, model: &mut crudkit_web::dynamic::AnyModel, value: crudkit_shared::Value) {
                 let model = model.downcast_mut::<#name>();
                 crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
             }

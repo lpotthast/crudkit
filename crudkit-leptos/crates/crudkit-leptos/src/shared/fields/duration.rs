@@ -1,7 +1,7 @@
 use crate::shared::fields::optional::OptionalInput;
 use crate::shared::fields::render_label;
-use crudkit_shared::TimeDuration;
-use crudkit_web::{FieldMode, FieldOptions, Value};
+use crudkit_shared::{TimeDuration, Value};
+use crudkit_web::{FieldMode, FieldOptions};
 use leptonic::components::input::NumberInput;
 use leptonic::Out;
 use leptos::prelude::*;

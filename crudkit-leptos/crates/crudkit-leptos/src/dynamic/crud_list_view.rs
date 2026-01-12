@@ -11,7 +11,6 @@ use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy)]

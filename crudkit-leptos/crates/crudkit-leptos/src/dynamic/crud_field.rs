@@ -1,9 +1,8 @@
 use crate::dynamic::crud_instance_config::FieldRendererRegistry;
 use crate::shared::fields::{default_field_renderer, render_label};
 use crate::ReactiveValue;
+use crudkit_shared::Value;
 use crudkit_web::dynamic::prelude::*;
-use crudkit_web::dynamic::{AnyCreateField, AnyReadField, AnyUpdateField};
-use leptonic::components::prelude::*;
 use leptos::prelude::*;
 use std::collections::HashMap;
 use uuid::Uuid;

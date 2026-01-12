@@ -7,9 +7,9 @@ use crate::generic::crud_table::NoDataAvailable;
 use crate::generic::custom_field::CustomUpdateFields;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::{IntoReactiveValue, ReactiveValue};
-use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
+use crudkit_condition::{merge_conditions, TryIntoAllEqualCondition};
 use crudkit_id::{Id, IdField};
-use crudkit_shared::{SaveResult, Saved};
+use crudkit_shared::{SaveResult, Saved, Value};
 use crudkit_web::generic::prelude::*;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
@@ -66,7 +66,8 @@ where
         let equals_id_condition =
             <T as CrudMainTrait>::UpdateModelId::fields_iter(&id) // TODO: This is complex and requires several use statements. Should be made easier.
                 .map(|field| (field.name().to_owned(), field.to_value()))
-                .into_all_equal_condition();
+                .try_into_all_equal_condition()
+                .unwrap();
 
         let _ = instance_ctx.reload.get();
 
@@ -166,7 +167,8 @@ where
                                             .map(|field| {
                                                 (field.name().to_owned(), field.to_value())
                                             })
-                                            .into_all_equal_condition(),
+                                            .try_into_all_equal_condition()
+                                            .unwrap(),
                                     ),
                                 ),
                         })

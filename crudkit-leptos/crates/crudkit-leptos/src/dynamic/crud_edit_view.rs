@@ -7,9 +7,9 @@ use crate::dynamic::crud_instance_config::{FieldRendererRegistry, UpdateElements
 use crate::dynamic::crud_table::NoDataAvailable;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::ReactiveValue;
-use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
+use crudkit_condition::{merge_conditions, TryIntoAllEqualCondition};
 use crudkit_id::SerializableId;
-use crudkit_shared::{SaveResult, Saved};
+use crudkit_shared::{SaveResult, Saved, Value};
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{AnyReadOrUpdateModel, AnyUpdateField, AnyUpdateModel};
 use crudkit_web::request_error::RequestError;
@@ -61,7 +61,12 @@ pub fn CrudEditView(
     // TODO: Do not use LocalResouce, allow loading on server.
     let entity_resource = LocalResource::new(move || async move {
         let _ = instance_ctx.reload.get();
-        let equals_id_condition = id.get().0.into_iter().into_all_equal_condition();
+        let equals_id_condition = id
+            .get()
+            .0
+            .into_iter()
+            .try_into_all_equal_condition()
+            .unwrap();
         data_provider
             .read()
             .read_one(ReadOne {
@@ -167,7 +172,13 @@ pub fn CrudEditView(
                         entity: entity.clone(),
                         condition: merge_conditions(
                             instance_ctx.base_condition.get(),
-                            Some(id.get().0.into_iter().into_all_equal_condition()),
+                            Some(
+                                id.get()
+                                    .0
+                                    .into_iter()
+                                    .try_into_all_equal_condition()
+                                    .unwrap(),
+                            ),
                         ),
                     })
                     .await

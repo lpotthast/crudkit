@@ -1,6 +1,7 @@
 use crate::dynamic::crud_field::CrudField;
 use crate::dynamic::crud_instance_config::FieldRendererRegistry;
 use crate::ReactiveValue;
+use crudkit_shared::Value;
 use crudkit_web::dynamic::prelude::*;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;

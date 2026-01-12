@@ -1,6 +1,7 @@
 use crate::generic::crud_field::CrudField;
 use crate::generic::custom_field::CustomFields;
 use crate::ReactiveValue;
+use crudkit_shared::Value;
 use crudkit_web::generic::prelude::*;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;

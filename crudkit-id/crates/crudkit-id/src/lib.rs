@@ -1,3 +1,4 @@
+use crudkit_shared::Value;
 use dyn_clone::DynClone;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display};
@@ -79,5 +80,24 @@ pub trait Id:
 
 /// A type-erased entity ID. Can be serialized/deserialized for storage or transmission.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)] // TODO: Serde passthrough?
-#[schema(value_type = Vec<Object>)] // TODO: Move away from unnamed (String, IdValue) and towars a named key/value tuple.
+#[schema(value_type = Vec<Object>
+)] // TODO: Move away from unnamed (String, IdValue) and towars a named key/value tuple.
 pub struct SerializableId(pub Vec<(String, IdValue)>);
+
+impl From<IdValue> for Value {
+    fn from(value: IdValue) -> Self {
+        match value {
+            IdValue::I32(value) => Value::I32(value),
+            IdValue::U32(value) => Value::U32(value),
+            IdValue::I64(value) => Value::I64(value),
+            IdValue::U64(value) => Value::U64(value),
+            IdValue::I128(value) => Value::I128(value),
+            IdValue::U128(value) => Value::U128(value),
+            IdValue::Bool(value) => Value::Bool(value),
+            IdValue::String(value) => Value::String(value),
+            IdValue::Uuid(value) => Value::Uuid(value),
+            IdValue::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
+            IdValue::OffsetDateTime(value) => Value::OffsetDateTime(value),
+        }
+    }
+}

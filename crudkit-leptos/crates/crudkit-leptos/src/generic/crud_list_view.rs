@@ -10,8 +10,8 @@ use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
+use std::marker::PhantomData;
 use std::sync::Arc;
-use std::{collections::HashMap, marker::PhantomData};
 
 #[derive(Debug, Clone)]
 pub struct CrudListViewContext<T: CrudMainTrait + 'static> {

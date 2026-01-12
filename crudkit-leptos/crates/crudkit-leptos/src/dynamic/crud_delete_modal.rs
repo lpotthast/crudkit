@@ -1,4 +1,3 @@
-use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::AnyReadOrUpdateModel;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;

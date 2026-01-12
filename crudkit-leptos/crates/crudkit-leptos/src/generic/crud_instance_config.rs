@@ -6,7 +6,6 @@ use crudkit_shared::Order;
 use crudkit_web::generic::prelude::*;
 use crudkit_web::reqwest_executor::NewClientPerRequestExecutor;
 use indexmap::{indexmap, IndexMap};
-use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::sync::Arc;

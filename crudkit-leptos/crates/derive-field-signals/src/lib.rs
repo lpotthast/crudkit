@@ -236,7 +236,7 @@ enum ReactiveValueType {
     Custom,
 }
 
-/// Converts to the name of the `crudkit_web::Value` variant which should be used.
+/// Converts to the name of the `crudkit_shared::Value` variant which should be used.
 impl From<ReactiveValueType> for Ident {
     fn from(value_type: ReactiveValueType) -> Self {
         Ident::new(
@@ -318,7 +318,9 @@ impl From<&syn::Type> for ReactiveValueType {
                 "Option<time::OffsetDateTime>" => ReactiveValueType::OptionalOffsetDateTime,
                 other => {
                     let span = ty.span();
-                    let message = format!("crudkit: derive-field-signals: Unknown type {other:?}. Expected a known type.");
+                    let message = format!(
+                        "crudkit: derive-field-signals: Unknown type {other:?}. Expected a known type."
+                    );
                     abort!(
                         span, message;
                         help = "use one of the following types: [...]";

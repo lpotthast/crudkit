@@ -1,5 +1,6 @@
 use crate::shared::fields::render_label;
-use crudkit_web::{DateTimeDisplay, FieldMode, FieldOptions, Value};
+use crudkit_shared::Value;
+use crudkit_web::{DateTimeDisplay, FieldMode, FieldOptions};
 use leptonic::components::datetime_input::DateTimeInput;
 use leptos::prelude::*;
 use std::sync::Arc;
@@ -18,7 +19,7 @@ pub fn CrudPrimitiveDateTimeField(
     match field_mode {
         FieldMode::Display => match field_options.date_time_display {
             DateTimeDisplay::IsoUtc => {
-                view! { <div>{move || value.get().format(&Rfc3339).unwrap()}</div> }.into_any()
+                view! { <div>{move || value.get().format(&Rfc3339).expect("infallible using well-known format")}</div> }.into_any()
             }
             // TODO: Use icu4x formatting using the current users locale!
             DateTimeDisplay::LocalizedLocal => view! {

@@ -6,7 +6,7 @@ use crate::dynamic::crud_instance::CrudInstanceContext;
 use crate::dynamic::crud_instance_config::{FieldRendererRegistry, UpdateElements};
 use crate::dynamic::crud_table::NoDataAvailable;
 use crate::ReactiveValue;
-use crudkit_condition::{merge_conditions, IntoAllEqualCondition};
+use crudkit_condition::{merge_conditions, TryIntoAllEqualCondition};
 use crudkit_id::SerializableId;
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{AnyUpdateField, AnyUpdateModel};
@@ -36,7 +36,12 @@ pub fn CrudReadView(
 
     let entity_resource = LocalResource::new(move || async move {
         let _ = instance_ctx.reload.get();
-        let equals_id_condition = id.get().0.into_iter().into_all_equal_condition();
+        let equals_id_condition = id
+            .get()
+            .0
+            .into_iter()
+            .try_into_all_equal_condition()
+            .unwrap();
         data_provider
             .read()
             .read_one(ReadOne {

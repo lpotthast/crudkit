@@ -30,28 +30,33 @@ pub struct ConditionClause {
 }
 
 /// Values which might be part of a `ConditionClause`.
-/// You can convert any `crudkit_shared::Value` using `.into`.
-/// You can convert any `crudkit_id::IdValue` using `.into`.
-// TODO: Drop in favor of "crudkit_shared::Value" type??
+/// You can convert a `crudkit_shared::Value` using `.try_into`.
+/// You can convert a `crudkit_id::IdValue` using `.try_into`.
 #[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
 pub enum ConditionClauseValue {
-    I8(i8),
-    I16(i16),
-    I32(i32),
-    I64(i64),
-    I128(i128),
+    Bool(bool),
+
     U8(u8),
     U16(u16),
     U32(u32),
     U64(u64),
     U128(u128),
+
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    I128(i128),
+
     F32(f32),
     F64(f64),
-    Bool(bool),
+
     String(String),
     Json(String),
+
     Uuid(uuid::Uuid),
     UuidV7(uuid::Uuid),
+
     U8Vec(Vec<u8>),
     I32Vec(Vec<i32>),
     I64Vec(Vec<i64>),
@@ -59,47 +64,105 @@ pub enum ConditionClauseValue {
     //DateTime(time::OffsetDateTime), // TODO: Enable time
 }
 
-// TODO: Use result type instead of panicking!
-impl Into<ConditionClauseValue> for Value {
-    fn into(self) -> ConditionClauseValue {
+#[derive(Debug, thiserror::Error)]
+#[error("The value '{value:?}' cannot be used in a condition clause.")]
+pub struct NotConditionClauseCompatibleValue {
+    value: Value,
+}
+
+impl TryInto<ConditionClauseValue> for Value {
+    type Error = NotConditionClauseCompatibleValue;
+
+    fn try_into(self) -> Result<ConditionClauseValue, Self::Error> {
         match self {
-            Value::String(value) => ConditionClauseValue::String(value),
-            Value::Json(value) => ConditionClauseValue::Json(value.to_string()),
-            Value::Uuid(value) => ConditionClauseValue::Uuid(value),
-            Value::I32(value) => ConditionClauseValue::I32(value),
-            Value::I64(value) => ConditionClauseValue::I64(value),
-            Value::U8Vec(values) => ConditionClauseValue::U8Vec(values),
-            Value::I32Vec(values) => ConditionClauseValue::I32Vec(values),
-            Value::I64Vec(value) => ConditionClauseValue::I64Vec(value),
-            Value::U32(value) => ConditionClauseValue::U32(value),
-            Value::U64(value) => ConditionClauseValue::U64(value),
-            Value::F32(value) => ConditionClauseValue::F32(value),
-            Value::F64(value) => ConditionClauseValue::F64(value),
-            Value::Bool(value) => ConditionClauseValue::Bool(value),
-            //crudkit_shared::Value::DateTime(value) => ConditionClauseValue::DateTime(value), // TODO: implement
-            Value::PrimitiveDateTime(_value) => unimplemented!(),
-            Value::OffsetDateTime(_value) => unimplemented!(),
-            Value::Duration(_value) => unimplemented!(),
+            value @ Value::Void(()) => Err(NotConditionClauseCompatibleValue { value }),
+
+            Value::Bool(value) => Ok(ConditionClauseValue::Bool(value)),
+            value @ Value::OptionalBool(_) => Err(NotConditionClauseCompatibleValue { value }),
+
+            Value::I8(value) => Ok(ConditionClauseValue::I8(value)),
+            Value::I16(value) => Ok(ConditionClauseValue::I16(value)),
+            Value::I32(value) => Ok(ConditionClauseValue::I32(value)),
+            Value::I64(value) => Ok(ConditionClauseValue::I64(value)),
+            Value::I128(value) => Ok(ConditionClauseValue::I128(value)),
+            value @ Value::OptionalI8(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::OptionalI16(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::OptionalI32(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::OptionalI64(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::OptionalI128(_) => Err(NotConditionClauseCompatibleValue { value }),
+
+            Value::U8(value) => Ok(ConditionClauseValue::U8(value)),
+            Value::U16(value) => Ok(ConditionClauseValue::U16(value)),
+            Value::U32(value) => Ok(ConditionClauseValue::U32(value)),
+            Value::U64(value) => Ok(ConditionClauseValue::U64(value)),
+            Value::U128(value) => Ok(ConditionClauseValue::U128(value)),
+            value @ Value::OptionalU8(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::OptionalU16(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::OptionalU32(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::OptionalU64(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::OptionalU128(_) => Err(NotConditionClauseCompatibleValue { value }),
+
+            Value::F32(value) => Ok(ConditionClauseValue::F32(value)),
+            Value::F64(value) => Ok(ConditionClauseValue::F64(value)),
+            value @ Value::OptionalF32(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::OptionalF64(_) => Err(NotConditionClauseCompatibleValue { value }),
+
+            value @ Value::U8Vec(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::I32Vec(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::I64Vec(_) => Err(NotConditionClauseCompatibleValue { value }),
+
+            Value::String(value) => Ok(ConditionClauseValue::String(value)),
+            value @ Value::OptionalString(_) => Err(NotConditionClauseCompatibleValue { value }),
+
+            // Ecosystem support.
+            Value::Json(value) => Ok(ConditionClauseValue::Json(
+                serde_json::to_string(&value).unwrap(),
+            )),
+            value @ Value::OptionalJson(_) => Err(NotConditionClauseCompatibleValue { value }),
+            Value::Uuid(value) => Ok(ConditionClauseValue::Uuid(value)),
+            value @ Value::OptionalUuid(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::PrimitiveDateTime(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::OffsetDateTime(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::OptionalPrimitiveDateTime(_) => {
+                Err(NotConditionClauseCompatibleValue { value })
+            }
+            value @ Value::OptionalOffsetDateTime(_) => {
+                Err(NotConditionClauseCompatibleValue { value })
+            }
+            value @ Value::Duration(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ Value::OptionalDuration(_) => Err(NotConditionClauseCompatibleValue { value }),
+
+            value @ Value::Other(_) => Err(NotConditionClauseCompatibleValue { value }),
         }
     }
 }
 
-// TODO: Use result type instead of panicking!
-impl Into<ConditionClauseValue> for IdValue {
-    fn into(self) -> ConditionClauseValue {
+#[derive(Debug, thiserror::Error)]
+#[error("The ID value '{value:?}' cannot be used in a condition clause.")]
+pub struct NotConditionClauseCompatibleIdValue {
+    value: IdValue,
+}
+
+impl TryInto<ConditionClauseValue> for IdValue {
+    type Error = NotConditionClauseCompatibleIdValue;
+
+    fn try_into(self) -> Result<ConditionClauseValue, Self::Error> {
         match self {
-            IdValue::I32(value) => ConditionClauseValue::I32(value),
-            IdValue::U32(value) => ConditionClauseValue::U32(value),
-            IdValue::I64(value) => ConditionClauseValue::I64(value),
-            IdValue::U64(value) => ConditionClauseValue::U64(value),
-            IdValue::I128(value) => ConditionClauseValue::I128(value),
-            IdValue::U128(value) => ConditionClauseValue::U128(value),
-            IdValue::Bool(value) => ConditionClauseValue::Bool(value),
-            IdValue::String(value) => ConditionClauseValue::String(value),
-            IdValue::Uuid(value) => ConditionClauseValue::Uuid(value),
-            //crudkit_id::IdValue::DateTime(value) => ConditionClauseValue::DateTime(value), // TODO: implement
-            IdValue::PrimitiveDateTime(_value) => panic!("Not implemented...."),
-            IdValue::OffsetDateTime(_value) => panic!("Not implemented...."),
+            IdValue::I32(value) => Ok(ConditionClauseValue::I32(value)),
+            IdValue::U32(value) => Ok(ConditionClauseValue::U32(value)),
+            IdValue::I64(value) => Ok(ConditionClauseValue::I64(value)),
+            IdValue::U64(value) => Ok(ConditionClauseValue::U64(value)),
+            IdValue::I128(value) => Ok(ConditionClauseValue::I128(value)),
+            IdValue::U128(value) => Ok(ConditionClauseValue::U128(value)),
+            IdValue::Bool(value) => Ok(ConditionClauseValue::Bool(value)),
+            IdValue::String(value) => Ok(ConditionClauseValue::String(value)),
+            IdValue::Uuid(value) => Ok(ConditionClauseValue::Uuid(value)),
+            value @ IdValue::PrimitiveDateTime(_) => {
+                Err(NotConditionClauseCompatibleIdValue { value })
+            }
+            value @ IdValue::OffsetDateTime(_) => {
+                Err(NotConditionClauseCompatibleIdValue { value })
+            }
         }
     }
 }
@@ -168,29 +231,39 @@ pub fn merge_conditions(a: Option<Condition>, b: Option<Condition>) -> Option<Co
     }
 }
 
-pub trait IntoConditionClauseValue {
-    fn into_condition_clause_value(&self) -> ConditionClauseValue;
+#[derive(Debug, thiserror::Error)]
+#[error("Could not build all-equal-condition.")]
+pub struct IntoAllEqualConditionError;
+
+pub trait TryIntoAllEqualCondition {
+    type Error;
+
+    fn try_into_all_equal_condition(self) -> Result<Condition, Self::Error>;
 }
 
-pub trait IntoAllEqualCondition {
-    fn into_all_equal_condition(self) -> Condition;
-}
-
-impl<'a, V, I> IntoAllEqualCondition for I
+impl<'a, V, I> TryIntoAllEqualCondition for I
 where
-    V: Into<ConditionClauseValue> + Clone + 'a,
+    V: TryInto<ConditionClauseValue> + Clone + 'a,
     I: Iterator<Item = (String, V)>,
 {
-    fn into_all_equal_condition(self) -> Condition {
-        Condition::All(
-            self.map(|(name, value)| {
-                ConditionElement::Clause(ConditionClause {
-                    column_name: name.clone(),
-                    operator: Operator::Equal,
-                    value: value.clone().into(),
-                })
-            })
-            .collect::<Vec<_>>(),
-        )
+    type Error = IntoAllEqualConditionError;
+
+    fn try_into_all_equal_condition(self) -> Result<Condition, Self::Error> {
+        let mut clauses = Vec::new();
+
+        for (name, value) in self {
+            let clause = ConditionElement::Clause(ConditionClause {
+                column_name: name.clone(),
+                operator: Operator::Equal,
+                value: value
+                    .clone()
+                    .try_into()
+                    .map_err(|_| IntoAllEqualConditionError)?,
+            });
+
+            clauses.push(clause);
+        }
+
+        Ok(Condition::All(clauses))
     }
 }
