@@ -5,6 +5,7 @@ use dyn_eq::DynEq;
 use dyn_hash::DynHash;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -16,9 +17,9 @@ pub mod prelude {
 
     pub use super::ActionPayload;
     pub use super::AnyActionPayload;
-    pub use super::AnyField;
     pub use super::AnyIdentifiable;
     pub use super::AnyModel;
+    pub use super::DynField;
     pub use super::Elem;
     pub use super::Enclosing;
     pub use super::Field;
@@ -59,7 +60,7 @@ pub trait NamedProperty: Send + Sync {
     fn get_name(&self) -> String;
 }
 
-/// The `#[typetag::serde]` annotation is required for serialize/deserialize on [`AnyField`].
+/// This trait is implemented for each derived enum describing a models fields.
 #[typetag::serde]
 pub trait Field:
     Debug + CrudFieldNameTrait + DynClone + DynEq + DynHash + SerializeAsKey + Send + Sync
@@ -70,9 +71,7 @@ dyn_eq::eq_trait_object!(Field);
 dyn_clone::clone_trait_object!(Field);
 dyn_hash::hash_trait_object!(Field);
 
-/// A field known to be part of a `create` model.
-///
-/// The `#[typetag::serde]` annotation is required for serialize/deserialize on [`AnyField`].
+/// A field known to be part of a `create` model. The type erased version is `AnyCreateField`.
 #[typetag::serde]
 pub trait CreateField: Field {
     fn set_value(&self, model: &mut AnyCreateModel, value: Value);
@@ -81,7 +80,7 @@ dyn_eq::eq_trait_object!(CreateField);
 dyn_clone::clone_trait_object!(CreateField);
 dyn_hash::hash_trait_object!(CreateField);
 
-/// The `#[typetag::serde]` annotation is required for serialize/deserialize on [`AnyField`].
+/// A field known to be part of a `read` model. The type erased version is `AnyReadField`.
 #[typetag::serde]
 pub trait ReadField: Field {
     fn set_value(&self, model: &mut AnyReadModel, value: Value);
@@ -90,7 +89,7 @@ dyn_eq::eq_trait_object!(ReadField);
 dyn_clone::clone_trait_object!(ReadField);
 dyn_hash::hash_trait_object!(ReadField);
 
-/// The `#[typetag::serde]` annotation is required for serialize/deserialize on [`AnyField`].
+/// A field known to be part of an `update` model. The type erased version is `AnyUpdateField`.
 #[typetag::serde]
 pub trait UpdateField: Field {
     fn set_value(&self, model: &mut AnyUpdateModel, value: Value);
@@ -98,6 +97,20 @@ pub trait UpdateField: Field {
 dyn_eq::eq_trait_object!(UpdateField);
 dyn_clone::clone_trait_object!(UpdateField);
 dyn_hash::hash_trait_object!(UpdateField);
+
+/// Any field as a trait object. Implemented for `AnyCreateField`, `AnyReadField` and
+/// `AnyUpdateField`.
+///
+/// For a model type `Person`, `PersonField` would be the generated enum stating all fields.
+/// In this scenario, `PersonField` would implement `Field` and `UpdateField` (the latter, as the
+/// model is the update model and neither the read nor create model of the person resource).
+///
+/// A `PersonField` instance (a variant) can be type-erased as `AnyUpdateField`, as PersonField
+/// declares the fields of an update model.
+///
+/// In a context where type-erased fields of any model (create, read or update) should be accepted,
+/// `DynField` can be used.
+pub trait DynField: Debug + Clone + PartialEq + Eq + Hash + Send + Sync + 'static {}
 
 macro_rules! impl_any_field {
     ($any_ty:tt, $concrete_ty:tt, $any_model_ty:tt) => {
@@ -131,16 +144,6 @@ macro_rules! impl_any_field {
             pub fn set_value(&self, model: &mut $any_model_ty, value: Value) {
                 $concrete_ty::set_value(self.inner.deref(), model, value);
             }
-
-            //pub fn downcast<Concrete: Field>(self) -> Concrete {
-            //    *self.inner.downcast::<Concrete>().expect("correct")
-            //}
-            //pub fn downcast_ref<Concrete: Field>(&self) -> &Concrete {
-            //    self.inner.downcast_ref::<Concrete>().expect("correct")
-            //}
-            //pub fn downcast_mut<Concrete: Field>(&mut self) -> &mut Concrete {
-            //    self.inner.downcast_mut::<Concrete>().expect("correct")
-            //}
         }
 
         impl Deref for $any_ty {
@@ -150,10 +153,11 @@ macro_rules! impl_any_field {
                 self.inner.as_ref()
             }
         }
+
+        impl DynField for $any_ty {}
     };
 }
 
-impl_any_field!(AnyField, Field, AnyModel);
 impl_any_field!(AnyCreateField, CreateField, AnyCreateModel);
 impl_any_field!(AnyReadField, ReadField, AnyReadModel);
 impl_any_field!(AnyUpdateField, UpdateField, AnyUpdateModel);

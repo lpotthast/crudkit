@@ -1,4 +1,4 @@
-use crate::dynamic::crud_field::{CrudCreateField, CrudUpdateField};
+use crate::dynamic::crud_field::CrudField;
 use crate::dynamic::crud_instance_config::UpdateElements;
 use crate::dynamic::custom_field::{CustomCreateFields, CustomUpdateFields};
 use crate::shared::crud_instance_config::DynSelectConfig;
@@ -99,7 +99,7 @@ pub fn CrudCreateFields(
                         }
                     }
                     Elem::Field((field, field_options)) => view! {
-                        <CrudCreateField
+                        <CrudField
                             custom_fields=custom_fields
                             field_config=field_config
                             current_view=current_view
@@ -214,7 +214,7 @@ pub fn CrudUpdateFields(
                         }
                     }
                     Elem::Field((field, field_options)) => view! {
-                        <CrudUpdateField
+                        <CrudField
                             custom_fields=custom_fields
                             field_config=field_config
                             current_view=current_view

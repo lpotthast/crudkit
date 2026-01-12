@@ -1,5 +1,5 @@
 use crate::dynamic::crud_action::CrudActionTrait;
-use crate::dynamic::crud_field::CrudReadField;
+use crate::dynamic::crud_field::CrudField;
 use crate::dynamic::crud_instance::CrudInstanceContext;
 use crate::dynamic::crud_instance_config::Header;
 use crate::dynamic::crud_list_view::CrudListViewContext;
@@ -96,7 +96,7 @@ pub fn CrudTableBody(
                             // TODO: Optimize. Do we still need a StoredEntity?
 
                             <TableCell class:fit-content=options.min_width>
-                                <CrudReadField
+                                <CrudField
                                     custom_fields=custom_fields
                                     field_config=field_config
                                     current_view=CrudSimpleView::List
