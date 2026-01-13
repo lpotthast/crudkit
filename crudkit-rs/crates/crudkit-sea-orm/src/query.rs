@@ -112,10 +112,10 @@ fn apply_order_by<
 
 pub fn build_condition_tree<T: MaybeColumnTrait>(
     condition: &Condition,
-) -> Result<sea_orm::sea_query::Condition, SeaOrmRepoError> {
+) -> Result<sea_query::Condition, SeaOrmRepoError> {
     let mut tree = match &condition {
-        Condition::All(_) => sea_orm::sea_query::Condition::all(),
-        Condition::Any(_) => sea_orm::sea_query::Condition::any(),
+        Condition::All(_) => sea_query::Condition::all(),
+        Condition::Any(_) => sea_query::Condition::any(),
     };
 
     match condition {
@@ -188,6 +188,34 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
                                         TimeDuration(val.0),
                                     )
                                 }
+                                // TODO: Implement missing variants
+                                Value::Void(_) => unimplemented!(),
+                                Value::OptionalBool(_) => unimplemented!(),
+                                Value::U8(_) => unimplemented!(),
+                                Value::U16(_) => unimplemented!(),
+                                Value::U128(_) => unimplemented!(),
+                                Value::OptionalU8(_) => unimplemented!(),
+                                Value::OptionalU16(_) => unimplemented!(),
+                                Value::OptionalU32(_) => unimplemented!(),
+                                Value::OptionalU64(_) => unimplemented!(),
+                                Value::OptionalU128(_) => unimplemented!(),
+                                Value::I8(_) => unimplemented!(),
+                                Value::I16(_) => unimplemented!(),
+                                Value::I128(_) => unimplemented!(),
+                                Value::OptionalI8(_) => unimplemented!(),
+                                Value::OptionalI16(_) => unimplemented!(),
+                                Value::OptionalI32(_) => unimplemented!(),
+                                Value::OptionalI64(_) => unimplemented!(),
+                                Value::OptionalI128(_) => unimplemented!(),
+                                Value::OptionalF32(_) => unimplemented!(),
+                                Value::OptionalF64(_) => unimplemented!(),
+                                Value::OptionalString(_) => unimplemented!(),
+                                Value::OptionalJson(_) => unimplemented!(),
+                                Value::OptionalUuid(_) => unimplemented!(),
+                                Value::OptionalPrimitiveDateTime(_) => unimplemented!(),
+                                Value::OptionalOffsetDateTime(_) => unimplemented!(),
+                                Value::OptionalDuration(_) => unimplemented!(),
+                                Value::Other(_) => unimplemented!(),
                             }
                         }
                         None => {
@@ -209,11 +237,11 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
 }
 
 fn add_condition<C, T>(
-    tree: sea_orm::sea_query::Condition,
+    tree: sea_query::Condition,
     col: C,
     operator: Operator,
     val: T,
-) -> sea_orm::sea_query::Condition
+) -> sea_query::Condition
 where
     C: ColumnTrait,
     T: Into<sea_orm::Value>,
@@ -230,11 +258,11 @@ where
 }
 
 fn add_condition_iterable<C, T>(
-    tree: sea_orm::sea_query::Condition,
+    tree: sea_query::Condition,
     col: C,
     operator: Operator,
     val: T,
-) -> sea_orm::sea_query::Condition
+) -> sea_query::Condition
 where
     C: ColumnTrait,
     T: IntoIterator,

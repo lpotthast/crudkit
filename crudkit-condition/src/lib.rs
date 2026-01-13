@@ -2,6 +2,8 @@ use crudkit_id::IdValue;
 use crudkit_shared::Value;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::str::FromStr;
+use time::format_description::well_known::Rfc3339;
 use utoipa::ToSchema;
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
@@ -52,10 +54,9 @@ pub enum ConditionClauseValue {
     F64(f64),
 
     String(String),
-    Json(String),
+    Json(serde_json::Value),
 
     Uuid(uuid::Uuid),
-    UuidV7(uuid::Uuid),
 
     U8Vec(Vec<u8>),
     I32Vec(Vec<i32>),
@@ -70,40 +71,40 @@ pub struct NotConditionClauseCompatibleValue {
     value: Value,
 }
 
-impl TryInto<ConditionClauseValue> for Value {
+impl TryFrom<Value> for ConditionClauseValue {
     type Error = NotConditionClauseCompatibleValue;
 
-    fn try_into(self) -> Result<ConditionClauseValue, Self::Error> {
-        match self {
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
             value @ Value::Void(()) => Err(NotConditionClauseCompatibleValue { value }),
 
-            Value::Bool(value) => Ok(ConditionClauseValue::Bool(value)),
+            Value::Bool(value) => Ok(Self::Bool(value)),
             value @ Value::OptionalBool(_) => Err(NotConditionClauseCompatibleValue { value }),
 
-            Value::I8(value) => Ok(ConditionClauseValue::I8(value)),
-            Value::I16(value) => Ok(ConditionClauseValue::I16(value)),
-            Value::I32(value) => Ok(ConditionClauseValue::I32(value)),
-            Value::I64(value) => Ok(ConditionClauseValue::I64(value)),
-            Value::I128(value) => Ok(ConditionClauseValue::I128(value)),
+            Value::I8(value) => Ok(Self::I8(value)),
+            Value::I16(value) => Ok(Self::I16(value)),
+            Value::I32(value) => Ok(Self::I32(value)),
+            Value::I64(value) => Ok(Self::I64(value)),
+            Value::I128(value) => Ok(Self::I128(value)),
             value @ Value::OptionalI8(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::OptionalI16(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::OptionalI32(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::OptionalI64(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::OptionalI128(_) => Err(NotConditionClauseCompatibleValue { value }),
 
-            Value::U8(value) => Ok(ConditionClauseValue::U8(value)),
-            Value::U16(value) => Ok(ConditionClauseValue::U16(value)),
-            Value::U32(value) => Ok(ConditionClauseValue::U32(value)),
-            Value::U64(value) => Ok(ConditionClauseValue::U64(value)),
-            Value::U128(value) => Ok(ConditionClauseValue::U128(value)),
+            Value::U8(value) => Ok(Self::U8(value)),
+            Value::U16(value) => Ok(Self::U16(value)),
+            Value::U32(value) => Ok(Self::U32(value)),
+            Value::U64(value) => Ok(Self::U64(value)),
+            Value::U128(value) => Ok(Self::U128(value)),
             value @ Value::OptionalU8(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::OptionalU16(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::OptionalU32(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::OptionalU64(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::OptionalU128(_) => Err(NotConditionClauseCompatibleValue { value }),
 
-            Value::F32(value) => Ok(ConditionClauseValue::F32(value)),
-            Value::F64(value) => Ok(ConditionClauseValue::F64(value)),
+            Value::F32(value) => Ok(Self::F32(value)),
+            Value::F64(value) => Ok(Self::F64(value)),
             value @ Value::OptionalF32(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::OptionalF64(_) => Err(NotConditionClauseCompatibleValue { value }),
 
@@ -111,15 +112,13 @@ impl TryInto<ConditionClauseValue> for Value {
             value @ Value::I32Vec(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::I64Vec(_) => Err(NotConditionClauseCompatibleValue { value }),
 
-            Value::String(value) => Ok(ConditionClauseValue::String(value)),
+            Value::String(value) => Ok(Self::String(value)),
             value @ Value::OptionalString(_) => Err(NotConditionClauseCompatibleValue { value }),
 
             // Ecosystem support.
-            Value::Json(value) => Ok(ConditionClauseValue::Json(
-                serde_json::to_string(&value).unwrap(),
-            )),
+            Value::Json(value) => Ok(Self::Json(value)),
             value @ Value::OptionalJson(_) => Err(NotConditionClauseCompatibleValue { value }),
-            Value::Uuid(value) => Ok(ConditionClauseValue::Uuid(value)),
+            Value::Uuid(value) => Ok(Self::Uuid(value)),
             value @ Value::OptionalUuid(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::PrimitiveDateTime(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::OffsetDateTime(_) => Err(NotConditionClauseCompatibleValue { value }),
@@ -143,20 +142,20 @@ pub struct NotConditionClauseCompatibleIdValue {
     value: IdValue,
 }
 
-impl TryInto<ConditionClauseValue> for IdValue {
+impl TryFrom<IdValue> for ConditionClauseValue {
     type Error = NotConditionClauseCompatibleIdValue;
 
-    fn try_into(self) -> Result<ConditionClauseValue, Self::Error> {
-        match self {
-            IdValue::I32(value) => Ok(ConditionClauseValue::I32(value)),
-            IdValue::U32(value) => Ok(ConditionClauseValue::U32(value)),
-            IdValue::I64(value) => Ok(ConditionClauseValue::I64(value)),
-            IdValue::U64(value) => Ok(ConditionClauseValue::U64(value)),
-            IdValue::I128(value) => Ok(ConditionClauseValue::I128(value)),
-            IdValue::U128(value) => Ok(ConditionClauseValue::U128(value)),
-            IdValue::Bool(value) => Ok(ConditionClauseValue::Bool(value)),
-            IdValue::String(value) => Ok(ConditionClauseValue::String(value)),
-            IdValue::Uuid(value) => Ok(ConditionClauseValue::Uuid(value)),
+    fn try_from(value: IdValue) -> Result<Self, Self::Error> {
+        match value {
+            IdValue::I32(value) => Ok(Self::I32(value)),
+            IdValue::U32(value) => Ok(Self::U32(value)),
+            IdValue::I64(value) => Ok(Self::I64(value)),
+            IdValue::U64(value) => Ok(Self::U64(value)),
+            IdValue::I128(value) => Ok(Self::I128(value)),
+            IdValue::U128(value) => Ok(Self::U128(value)),
+            IdValue::Bool(value) => Ok(Self::Bool(value)),
+            IdValue::String(value) => Ok(Self::String(value)),
+            IdValue::Uuid(value) => Ok(Self::Uuid(value)),
             value @ IdValue::PrimitiveDateTime(_) => {
                 Err(NotConditionClauseCompatibleIdValue { value })
             }
@@ -266,4 +265,155 @@ where
 
         Ok(Condition::All(clauses))
     }
+}
+
+impl ConditionClauseValue {
+    // TODO: All these to functions support string->type parsing. Should this be removed and made explicit?
+    pub fn to_i32(self) -> Result<Value, String> {
+        match self {
+            ConditionClauseValue::I32(num) => Ok(Value::I32(num)),
+            ConditionClauseValue::I32Vec(numbers) => Ok(Value::I32Vec(numbers)),
+            ConditionClauseValue::String(string) => parse::<i32>(&string).map(Value::I32),
+            _ => Err(format!(
+                "{self:?} can not be converted to an i32 or Vec<i32>. Expected i32 or Vec<i32> or String."
+            )),
+        }
+    }
+
+    pub fn to_i64(self) -> Result<Value, String> {
+        match self {
+            ConditionClauseValue::I64(num) => Ok(Value::I64(num)),
+            ConditionClauseValue::I64Vec(numbers) => Ok(Value::I64Vec(numbers)),
+            ConditionClauseValue::String(string) => parse::<i64>(&string).map(Value::I64),
+            _ => Err(format!(
+                "{self:?} can not be converted to an i64. Expected i64 or String."
+            )),
+        }
+    }
+
+    pub fn to_u32(self) -> Result<Value, String> {
+        match self {
+            ConditionClauseValue::U32(num) => Ok(Value::U32(num)),
+            ConditionClauseValue::String(string) => parse::<u32>(&string).map(Value::U32),
+            _ => Err(format!(
+                "{self:?} can not be converted to an u32. Expected u32 or String."
+            )),
+        }
+    }
+
+    pub fn to_f32(self) -> Result<Value, String> {
+        match self {
+            ConditionClauseValue::F32(num) => Ok(Value::F32(num)),
+            ConditionClauseValue::String(string) => parse::<f32>(&string).map(Value::F32),
+            _ => Err(format!(
+                "{self:?} can not be converted to an f32. Expected f32 or String."
+            )),
+        }
+    }
+
+    pub fn to_f64(self) -> Result<Value, String> {
+        match self {
+            ConditionClauseValue::F64(num) => Ok(Value::F64(num)),
+            ConditionClauseValue::String(string) => parse::<f64>(&string).map(Value::F64),
+            _ => Err(format!(
+                "{self:?} can not be converted to an f32. Expected f64 or String."
+            )),
+        }
+    }
+
+    pub fn to_byte_vec(self) -> Result<Value, String> {
+        match self {
+            ConditionClauseValue::U8Vec(vec) => Ok(Value::U8Vec(vec)),
+            _ => Err(format!(
+                "{self:?} can not be converted to an U8Vec. Expected U8Vec."
+            )),
+        }
+    }
+
+    pub fn to_bool(self) -> Result<Value, String> {
+        match self {
+            ConditionClauseValue::Bool(bool) => Ok(Value::Bool(bool)),
+            ConditionClauseValue::String(string) => parse::<bool>(&string).map(Value::Bool),
+            _ => Err(format!(
+                "{self:?} can not be converted to a bool. Expected bool or String."
+            )),
+        }
+    }
+
+    pub fn to_string(self) -> Result<Value, String> {
+        match self {
+            ConditionClauseValue::String(string) => Ok(Value::String(string)),
+            _ => Err(format!(
+                "{self:?} can not be converted to a String. Expected String."
+            )),
+        }
+    }
+
+    pub fn to_json_value(self) -> Result<Value, String> {
+        match self {
+            ConditionClauseValue::String(string) => Ok(Value::String(string)),
+            _ => Err(format!(
+                "{self:?} can not be converted to a String. Expected String."
+            )),
+        }
+    }
+
+    pub fn to_uuid(self) -> Result<Value, String> {
+        match self {
+            ConditionClauseValue::Uuid(uuid) => Ok(Value::Uuid(uuid)),
+            _ => Err(format!(
+                "{self:?} can not be converted to a Uuid. Expected Uuid."
+            )),
+        }
+    }
+
+    pub fn to_primitive_date_time(self) -> Result<Value, String> {
+        match self {
+            ConditionClauseValue::String(string) => {
+                time::PrimitiveDateTime::parse(&string, &Rfc3339)
+                    .map_err(|err| err.to_string())
+                    .map(Value::PrimitiveDateTime)
+            }
+            _ => Err(format!(
+                "{self:?} can not be converted to a PrimitiveDateTime. Expected String."
+            )),
+        }
+    }
+
+    pub fn to_offset_date_time(self) -> Result<Value, String> {
+        match self {
+            ConditionClauseValue::String(string) => time::OffsetDateTime::parse(&string, &Rfc3339)
+                .map_err(|err| err.to_string())
+                .map(Value::OffsetDateTime),
+            _ => Err(format!(
+                "{self:?} can not be converted to an OffsetDateTime. Expected String."
+            )),
+        }
+    }
+
+    //pub fn to_time(self) -> Result<Value, String> {
+    //    match self {
+    //        ConditionClauseValue::String(string) => {
+    //            let format = format_description!("[hour]:[minute]:[second]");
+    //            time::Time::parse(&string, &format)
+    //                .map_err(|err| err.to_string())
+    //                .map(Value::Time)
+    //        }
+    //        _ => Err(format!(
+    //            "{value:?} can not be converted to a Duration. Expected String with format '[hour]:[minute]:[second]'!"
+    //        )),
+    //    }
+    //}
+
+    pub fn to_time_duration(self) -> Result<Value, String> {
+        unimplemented!()
+    }
+}
+
+fn parse<T>(string: &str) -> Result<T, String>
+where
+    T: FromStr,
+    T::Err: std::fmt::Display,
+{
+    string.parse::<T>().map_err(|e| format!("{}", e))
 }

@@ -120,7 +120,7 @@ pub trait CrudResource: Sized + Debug {
             <Self::CrudColumn as CrudColumns<Self::Column, Self::Model, Self::ActiveModel>>::Id,
         > + 'static;
 
-    type WebsocketController: CrudWebsocketController + 'static;
+    type WebsocketService: CrudWebsocketService + 'static;
 
     /// An instance of this type is made available in all lifetime operations.
     /// Use this to supply arbitrary data, like custom services.

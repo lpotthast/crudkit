@@ -1,4 +1,5 @@
 use crate::repository::RepositoryError;
+use crudkit_condition::IntoAllEqualConditionError;
 use snafu::{Backtrace, Snafu};
 use std::sync::Arc;
 
@@ -11,6 +12,12 @@ pub enum CrudError {
         backtrace: Backtrace,
     },
 
+    #[snafu(display("CrudError: Could not convert to condition."))]
+    IntoCondition {
+        source: IntoAllEqualConditionError,
+        backtrace: Backtrace,
+    },
+
     #[snafu(display("CrudError: Entity not found."))]
     ReadOneFoundNone { backtrace: Backtrace },
 
@@ -19,6 +26,7 @@ pub enum CrudError {
         reason: Arc<dyn RepositoryError>, // Use ValidationRepositoryError!
         backtrace: Backtrace,
     },
+
     #[snafu(display("CrudError: Could not delete validations.\n\nCaused by:\n{reason:?}"))]
     DeleteValidations {
         reason: Arc<dyn RepositoryError>, // Use ValidationRepositoryError!

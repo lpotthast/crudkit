@@ -5,7 +5,7 @@ use snafu::{Backtrace, GenerateImplicitData};
 use std::{collections::HashMap, sync::Arc};
 use utoipa::ToSchema;
 
-use crudkit_condition::{Condition, IntoAllEqualCondition};
+use crudkit_condition::{Condition, TryIntoAllEqualCondition};
 use crudkit_id::{Id, SerializableId};
 use crudkit_shared::{DeleteResult, Order};
 use crudkit_validation::PartialSerializableValidations;
@@ -57,7 +57,11 @@ pub async fn delete_by_id<R: CrudResource, Ro: Role>(
                     .0
                     .iter()
                     .map(|(name, value)| (name.clone(), value.clone()))
-                    .into_all_equal_condition(),
+                    .try_into_all_equal_condition()
+                    .map_err(|err| CrudError::IntoCondition {
+                        source: err,
+                        backtrace: Backtrace::generate(),
+                    })?,
             ),
         )
         .await

@@ -2,7 +2,7 @@
 #![deny(clippy::unwrap_used)]
 
 pub mod dynamic;
-pub mod generic;
+//pub mod generic;
 pub mod shared;
 pub mod stores;
 /*

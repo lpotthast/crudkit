@@ -4,7 +4,7 @@ use crate::generic::crud_instance_config::CreateElements;
 use crate::generic::custom_field::CustomCreateFields;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::{IntoReactiveValue, ReactiveValue};
-use crudkit_shared::{SaveResult, Saved};
+use crudkit_shared::{SaveResult, Saved, Value};
 use crudkit_web::generic::prelude::*;
 use crudkit_web::TabId;
 use leptonic::components::prelude::*;

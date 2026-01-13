@@ -11,6 +11,7 @@ use crate::error::CrudError;
 #[derive(Debug, ToSchema)]
 pub enum AxumCrudError {
     Repository { reason: String },
+    IntoCondition { reason: String },
     ReadOneFoundNone { reason: String },
     SaveValidations { reason: String },
     DeleteValidations { reason: String },
@@ -23,6 +24,12 @@ impl From<CrudError> for AxumCrudError {
                 reason: _,
                 backtrace: _,
             } => Self::Repository {
+                reason: err.to_string(),
+            },
+            err @ CrudError::IntoCondition {
+                source: _,
+                backtrace: _,
+            } => Self::IntoCondition {
                 reason: err.to_string(),
             },
             err @ CrudError::ReadOneFoundNone { backtrace: _ } => Self::ReadOneFoundNone {
@@ -49,6 +56,7 @@ impl IntoResponse for AxumCrudError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
             Self::Repository { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
+            Self::IntoCondition { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
             Self::ReadOneFoundNone { reason } => (StatusCode::NOT_FOUND, reason),
             Self::SaveValidations { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
             Self::DeleteValidations { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),

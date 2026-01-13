@@ -31,11 +31,11 @@ pub fn CrudField<F: DynField>(
             Some(renderer) => {
                 // TODO: Is this still reactive?
                 view! {
-                        { render_label(field_options.label.clone()) }
-                        <div class="crud-field">
-                            { renderer.view_cb.run((signals, field_mode, field_options.clone(), value, value_changed)) }
-                        </div>
-                    }.into_any()
+                    { render_label(field_options.label.clone()) }
+                    <div class="crud-field">
+                        { renderer.view_cb.run((signals, field_mode, field_options.clone(), value, value_changed)) }
+                    </div>
+                }.into_any()
             }
             None => default_field_renderer(
                 value,

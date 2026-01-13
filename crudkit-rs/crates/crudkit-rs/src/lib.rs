@@ -1,10 +1,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-use std::str::FromStr;
-
 use sea_orm::{ActiveModelTrait, ColumnTrait, ModelTrait};
-use time::format_description::well_known::Rfc3339;
 
 use crudkit_condition::ConditionClauseValue;
 use crudkit_id::Id;
@@ -66,7 +63,7 @@ pub mod prelude {
     pub use super::context::CrudContext;
     pub use super::resource::CrudResource;
     pub use super::resource::CrudResourceContext;
-    pub use super::websocket::CrudWebsocketController;
+    pub use super::websocket::CrudWebsocketService;
 
     pub use super::AsColType;
     pub use super::CreateModelTrait;
@@ -89,13 +86,6 @@ pub mod prelude {
     pub use super::validate::validate_max_length;
     pub use super::validate::validate_min_length;
     pub use super::validate::validate_required;
-
-    pub use super::parse;
-    pub use super::to_bool;
-    pub use super::to_i32;
-    pub use super::to_offset_date_time;
-    pub use super::to_primitive_date_time;
-    pub use super::to_string;
 
     pub use super::create::create_one;
     pub use super::create::CreateOne;
@@ -162,7 +152,7 @@ pub trait GetIdFromModel {
 }
 
 pub trait CreateModelTrait<A: ActiveModelTrait> {
-    async fn into_active_model(self) -> A;
+    fn into_active_model(self) -> impl Future<Output = A>;
 }
 
 pub trait UpdateModelTrait {}
@@ -181,156 +171,10 @@ pub trait AsColType {
     fn as_col_type(&self, condition_clause_value: ConditionClauseValue) -> Result<Value, String>;
 }
 
-pub fn parse<T>(string: &str) -> Result<T, String>
-where
-    T: FromStr,
-    T::Err: std::fmt::Display,
-{
-    string.parse::<T>().map_err(|e| format!("{}", e))
-}
-
 /// TODO: Can we rename this or use From/Into instead? Or rename to DeriveColumnFromStringTrait?
 /// This trait is used to convert from column names (for example parsed from a request) to actual entity columns.
 pub trait MaybeColumnTrait {
     type Column: ColumnTrait + AsColType;
+
     fn get_col(name: &str) -> Option<Self::Column>;
-}
-
-// TODO: All these to functions support string->type parsing. Should this be removed and made explicit?
-pub fn to_i32(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::I32(num) => Ok(Value::I32(num)),
-        ConditionClauseValue::I32Vec(numbers) => Ok(Value::I32Vec(numbers)),
-        ConditionClauseValue::String(string) => parse::<i32>(&string).map(Value::I32),
-        _ => Err(format!(
-            "{value:?} can not be converted to an i32 or Vec<i32>. Expected i32 or Vec<i32> or String."
-        )),
-    }
-}
-
-pub fn to_i64(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::I64(num) => Ok(Value::I64(num)),
-        ConditionClauseValue::I64Vec(numbers) => Ok(Value::I64Vec(numbers)),
-        ConditionClauseValue::String(string) => parse::<i64>(&string).map(Value::I64),
-        _ => Err(format!(
-            "{value:?} can not be converted to an i64. Expected i64 or String."
-        )),
-    }
-}
-
-pub fn to_u32(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::U32(num) => Ok(Value::U32(num)),
-        ConditionClauseValue::String(string) => parse::<u32>(&string).map(Value::U32),
-        _ => Err(format!(
-            "{value:?} can not be converted to an u32. Expected u32 or String."
-        )),
-    }
-}
-
-pub fn to_f32(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::F32(num) => Ok(Value::F32(num)),
-        ConditionClauseValue::String(string) => parse::<f32>(&string).map(Value::F32),
-        _ => Err(format!(
-            "{value:?} can not be converted to an f32. Expected f32 or String."
-        )),
-    }
-}
-
-pub fn to_f64(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::F64(num) => Ok(Value::F64(num)),
-        ConditionClauseValue::String(string) => parse::<f64>(&string).map(Value::F64),
-        _ => Err(format!(
-            "{value:?} can not be converted to an f32. Expected f64 or String."
-        )),
-    }
-}
-
-pub fn to_byte_vec(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::U8Vec(vec) => Ok(Value::U8Vec(vec)),
-        _ => Err(format!(
-            "{value:?} can not be converted to an U8Vec. Expected U8Vec."
-        )),
-    }
-}
-
-pub fn to_bool(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::Bool(bool) => Ok(Value::Bool(bool)),
-        ConditionClauseValue::String(string) => parse::<bool>(&string).map(Value::Bool),
-        _ => Err(format!(
-            "{value:?} can not be converted to a bool. Expected bool or String."
-        )),
-    }
-}
-
-pub fn to_string(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::String(string) => Ok(Value::String(string)),
-        _ => Err(format!(
-            "{value:?} can not be converted to a String. Expected String."
-        )),
-    }
-}
-
-pub fn to_json_value(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::String(string) => Ok(Value::String(string)),
-        _ => Err(format!(
-            "{value:?} can not be converted to a String. Expected String."
-        )),
-    }
-}
-
-pub fn to_uuid(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::Uuid(uuid) => Ok(Value::Uuid(uuid)),
-        _ => Err(format!(
-            "{value:?} can not be converted to a Uuid. Expected Uuid."
-        )),
-    }
-}
-
-pub fn to_primitive_date_time(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::String(string) => time::PrimitiveDateTime::parse(&string, &Rfc3339)
-            .map_err(|err| err.to_string())
-            .map(Value::PrimitiveDateTime),
-        _ => Err(format!(
-            "{value:?} can not be converted to a PrimitiveDateTime. Expected String."
-        )),
-    }
-}
-
-pub fn to_offset_date_time(value: ConditionClauseValue) -> Result<Value, String> {
-    match value {
-        ConditionClauseValue::String(string) => time::OffsetDateTime::parse(&string, &Rfc3339)
-            .map_err(|err| err.to_string())
-            .map(Value::OffsetDateTime),
-        _ => Err(format!(
-            "{value:?} can not be converted to an OffsetDateTime. Expected String."
-        )),
-    }
-}
-
-//pub fn to_time(value: ConditionClauseValue) -> Result<Value, String> {
-//    match value {
-//        ConditionClauseValue::String(string) => {
-//            let format = format_description!("[hour]:[minute]:[second]");
-//            time::Time::parse(&string, &format)
-//                .map_err(|err| err.to_string())
-//                .map(Value::Time)
-//        }
-//        _ => Err(format!(
-//            "{value:?} can not be converted to a Duration. Expected String with format '[hour]:[minute]:[second]'!"
-//        )),
-//    }
-//}
-
-pub fn to_time_duration(_value: ConditionClauseValue) -> Result<Value, String> {
-    unimplemented!()
 }

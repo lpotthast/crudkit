@@ -9,5 +9,5 @@ pub struct CrudContext<R: CrudResource> {
     pub repository: Arc<R::Repository>,
     pub validator: R::Validator,
     pub validation_result_repository: Arc<R::ValidationResultRepository>,
-    pub ws_controller: Arc<R::WebsocketController>,
+    pub ws_controller: Arc<R::WebsocketService>,
 }

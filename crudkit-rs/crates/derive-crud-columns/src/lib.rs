@@ -111,7 +111,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                 None => convert_field_type_to_function_name(&field.ty),
             };
             quote! {
-                Column::#variant => crudkit_rs::#fun_name(value)
+                Column::#variant => value.#fun_name()
             }
         });
 
@@ -168,7 +168,6 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
         }
 
-        // TODO: Can we not just convert From<ConditionClauseValue> for std::result::Result<crudkit_shared::Value, String> by using the From trait?
         impl crudkit_rs::AsColType for Column {
             fn as_col_type(&self, value: crudkit_condition::ConditionClauseValue) -> std::result::Result<crudkit_shared::Value, String> {
                 match self {
