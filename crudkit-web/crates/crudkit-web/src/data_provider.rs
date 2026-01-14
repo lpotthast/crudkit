@@ -1,4 +1,4 @@
-use super::requests::*;
+use crate::requests::*;
 use crate::request_error::RequestError;
 use crate::reqwest_executor::ReqwestExecutor;
 use crate::{CrudDataTrait, CrudMainTrait};

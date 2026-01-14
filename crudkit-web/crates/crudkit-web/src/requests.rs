@@ -98,27 +98,6 @@ where
     request(Method::POST, url, executor, body).await
 }
 
-///// Post request with a body
-//#[allow(dead_code)]
-//pub async fn request_post_multipart<T>(
-//    url: String,
-//    executor: &impl ReqwestExecutor,
-//    form: reqwest::multipart::Form,
-//) -> Result<T, RequestError>
-//where
-//    T: DeserializeOwned + Debug,
-//{
-//    let result = executor
-//        .request(Method::POST, url, move |builder| {
-//            builder
-//                //    //.header("Content-Type", "application/json");
-//                .multipart(form)
-//        })
-//        .await;
-//
-//    process_json_response(result).await
-//}
-
 /// Put request with a body
 #[allow(dead_code)]
 pub async fn request_put<B, T>(

@@ -75,7 +75,7 @@ impl CrudRestDataProvider {
 
     pub async fn read_count(&self, mut read_count: ReadCount) -> Result<u64, RequestError> {
         read_count.condition = merge_conditions(self.base_condition.clone(), read_count.condition);
-        crate::generic::requests::request_post(
+        crate::requests::request_post(
             format!(
                 "{}/{}/crud/read-count",
                 self.api_base_url, self.resource_name

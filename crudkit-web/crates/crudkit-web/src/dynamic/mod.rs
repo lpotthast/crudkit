@@ -9,7 +9,7 @@ use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::Arc;
 
-pub mod crud_rest_data_provider;
+pub mod data_provider;
 pub mod requests;
 
 pub mod prelude {
@@ -29,13 +29,13 @@ pub mod prelude {
     pub use super::NamedProperty;
     pub use super::Tab;
 
-    pub use super::crud_rest_data_provider::CreateOne;
-    pub use super::crud_rest_data_provider::CrudRestDataProvider;
-    pub use super::crud_rest_data_provider::DeleteById;
-    pub use super::crud_rest_data_provider::ReadCount;
-    pub use super::crud_rest_data_provider::ReadMany;
-    pub use super::crud_rest_data_provider::ReadOne;
-    pub use super::crud_rest_data_provider::UpdateOne;
+    pub use super::data_provider::CreateOne;
+    pub use super::data_provider::CrudRestDataProvider;
+    pub use super::data_provider::DeleteById;
+    pub use super::data_provider::ReadCount;
+    pub use super::data_provider::ReadMany;
+    pub use super::data_provider::ReadOne;
+    pub use super::data_provider::UpdateOne;
 
     pub use super::requests::request;
     pub use super::requests::request_delete;

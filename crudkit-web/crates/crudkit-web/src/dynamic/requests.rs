@@ -1,4 +1,4 @@
-use crate::dynamic::crud_rest_data_provider::serialize_any_as_json;
+use crate::dynamic::data_provider::serialize_any_as_json;
 use crate::request_error::{error_response_to_request_error, RequestError};
 use crate::reqwest_executor::ReqwestExecutor;
 use leptos_keycloak_auth::reqwest::Method;
@@ -85,27 +85,6 @@ where
 {
     request(Method::POST, url, executor, body).await
 }
-
-///// Post request with a body
-//#[allow(dead_code)]
-//pub async fn request_post_multipart<T>(
-//    url: String,
-//    executor: &impl ReqwestExecutor,
-//    form: reqwest::multipart::Form,
-//) -> Result<T, RequestError>
-//where
-//    T: DeserializeOwned + Debug,
-//{
-//    let result = executor
-//        .request(Method::POST, url, move |builder| {
-//            builder
-//                //    //.header("Content-Type", "application/json");
-//                .multipart(form)
-//        })
-//        .await;
-//
-//    process_json_response(result).await
-//}
 
 /// Put request with a body
 #[allow(dead_code)]

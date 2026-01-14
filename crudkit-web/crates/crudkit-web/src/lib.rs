@@ -1,14 +1,15 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{borrow::Cow, fmt::Debug, hash::Hash};
 
+pub mod data_provider;
 pub mod dynamic;
 pub mod error;
 pub mod files;
-pub mod generic;
 pub mod request_error;
+pub mod requests;
 pub mod reqwest_executor;
 pub mod view;
 
@@ -32,7 +33,7 @@ pub use crudkit_id;
 pub use crudkit_validation;
 pub use crudkit_websocket;
 
-pub(crate) mod prelude {
+pub mod prelude {
     pub use crudkit_condition;
     pub use crudkit_core;
     pub use crudkit_id;
@@ -41,11 +42,19 @@ pub(crate) mod prelude {
 
     pub use derive_crud_action_payload::CkActionPayload;
     pub use derive_crud_resource::CkResource;
-    pub use derive_crud_selectable::CkSelectable;
     pub use derive_crudkit_id::CkId;
     pub use derive_field::CkField;
     pub use derive_field_value::CkFieldValue;
 
+    pub use super::error::ErrorInfo;
+    pub use super::files::FileResource;
+    pub use super::files::ListFileError;
+    pub use super::files::ListFilesResponse;
+    pub use super::request_error::RequestError;
+    pub use super::reqwest_executor::ReqwestExecutor;
+    pub use super::view::CrudSimpleView;
+    pub use super::view::CrudView;
+    pub use super::view::SerializableCrudView;
     pub use super::CrudActionPayload;
     pub use super::CrudDataTrait;
     pub use super::CrudFieldNameTrait;
@@ -63,15 +72,20 @@ pub(crate) mod prelude {
     pub use super::NoData;
     pub use super::OrderByUpdateOptions;
     pub use super::TabId;
-    pub use super::error::ErrorInfo;
-    pub use super::files::FileResource;
-    pub use super::files::ListFileError;
-    pub use super::files::ListFilesResponse;
-    pub use super::request_error::RequestError;
-    pub use super::reqwest_executor::ReqwestExecutor;
-    pub use super::view::CrudSimpleView;
-    pub use super::view::CrudView;
-    pub use super::view::SerializableCrudView;
+
+    pub use super::data_provider::CreateOne;
+    pub use super::data_provider::CrudRestDataProvider;
+    pub use super::data_provider::DeleteById;
+    pub use super::data_provider::ReadCount;
+    pub use super::data_provider::ReadMany;
+    pub use super::data_provider::ReadOne;
+    pub use super::data_provider::UpdateOne;
+
+    pub use super::requests::request;
+    pub use super::requests::request_delete;
+    pub use super::requests::request_get;
+    pub use super::requests::request_post;
+    pub use super::requests::request_put;
 }
 
 #[derive(Debug, Clone, PartialEq)]
