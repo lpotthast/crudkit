@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{borrow::Cow, fmt::Debug, hash::Hash};
 
 pub mod dynamic;
@@ -24,18 +24,18 @@ pub mod view;
 * which are required for many derive macro implementations.
 */
 use crate::request_error::RequestError;
-use crudkit_shared::Value;
+use crudkit_core::Value;
 
 pub use crudkit_condition;
+pub use crudkit_core;
 pub use crudkit_id;
-pub use crudkit_shared;
 pub use crudkit_validation;
 pub use crudkit_websocket;
 
 pub(crate) mod prelude {
     pub use crudkit_condition;
+    pub use crudkit_core;
     pub use crudkit_id;
-    pub use crudkit_shared;
     pub use crudkit_validation;
     pub use crudkit_websocket;
 
@@ -46,15 +46,6 @@ pub(crate) mod prelude {
     pub use derive_field::CkField;
     pub use derive_field_value::CkFieldValue;
 
-    pub use super::error::ErrorInfo;
-    pub use super::files::FileResource;
-    pub use super::files::ListFileError;
-    pub use super::files::ListFilesResponse;
-    pub use super::request_error::RequestError;
-    pub use super::reqwest_executor::ReqwestExecutor;
-    pub use super::view::CrudSimpleView;
-    pub use super::view::CrudView;
-    pub use super::view::SerializableCrudView;
     pub use super::CrudActionPayload;
     pub use super::CrudDataTrait;
     pub use super::CrudFieldNameTrait;
@@ -72,6 +63,15 @@ pub(crate) mod prelude {
     pub use super::NoData;
     pub use super::OrderByUpdateOptions;
     pub use super::TabId;
+    pub use super::error::ErrorInfo;
+    pub use super::files::FileResource;
+    pub use super::files::ListFileError;
+    pub use super::files::ListFilesResponse;
+    pub use super::request_error::RequestError;
+    pub use super::reqwest_executor::ReqwestExecutor;
+    pub use super::view::CrudSimpleView;
+    pub use super::view::CrudView;
+    pub use super::view::SerializableCrudView;
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -18,7 +18,7 @@ pub fn CrudPagination(
     });
 
     let page_options =
-        Signal::derive(move || create_page_options(page_count.get(), current_page.get().0));
+        Signal::derive(move || PageOptions::new(page_count.get(), current_page.get().0));
 
     let items_per_page_options = Signal::derive(move || {
         let items_per_page = items_per_page.get();
@@ -166,70 +166,66 @@ struct PageOptions {
     /// ]
     /// ```
     options: Vec<Option<PageNr>>,
-    for_current_page: PageNr,
 }
 
-fn create_page_options(page_count: u64, current_page: u64) -> PageOptions {
-    let mut options: Vec<Option<PageNr>>;
-    // Just return all available pages if there are not too many of them.
-    if page_count <= 10 {
-        options = Vec::with_capacity(page_count as usize);
-        for i in 1..=page_count {
-            options.push(Some(PageNr(i)));
+impl PageOptions {
+    fn new(page_count: u64, current_page: u64) -> Self {
+        let mut options: Vec<Option<PageNr>>;
+        // Just return all available pages if there are not too many of them.
+        if page_count <= 10 {
+            options = Vec::with_capacity(page_count as usize);
+            for i in 1..=page_count {
+                options.push(Some(PageNr(i)));
+            }
         }
-    }
-    // Single ... at the right. Start of page spectrum.
-    else if current_page <= 5 {
-        options = vec![
-            Some(PageNr(1)),
-            Some(PageNr(2)),
-            Some(PageNr(3)),
-            Some(PageNr(4)),
-            Some(PageNr(5)),
-            Some(PageNr(6)),
-            Some(PageNr(7)),
-            None,
-            Some(PageNr(page_count - 1)),
-            Some(PageNr(page_count)),
-        ];
-    }
-    // With ... at the left and right. In the middle of the available pages.
-    else if current_page > 5 && current_page < page_count - 4 {
-        options = vec![
-            Some(PageNr(1)),
-            Some(PageNr(2)),
-            None,
-            Some(PageNr(current_page - 2)),
-            Some(PageNr(current_page - 1)),
-            Some(PageNr(current_page)),
-            Some(PageNr(current_page + 1)),
-            Some(PageNr(current_page + 2)),
-            None,
-            Some(PageNr(page_count - 1)),
-            Some(PageNr(page_count)),
-        ];
-    }
-    // Single ... at the left. End of page spectrum.
-    else if current_page >= page_count - 4 {
-        options = vec![
-            Some(PageNr(1)),
-            Some(PageNr(2)),
-            None,
-            Some(PageNr(page_count - 6)),
-            Some(PageNr(page_count - 5)),
-            Some(PageNr(page_count - 4)),
-            Some(PageNr(page_count - 3)),
-            Some(PageNr(page_count - 2)),
-            Some(PageNr(page_count - 1)),
-            Some(PageNr(page_count)),
-        ];
-    }
-    // Error...
-    else {
-        panic!("Unreachable!");
-    }
-    PageOptions {
-        options,
-        for_current_page: PageNr(current_page),
+        // Single ... at the right. Start of page spectrum.
+        else if current_page <= 5 {
+            options = vec![
+                Some(PageNr(1)),
+                Some(PageNr(2)),
+                Some(PageNr(3)),
+                Some(PageNr(4)),
+                Some(PageNr(5)),
+                Some(PageNr(6)),
+                Some(PageNr(7)),
+                None,
+                Some(PageNr(page_count - 1)),
+                Some(PageNr(page_count)),
+            ];
+        }
+        // With ... at the left and right. In the middle of the available pages.
+        else if current_page > 5 && current_page < page_count - 4 {
+            options = vec![
+                Some(PageNr(1)),
+                Some(PageNr(2)),
+                None,
+                Some(PageNr(current_page - 2)),
+                Some(PageNr(current_page - 1)),
+                Some(PageNr(current_page)),
+                Some(PageNr(current_page + 1)),
+                Some(PageNr(current_page + 2)),
+                None,
+                Some(PageNr(page_count - 1)),
+                Some(PageNr(page_count)),
+            ];
+        }
+        // Single ... at the left. End of page spectrum.
+        else if current_page >= page_count - 4 {
+            options = vec![
+                Some(PageNr(1)),
+                Some(PageNr(2)),
+                None,
+                Some(PageNr(page_count - 6)),
+                Some(PageNr(page_count - 5)),
+                Some(PageNr(page_count - 4)),
+                Some(PageNr(page_count - 3)),
+                Some(PageNr(page_count - 2)),
+                Some(PageNr(page_count - 1)),
+                Some(PageNr(page_count)),
+            ];
+        } else {
+            panic!("Unreachable!");
+        }
+        Self { options }
     }
 }

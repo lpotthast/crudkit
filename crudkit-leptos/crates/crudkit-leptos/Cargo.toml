@@ -6,8 +6,8 @@ build = "build.rs"
 
 [dependencies]
 crudkit-condition = { path = "../../../crudkit-condition" }
+crudkit-core = { path = "../../../crudkit-core/crates/crudkit-core" }
 crudkit-id = { path = "../../../crudkit-id/crates/crudkit-id" }
-crudkit-shared = { path = "../../../crudkit-shared" }
 crudkit-validation = { path = "../../../crudkit-validation" }
 crudkit-web = { path = "../../../crudkit-web/crates/crudkit-web" }
 crudkit-websocket = { path = "../../../crudkit-websocket" }
@@ -16,7 +16,6 @@ derive-crud-resource = { path = "../../../crudkit-web/crates/derive-crud-resourc
 derive-crud-selectable = { path = "../../../crudkit-web/crates/derive-crud-selectable" }
 derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
 derive-field = { path = "../../../crudkit-web/crates/derive-field" }
-derive-field-signals = { path = "../derive-field-signals" }
 derive-field-value = { path = "../../../crudkit-web/crates/derive-field-value" }
 
 dyn-clone = "1.0.20"

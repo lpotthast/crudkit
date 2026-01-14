@@ -4,7 +4,7 @@ use crate::dynamic::crud_instance::CrudInstanceContext;
 use crate::dynamic::crud_instance_config::{FieldRendererRegistry, Header};
 use crate::dynamic::crud_table::{CrudTable, NoDataAvailable};
 use crate::shared::crud_pagination::CrudPagination;
-use crudkit_shared::Order;
+use crudkit_core::Order;
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{AnyReadField, AnyReadModel, SerializableReadField};
 use indexmap::IndexMap;

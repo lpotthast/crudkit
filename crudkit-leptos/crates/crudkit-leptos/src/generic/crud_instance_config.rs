@@ -2,10 +2,10 @@ use crate::generic::crud_action::{CrudAction, CrudEntityAction};
 use crate::generic::custom_field::{CustomCreateFields, CustomReadFields, CustomUpdateFields};
 use crate::shared::crud_instance_config::{ItemsPerPage, PageNr};
 use crudkit_condition::Condition;
-use crudkit_shared::Order;
+use crudkit_core::Order;
 use crudkit_web::generic::prelude::*;
 use crudkit_web::reqwest_executor::NewClientPerRequestExecutor;
-use indexmap::{indexmap, IndexMap};
+use indexmap::{IndexMap, indexmap};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -24,7 +24,6 @@ pub struct CrudInstanceConfig<T: CrudMainTrait> {
     pub order_by: IndexMap<<T::ReadModel as CrudDataTrait>::Field, Order>,
     pub items_per_page: ItemsPerPage,
     pub page_nr: PageNr,
-    pub active_tab: Option<Label>,
     pub base_condition: Option<Condition>,
 }
 
@@ -93,31 +92,7 @@ impl<T: CrudMainTrait> Default for CrudInstanceConfig<T> {
             order_by: indexmap! {},
             items_per_page: ItemsPerPage::default(),
             page_nr: PageNr::first(),
-            active_tab: None,
             base_condition: None,
         }
-    }
-}
-
-impl<T: CrudMainTrait> CrudInstanceConfig<T> {
-    pub fn update_order_by(
-        &mut self,
-        field: <T::ReadModel as CrudDataTrait>::Field,
-        options: OrderByUpdateOptions,
-    ) {
-        let prev = self.order_by.get(&field).cloned();
-        if !options.append {
-            self.order_by.clear();
-        }
-        self.order_by.insert(
-            field,
-            match prev {
-                Some(order) => match order {
-                    Order::Asc => Order::Desc,
-                    Order::Desc => Order::Asc,
-                },
-                None => Order::Asc,
-            },
-        );
     }
 }

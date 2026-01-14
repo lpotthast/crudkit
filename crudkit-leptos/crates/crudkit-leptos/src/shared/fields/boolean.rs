@@ -1,6 +1,6 @@
 use crate::shared::fields::optional::OptionalInput;
 use crate::shared::fields::render_label;
-use crudkit_shared::Value;
+use crudkit_core::Value;
 use crudkit_web::{FieldMode, FieldOptions};
 use leptonic::components::toggle::Toggle;
 use leptos::prelude::*;

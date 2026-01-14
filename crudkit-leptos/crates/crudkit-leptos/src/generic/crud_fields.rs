@@ -1,7 +1,7 @@
+use crate::ReactiveValue;
 use crate::generic::crud_field::CrudField;
 use crate::generic::custom_field::CustomFields;
-use crate::ReactiveValue;
-use crudkit_shared::Value;
+use crudkit_core::Value;
 use crudkit_web::generic::prelude::*;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
@@ -15,7 +15,6 @@ pub fn CrudFields<T>(
     mode: FieldMode,
     current_view: CrudSimpleView,
     value_changed: Callback<(T::Field, Result<Value, String>)>,
-    // active_tab: Option<Label>,
     on_tab_selection: Callback<TabId>,
 ) -> impl IntoView
 where
@@ -38,7 +37,6 @@ where
                                     mode=mode.clone()
                                     current_view=current_view
                                     value_changed=value_changed
-                                    // active_tab={ctx.props().active_tab.clone()}
                                     on_tab_selection=on_tab_selection.clone()
                                 />
                             }
@@ -67,7 +65,6 @@ where
                                                         mode=mode.clone()
                                                         current_view=current_view
                                                         value_changed=value_changed
-                                                        // active_tab={ctx.props().active_tab.clone()}
                                                         on_tab_selection=on_tab_selection2.clone()
                                                     />
                                                 </Tab>
@@ -86,7 +83,6 @@ where
                                         mode=mode.clone()
                                         current_view=current_view
                                         value_changed=value_changed
-                                        // active_tab={ctx.props().active_tab.clone()}
                                         on_tab_selection=on_tab_selection.clone()
                                     />
                                 </Card>

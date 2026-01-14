@@ -169,7 +169,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
 
         impl crudkit_rs::AsColType for Column {
-            fn as_col_type(&self, value: crudkit_condition::ConditionClauseValue) -> std::result::Result<crudkit_shared::Value, String> {
+            fn as_col_type(&self, value: crudkit_condition::ConditionClauseValue) -> std::result::Result<crudkit_core::Value, String> {
                 match self {
                     #(#extract_ccv_value_by_column_variant_match_arms),*
                 }

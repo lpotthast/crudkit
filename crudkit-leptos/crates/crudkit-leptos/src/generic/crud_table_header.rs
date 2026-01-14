@@ -1,6 +1,6 @@
 use crate::generic::crud_instance::CrudInstanceContext;
 use crate::generic::crud_list_view::CrudListViewContext;
-use crudkit_shared::Order;
+use crudkit_core::Order;
 use crudkit_web::generic::prelude::*;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;

@@ -6,17 +6,17 @@ use std::{collections::HashMap, sync::Arc};
 use utoipa::ToSchema;
 
 use crudkit_condition::{Condition, TryIntoAllEqualCondition};
+use crudkit_core::{DeleteResult, Order};
 use crudkit_id::{Id, SerializableId};
-use crudkit_shared::{DeleteResult, Order};
 use crudkit_validation::PartialSerializableValidations;
 use crudkit_websocket::{CkWsMessage, EntityDeleted};
 
 use crate::{
+    GetIdFromModel,
     error::CrudError,
     lifetime::{Abort, CrudLifetime},
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
-    GetIdFromModel,
 };
 
 #[derive(Debug, ToSchema, Deserialize)]

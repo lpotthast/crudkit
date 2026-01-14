@@ -79,7 +79,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     let ident = &input.ident;
     let field_enum_ident = Ident::new(format!("{ident}Field").as_str(), ident.span());
 
-    // Self::Id => crudkit_shared::Value::U32(entity.id),
+    // Self::Id => crudkit_core::Value::U32(entity.id),
     let get_field_value_arms = input.fields().iter().map(|field| {
         let field_ident = field.ident.as_ref().expect("Expected named field!");
         let field_name = field_ident.to_string();
@@ -146,7 +146,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         };
 
         quote! {
-            #field_enum_ident::#field_name_as_type_ident => crudkit_shared::Value::#value_type_ident(#value_clone)
+            #field_enum_ident::#field_name_as_type_ident => crudkit_core::Value::#value_type_ident(#value_clone)
         }
     });
     let get_value_impl = match input.fields().len() {
@@ -162,7 +162,6 @@ pub fn store(input: TokenStream) -> TokenStream {
 
     // Self::Id => entity.id = value.take_u32(),
     let set_field_value_arms = input.fields().iter().map(|field| {
-        let field_ty = &field.ty;
         let field_ident = field.ident.as_ref().expect("Expected named field!");
         let field_name = field_ident.to_string();
         let field_name_as_type_name = field_name_as_type_name(&field_name);
@@ -246,11 +245,11 @@ pub fn store(input: TokenStream) -> TokenStream {
 
     quote! {
         impl crudkit_web::CrudFieldValueTrait<#ident> for #field_enum_ident {
-            fn get_value(&self, entity: &#ident) -> crudkit_shared::Value {
+            fn get_value(&self, entity: &#ident) -> crudkit_core::Value {
                 #get_value_impl
             }
 
-            fn set_value(&self, entity: &mut #ident, value: crudkit_shared::Value) {
+            fn set_value(&self, entity: &mut #ident, value: crudkit_core::Value) {
                 #set_value_impl
             }
         }
@@ -314,7 +313,7 @@ enum ValueType {
     Other,
 }
 
-/// Converts to the name of the `crudkit_shared::Value` variant which should be used.
+/// Converts to the name of the `crudkit_core::Value` variant which should be used.
 impl From<ValueType> for Ident {
     fn from(value_type: ValueType) -> Self {
         Ident::new(

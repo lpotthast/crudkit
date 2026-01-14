@@ -1,9 +1,9 @@
 use crate::shared::fields::optional::OptionalInput;
 use crate::shared::fields::render_label;
-use crudkit_shared::{TimeDuration, Value};
+use crudkit_core::{TimeDuration, Value};
 use crudkit_web::{FieldMode, FieldOptions};
-use leptonic::components::input::NumberInput;
 use leptonic::Out;
+use leptonic::components::input::NumberInput;
 use leptos::prelude::*;
 use std::sync::Arc;
 

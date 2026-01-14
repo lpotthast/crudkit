@@ -1,4 +1,4 @@
-use crudkit_shared::Value;
+use crudkit_core::Value;
 use dyn_clone::DynClone;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display};
@@ -78,10 +78,13 @@ pub trait Id:
     fn to_serializable_id(&self) -> SerializableId;
 }
 
-/// A type-erased entity ID. Can be serialized/deserialized for storage or transmission.
+/// A type-erased entity ID. Can be serialized and deserialized for storage or transmission.
+///
+/// The first tuple element stores a field name.
+///
+/// The type of resource or model this ID belongs to is not encoded in this datastructure.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)] // TODO: Serde passthrough?
-#[schema(value_type = Vec<Object>
-)] // TODO: Move away from unnamed (String, IdValue) and towars a named key/value tuple.
+#[schema(value_type = Vec<Object>)] // TODO: Move away from unnamed (String, IdValue) and towards a named key/value tuple.
 pub struct SerializableId(pub Vec<(String, IdValue)>);
 
 impl From<IdValue> for Value {

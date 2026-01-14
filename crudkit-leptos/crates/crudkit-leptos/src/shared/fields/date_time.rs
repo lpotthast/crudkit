@@ -1,12 +1,12 @@
 use crate::shared::fields::render_label;
-use crudkit_shared::Value;
+use crudkit_core::Value;
 use crudkit_web::{DateTimeDisplay, FieldMode, FieldOptions};
 use leptonic::components::datetime_input::DateTimeInput;
 use leptos::prelude::*;
 use std::sync::Arc;
+use time::PrimitiveDateTime;
 use time::format_description::well_known::Rfc3339;
 use time::macros::format_description;
-use time::PrimitiveDateTime;
 
 #[component]
 pub fn CrudPrimitiveDateTimeField(

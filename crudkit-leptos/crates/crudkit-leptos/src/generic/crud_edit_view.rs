@@ -7,9 +7,9 @@ use crate::generic::crud_table::NoDataAvailable;
 use crate::generic::custom_field::CustomUpdateFields;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::{IntoReactiveValue, ReactiveValue};
-use crudkit_condition::{merge_conditions, TryIntoAllEqualCondition};
+use crudkit_condition::{TryIntoAllEqualCondition, merge_conditions};
+use crudkit_core::{SaveResult, Saved, Value};
 use crudkit_id::{Id, IdField};
-use crudkit_shared::{SaveResult, Saved, Value};
 use crudkit_web::generic::prelude::*;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
@@ -325,7 +325,6 @@ where
                         mode=FieldMode::Editable
                         current_view=CrudSimpleView::Edit
                         value_changed=value_changed.clone()
-                        // active_tab={ctx.props().config.active_tab.clone()}
                         on_tab_selection=on_tab_selected.clone()
                     />
                 }.into_any()

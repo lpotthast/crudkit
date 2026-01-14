@@ -1,3 +1,4 @@
+use crate::ReactiveValue;
 use crate::shared::crud_field_label::CrudFieldLabelOpt;
 use crate::shared::fields::boolean::{CrudBoolField, CrudOptionalBoolField};
 use crate::shared::fields::date_time::{
@@ -6,16 +7,15 @@ use crate::shared::fields::date_time::{
 use crate::shared::fields::duration::{CrudDurationField, CrudOptionalDurationField};
 use crate::shared::fields::json::{CrudJsonField, CrudOptionalJsonField};
 use crate::shared::fields::number::{
-    CrudF32Field, CrudF64Field, CrudI128Field, CrudI16Field, CrudI32Field, CrudI64Field,
-    CrudI8Field, CrudOptionalF32Field, CrudOptionalF64Field, CrudOptionalI128Field,
-    CrudOptionalI16Field, CrudOptionalI32Field, CrudOptionalI64Field, CrudOptionalI8Field,
-    CrudOptionalU128Field, CrudOptionalU16Field, CrudOptionalU32Field, CrudOptionalU64Field,
-    CrudOptionalU8Field, CrudU128Field, CrudU16Field, CrudU32Field, CrudU64Field, CrudU8Field,
+    CrudF32Field, CrudF64Field, CrudI8Field, CrudI16Field, CrudI32Field, CrudI64Field,
+    CrudI128Field, CrudOptionalF32Field, CrudOptionalF64Field, CrudOptionalI8Field,
+    CrudOptionalI16Field, CrudOptionalI32Field, CrudOptionalI64Field, CrudOptionalI128Field,
+    CrudOptionalU8Field, CrudOptionalU16Field, CrudOptionalU32Field, CrudOptionalU64Field,
+    CrudOptionalU128Field, CrudU8Field, CrudU16Field, CrudU32Field, CrudU64Field, CrudU128Field,
 };
 use crate::shared::fields::string::{CrudOptionalStringField, CrudStringField};
 use crate::shared::fields::uuid::{CrudOptionalUuidField, CrudUuidField};
-use crate::ReactiveValue;
-use crudkit_shared::Value;
+use crudkit_core::Value;
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::{FieldMode, FieldOptions, Label};
 use leptonic::components::prelude::{Alert, AlertContent, AlertTitle, AlertVariant};

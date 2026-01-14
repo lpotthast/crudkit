@@ -1,10 +1,10 @@
+use crate::ReactiveValue;
 use crate::dynamic::crud_fields::CrudFields;
 use crate::dynamic::crud_instance::CrudInstanceContext;
 use crate::dynamic::crud_instance_config::{CreateElements, FieldRendererRegistry};
 use crate::shared::crud_leave_modal::CrudLeaveModal;
-use crate::ReactiveValue;
+use crudkit_core::{SaveResult, Saved, Value};
 use crudkit_id::SerializableId;
-use crudkit_shared::{SaveResult, Saved, Value};
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{AnyCreateField, AnyCreateModel, AnyUpdateModel};
 use leptonic::components::prelude::*;

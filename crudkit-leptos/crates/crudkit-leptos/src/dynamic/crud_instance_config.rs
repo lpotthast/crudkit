@@ -3,7 +3,7 @@ use crate::shared::crud_instance_config::{ItemsPerPage, PageNr};
 use crate::shared::fields::FieldRenderer;
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_condition::Condition;
-use crudkit_shared::{Order, SaveResult, Saved};
+use crudkit_core::{Order, SaveResult, Saved};
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{
     AnyCreateField, AnyCreateModel, AnyReadField, AnyReadModel, AnyUpdateField, AnyUpdateModel,
@@ -11,7 +11,6 @@ use crudkit_web::dynamic::{
 };
 use indexmap::IndexMap;
 use leptos::prelude::*;
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -100,8 +99,6 @@ pub struct CrudInstanceConfig {
     pub items_per_page: ItemsPerPage,
     /// The current page to display, e.g. `Page::first()`. One-based index.
     pub page_nr: PageNr,
-    /// The active tab. If set, must reference a tab name chosen when defining `elements`.
-    pub active_tab: Option<Label>,
     pub base_condition: Option<Condition>,
 
     /* Immutable data */
@@ -127,7 +124,6 @@ impl CrudInstanceConfig {
                 order_by: self.order_by,
                 items_per_page: self.items_per_page,
                 page: self.page_nr,
-                active_tab: self.active_tab,
                 base_condition: self.base_condition,
             },
             CrudStaticInstanceConfig {
@@ -154,8 +150,20 @@ pub(crate) struct CrudMutableInstanceConfig {
     pub order_by: IndexMap<AnyReadField, Order>,
     pub items_per_page: ItemsPerPage,
     pub page: PageNr,
-    pub active_tab: Option<Label>,
     pub base_condition: Option<Condition>,
+}
+
+/// This config is non-serializable. Every piece of runtime-changing data relevant to be tracked and reloaded should be part of the CrudInstanceConfig struct.
+#[derive(Debug, Clone)]
+pub(crate) struct CrudStaticInstanceConfig {
+    pub resource_name: String,
+    pub reqwest_executor: Arc<dyn ReqwestExecutor>,
+    pub model_handler: ModelHandler,
+    pub actions: Vec<CrudAction>,
+    pub entity_actions: Vec<CrudEntityAction>,
+    pub read_field_renderer: FieldRendererRegistry<AnyReadField>,
+    pub create_field_renderer: FieldRendererRegistry<AnyCreateField>,
+    pub update_field_renderer: FieldRendererRegistry<AnyUpdateField>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -202,13 +210,26 @@ pub struct ModelHandler {
 impl ModelHandler {
     pub fn new<Create, Read, Update>() -> ModelHandler
     where
-        Create: CreateModel + DeserializeOwned + CrudDataTrait + Default,
-        Read: ReadModel + DeserializeOwned + CrudDataTrait,
-        Update: UpdateModel + DeserializeOwned + CrudDataTrait + From<Read>,
+        Create: CreateModel + CrudDataTrait + Default,
+        Read: ReadModel + CrudDataTrait,
+        Update: UpdateModel + CrudDataTrait + From<Read>,
         <Read as CrudDataTrait>::Field: ReadField,
         <Create as CrudDataTrait>::Field: CreateField,
         <Update as CrudDataTrait>::Field: UpdateField,
     {
+        let deserialize_update_model = Callback::new(move |json| {
+            let result: SaveResult<Update> = serde_json::from_value(json)?;
+            let result: SaveResult<AnyUpdateModel> = match result {
+                SaveResult::Saved(saved) => SaveResult::Saved(Saved {
+                    entity: AnyUpdateModel::from(saved.entity),
+                    with_validation_errors: saved.with_validation_errors,
+                }),
+                SaveResult::Aborted { reason } => SaveResult::Aborted { reason },
+                SaveResult::CriticalValidationErrors => SaveResult::CriticalValidationErrors,
+            };
+            Ok(result)
+        });
+
         ModelHandler {
             deserialize_read_many_response: Callback::new(move |json| {
                 Ok(serde_json::from_value::<Vec<Read>>(json)?
@@ -219,30 +240,8 @@ impl ModelHandler {
             deserialize_read_one_response: Callback::new(move |json| {
                 Ok(serde_json::from_value::<Option<Read>>(json)?.map(AnyReadModel::from))
             }),
-            deserialize_create_one_response: Callback::new(move |json| {
-                let result: SaveResult<Update> = serde_json::from_value(json)?;
-                let result: SaveResult<AnyUpdateModel> = match result {
-                    SaveResult::Saved(saved) => SaveResult::Saved(Saved {
-                        entity: AnyUpdateModel::from(saved.entity),
-                        with_validation_errors: saved.with_validation_errors,
-                    }),
-                    SaveResult::Aborted { reason } => SaveResult::Aborted { reason },
-                    SaveResult::CriticalValidationErrors => SaveResult::CriticalValidationErrors,
-                };
-                Ok(result)
-            }),
-            deserialize_update_one_response: Callback::new(move |json| {
-                let result: SaveResult<Update> = serde_json::from_value(json)?;
-                let result: SaveResult<AnyUpdateModel> = match result {
-                    SaveResult::Saved(saved) => SaveResult::Saved(Saved {
-                        entity: AnyUpdateModel::from(saved.entity),
-                        with_validation_errors: saved.with_validation_errors,
-                    }),
-                    SaveResult::Aborted { reason } => SaveResult::Aborted { reason },
-                    SaveResult::CriticalValidationErrors => SaveResult::CriticalValidationErrors,
-                };
-                Ok(result)
-            }),
+            deserialize_create_one_response: deserialize_update_model,
+            deserialize_update_one_response: deserialize_update_model,
             read_model_to_update_model: Callback::new(move |read_model: AnyReadModel| {
                 AnyUpdateModel::from(Update::from(read_model.downcast::<Read>()))
             }),
@@ -280,38 +279,5 @@ impl ModelHandler {
                 AnyCreateModel::from(Create::default())
             }),
         }
-    }
-}
-
-/// This config is non-serializable. Every piece of runtime-changing data relevant to be tracked and reloaded should be part of the CrudInstanceConfig struct.
-#[derive(Debug, Clone)]
-pub(crate) struct CrudStaticInstanceConfig {
-    pub resource_name: String,
-    pub reqwest_executor: Arc<dyn ReqwestExecutor>,
-    pub model_handler: ModelHandler,
-    pub actions: Vec<CrudAction>,
-    pub entity_actions: Vec<CrudEntityAction>,
-    pub read_field_renderer: FieldRendererRegistry<AnyReadField>,
-    pub create_field_renderer: FieldRendererRegistry<AnyCreateField>,
-    pub update_field_renderer: FieldRendererRegistry<AnyUpdateField>,
-}
-
-impl CrudMutableInstanceConfig {
-    // TODO: unused?
-    pub fn update_order_by(&mut self, field: AnyReadField, options: OrderByUpdateOptions) {
-        let prev = self.order_by.get(&field).cloned();
-        if !options.append {
-            self.order_by.clear();
-        }
-        self.order_by.insert(
-            field,
-            match prev {
-                Some(order) => match order {
-                    Order::Asc => Order::Desc,
-                    Order::Desc => Order::Asc,
-                },
-                None => Order::Asc,
-            },
-        );
     }
 }

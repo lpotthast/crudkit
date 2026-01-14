@@ -1,5 +1,5 @@
 use crate::ReactiveValue;
-use crudkit_shared::Value;
+use crudkit_core::Value;
 use crudkit_web::generic::prelude::*;
 use leptonic::prelude::ViewCallback;
 use leptos::prelude::*;

@@ -4,9 +4,9 @@ use crate::generic::crud_instance_config::CreateElements;
 use crate::generic::custom_field::CustomCreateFields;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crate::{IntoReactiveValue, ReactiveValue};
-use crudkit_shared::{SaveResult, Saved, Value};
-use crudkit_web::generic::prelude::*;
+use crudkit_core::{SaveResult, Saved, Value};
 use crudkit_web::TabId;
+use crudkit_web::generic::prelude::*;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -206,7 +206,6 @@ where
                         mode=FieldMode::Editable
                         current_view=CrudSimpleView::Create
                         value_changed=value_changed
-                        // active_tab={ctx.props().config.active_tab.clone()}
                         on_tab_selection=on_tab_selected
                     />
                 }.into_any()

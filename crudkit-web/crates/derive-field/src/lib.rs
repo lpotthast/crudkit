@@ -3,22 +3,22 @@
 
 use darling::*;
 use proc_macro::TokenStream;
-use proc_macro_error::proc_macro_error;
 use proc_macro2::{Ident, Span};
+use proc_macro_error::proc_macro_error;
 use quote::quote;
-use syn::{DeriveInput, parse_macro_input};
+use syn::{parse_macro_input, DeriveInput};
 use types::ModelType;
 
 #[derive(Debug, FromField)]
 #[darling(attributes(ck_field, ck_id))]
-struct MyFieldReceiver {
-    ident: Option<syn::Ident>,
+struct CkFieldConfig {
+    ident: Option<Ident>,
 
     /// Determines whether this field is part of the aggregate id.
     id: Option<bool>,
 }
 
-impl MyFieldReceiver {
+impl CkFieldConfig {
     pub fn is_id(&self) -> bool {
         match (self.id, &self.ident) {
             (None, None) => false,
@@ -31,19 +31,19 @@ impl MyFieldReceiver {
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(ck_field, ck_id), supports(struct_any))]
-struct MyInputReceiver {
-    ident: syn::Ident,
+struct CkFieldInputReceiver {
+    ident: Ident,
 
     /// Whether this is a `create`, `read` or `update` model.
     /// Depending on this required information, the generated fields enum either implements the
     /// `CreateField`, `ReadField` or `UpdateField` trait.
     model: ModelType,
 
-    data: ast::Data<(), MyFieldReceiver>,
+    data: ast::Data<(), CkFieldConfig>,
 }
 
-impl MyInputReceiver {
-    pub fn fields(&self) -> &ast::Fields<MyFieldReceiver> {
+impl CkFieldInputReceiver {
+    pub fn fields(&self) -> &ast::Fields<CkFieldConfig> {
         match &self.data {
             ast::Data::Enum(_) => panic!("Only structs are supported"),
             ast::Data::Struct(fields) => fields,
@@ -56,9 +56,9 @@ impl MyInputReceiver {
 pub fn store(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
-    let input: MyInputReceiver = match FromDeriveInput::from_derive_input(&ast) {
+    let input: CkFieldInputReceiver = match FromDeriveInput::from_derive_input(&ast) {
         Ok(args) => args,
-        Err(err) => return darling::Error::write_errors(err).into(),
+        Err(err) => return Error::write_errors(err).into(),
     };
 
     fn capitalize_first_letter(s: &str) -> String {
@@ -86,7 +86,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     let name = &input.ident;
     let field_name = Ident::new(format!("{name}Field").as_str(), name.span());
 
-    let direct_field_accessors = input.fields().iter().enumerate().map(|(i, field)| {
+    let direct_field_accessors = input.fields().iter().map(|field| {
         let name = field.ident.as_ref().expect("Expected named field!");
         let type_name = field_name_as_type_name(&name.to_string());
         let type_ident = Ident::new(type_name.as_str(), Span::call_site());
@@ -207,7 +207,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         ModelType::Create => quote! {
             #[typetag::serde]
             impl crudkit_web::dynamic::CreateField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyCreateModel, value: crudkit_shared::Value) {
+                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyCreateModel, value: crudkit_core::Value) {
                     let model = model.downcast_mut::<#name>();
                     crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
                 }
@@ -216,7 +216,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         ModelType::Read => quote! {
             #[typetag::serde]
             impl crudkit_web::dynamic::ReadField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyReadModel, value: crudkit_shared::Value) {
+                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyReadModel, value: crudkit_core::Value) {
                     let model = model.downcast_mut::<#name>();
                     crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
                 }
@@ -225,7 +225,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         ModelType::Update => quote! {
             #[typetag::serde]
             impl crudkit_web::dynamic::UpdateField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyUpdateModel, value: crudkit_shared::Value) {
+                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyUpdateModel, value: crudkit_core::Value) {
                     let model = model.downcast_mut::<#name>();
                     crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
                 }
@@ -267,7 +267,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         #[typetag::serde]
         impl crudkit_web::dynamic::Field for #field_name {
-            fn set_value(&self, model: &mut crudkit_web::dynamic::AnyModel, value: crudkit_shared::Value) {
+            fn set_value(&self, model: &mut crudkit_web::dynamic::AnyModel, value: crudkit_core::Value) {
                 let model = model.downcast_mut::<#name>();
                 crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
             }

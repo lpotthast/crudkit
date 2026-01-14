@@ -217,6 +217,8 @@ dyn_eq::eq_trait_object!(Model);
 dyn_clone::clone_trait_object!(Model);
 downcast_rs::impl_downcast!(Model);
 
+// Note: Every CreateModel needs to be `Default`, but that would introduce a `Sized` bound,
+// rendering this trait dyn-incompatible.
 #[typetag::serde]
 pub trait CreateModel: Model {}
 dyn_eq::eq_trait_object!(CreateModel);

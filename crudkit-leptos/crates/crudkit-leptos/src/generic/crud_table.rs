@@ -4,13 +4,13 @@ use crate::generic::crud_table_body::CrudTableBody;
 use crate::generic::crud_table_footer::CrudTableFooter;
 use crate::generic::crud_table_header::CrudTableHeader;
 use crate::generic::custom_field::CustomFields;
-use crudkit_shared::Order;
+use crudkit_core::Order;
 use crudkit_web::generic::prelude::*;
 use indexmap::IndexMap;
 use leptonic::components::table::{Table, TableContainer};
 use leptos::prelude::*;
-use std::sync::Arc;
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NoDataAvailable {

@@ -1,17 +1,13 @@
 [package]
-name = "crudkit-condition"
+name = "crudkit-derive-core"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-crudkit-core = { path = "../crudkit-core/crates/crudkit-core" }
-crudkit-id = { path = "../crudkit-id/crates/crudkit-id" }
-
-dyn-clone = "1.0.20"
+dyn-clone = { version = "1.0.12" }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.148" }
-snafu = { version = "0.8.9", features = ["backtrace"] }
-thiserror = { version = "2.0.17" }
 time = { version = "0.3.44", features = ["serde", "serde-well-known"] }
+typetag = { version = "0.2.19" }
 utoipa = { version = "5.4.0", features = ["time", "uuid"] }
 uuid = { version = "1.19.0", features = ["v4", "v7", "serde"] }

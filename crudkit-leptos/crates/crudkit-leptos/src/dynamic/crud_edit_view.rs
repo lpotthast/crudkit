@@ -1,3 +1,4 @@
+use crate::ReactiveValue;
 use crate::dynamic::crud_action::{CrudEntityAction, States};
 use crate::dynamic::crud_action_buttons::CrudActionButtons;
 use crate::dynamic::crud_action_context::CrudActionContext;
@@ -6,10 +7,9 @@ use crate::dynamic::crud_instance::CrudInstanceContext;
 use crate::dynamic::crud_instance_config::{FieldRendererRegistry, UpdateElements};
 use crate::dynamic::crud_table::NoDataAvailable;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
-use crate::ReactiveValue;
-use crudkit_condition::{merge_conditions, TryIntoAllEqualCondition};
+use crudkit_condition::{TryIntoAllEqualCondition, merge_conditions};
+use crudkit_core::{SaveResult, Saved, Value};
 use crudkit_id::SerializableId;
-use crudkit_shared::{SaveResult, Saved, Value};
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{AnyReadOrUpdateModel, AnyUpdateField, AnyUpdateModel};
 use crudkit_web::request_error::RequestError;
@@ -139,7 +139,7 @@ pub fn CrudEditView(
         })
     });
 
-    let input_changed = Signal::derive(move || match (input.get(), entity.get()) {
+    let input_changed = Memo::new(move |_| match (input.get(), entity.get()) {
         (Some(input), Ok(entity)) => input != entity,
         _ => false,
     });
@@ -341,7 +341,6 @@ pub fn CrudEditView(
                         mode=FieldMode::Editable
                         current_view=CrudSimpleView::Edit
                         value_changed=value_changed.clone()
-                        // active_tab={ctx.props().config.active_tab.clone()}
                         on_tab_selection=on_tab_selected.clone()
                     />
                 }.into_any()

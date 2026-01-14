@@ -164,7 +164,6 @@ pub fn CrudReadView(
                         mode=FieldMode::Readable
                         current_view=CrudSimpleView::Read
                         value_changed=value_changed.clone()
-                        // active_tab={ctx.props().config.active_tab.clone()}
                         on_tab_selection=on_tab_selected.clone()
                     />
                 }.into_any()

@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 crudkit-condition = { path = "../../../crudkit-condition" }
+crudkit-core = { path = "../../../crudkit-core/crates/crudkit-core" }
 crudkit-id = { path = "../../../crudkit-id/crates/crudkit-id" }
-crudkit-shared = { path = "../../../crudkit-shared" }
 crudkit-validation = { path = "../../../crudkit-validation" }
 crudkit-websocket = { path = "../../../crudkit-websocket" }
 derive-create-model = { path = "../derive-create-model" }

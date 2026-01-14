@@ -1,8 +1,8 @@
 use crate::newtypes::TimeDuration;
 use crate::repo::SeaOrmRepoError;
 use crudkit_condition::{Condition, ConditionElement, Operator};
+use crudkit_core::{Order, Value};
 use crudkit_rs::prelude::*;
-use crudkit_shared::{Order, Value};
 use indexmap::IndexMap;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DeleteMany, EntityTrait, FromQueryResult, Insert, ModelTrait,

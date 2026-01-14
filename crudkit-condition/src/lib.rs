@@ -1,5 +1,5 @@
+use crudkit_core::Value;
 use crudkit_id::IdValue;
-use crudkit_shared::Value;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -32,7 +32,7 @@ pub struct ConditionClause {
 }
 
 /// Values which might be part of a `ConditionClause`.
-/// You can convert a `crudkit_shared::Value` using `.try_into`.
+/// You can convert a `crudkit_core::Value` using `.try_into`.
 /// You can convert a `crudkit_id::IdValue` using `.try_into`.
 #[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
 pub enum ConditionClauseValue {

@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use std::future::Future;
 
 use crudkit_condition::Condition;
-use crudkit_shared::Order;
+use crudkit_core::Order;
 
 use crate::resource::CrudResource;
 

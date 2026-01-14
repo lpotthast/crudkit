@@ -17,22 +17,22 @@ pub mod stores;
 * which are required for many derive macro implementations.
 */
 pub use crudkit_condition;
+pub use crudkit_core;
 pub use crudkit_id;
-pub use crudkit_shared;
 pub use crudkit_validation;
 pub use crudkit_web;
 pub use crudkit_websocket;
 
-use crudkit_shared::{FieldValue, TimeDuration, Value};
+use crudkit_core::{FieldValue, TimeDuration, Value};
 use leptos::prelude::*;
 
 // TODO: This prelude should only contain types always required when using the lib.
 pub mod prelude {
     pub use crudkit_condition;
+    pub use crudkit_core;
+    pub use crudkit_core::*;
     pub use crudkit_id;
     pub use crudkit_id::*;
-    pub use crudkit_shared;
-    pub use crudkit_shared::*;
     pub use crudkit_validation;
     pub use crudkit_web;
     pub use crudkit_websocket;
@@ -42,7 +42,6 @@ pub mod prelude {
     pub use derive_crud_selectable::CkSelectable;
     pub use derive_crudkit_id::CkId;
     pub use derive_field::CkField;
-    pub use derive_field_signals::CkFieldSignals;
     pub use derive_field_value::CkFieldValue;
 
     pub use super::IntoReactiveValue;
@@ -64,9 +63,9 @@ pub trait SignalsTrait {
     ) -> Self;
 }
 
-/// Theoretically, all `Value` types are already defined through `crudkit_shared::Value`.
+/// Theoretically, all `Value` types are already defined through `crudkit_core::Value`.
 /// But we want to have fine-grained reactivity in this library. Therefore, this type exists,
-/// mapping each `crudkit_shared::Value` to the same type wrapped inside an `RwSignal`. This allows
+/// mapping each `crudkit_core::Value` to the same type wrapped inside an `RwSignal`. This allows
 /// us to reactively work with individual fields of an entity, not just the whole entity itself.
 // TODO: Move into own module
 #[derive(Debug, Clone, Copy)]
@@ -196,10 +195,10 @@ impl IntoReactiveValue for Value {
 }
 
 impl ReactiveValue {
-    /// Allows to dynamically set a new value based on any given `crudkit_shared::Value`.
+    /// Allows to dynamically set a new value based on any given `crudkit_core::Value`.
     /// Make sure that only appropriate values are passed, as this function
     /// may *panic* if `Value` is not of the same* or otherwise compliant variant as this ReactiveValue.
-    /// Uses the `crudkit_shared::Value::take_*` functions to get the expected type out of `v` or fail.
+    /// Uses the `crudkit_core::Value::take_*` functions to get the expected type out of `v` or fail.
     pub fn set(&self, v: Value) {
         match self {
             ReactiveValue::Void(_) => panic!("Calling `set` on a Void value is not allowed."),

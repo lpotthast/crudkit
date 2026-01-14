@@ -1,9 +1,9 @@
 use crate::dynamic::requests::request_post;
 use crate::dynamic::{AnyCreateModel, AnyUpdateModel, SerializableReadField};
 use crate::prelude::{RequestError, ReqwestExecutor};
-use crudkit_condition::{merge_conditions, Condition};
+use crudkit_condition::{Condition, merge_conditions};
+use crudkit_core::{DeleteResult, Order};
 use crudkit_id::SerializableId;
-use crudkit_shared::{DeleteResult, Order};
 use indexmap::IndexMap;
 use serde::Serialize;
 use std::fmt::Debug;

@@ -10,7 +10,7 @@ use crudkit_rs::{
 };
 
 use crudkit_condition::Condition;
-use crudkit_shared::Order;
+use crudkit_core::Order;
 
 use crate::query;
 

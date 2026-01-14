@@ -4,8 +4,8 @@
 use sea_orm::{ActiveModelTrait, ColumnTrait, ModelTrait};
 
 use crudkit_condition::ConditionClauseValue;
+use crudkit_core::Value;
 use crudkit_id::Id;
-use crudkit_shared::Value;
 
 use prelude::{CrudContext, CrudResource};
 use validation::PersistableViolation;
@@ -37,15 +37,15 @@ pub mod websocket;
 * which are required for many derive macro implementations.
 */
 pub use crudkit_condition;
+pub use crudkit_core;
 pub use crudkit_id;
-pub use crudkit_shared;
 pub use crudkit_validation;
 pub use crudkit_websocket;
 
 pub mod prelude {
     pub use crudkit_condition;
+    pub use crudkit_core;
     pub use crudkit_id;
-    pub use crudkit_shared;
     pub use crudkit_validation;
     pub use crudkit_websocket;
 
@@ -87,22 +87,22 @@ pub mod prelude {
     pub use super::validate::validate_min_length;
     pub use super::validate::validate_required;
 
-    pub use super::create::create_one;
     pub use super::create::CreateOne;
-    pub use super::delete::delete_by_id;
-    pub use super::delete::delete_many;
-    pub use super::delete::delete_one;
+    pub use super::create::create_one;
     pub use super::delete::DeleteById;
     pub use super::delete::DeleteMany;
     pub use super::delete::DeleteOne;
-    pub use super::read::read_count;
-    pub use super::read::read_many;
-    pub use super::read::read_one;
+    pub use super::delete::delete_by_id;
+    pub use super::delete::delete_many;
+    pub use super::delete::delete_one;
     pub use super::read::ReadCount;
     pub use super::read::ReadMany;
     pub use super::read::ReadOne;
-    pub use super::update::update_one;
+    pub use super::read::read_count;
+    pub use super::read::read_many;
+    pub use super::read::read_one;
     pub use super::update::UpdateOne;
+    pub use super::update::update_one;
 }
 
 pub struct RequestContext {

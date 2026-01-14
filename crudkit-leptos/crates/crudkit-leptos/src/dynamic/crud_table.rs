@@ -4,7 +4,7 @@ use crate::dynamic::crud_list_view::CrudListViewContext;
 use crate::dynamic::crud_table_body::CrudTableBody;
 use crate::dynamic::crud_table_footer::CrudTableFooter;
 use crate::dynamic::crud_table_header::CrudTableHeader;
-use crudkit_shared::Order;
+use crudkit_core::Order;
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{AnyReadField, AnyReadModel};
 use indexmap::IndexMap;

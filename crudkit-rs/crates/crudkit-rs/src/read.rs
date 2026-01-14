@@ -2,7 +2,7 @@ use crate::{error::CrudError, prelude::*};
 
 use axum_keycloak_auth::{decode::KeycloakToken, role::Role};
 use crudkit_condition::Condition;
-use crudkit_shared::Order;
+use crudkit_core::Order;
 
 use indexmap::IndexMap;
 use serde::Deserialize;

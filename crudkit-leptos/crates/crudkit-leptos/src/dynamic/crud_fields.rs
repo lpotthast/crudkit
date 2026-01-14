@@ -1,7 +1,7 @@
+use crate::ReactiveValue;
 use crate::dynamic::crud_field::CrudField;
 use crate::dynamic::crud_instance_config::FieldRendererRegistry;
-use crate::ReactiveValue;
-use crudkit_shared::Value;
+use crudkit_core::Value;
 use crudkit_web::dynamic::prelude::*;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
@@ -16,7 +16,6 @@ pub fn CrudFields<F: DynField>(
     mode: FieldMode,
     current_view: CrudSimpleView,
     value_changed: Callback<(F, Result<Value, String>)>,
-    // active_tab: Option<Label>,
     on_tab_selection: Callback<TabId>,
 ) -> impl IntoView {
     move || {
@@ -36,7 +35,6 @@ pub fn CrudFields<F: DynField>(
                                     mode=mode.clone()
                                     current_view=current_view
                                     value_changed=value_changed
-                                    // active_tab={ctx.props().active_tab.clone()}
                                     on_tab_selection=on_tab_selection.clone()
                                 />
                             }
@@ -65,7 +63,6 @@ pub fn CrudFields<F: DynField>(
                                                         mode=mode.clone()
                                                         current_view=current_view
                                                         value_changed=value_changed
-                                                        // active_tab={ctx.props().active_tab.clone()}
                                                         on_tab_selection=on_tab_selection2.clone()
                                                     />
                                                 </Tab>
@@ -84,7 +81,6 @@ pub fn CrudFields<F: DynField>(
                                         mode=mode.clone()
                                         current_view=current_view
                                         value_changed=value_changed
-                                        // active_tab={ctx.props().active_tab.clone()}
                                         on_tab_selection=on_tab_selection.clone()
                                     />
                                 </Card>

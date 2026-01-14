@@ -9,8 +9,8 @@ use crate::dynamic::crud_list_view::CrudListView;
 use crate::dynamic::crud_read_view::CrudReadView;
 use crate::shared::crud_instance_config::{ItemsPerPage, PageNr};
 use crate::shared::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
+use crudkit_core::{DeleteResult, Order};
 use crudkit_id::SerializableId;
-use crudkit_shared::{DeleteResult, Order};
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{AnyReadField, AnyReadOrUpdateModel};
 use indexmap::IndexMap;
@@ -29,7 +29,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Copy)]
 pub struct CrudInstanceContext {
     default_config: StoredValue<CrudMutableInstanceConfig>,
-    pub static_config: StoredValue<CrudStaticInstanceConfig>,
+    pub(crate) static_config: StoredValue<CrudStaticInstanceConfig>,
 
     /// The current "view" of this instance. Can be List, Create, Edit, Read, ... Acts like a router...
     pub view: ReadSignal<SerializableCrudView>,
@@ -246,8 +246,8 @@ pub fn CrudInstance(
     let data_provider = Signal::derive(move || {
         CrudRestDataProvider::new(
             api_base_url.get(),
-            static_config.get_value().reqwest_executor.clone(),
-            static_config.get_value().resource_name.clone(),
+            static_config.read_value().reqwest_executor.clone(),
+            static_config.read_value().resource_name.clone(),
         )
     });
 
@@ -273,9 +273,9 @@ pub fn CrudInstance(
         set_reload,
     };
     provide_context(ctx);
-    //if let Some(on_context_created) = on_context_created {
-    //    on_context_created.run(ctx)
-    //}
+    if let Some(on_context_created) = on_context_created {
+        on_context_created.run(ctx)
+    }
 
     let read_field_renderer_registry =
         Signal::derive(move || static_config.read_value().read_field_renderer.clone());
@@ -284,7 +284,7 @@ pub fn CrudInstance(
     let update_field_renderer_registry =
         Signal::derive(move || static_config.read_value().update_field_renderer.clone());
 
-    let actions = Signal::derive(move || static_config.get_value().actions.clone());
+    let actions = Signal::derive(move || static_config.read_value().actions.clone());
     let entity_actions = Signal::derive(move || static_config.read_value().entity_actions.clone());
 
     let on_cancel_delete = Callback::new(move |()| {

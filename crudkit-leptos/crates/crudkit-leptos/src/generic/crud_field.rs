@@ -1,7 +1,7 @@
+use crate::ReactiveValue;
 use crate::generic::custom_field::CustomFields;
 use crate::shared::fields::{default_field_renderer, render_label};
-use crate::ReactiveValue;
-use crudkit_shared::Value;
+use crudkit_core::Value;
 use crudkit_web::generic::prelude::*;
 use leptos::prelude::*;
 use std::collections::HashMap;

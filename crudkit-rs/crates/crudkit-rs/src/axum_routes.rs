@@ -1,7 +1,7 @@
 use axum::{
+    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde_json::json;
 use utoipa::ToSchema;
@@ -80,7 +80,7 @@ macro_rules! impl_add_crud_routes {
             pub mod [< axum_ $name _crud_routes >] {
                 use std::sync::Arc;
                 use crudkit_rs::prelude::*;
-                use crudkit_shared::{DeleteResult, SaveResult}; // TODO: Rely on crudkit_rs::prelude use?
+                use crudkit_core::{DeleteResult, SaveResult}; // TODO: Rely on crudkit_rs::prelude use?
                 use axum::{
                     http::StatusCode,
                     response::{IntoResponse, Response},
@@ -394,9 +394,9 @@ macro_rules! impl_add_crud_routes {
                         delete_many,
                     ),
                     components(
-                        schemas(crudkit_shared::DeleteResult),
-                        schemas(crudkit_shared::SaveResult<Model>),
-                        schemas(crudkit_shared::Saved<Model>),
+                        schemas(crudkit_core::DeleteResult),
+                        schemas(crudkit_core::SaveResult<Model>),
+                        schemas(crudkit_core::Saved<Model>),
                         schemas(crudkit_condition::Condition),
                         schemas(crudkit_condition::ConditionElement),
                         schemas(crudkit_condition::ConditionClause),
