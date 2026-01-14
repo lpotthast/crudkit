@@ -2,12 +2,9 @@
 name = "crudkit-derive-core"
 version = "0.1.0"
 edition = "2024"
+description = "Shared utilities for crudkit derive macros"
 
 [dependencies]
-dyn-clone = { version = "1.0.12" }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = { version = "1.0.148" }
-time = { version = "0.3.44", features = ["serde", "serde-well-known"] }
-typetag = { version = "0.2.19" }
-utoipa = { version = "5.4.0", features = ["time", "uuid"] }
-uuid = { version = "1.19.0", features = ["v4", "v7", "serde"] }
+syn = { workspace = true }
+quote = { workspace = true }
+proc-macro2 = { workspace = true }

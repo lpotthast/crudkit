@@ -15,7 +15,6 @@ derive-crud-action-payload = { path = "../../../crudkit-web/crates/derive-crud-a
 derive-crud-resource = { path = "../../../crudkit-web/crates/derive-crud-resource" }
 derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
 derive-field = { path = "../../../crudkit-web/crates/derive-field" }
-derive-field-value = { path = "../../../crudkit-web/crates/derive-field-value" }
 
 dyn-clone = "1.0.20"
 indexmap = { version = "2.12.1", features = ["serde"] }

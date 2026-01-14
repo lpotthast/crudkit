@@ -44,7 +44,6 @@ pub mod prelude {
     pub use derive_crud_resource::CkResource;
     pub use derive_crudkit_id::CkId;
     pub use derive_field::CkField;
-    pub use derive_field_value::CkFieldValue;
 
     pub use super::error::ErrorInfo;
     pub use super::files::FileResource;

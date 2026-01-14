@@ -50,11 +50,11 @@ pub mod prelude {
     pub use crudkit_websocket;
 
     /* Provide convenient access to all our macros. */
-    pub use derive_create_model::CkCreateModel;
     pub use derive_crud_columns::CkColumns;
     pub use derive_crud_resource_context::CkResourceContext;
     pub use derive_crudkit_id::CkId;
-    pub use derive_update_model::CkUpdateModel;
+    pub use derive_model::CkCreateModel;
+    pub use derive_model::CkUpdateModel;
     pub use derive_validation_model::CkValidationModel;
 
     pub use super::axum_routes::AxumCrudError;

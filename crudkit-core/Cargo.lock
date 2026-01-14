@@ -31,13 +31,9 @@ dependencies = [
 name = "crudkit-derive-core"
 version = "0.1.0"
 dependencies = [
- "dyn-clone",
- "serde",
- "serde_json",
- "time",
- "typetag",
- "utoipa",
- "uuid",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
