@@ -1,15 +1,15 @@
-use crate::dynamic::crud_action::CrudActionAftermath;
-use crate::dynamic::crud_create_view::CrudCreateView;
-use crate::dynamic::crud_delete_many_modal::CrudDeleteManyModal;
-use crate::dynamic::crud_delete_modal::CrudDeleteModal;
-use crate::dynamic::crud_edit_view::CrudEditView;
-use crate::dynamic::crud_instance_config::{
+use crate::crud_action::CrudActionAftermath;
+use crate::crud_create_view::CrudCreateView;
+use crate::crud_delete_many_modal::CrudDeleteManyModal;
+use crate::crud_delete_modal::CrudDeleteModal;
+use crate::crud_edit_view::CrudEditView;
+use crate::crud_instance_config::{
     CrudInstanceConfig, CrudMutableInstanceConfig, CrudParentConfig, CrudStaticInstanceConfig,
 };
-use crate::dynamic::crud_list_view::CrudListView;
-use crate::dynamic::crud_read_view::CrudReadView;
-use crate::shared::crud_instance_config::{ItemsPerPage, PageNr};
-use crate::shared::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
+use crate::crud_list_view::CrudListView;
+use crate::crud_read_view::CrudReadView;
+use crate::crud_instance_config::{ItemsPerPage, PageNr};
+use crate::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
 use crudkit_condition::{Condition, ConditionElement};
 use crudkit_core::{Deleted, DeletedMany, Order};
 use crudkit_id::SerializableId;

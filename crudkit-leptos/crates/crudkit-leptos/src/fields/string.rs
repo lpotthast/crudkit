@@ -1,4 +1,4 @@
-use crate::shared::fields::render_label;
+use crate::fields::render_label;
 use crudkit_core::Value;
 use crudkit_web::{FieldMode, FieldOptions};
 use leptonic::components::input::TextInput;

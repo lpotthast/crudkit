@@ -1,6 +1,6 @@
-use crate::dynamic::crud_instance::CrudInstanceContext;
-use crate::dynamic::crud_instance_config::Header;
-use crate::dynamic::crud_list_view::CrudListViewContext;
+use crate::crud_instance::CrudInstanceContext;
+use crate::crud_instance_config::Header;
+use crate::crud_list_view::CrudListViewContext;
 use crudkit_core::Order;
 use crudkit_web::dynamic::AnyReadField;
 use crudkit_web::dynamic::prelude::*;

@@ -1,20 +1,20 @@
 use crate::ReactiveValue;
-use crate::shared::crud_field_label::CrudFieldLabelOpt;
-use crate::shared::fields::boolean::{CrudBoolField, CrudOptionalBoolField};
-use crate::shared::fields::date_time::{
+use crate::crud_field_label::CrudFieldLabelOpt;
+use crate::fields::boolean::{CrudBoolField, CrudOptionalBoolField};
+use crate::fields::date_time::{
     CrudOptionalPrimitiveDateTimeField, CrudPrimitiveDateTimeField,
 };
-use crate::shared::fields::duration::{CrudDurationField, CrudOptionalDurationField};
-use crate::shared::fields::json::{CrudJsonField, CrudOptionalJsonField};
-use crate::shared::fields::number::{
+use crate::fields::duration::{CrudDurationField, CrudOptionalDurationField};
+use crate::fields::json::{CrudJsonField, CrudOptionalJsonField};
+use crate::fields::number::{
     CrudF32Field, CrudF64Field, CrudI8Field, CrudI16Field, CrudI32Field, CrudI64Field,
     CrudI128Field, CrudOptionalF32Field, CrudOptionalF64Field, CrudOptionalI8Field,
     CrudOptionalI16Field, CrudOptionalI32Field, CrudOptionalI64Field, CrudOptionalI128Field,
     CrudOptionalU8Field, CrudOptionalU16Field, CrudOptionalU32Field, CrudOptionalU64Field,
     CrudOptionalU128Field, CrudU8Field, CrudU16Field, CrudU32Field, CrudU64Field, CrudU128Field,
 };
-use crate::shared::fields::string::{CrudOptionalStringField, CrudStringField};
-use crate::shared::fields::uuid::{CrudOptionalUuidField, CrudUuidField};
+use crate::fields::string::{CrudOptionalStringField, CrudStringField};
+use crate::fields::uuid::{CrudOptionalUuidField, CrudUuidField};
 use crudkit_core::Value;
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::{FieldMode, FieldOptions, Label};

@@ -1,9 +1,28 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-pub mod dynamic;
-//pub mod generic;
-pub mod shared;
+pub mod crud_action;
+pub mod crud_action_buttons;
+pub mod crud_action_context;
+pub mod crud_create_view;
+pub mod crud_delete_many_modal;
+pub mod crud_delete_modal;
+pub mod crud_edit_view;
+pub mod crud_field;
+pub mod crud_field_label;
+pub mod crud_fields;
+pub mod crud_instance;
+pub mod crud_instance_config;
+pub mod crud_instance_mgr;
+pub mod crud_leave_modal;
+pub mod crud_list_view;
+pub mod crud_pagination;
+pub mod crud_read_view;
+pub mod crud_table;
+pub mod crud_table_body;
+pub mod crud_table_footer;
+pub mod crud_table_header;
+pub mod fields;
 pub mod stores;
 /*
 * Reexport common modules.
@@ -37,6 +56,9 @@ pub mod prelude {
     pub use crudkit_web;
     pub use crudkit_websocket;
 
+    pub use crudkit_web::prelude::*;
+    pub use crudkit_web::dynamic::prelude::*;
+
     pub use derive_crud_action_payload::CkActionPayload;
     pub use derive_crud_resource::CkResource;
     pub use derive_crudkit_id::CkId;
@@ -45,6 +67,17 @@ pub mod prelude {
     pub use super::IntoReactiveValue;
     pub use super::ReactiveValue;
     pub use super::SignalsTrait;
+
+    pub use super::crud_action::CrudAction;
+    pub use super::crud_action::CrudActionAftermath;
+    pub use super::crud_action::CrudEntityAction;
+    pub use super::crud_action::EntityActionViewInput;
+    pub use super::crud_action::ResourceActionViewInput;
+
+    pub use super::crud_instance::CrudInstance;
+    pub use super::crud_instance_config::CreateElements;
+    pub use super::crud_instance_config::CrudInstanceConfig;
+    pub use super::crud_instance_config::CrudParentConfig;
 }
 
 /// Anything that can be created from a HashMap of `ReactiveValue`s.

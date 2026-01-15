@@ -1,13 +1,12 @@
 use crate::ReactiveValue;
-use crate::dynamic::crud_field::CrudField;
-use crate::dynamic::crud_instance_config::FieldRendererRegistry;
+use crate::crud_field::CrudField;
+use crate::crud_instance_config::FieldRendererRegistry;
 use crudkit_core::Value;
 use crudkit_web::dynamic::prelude::*;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
 use std::collections::HashMap;
 
-// TODO: Propagate tab selection...
 #[component]
 pub fn CrudFields<F: DynField>(
     field_renderer_registry: Signal<FieldRendererRegistry<F>>,
@@ -23,7 +22,6 @@ pub fn CrudFields<F: DynField>(
             .get()
             .into_iter()
             .map(|elem| {
-                let on_tab_selection = on_tab_selection.clone();
                 match elem {
                     Elem::Enclosing(enclosing) => {
                         match enclosing {
@@ -35,7 +33,7 @@ pub fn CrudFields<F: DynField>(
                                     mode=mode.clone()
                                     current_view=current_view
                                     value_changed=value_changed
-                                    on_tab_selection=on_tab_selection.clone()
+                                    on_tab_selection=on_tab_selection
                                 />
                             }
                                 .into_any(),
@@ -46,14 +44,12 @@ pub fn CrudFields<F: DynField>(
                                     {
                                         tabs.into_iter().map(move |tab| {
                                             let id = tab.id.clone();
-                                            let on_tab_selection1 = on_tab_selection.clone();
-                                            let on_tab_selection2 = on_tab_selection.clone();
                                             view! {
                                                 <Tab
                                                     name=tab.id
                                                     label=move || tab.label.name.clone()
                                                     on_show=move |()| {
-                                                        on_tab_selection1.run(id.clone())
+                                                        on_tab_selection.run(id.clone())
                                                     }
                                                 >
                                                     <CrudFields
@@ -63,7 +59,7 @@ pub fn CrudFields<F: DynField>(
                                                         mode=mode.clone()
                                                         current_view=current_view
                                                         value_changed=value_changed
-                                                        on_tab_selection=on_tab_selection2.clone()
+                                                        on_tab_selection=on_tab_selection
                                                     />
                                                 </Tab>
                                             }
@@ -81,7 +77,7 @@ pub fn CrudFields<F: DynField>(
                                         mode=mode.clone()
                                         current_view=current_view
                                         value_changed=value_changed
-                                        on_tab_selection=on_tab_selection.clone()
+                                        on_tab_selection=on_tab_selection
                                     />
                                 </Card>
                             }

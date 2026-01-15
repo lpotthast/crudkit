@@ -1,10 +1,10 @@
-use crate::dynamic::crud_action::{CrudEntityAction, States};
-use crate::dynamic::crud_action_buttons::CrudActionButtons;
-use crate::dynamic::crud_action_context::CrudActionContext;
-use crate::dynamic::crud_fields::CrudFields;
-use crate::dynamic::crud_instance::CrudInstanceContext;
-use crate::dynamic::crud_instance_config::{FieldRendererRegistry, UpdateElements};
-use crate::dynamic::crud_table::NoDataAvailable;
+use crate::crud_action::{CrudEntityAction, States};
+use crate::crud_action_buttons::CrudActionButtons;
+use crate::crud_action_context::CrudActionContext;
+use crate::crud_fields::CrudFields;
+use crate::crud_instance::CrudInstanceContext;
+use crate::crud_instance_config::{FieldRendererRegistry, UpdateElements};
+use crate::crud_table::NoDataAvailable;
 use crate::ReactiveValue;
 use crudkit_condition::{merge_conditions, TryIntoAllEqualCondition};
 use crudkit_id::SerializableId;

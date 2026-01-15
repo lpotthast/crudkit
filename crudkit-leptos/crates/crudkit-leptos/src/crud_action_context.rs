@@ -1,5 +1,5 @@
-use crate::dynamic::crud_action::{EntityActionInput, ResourceActionInput};
-use crate::dynamic::crud_instance::CrudInstanceContext;
+use crate::crud_action::{EntityActionInput, ResourceActionInput};
+use crate::crud_instance::CrudInstanceContext;
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::AnyUpdateModel;
 use leptos::prelude::*;

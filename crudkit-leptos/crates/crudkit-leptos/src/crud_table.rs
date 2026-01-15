@@ -1,9 +1,9 @@
-use crate::dynamic::crud_action::CrudActionTrait;
-use crate::dynamic::crud_instance_config::{FieldRendererRegistry, Header};
-use crate::dynamic::crud_list_view::CrudListViewContext;
-use crate::dynamic::crud_table_body::CrudTableBody;
-use crate::dynamic::crud_table_footer::CrudTableFooter;
-use crate::dynamic::crud_table_header::CrudTableHeader;
+use crate::crud_action::CrudActionTrait;
+use crate::crud_instance_config::{FieldRendererRegistry, Header};
+use crate::crud_list_view::CrudListViewContext;
+use crate::crud_table_body::CrudTableBody;
+use crate::crud_table_footer::CrudTableFooter;
+use crate::crud_table_header::CrudTableHeader;
 use crudkit_core::Order;
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{AnyReadField, AnyReadModel};

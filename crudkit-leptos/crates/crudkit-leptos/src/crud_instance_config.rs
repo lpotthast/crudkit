@@ -1,6 +1,5 @@
-use crate::dynamic::crud_action::{CrudAction, CrudEntityAction};
-use crate::shared::crud_instance_config::{ItemsPerPage, PageNr};
-use crate::shared::fields::FieldRenderer;
+use crate::crud_action::{CrudAction, CrudEntityAction};
+use crate::fields::FieldRenderer;
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_condition::Condition;
 use crudkit_core::{Order, Saved};
@@ -15,6 +14,30 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct ItemsPerPage(pub u64);
+
+impl Default for ItemsPerPage {
+    fn default() -> Self {
+        Self(10)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct PageNr(pub u64); // TODO: NonZero type?
+
+impl Default for PageNr {
+    fn default() -> Self {
+        Self::first()
+    }
+}
+
+impl PageNr {
+    pub fn first() -> Self {
+        Self(1)
+    }
+}
 
 /// Definition of a column, shown in list view.
 #[derive(Debug, Clone, PartialEq, Eq)]

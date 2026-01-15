@@ -1,6 +1,6 @@
-use crate::dynamic::crud_action::{CrudEntityAction, EntityActionViewInput, States};
-use crate::dynamic::crud_action_context::CrudActionContext;
-use crate::dynamic::crud_instance::CrudInstanceContext;
+use crate::crud_action::{CrudEntityAction, EntityActionViewInput, States};
+use crate::crud_action_context::CrudActionContext;
+use crate::crud_instance::CrudInstanceContext;
 use crudkit_web::dynamic::AnyUpdateModel;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;

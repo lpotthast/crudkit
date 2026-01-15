@@ -1,8 +1,8 @@
 use crate::ReactiveValue;
-use crate::dynamic::crud_fields::CrudFields;
-use crate::dynamic::crud_instance::CrudInstanceContext;
-use crate::dynamic::crud_instance_config::{CreateElements, FieldRendererRegistry};
-use crate::shared::crud_leave_modal::CrudLeaveModal;
+use crate::crud_fields::CrudFields;
+use crate::crud_instance::CrudInstanceContext;
+use crate::crud_instance_config::{CreateElements, FieldRendererRegistry};
+use crate::crud_leave_modal::CrudLeaveModal;
 use crudkit_core::{Saved, Value};
 use crudkit_id::SerializableId;
 use crudkit_web::dynamic::prelude::*;

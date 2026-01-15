@@ -1,4 +1,4 @@
-use crate::shared::crud_instance_config::{ItemsPerPage, PageNr};
+use crate::crud_instance_config::{ItemsPerPage, PageNr};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;

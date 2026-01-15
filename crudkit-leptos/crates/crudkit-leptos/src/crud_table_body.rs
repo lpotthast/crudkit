@@ -1,9 +1,9 @@
-use crate::dynamic::crud_action::CrudActionTrait;
-use crate::dynamic::crud_field::CrudField;
-use crate::dynamic::crud_instance::CrudInstanceContext;
-use crate::dynamic::crud_instance_config::{FieldRendererRegistry, Header};
-use crate::dynamic::crud_list_view::CrudListViewContext;
-use crate::dynamic::crud_table::NoDataAvailable;
+use crate::crud_action::CrudActionTrait;
+use crate::crud_field::CrudField;
+use crate::crud_instance::CrudInstanceContext;
+use crate::crud_instance_config::{FieldRendererRegistry, Header};
+use crate::crud_list_view::CrudListViewContext;
+use crate::crud_table::NoDataAvailable;
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{AnyReadField, AnyReadModel, AnyReadOrUpdateModel};
 use leptonic::components::prelude::*;
