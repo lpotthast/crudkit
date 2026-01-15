@@ -49,6 +49,7 @@ pub mod prelude {
     pub use super::files::FileResource;
     pub use super::files::ListFileError;
     pub use super::files::ListFilesResponse;
+    pub use super::request_error::CrudOperationError;
     pub use super::request_error::RequestError;
     pub use super::reqwest_executor::ReqwestExecutor;
     pub use super::view::CrudSimpleView;

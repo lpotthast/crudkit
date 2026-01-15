@@ -1,11 +1,10 @@
 use serde::Deserialize;
-use snafu::{Backtrace, GenerateImplicitData};
 use std::{collections::HashMap, sync::Arc};
 use tracing::error;
 use utoipa::ToSchema;
 
 use crudkit_condition::Condition;
-use crudkit_core::{SaveResult, Saved};
+use crudkit_core::Saved;
 use crudkit_id::Id;
 use crudkit_validation::PartialSerializableValidations;
 use crudkit_websocket::{CkWsMessage, EntityUpdated};
@@ -13,7 +12,7 @@ use crudkit_websocket::{CkWsMessage, EntityUpdated};
 use crate::{
     auth::RequestContext,
     error::CrudError,
-    lifetime::{Abort, CrudLifetime, UpdateRequest},
+    lifetime::{CrudLifetime, UpdateRequest},
     prelude::*,
     validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
 };
@@ -31,18 +30,15 @@ pub async fn update_one<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
     body: UpdateOne<R::UpdateModel>,
-) -> Result<SaveResult<R::Model>, CrudError> {
+) -> Result<Saved<R::Model>, CrudError> {
     let model = context
         .repository
         .fetch_one(None, None, None, body.condition.as_ref())
         .await
         .map_err(|err| CrudError::Repository {
             reason: Arc::new(err),
-            backtrace: Backtrace::generate(),
         })?
-        .ok_or_else(|| CrudError::ReadOneFoundNone {
-            backtrace: Backtrace::generate(),
-        })?;
+        .ok_or(CrudError::NotFound)?;
 
     // Convert the model into an ActiveModel, allowing mutations.
     let mut active_model: R::ActiveModel = model.into();
@@ -55,9 +51,7 @@ pub async fn update_one<R: CrudResource>(
 
     let hook_data = R::HookData::default();
 
-    // Before update
-    // TODO: Do not ignore error! What to do? Should an error roll back a transaction. Should the error tell us that!?
-    let (abort, hook_data) = R::Lifetime::before_update(
+    let hook_data = R::Lifetime::before_update(
         &update_model,
         &mut active_model,
         &update_request,
@@ -66,11 +60,7 @@ pub async fn update_one<R: CrudResource>(
         hook_data,
     )
     .await
-    .expect("before_update to not error");
-
-    if let Abort::Yes { reason } = abort {
-        return Ok(SaveResult::Aborted { reason });
-    }
+    .map_err(CrudError::from)?;
 
     // Update the persisted active_model!
     active_model.update_with(update_model.clone()); // Clone required because we later reference the update_model in after_update. Could be optimized away when using NoopLifetimeHooks.
@@ -115,13 +105,11 @@ pub async fn update_one<R: CrudResource>(
             .await
             .map_err(|err| CrudError::SaveValidations {
                 reason: Arc::new(err),
-                backtrace: Backtrace::generate(),
             })?;
 
         // The existence of CRITICAL violations must block a save!
         if has_critical_violations {
-            // SAFETY: Calling unwrap is safe, as the if above assigns a Some variant and runs with the same condition as this code.
-            return Ok(SaveResult::CriticalValidationErrors);
+            return Err(CrudError::ValidationFailed);
         }
     } else {
         // We know that the entity is valid and therefor need to delete all previously stored violations for this entity.
@@ -134,7 +122,6 @@ pub async fn update_one<R: CrudResource>(
                     .await
                     .map_err(|err| CrudError::DeleteValidations {
                         reason: Arc::new(err),
-                        backtrace: Backtrace::generate(),
                     })?;
             }
             Err(err) => {
@@ -162,11 +149,8 @@ pub async fn update_one<R: CrudResource>(
         .await
         .map_err(|err| CrudError::Repository {
             reason: Arc::new(err),
-            backtrace: Backtrace::generate(),
         })?;
 
-    // After update
-    // TODO: Do not ignore error! What to do? Should an error roll back a transaction. Should the error tell us that!?
     let _hook_data = R::Lifetime::after_update(
         &update_model,
         &result,
@@ -176,7 +160,7 @@ pub async fn update_one<R: CrudResource>(
         hook_data,
     )
     .await
-    .expect("after_update to not error");
+    .map_err(CrudError::from)?;
 
     // Inform all participants that the entity was updated.
     // TODO: Exclude the current user!
@@ -199,10 +183,10 @@ pub async fn update_one<R: CrudResource>(
     .await
     .map_err(|err| CrudError::DbError(err.to_string()))?
     .ok_or_else(|| CrudError::ReadOneFoundNone)?;*/
-    Ok(SaveResult::Saved(Saved {
+    Ok(Saved {
         entity: result,
         with_validation_errors: has_violations,
-    }))
+    })
 }
 
 // TODO: update_one_and_read_back() which updates and returns a ReadModel instead of an UpdateModel.

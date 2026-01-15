@@ -8,51 +8,66 @@ use utoipa::ToSchema;
 
 use crate::error::CrudError;
 
+/// Error type for Axum HTTP responses.
+///
+/// Maps `CrudError` variants to appropriate HTTP status codes.
 #[derive(Debug, ToSchema)]
 pub enum AxumCrudError {
-    Repository { reason: String },
-    IntoCondition { reason: String },
-    ReadOneFoundNone { reason: String },
-    SaveValidations { reason: String },
-    DeleteValidations { reason: String },
+    /// Permission denied (HTTP 403 Forbidden)
+    Forbidden { reason: String },
+
+    /// Business logic/validation rejection (HTTP 422 Unprocessable Entity)
+    UnprocessableEntity { reason: String },
+
+    /// Critical validation errors prevent the operation (HTTP 422 Unprocessable Entity)
+    ValidationFailed { reason: String },
+
+    /// Entity not found (HTTP 404 Not Found)
+    NotFound { reason: String },
+
+    /// Invalid query parameters (HTTP 400 Bad Request)
+    BadRequest { reason: String },
+
+    /// Authentication required (HTTP 401 Unauthorized)
     Unauthorized { reason: String },
-    ReadAborted { reason: String },
+
+    /// Repository/database error (HTTP 500 Internal Server Error)
+    Repository { reason: String },
+
+    /// Lifecycle hook internal error (HTTP 500 Internal Server Error)
+    LifecycleError { reason: String },
+
+    /// Could not save validations (HTTP 500 Internal Server Error)
+    SaveValidations { reason: String },
+
+    /// Could not delete validations (HTTP 500 Internal Server Error)
+    DeleteValidations { reason: String },
 }
 
 impl From<CrudError> for AxumCrudError {
     fn from(value: CrudError) -> Self {
         match value {
-            err @ CrudError::Repository {
-                reason: _,
-                backtrace: _,
-            } => Self::Repository {
+            CrudError::Forbidden { reason } => Self::Forbidden { reason },
+            CrudError::UnprocessableEntity { reason } => Self::UnprocessableEntity { reason },
+            CrudError::ValidationFailed => Self::ValidationFailed {
+                reason: "Validation failed with critical errors.".to_string(),
+            },
+            CrudError::NotFound => Self::NotFound {
+                reason: "Entity not found.".to_string(),
+            },
+            err @ CrudError::IntoCondition { source: _ } => Self::BadRequest {
                 reason: err.to_string(),
             },
-            err @ CrudError::IntoCondition {
-                source: _,
-                backtrace: _,
-            } => Self::IntoCondition {
+            err @ CrudError::Repository { reason: _ } => Self::Repository {
                 reason: err.to_string(),
             },
-            err @ CrudError::ReadOneFoundNone { backtrace: _ } => Self::ReadOneFoundNone {
+            CrudError::LifecycleError { reason } => Self::LifecycleError { reason },
+            err @ CrudError::SaveValidations { reason: _ } => Self::SaveValidations {
                 reason: err.to_string(),
             },
-            err @ CrudError::SaveValidations {
-                reason: _,
-                backtrace: _,
-            } => Self::SaveValidations {
+            err @ CrudError::DeleteValidations { reason: _ } => Self::DeleteValidations {
                 reason: err.to_string(),
             },
-            err @ CrudError::DeleteValidations {
-                reason: _,
-                backtrace: _,
-            } => Self::DeleteValidations {
-                reason: err.to_string(),
-            },
-            CrudError::ReadAborted {
-                reason,
-                backtrace: _,
-            } => Self::ReadAborted { reason },
         }
     }
 }
@@ -61,13 +76,19 @@ impl From<CrudError> for AxumCrudError {
 impl IntoResponse for AxumCrudError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
+            // Client errors
+            Self::Forbidden { reason } => (StatusCode::FORBIDDEN, reason),
+            Self::UnprocessableEntity { reason } => (StatusCode::UNPROCESSABLE_ENTITY, reason),
+            Self::ValidationFailed { reason } => (StatusCode::UNPROCESSABLE_ENTITY, reason),
+            Self::NotFound { reason } => (StatusCode::NOT_FOUND, reason),
+            Self::BadRequest { reason } => (StatusCode::BAD_REQUEST, reason),
+            Self::Unauthorized { reason } => (StatusCode::UNAUTHORIZED, reason),
+
+            // Server errors
             Self::Repository { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
-            Self::IntoCondition { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
-            Self::ReadOneFoundNone { reason } => (StatusCode::NOT_FOUND, reason),
+            Self::LifecycleError { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
             Self::SaveValidations { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
             Self::DeleteValidations { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
-            Self::Unauthorized { reason } => (StatusCode::UNAUTHORIZED, reason),
-            Self::ReadAborted { reason } => (StatusCode::FORBIDDEN, reason),
         };
 
         let body = Json(json!({
@@ -131,7 +152,7 @@ macro_rules! impl_add_crud_routes {
                 use std::sync::Arc;
                 use crudkit_rs::prelude::*;
                 use crudkit_rs::auth::{AuthRequirement, CrudAuthPolicy, RequestContext};
-                use crudkit_core::{DeleteResult, SaveResult};
+                use crudkit_core::{Deleted, Saved};
                 use axum::{
                     http::StatusCode,
                     response::{IntoResponse, Response},
@@ -332,7 +353,8 @@ macro_rules! impl_add_crud_routes {
                     path = "/" $name "/crud/create-one",
                     request_body = CreateOne<CreateModel>,
                     //responses(
-                    //    (status = 200, description = "entity was created", body = SaveResult<Model>),
+                    //    (status = 200, description = "entity was created", body = Saved<Model>),
+                    //    (status = 422, description = "validation failed or business logic rejection", body = AxumCrudError),
                     //    (status = 500, description = "entity could not be created", body = AxumCrudError),
                     //),
                 )]
@@ -346,7 +368,7 @@ macro_rules! impl_add_crud_routes {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
-                    let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type>(request_context, context.clone(), body)
+                    let result: Result<Saved<Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -366,7 +388,8 @@ macro_rules! impl_add_crud_routes {
                     path = "/" $name "/crud/update-one",
                     request_body = UpdateOne<UpdateModel>,
                     //responses(
-                    //    (status = 200, description = "entity was updated", body = SaveResult<Model>),
+                    //    (status = 200, description = "entity was updated", body = Saved<Model>),
+                    //    (status = 422, description = "validation failed or business logic rejection", body = AxumCrudError),
                     //    (status = 500, description = "entity could not be updated", body = String),
                     //),
                 )]
@@ -380,7 +403,7 @@ macro_rules! impl_add_crud_routes {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
-                    let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type>(request_context, context.clone(), body)
+                    let result: Result<Saved<Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -400,7 +423,8 @@ macro_rules! impl_add_crud_routes {
                     path = "/" $name "/crud/delete-by-id",
                     request_body = DeleteById,
                     //responses(
-                    //    (status = 200, description = "entity was deleted", body = DeleteResult),
+                    //    (status = 200, description = "entity was deleted", body = Deleted),
+                    //    (status = 422, description = "validation failed or business logic rejection", body = AxumCrudError),
                     //    (status = 500, description = "entity could not be deleted", body = String),
                     //),
                 )]
@@ -414,7 +438,7 @@ macro_rules! impl_add_crud_routes {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
-                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type>(request_context, context.clone(), body)
+                    let result: Result<Deleted, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -434,7 +458,8 @@ macro_rules! impl_add_crud_routes {
                     path = "/" $name "/crud/delete-one",
                     request_body = DeleteOne<$resource_type>,
                     //responses(
-                    //    (status = 200, description = "entity was deleted", body = DeleteResult),
+                    //    (status = 200, description = "entity was deleted", body = Deleted),
+                    //    (status = 422, description = "validation failed or business logic rejection", body = AxumCrudError),
                     //    (status = 500, description = "entity could not be deleted", body = String),
                     //),
                 )]
@@ -448,7 +473,7 @@ macro_rules! impl_add_crud_routes {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
-                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type>(request_context, context.clone(), body)
+                    let result: Result<Deleted, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -468,7 +493,8 @@ macro_rules! impl_add_crud_routes {
                     path = "/" $name "/crud/delete-many",
                     request_body = DeleteMany,
                     //responses(
-                    //    (status = 200, description = "entities were deleted", body = DeleteResult),
+                    //    (status = 200, description = "entities were deleted", body = Deleted),
+                    //    (status = 422, description = "validation failed or business logic rejection", body = AxumCrudError),
                     //    (status = 500, description = "entities could not be deleted", body = String),
                     //),
                 )]
@@ -482,7 +508,7 @@ macro_rules! impl_add_crud_routes {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
-                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type>(request_context, context.clone(), body)
+                    let result: Result<Deleted, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -507,8 +533,7 @@ macro_rules! impl_add_crud_routes {
                         delete_many,
                     ),
                     components(
-                        schemas(crudkit_core::DeleteResult),
-                        schemas(crudkit_core::SaveResult<Model>),
+                        schemas(crudkit_core::Deleted),
                         schemas(crudkit_core::Saved<Model>),
                         schemas(crudkit_condition::Condition),
                         schemas(crudkit_condition::ConditionElement),

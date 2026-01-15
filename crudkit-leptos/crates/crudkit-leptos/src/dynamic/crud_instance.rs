@@ -9,10 +9,11 @@ use crate::dynamic::crud_list_view::CrudListView;
 use crate::dynamic::crud_read_view::CrudReadView;
 use crate::shared::crud_instance_config::{ItemsPerPage, PageNr};
 use crate::shared::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
-use crudkit_core::{DeleteResult, Order};
+use crudkit_core::{Deleted, Order};
 use crudkit_id::SerializableId;
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{AnyReadField, AnyReadOrUpdateModel};
+use crudkit_web::request_error::CrudOperationError;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
@@ -342,9 +343,9 @@ pub fn CrudInstance(
                             on_list_view=move || ctx.list()
                             on_create_view=move || ctx.create()
                             on_entity_created=move |_saved| {}
-                            on_entity_creation_aborted=move |_reason| {}
-                            on_entity_not_created_critical_errors=move || {}
-                            on_entity_creation_failed=move |_request_error| {}
+                            on_entity_creation_failed=move |_error: CrudOperationError| {
+                                // TODO: Handle the error: Display notification to the user.
+                            }
                             on_tab_selected=move |tab_id| {
                                 ctx.tab_selected(tab_id)
                             }
@@ -373,9 +374,10 @@ pub fn CrudInstance(
                             on_list_view=move || ctx.list()
                             on_create_view=move || ctx.create()
                             on_entity_updated=move |_saved| {}
-                            on_entity_update_aborted=move |_reason| {}
-                            on_entity_not_updated_critical_errors=move || {}
-                            on_entity_update_failed=move |_request_error| {}
+                            // TODO: Do we even need this callback? Deletion is handled inside this (CrudInstance) component using/inside of `delete_action`. We dont have an on_entity_delete_failed here. This seems somewhat inconsistent.
+                            on_entity_update_failed=move |_error: CrudOperationError| {
+                                // TODO: Handle the error: Display notification to the user.
+                            }
                             on_tab_selected=move |tab_id| {
                                 ctx.tab_selected(tab_id)
                             }
@@ -409,10 +411,11 @@ fn get_parent_id(parent: &CrudParentConfig, mgr: CrudInstanceMgrContext) -> Opti
     }
 }
 
-fn handle_delete_result(result: Result<DeleteResult, RequestError>) {
+fn handle_delete_result(result: Result<Deleted, RequestError>) {
     match result {
-        Ok(delete_result) => match delete_result {
-            DeleteResult::Deleted(num) => expect_context::<Toasts>().push(Toast {
+        Ok(deleted) => {
+            let num = deleted.entities_affected;
+            expect_context::<Toasts>().push(Toast {
                 id: Uuid::new_v4(),
                 created_at: OffsetDateTime::now_utc(),
                 variant: ToastVariant::Success,
@@ -427,34 +430,50 @@ fn handle_delete_result(result: Result<DeleteResult, RequestError>) {
                     )
                 }),
                 timeout: ToastTimeout::DefaultDelay,
-            }),
-
-            DeleteResult::Aborted { reason } => expect_context::<Toasts>().push(Toast {
-                id: Uuid::new_v4(),
-                created_at: OffsetDateTime::now_utc(),
-                variant: ToastVariant::Warn,
-                header: ViewFn::from(|| "Delete"),
-                body: ViewFn::from(move || format!("Löschvorgang abgebrochen. Grund: {reason}")),
-                timeout: ToastTimeout::DefaultDelay,
-            }),
-            DeleteResult::CriticalValidationErrors => expect_context::<Toasts>().push(Toast {
-                id: Uuid::new_v4(),
-                created_at: OffsetDateTime::now_utc(),
-                variant: ToastVariant::Error,
-                header: ViewFn::from(|| "Delete"),
-                body: ViewFn::from(move || format!("{delete_result:#?}")),
-                timeout: ToastTimeout::DefaultDelay,
-            }),
-        },
+            })
+        }
         Err(err) => {
-            expect_context::<Toasts>().push(Toast {
-                id: Uuid::new_v4(),
-                created_at: OffsetDateTime::now_utc(),
-                variant: ToastVariant::Error,
-                header: ViewFn::from(|| "Delete"),
-                body: ViewFn::from(move || format!("Konnte Eintrag nicht Löschen: {err:#?}")),
-                timeout: ToastTimeout::DefaultDelay,
-            });
+            let error = CrudOperationError::from(err);
+            match &error {
+                CrudOperationError::Forbidden { reason } => {
+                    let reason = reason.clone();
+                    expect_context::<Toasts>().push(Toast {
+                        id: Uuid::new_v4(),
+                        created_at: OffsetDateTime::now_utc(),
+                        variant: ToastVariant::Warn,
+                        header: ViewFn::from(|| "Löschen"),
+                        body: ViewFn::from(move || {
+                            format!("Löschvorgang abgebrochen. Grund: {reason}")
+                        }),
+                        timeout: ToastTimeout::DefaultDelay,
+                    });
+                }
+                CrudOperationError::UnprocessableEntity { reason } => {
+                    let reason = reason.clone();
+                    expect_context::<Toasts>().push(Toast {
+                        id: Uuid::new_v4(),
+                        created_at: OffsetDateTime::now_utc(),
+                        variant: ToastVariant::Warn,
+                        header: ViewFn::from(|| "Löschen"),
+                        body: ViewFn::from(move || {
+                            format!("Löschvorgang nicht möglich. Grund: {reason}")
+                        }),
+                        timeout: ToastTimeout::DefaultDelay,
+                    });
+                }
+                _ => {
+                    expect_context::<Toasts>().push(Toast {
+                        id: Uuid::new_v4(),
+                        created_at: OffsetDateTime::now_utc(),
+                        variant: ToastVariant::Error,
+                        header: ViewFn::from(|| "Löschen"),
+                        body: ViewFn::from(move || {
+                            format!("Konnte Eintrag nicht Löschen: {error}")
+                        }),
+                        timeout: ToastTimeout::DefaultDelay,
+                    });
+                }
+            }
         }
     }
 }

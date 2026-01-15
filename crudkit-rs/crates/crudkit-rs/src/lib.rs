@@ -78,10 +78,10 @@ pub mod prelude {
     pub use super::websocket::CrudWebsocketService;
 
     // Lifetime hooks and related types
-    pub use super::lifetime::Abort;
     pub use super::lifetime::CrudLifetime;
     pub use super::lifetime::DeleteOperation;
     pub use super::lifetime::DeleteRequest;
+    pub use super::lifetime::HookError;
     pub use super::lifetime::NoopError;
     pub use super::lifetime::NoopLifetimeHooks;
     pub use super::lifetime::ReadOperation;

@@ -8,11 +8,11 @@ use crate::dynamic::crud_instance_config::{FieldRendererRegistry, UpdateElements
 use crate::dynamic::crud_table::NoDataAvailable;
 use crate::shared::crud_leave_modal::CrudLeaveModal;
 use crudkit_condition::{TryIntoAllEqualCondition, merge_conditions};
-use crudkit_core::{SaveResult, Saved, Value};
+use crudkit_core::{Saved, Value};
 use crudkit_id::SerializableId;
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{AnyReadOrUpdateModel, AnyUpdateField, AnyUpdateModel};
-use crudkit_web::request_error::RequestError;
+use crudkit_web::request_error::{CrudOperationError, RequestError};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -44,10 +44,11 @@ pub fn CrudEditView(
     #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyUpdateField>>,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
+    /// Called when the entity is successfully updated.
     #[prop(into)] on_entity_updated: Callback<Saved<AnyUpdateModel>>,
-    #[prop(into)] on_entity_update_aborted: Callback<String>,
-    #[prop(into)] on_entity_not_updated_critical_errors: Callback<()>,
-    #[prop(into)] on_entity_update_failed: Callback<RequestError>,
+    /// Called when entity update fails for any reason (permission denied, validation errors, server error, etc.).
+    /// Use pattern matching on `CrudOperationError` to handle different failure types.
+    #[prop(into)] on_entity_update_failed: Callback<CrudOperationError>,
     #[prop(into)] on_tab_selected: Callback<TabId>,
 ) -> impl IntoView {
     let instance_ctx = expect_context::<CrudInstanceContext>();
@@ -205,31 +206,22 @@ pub fn CrudEditView(
     Effect::new(move |_prev| {
         if let Some((result, and_then)) = save_action_value.get() {
             match result {
-                Ok(save_result) => match save_result {
-                    SaveResult::Saved(saved) => {
-                        set_entity.set(Ok(saved.entity.clone()));
-                        on_entity_updated.run(saved);
-                        match and_then {
-                            Then::DoNothing => {}
-                            Then::OpenListView => force_leave.run(()),
-                            Then::OpenCreateView => on_create_view.run(()),
-                        }
+                Ok(saved) => {
+                    set_entity.set(Ok(saved.entity.clone()));
+                    on_entity_updated.run(saved);
+                    match and_then {
+                        Then::DoNothing => {}
+                        Then::OpenListView => force_leave.run(()),
+                        Then::OpenCreateView => on_create_view.run(()),
                     }
-                    SaveResult::Aborted { reason } => {
-                        on_entity_update_aborted.run(reason);
-                    }
-                    SaveResult::CriticalValidationErrors => {
-                        tracing::info!("Entity was not updated due to critical validation errors.");
-                        on_entity_not_updated_critical_errors.run(());
-                    }
-                },
+                }
                 Err(request_error) => {
                     set_entity.set(Err(NoDataAvailable::RequestFailed(request_error.clone())));
                     tracing::warn!(
-                        "Could not update entity due to RequestError: {}",
+                        "Could not update entity due to error: {}",
                         request_error.to_string()
                     );
-                    on_entity_update_failed.run(request_error);
+                    on_entity_update_failed.run(CrudOperationError::from(request_error));
                 }
             }
         }

@@ -3,10 +3,11 @@ use crate::dynamic::crud_fields::CrudFields;
 use crate::dynamic::crud_instance::CrudInstanceContext;
 use crate::dynamic::crud_instance_config::{CreateElements, FieldRendererRegistry};
 use crate::shared::crud_leave_modal::CrudLeaveModal;
-use crudkit_core::{SaveResult, Saved, Value};
+use crudkit_core::{Saved, Value};
 use crudkit_id::SerializableId;
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{AnyCreateField, AnyCreateModel, AnyUpdateModel};
+use crudkit_web::request_error::{CrudOperationError, RequestError};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -65,15 +66,12 @@ pub fn CrudCreateView(
     #[prop(into)] on_edit_view: Callback<SerializableId>, // UpdateModel id
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
-    // TODO: consolidate these into one "on_entity_creation_attempt" with type Result<CreateResult<T::UpdateModel>, SomeErrorType>?
+    /// Called when the entity is successfully created.
     #[prop(into)] on_entity_created: Callback<Saved<AnyUpdateModel>>,
-    #[prop(into)] on_entity_creation_aborted: Callback<String>,
-    #[prop(into)] on_entity_not_created_critical_errors: Callback<()>,
-    #[prop(into)] on_entity_creation_failed: Callback<RequestError>,
+    /// Called when entity creation fails for any reason (permission denied, validation errors, server error, etc.).
+    /// Use pattern matching on `CrudOperationError` to handle different failure types.
+    #[prop(into)] on_entity_creation_failed: Callback<CrudOperationError>,
     #[prop(into)] on_tab_selected: Callback<TabId>,
-    // /// Required because when creating the initial CreateModel, we have to set the "parent id" field of that model to the given id.
-    // /// TODO: Only a subset of the parent id might be required to for matching. Consider a CreateModel#initialize_with_parent_id(ParentId)...
-    // pub parent_id: Option<SerializableId>,
 ) -> impl IntoView {
     let ctx = expect_context::<CrudInstanceContext>();
 
@@ -146,30 +144,21 @@ pub fn CrudCreateView(
     Effect::new(move |_prev| {
         if let Some((result, and_then)) = save_action_value.get() {
             match result {
-                Ok(save_result) => match save_result {
-                    SaveResult::Saved(saved) => {
-                        let id = saved.entity.get_id();
-                        on_entity_created.run(saved);
-                        match and_then {
-                            Then::OpenEditView => on_edit_view.run(id),
-                            Then::OpenListView => on_list_view.run(()),
-                            Then::OpenCreateView => on_create_view.run(()),
-                        }
+                Ok(saved) => {
+                    let id = saved.entity.get_id();
+                    on_entity_created.run(saved);
+                    match and_then {
+                        Then::OpenEditView => on_edit_view.run(id),
+                        Then::OpenListView => on_list_view.run(()),
+                        Then::OpenCreateView => on_create_view.run(()),
                     }
-                    SaveResult::Aborted { reason } => {
-                        on_entity_creation_aborted.run(reason);
-                    }
-                    SaveResult::CriticalValidationErrors => {
-                        tracing::info!("Entity was not created due to critical validation errors.");
-                        on_entity_not_created_critical_errors.run(());
-                    }
-                },
+                }
                 Err(request_error) => {
                     tracing::warn!(
-                        "Could not create entity due to RequestError: {}",
+                        "Could not create entity due to error: {}",
                         request_error.to_string()
                     );
-                    on_entity_creation_failed.run(request_error);
+                    on_entity_creation_failed.run(CrudOperationError::from(request_error));
                 }
             }
         }

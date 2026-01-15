@@ -2,15 +2,88 @@ use crudkit_condition::Condition;
 use crudkit_core::Order;
 use indexmap::IndexMap;
 use snafu::Snafu;
-use utoipa::ToSchema;
+use std::fmt::Debug;
 
-use crate::{auth::RequestContext, resource::CrudResource};
+use crate::{auth::RequestContext, error::CrudError, resource::CrudResource};
 
-// TODO: Document why "graceful" aborting of some actions should be supported/allowed. Why cant we handle this through standard error systems?
-#[derive(Debug, ToSchema)]
-pub enum Abort {
-    Yes { reason: String },
-    No,
+// =============================================================================
+// Hook Error Type
+// =============================================================================
+
+/// Error type for lifecycle hooks.
+///
+/// Hooks return `Result<R::HookData, HookError<Self::Error>>` to signal success or failure.
+/// This replaces the previous `Abort` enum, providing clearer HTTP semantics.
+///
+/// # Variants
+///
+/// - [`HookError::Forbidden`] - Permission/authorization rejection (HTTP 403)
+/// - [`HookError::UnprocessableEntity`] - Business logic rejection (HTTP 422)
+/// - [`HookError::Internal`] - Technical/internal error (HTTP 500)
+///
+/// # Example
+///
+/// ```ignore
+/// async fn before_delete(
+///     model: &Article,
+///     delete_request: &DeleteRequest<Article>,
+///     context: &ArticleContext,
+///     request: RequestContext<KeycloakToken<Role>>,
+///     data: HookData,
+/// ) -> Result<HookData, HookError<MyError>> {
+///     // Permission check
+///     if let Some(auth) = &request.auth {
+///         if model.creator_id != auth.user_id && !auth.is_admin {
+///             return Err(HookError::Forbidden {
+///                 reason: "Only the creator or admin can delete".into()
+///             });
+///         }
+///     }
+///
+///     // Business rule check
+///     if model.has_active_orders() {
+///         return Err(HookError::UnprocessableEntity {
+///             reason: "Cannot delete article with active orders".into()
+///         });
+///     }
+///
+///     Ok(data)
+/// }
+/// ```
+#[derive(Debug, Clone)]
+pub enum HookError<E> {
+    /// Permission/authorization rejection.
+    ///
+    /// Use when: user lacks permission, ownership check fails, auth context invalid, etc...
+    ///
+    /// Mapped to HTTP status 403 Forbidden.
+    Forbidden { reason: String },
+
+    /// Business logic rejection.
+    ///
+    /// Use when: operation is semantically invalid due to business rules or data constraints.
+    ///
+    /// Mapped to HTTP status 422 Unprocessable Entity.
+    UnprocessableEntity { reason: String },
+
+    /// Internal/technical error.
+    ///
+    /// Use when: unexpected error occurred (database failed, external service error, etc.)
+    ///
+    /// Mapped to HTTP status 500 Internal Server Error.
+    Internal(E),
+}
+
+impl<E: std::error::Error> From<HookError<E>> for CrudError {
+    fn from(err: HookError<E>) -> Self {
+        match err {
+            HookError::Forbidden { reason } => CrudError::Forbidden { reason },
+            HookError::UnprocessableEntity { reason } => CrudError::UnprocessableEntity { reason },
+            HookError::Internal(e) => CrudError::LifecycleError {
+                reason: e.to_string(),
+            },
+        }
+    }
 }
 
 // =============================================================================
@@ -18,13 +91,15 @@ pub enum Abort {
 // =============================================================================
 
 /// Discriminant for read operation type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ToSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReadOperation {
-    /// Counting entities (read_count endpoint)
+    /// Counting entities (`read_count` endpoint).
     Count,
-    /// Reading a single entity (read_one endpoint)
+
+    /// Reading a single entity (`read_one` endpoint).
     One,
-    /// Reading multiple entities (read_many endpoint)
+
+    /// Reading multiple entities (`read_many` endpoint).
     Many,
 }
 
@@ -42,7 +117,7 @@ pub enum ReadOperation {
 ///     _context: &ArticleContext,
 ///     request: RequestContext<KeycloakToken<Role>>,
 ///     data: HookData,
-/// ) -> Result<(Abort, HookData), Self::Error> {
+/// ) -> Result<HookData, HookError<MyError>> {
 ///     // Add tenant filter to all reads
 ///     if let Some(auth) = &request.auth {
 ///         let tenant_filter = Condition::all().eq("tenant_id", auth.tenant_id.clone());
@@ -51,7 +126,7 @@ pub enum ReadOperation {
 ///             None => Some(tenant_filter),
 ///         };
 ///     }
-///     Ok((Abort::No, data))
+///     Ok(data)
 /// }
 /// ```
 #[derive(Debug, Clone)]
@@ -91,7 +166,7 @@ pub enum ReadResult<R: CrudResource> {
 // =============================================================================
 
 /// Discriminant for delete operation type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ToSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeleteOperation {
     /// Deleting by explicit ID (delete_by_id endpoint)
     ById,
@@ -135,8 +210,17 @@ pub struct UpdateRequest {
 /// Lifecycle hooks for CRUD operations.
 ///
 /// Implement this trait to add custom logic before and after create, read, update, and delete
-/// operations.
-/// These hooks are called within the transaction, so any failure will roll back the operation.
+/// operations. These hooks are called within the transaction, so any failure will roll back
+/// the operation.
+///
+/// # Error Handling
+///
+/// Hooks return `Result<R::HookData, HookError<Self::Error>>`:
+///
+/// - Return `Ok(data)` to allow the operation to proceed.
+/// - Return `Err(HookError::Forbidden { reason })` for permission denials (HTTP 403).
+/// - Return `Err(HookError::UnprocessableEntity { reason })` for business rule violations (HTTP 422).
+/// - Return `Err(HookError::Internal(error))` for technical errors (HTTP 500).
 ///
 /// # Authentication in Hooks
 ///
@@ -147,28 +231,29 @@ pub struct UpdateRequest {
 /// - If the policy allows public access (`AuthRequirement::None`), `request.auth` may be `None`.
 /// - If the policy requires authentication, `request.auth` will be `Some(...)`.
 ///
-/// For ownership checks or other auth-dependent logic, check if auth is present or use
-/// `expect("present")`:
+/// # Example
 ///
 /// ```ignore
 /// async fn before_delete(
 ///     model: &Article,
+///     delete_request: &DeleteRequest<Article>,
 ///     context: &ArticleContext,
 ///     request: RequestContext<KeycloakToken<Role>>,
 ///     data: HookData,
-/// ) -> Result<(Abort, HookData), Self::Error> {
+/// ) -> Result<HookData, HookError<MyError>> {
 ///     if let Some(auth) = &request.auth {
 ///         if model.creator_subject != auth.subject {
-///             return Ok((Abort::Yes { reason: "Only creator can delete".into() }, data));
+///             return Err(HookError::Forbidden {
+///                 reason: "Only creator can delete".into()
+///             });
 ///         }
 ///     }
-///     Ok((Abort::No, data))
+///     Ok(data)
 /// }
 /// ```
 pub trait CrudLifetime<R: CrudResource> {
-    type Error: std::error::Error; // TODO: Only when the "snafu" feature is activated. Otherwise use core or thiserror.
-
-    // TODO: hook_data as &mut, do not force return of hook data
+    /// User's custom error type, declaring internal errors.
+    type Error: std::error::Error + Send + Sync + 'static;
 
     // =========================================================================
     // Read Hooks
@@ -179,7 +264,7 @@ pub trait CrudLifetime<R: CrudResource> {
     /// # Use Cases
     /// - **Row-level security**: Modify `read_request.condition` to add tenant/user filters
     /// - **Audit logging**: Log read attempts with request context
-    /// - **Access control**: Abort reads based on auth context
+    /// - **Access control**: Return error to deny reads based on auth context
     ///
     /// # Mutation Pattern
     /// The `read_request` is passed by mutable reference, allowing modification of:
@@ -191,7 +276,7 @@ pub trait CrudLifetime<R: CrudResource> {
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<(Abort, R::HookData), Self::Error>;
+    ) -> Result<R::HookData, HookError<Self::Error>>;
 
     /// Called after any read operation completes successfully.
     ///
@@ -209,32 +294,39 @@ pub trait CrudLifetime<R: CrudResource> {
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, Self::Error>;
+    ) -> Result<R::HookData, HookError<Self::Error>>;
 
     // =========================================================================
     // Create Hooks
     // =========================================================================
 
+    /// Called before creating an entity.
+    ///
+    /// The `active_model` can be modified to change fields before insertion.
     async fn before_create(
         create_model: &R::CreateModel,
         active_model: &mut R::ActiveModel,
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<(Abort, R::HookData), Self::Error>;
+    ) -> Result<R::HookData, HookError<Self::Error>>;
 
+    /// Called after an entity was created successfully.
     async fn after_create(
         create_model: &R::CreateModel,
         model: &R::Model,
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, Self::Error>;
+    ) -> Result<R::HookData, HookError<Self::Error>>;
 
     // =========================================================================
     // Update Hooks
     // =========================================================================
 
+    /// Called before updating an entity.
+    ///
+    /// The `active_model` can be modified to change fields before the update occurs.
     async fn before_update(
         update_model: &R::UpdateModel,
         active_model: &mut R::ActiveModel,
@@ -242,8 +334,9 @@ pub trait CrudLifetime<R: CrudResource> {
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<(Abort, R::HookData), Self::Error>;
+    ) -> Result<R::HookData, HookError<Self::Error>>;
 
+    /// Called after an entity was updated successfully.
     async fn after_update(
         update_model: &R::UpdateModel,
         model: &R::Model,
@@ -251,32 +344,40 @@ pub trait CrudLifetime<R: CrudResource> {
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, Self::Error>;
+    ) -> Result<R::HookData, HookError<Self::Error>>;
 
     // =========================================================================
     // Delete Hooks
     // =========================================================================
 
+    /// Called before deleting an entity.
     async fn before_delete(
         model: &R::Model,
         delete_request: &DeleteRequest<R>,
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<(Abort, R::HookData), Self::Error>;
+    ) -> Result<R::HookData, HookError<Self::Error>>;
 
+    /// Called after an entity was deleted successfully.
     async fn after_delete(
         model: &R::Model,
         delete_request: &DeleteRequest<R>,
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, Self::Error>;
+    ) -> Result<R::HookData, HookError<Self::Error>>;
 }
 
+/// Default no-op implementation of lifecycle hooks.
+///
+/// All hooks simply return `Ok(data)`, allowing the operation to proceed.
 #[derive(Debug)]
 pub struct NoopLifetimeHooks {}
 
+/// Error type for [`NoopLifetimeHooks`].
+///
+/// This type has no variants because noop hooks never fail.
 #[derive(Debug, Snafu)]
 pub enum NoopError {}
 
@@ -292,8 +393,8 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<(Abort, R::HookData), Self::Error> {
-        Ok((Abort::No, data))
+    ) -> Result<R::HookData, HookError<Self::Error>> {
+        Ok(data)
     }
 
     async fn after_read(
@@ -302,7 +403,7 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, Self::Error> {
+    ) -> Result<R::HookData, HookError<Self::Error>> {
         Ok(data)
     }
 
@@ -316,8 +417,8 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<(Abort, R::HookData), Self::Error> {
-        Ok((Abort::No, data))
+    ) -> Result<R::HookData, HookError<Self::Error>> {
+        Ok(data)
     }
 
     async fn after_create(
@@ -326,7 +427,7 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, Self::Error> {
+    ) -> Result<R::HookData, HookError<Self::Error>> {
         Ok(data)
     }
 
@@ -341,8 +442,8 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<(Abort, R::HookData), Self::Error> {
-        Ok((Abort::No, data))
+    ) -> Result<R::HookData, HookError<Self::Error>> {
+        Ok(data)
     }
 
     async fn after_update(
@@ -352,7 +453,7 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, Self::Error> {
+    ) -> Result<R::HookData, HookError<Self::Error>> {
         Ok(data)
     }
 
@@ -366,8 +467,8 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<(Abort, R::HookData), Self::Error> {
-        Ok((Abort::No, data))
+    ) -> Result<R::HookData, HookError<Self::Error>> {
+        Ok(data)
     }
 
     async fn after_delete(
@@ -376,7 +477,7 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, Self::Error> {
+    ) -> Result<R::HookData, HookError<Self::Error>> {
         Ok(data)
     }
 }

@@ -455,22 +455,25 @@ impl Value {
     }
 }
 
+/// Successful save result.
+///
+/// Returned when an entity is successfully created or updated.
 #[derive(Debug, Clone, ToSchema, Serialize, Deserialize)]
 pub struct Saved<T> {
+    /// The saved entity.
     pub entity: T,
+
+    /// Whether non-critical validation warnings exist.
+    // TODO: Should this really be part of this type? Should we provide the violations also synchronously to the user who initiated the operation that lead to the save result.
     pub with_validation_errors: bool,
 }
 
+/// Successful delete result.
+///
+/// Returned when entities are successfully deleted.
 #[derive(Debug, Clone, ToSchema, Serialize, Deserialize)]
-pub enum SaveResult<T> {
-    Saved(Saved<T>),
-    Aborted { reason: String },
-    CriticalValidationErrors,
+pub struct Deleted {
+    /// Number of entities that were deleted.
+    pub entities_affected: u64,
 }
 
-#[derive(Debug, Clone, ToSchema, Serialize, Deserialize)]
-pub enum DeleteResult {
-    Deleted(u64),
-    Aborted { reason: String },
-    CriticalValidationErrors,
-}

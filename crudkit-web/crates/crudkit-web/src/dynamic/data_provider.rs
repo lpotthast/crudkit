@@ -2,7 +2,7 @@ use crate::dynamic::requests::request_post;
 use crate::dynamic::{AnyCreateModel, AnyUpdateModel, SerializableReadField};
 use crate::prelude::{RequestError, ReqwestExecutor};
 use crudkit_condition::{Condition, merge_conditions};
-use crudkit_core::{DeleteResult, Order};
+use crudkit_core::{Deleted, Order};
 use crudkit_id::SerializableId;
 use indexmap::IndexMap;
 use serde::Serialize;
@@ -170,7 +170,7 @@ impl CrudRestDataProvider {
     pub async fn delete_by_id(
         &self,
         delete_by_id: DeleteById,
-    ) -> Result<DeleteResult, RequestError> {
+    ) -> Result<Deleted, RequestError> {
         let json = request_post(
             format!(
                 "{}/{}/crud/delete-by-id",
@@ -180,7 +180,7 @@ impl CrudRestDataProvider {
             delete_by_id,
         )
         .await?;
-        let result: DeleteResult = serde_json::from_value(json).unwrap();
+        let result: Deleted = serde_json::from_value(json).unwrap();
         Ok(result)
     }
 }

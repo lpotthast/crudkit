@@ -3,7 +3,7 @@ use crate::shared::crud_instance_config::{ItemsPerPage, PageNr};
 use crate::shared::fields::FieldRenderer;
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_condition::Condition;
-use crudkit_core::{Order, SaveResult, Saved};
+use crudkit_core::{Order, Saved};
 use crudkit_web::dynamic::prelude::*;
 use crudkit_web::dynamic::{
     AnyCreateField, AnyCreateModel, AnyReadField, AnyReadModel, AnyUpdateField, AnyUpdateModel,
@@ -193,9 +193,9 @@ pub struct ModelHandler {
     pub deserialize_read_one_response:
         Callback<serde_json::Value, Result<Option<AnyReadModel>, serde_json::Error>>,
     pub deserialize_create_one_response:
-        Callback<serde_json::Value, Result<SaveResult<AnyUpdateModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<Saved<AnyUpdateModel>, serde_json::Error>>,
     pub deserialize_update_one_response:
-        Callback<serde_json::Value, Result<SaveResult<AnyUpdateModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<Saved<AnyUpdateModel>, serde_json::Error>>,
 
     pub read_model_to_update_model: Callback<AnyReadModel, AnyUpdateModel>,
     pub create_model_to_signal_map:
@@ -218,16 +218,11 @@ impl ModelHandler {
         <Update as CrudDataTrait>::Field: UpdateField,
     {
         let deserialize_update_model = Callback::new(move |json| {
-            let result: SaveResult<Update> = serde_json::from_value(json)?;
-            let result: SaveResult<AnyUpdateModel> = match result {
-                SaveResult::Saved(saved) => SaveResult::Saved(Saved {
-                    entity: AnyUpdateModel::from(saved.entity),
-                    with_validation_errors: saved.with_validation_errors,
-                }),
-                SaveResult::Aborted { reason } => SaveResult::Aborted { reason },
-                SaveResult::CriticalValidationErrors => SaveResult::CriticalValidationErrors,
-            };
-            Ok(result)
+            let saved: Saved<Update> = serde_json::from_value(json)?;
+            Ok(Saved {
+                entity: AnyUpdateModel::from(saved.entity),
+                with_validation_errors: saved.with_validation_errors,
+            })
         });
 
         ModelHandler {

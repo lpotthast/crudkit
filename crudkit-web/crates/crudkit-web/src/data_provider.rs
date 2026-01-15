@@ -3,7 +3,7 @@ use crate::request_error::RequestError;
 use crate::reqwest_executor::ReqwestExecutor;
 use crate::{CrudDataTrait, CrudMainTrait};
 use crudkit_condition::{Condition, merge_conditions};
-use crudkit_core::{DeleteResult, Order, SaveResult};
+use crudkit_core::{Deleted, Order, Saved};
 use crudkit_id::SerializableId;
 use indexmap::IndexMap;
 use serde::{Serialize, de::DeserializeOwned};
@@ -133,7 +133,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
     pub async fn create_one_from_create_model(
         &self,
         create_one: CreateOne<T::CreateModel>,
-    ) -> Result<SaveResult<T::UpdateModel>, RequestError>
+    ) -> Result<Saved<T::UpdateModel>, RequestError>
     where
         <T as CrudMainTrait>::CreateModel: 'static,
     {
@@ -152,7 +152,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
     pub async fn create_one_from_update_model(
         &self,
         create_one: CreateOne<T::UpdateModel>,
-    ) -> Result<SaveResult<T::UpdateModel>, RequestError>
+    ) -> Result<Saved<T::UpdateModel>, RequestError>
     where
         <T as CrudMainTrait>::UpdateModel: 'static,
     {
@@ -170,7 +170,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
     pub async fn update_one(
         &self,
         mut update_one: UpdateOne<T::UpdateModel>,
-    ) -> Result<SaveResult<T::UpdateModel>, RequestError>
+    ) -> Result<Saved<T::UpdateModel>, RequestError>
     where
         <T as CrudMainTrait>::UpdateModel: 'static,
     {
@@ -189,7 +189,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
     pub async fn delete_by_id(
         &self,
         delete_by_id: DeleteById,
-    ) -> Result<DeleteResult, RequestError> {
+    ) -> Result<Deleted, RequestError> {
         request_post(
             format!(
                 "{}/{}/crud/delete-by-id",

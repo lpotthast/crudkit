@@ -1,11 +1,10 @@
 use indexmap::IndexMap;
 use serde::Deserialize;
-use snafu::{Backtrace, GenerateImplicitData};
 use std::{collections::HashMap, sync::Arc};
 use utoipa::ToSchema;
 
 use crudkit_condition::{Condition, TryIntoAllEqualCondition};
-use crudkit_core::{DeleteResult, Order};
+use crudkit_core::{Deleted, Order};
 use crudkit_id::{Id, SerializableId};
 use crudkit_validation::PartialSerializableValidations;
 use crudkit_websocket::{CkWsMessage, EntityDeleted};
@@ -13,7 +12,7 @@ use crudkit_websocket::{CkWsMessage, EntityDeleted};
 use crate::{
     auth::RequestContext,
     error::CrudError,
-    lifetime::{Abort, CrudLifetime, DeleteOperation, DeleteRequest},
+    lifetime::{CrudLifetime, DeleteOperation, DeleteRequest},
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
     GetIdFromModel,
@@ -43,17 +42,14 @@ pub async fn delete_by_id<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
     body: DeleteById,
-) -> Result<DeleteResult, CrudError> {
+) -> Result<Deleted, CrudError> {
     let id_condition = body
         .id
         .0
         .iter()
         .map(|(name, value)| (name.clone(), value.clone()))
         .try_into_all_equal_condition()
-        .map_err(|err| CrudError::IntoCondition {
-            source: err,
-            backtrace: Backtrace::generate(),
-        })?;
+        .map_err(|err| CrudError::IntoCondition { source: err })?;
 
     // TODO: This initially fetched Model, not ReadViewModel...
     let model = context
@@ -62,11 +58,8 @@ pub async fn delete_by_id<R: CrudResource>(
         .await
         .map_err(|err| CrudError::Repository {
             reason: Arc::new(err),
-            backtrace: Backtrace::generate(),
         })?
-        .ok_or_else(|| CrudError::ReadOneFoundNone {
-            backtrace: Backtrace::generate(),
-        })?;
+        .ok_or(CrudError::NotFound)?;
 
     let delete_request = DeleteRequest {
         operation: DeleteOperation::ById,
@@ -75,9 +68,9 @@ pub async fn delete_by_id<R: CrudResource>(
         condition: Some(id_condition),
     };
 
-    // TODO: Do not ignore error! What to do? Should an error roll back a transaction. Should the error tell us that!?
     let hook_data = R::HookData::default();
-    let (abort, hook_data) = R::Lifetime::before_delete(
+
+    let hook_data = R::Lifetime::before_delete(
         &model,
         &delete_request,
         &context.res_context,
@@ -85,11 +78,7 @@ pub async fn delete_by_id<R: CrudResource>(
         hook_data,
     )
     .await
-    .expect("before_delete to not error");
-
-    if let Abort::Yes { reason } = abort {
-        return Ok(DeleteResult::Aborted { reason });
-    }
+    .map_err(CrudError::from)?;
 
     let entity_id = model.get_id();
     //.expect("Stored entity without an ID should be impossible!");
@@ -121,7 +110,7 @@ pub async fn delete_by_id<R: CrudResource>(
             ));
 
         // NOTE: Validations done before a deletion are only there to prevent it if necessary. Nothing must be persisted.
-        return Ok(DeleteResult::CriticalValidationErrors);
+        return Err(CrudError::ValidationFailed);
     }
 
     // Delete the entity in the database.
@@ -134,10 +123,8 @@ pub async fn delete_by_id<R: CrudResource>(
             .await
             .map_err(|err| CrudError::Repository {
                 reason: Arc::new(err),
-                backtrace: Backtrace::generate(),
             })?;
 
-    // TODO: Do not ignore error! What to do? Should an error roll back a transaction. Should the error tell us that!?
     let _hook_data = R::Lifetime::after_delete(
         &deleted_model,
         &delete_request,
@@ -145,13 +132,14 @@ pub async fn delete_by_id<R: CrudResource>(
         request,
         hook_data,
     )
-    .await;
+    .await
+    .map_err(CrudError::from)?;
 
     // Deleting the entity could have introduced new validation errors in other parts ot the system.
     // TODO: let validation run again...
 
     // All previous validations regarding this entity must be deleted!
-    context
+    let _ = context
         .validation_result_repository
         .delete_all_for(&entity_id) // String::from(R::TYPE.into()),
         .await;
@@ -165,7 +153,9 @@ pub async fn delete_by_id<R: CrudResource>(
             entity_id: serializable_id,
         }));
 
-    Ok(DeleteResult::Deleted(delete_result.entities_affected))
+    Ok(Deleted {
+        entities_affected: delete_result.entities_affected,
+    })
 }
 
 #[tracing::instrument(level = "info", skip(context, request))]
@@ -173,7 +163,7 @@ pub async fn delete_one<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
     body: DeleteOne<R>,
-) -> Result<DeleteResult, CrudError> {
+) -> Result<Deleted, CrudError> {
     let model = context
         .repository
         .fetch_one(
@@ -185,11 +175,8 @@ pub async fn delete_one<R: CrudResource>(
         .await
         .map_err(|err| CrudError::Repository {
             reason: Arc::new(err),
-            backtrace: Backtrace::generate(),
         })?
-        .ok_or_else(|| CrudError::ReadOneFoundNone {
-            backtrace: Backtrace::generate(),
-        })?;
+        .ok_or(CrudError::NotFound)?;
 
     let delete_request = DeleteRequest {
         operation: DeleteOperation::One,
@@ -199,8 +186,8 @@ pub async fn delete_one<R: CrudResource>(
     };
 
     let hook_data = R::HookData::default();
-    // TODO: Do not ignore error! What to do? Should an error roll back a transaction. Should the error tell us that!?
-    let (abort, hook_data) = R::Lifetime::before_delete(
+
+    let hook_data = R::Lifetime::before_delete(
         &model,
         &delete_request,
         &context.res_context,
@@ -208,11 +195,7 @@ pub async fn delete_one<R: CrudResource>(
         hook_data,
     )
     .await
-    .expect("before_delete to not error");
-
-    if let Abort::Yes { reason } = abort {
-        return Ok(DeleteResult::Aborted { reason });
-    }
+    .map_err(CrudError::from)?;
 
     let entity_id = model.get_id();
     //.expect("Stored entity without an ID should be impossible!");
@@ -244,7 +227,7 @@ pub async fn delete_one<R: CrudResource>(
             ));
 
         // NOTE: Validations done before a deletion are only there to prevent it if necessary. Nothing must be persisted.
-        return Ok(DeleteResult::CriticalValidationErrors);
+        return Err(CrudError::ValidationFailed);
     }
 
     // Delete the entity in the database.
@@ -257,10 +240,8 @@ pub async fn delete_one<R: CrudResource>(
             .await
             .map_err(|err| CrudError::Repository {
                 reason: Arc::new(err),
-                backtrace: Backtrace::generate(),
             })?;
 
-    // TODO: Do not ignore error! What to do? Should an error roll back a transaction. Should the error tell us that!?
     let _hook_data = R::Lifetime::after_delete(
         &deleted_model,
         &delete_request,
@@ -268,10 +249,12 @@ pub async fn delete_one<R: CrudResource>(
         request,
         hook_data,
     )
-    .await;
+    .await
+    .map_err(CrudError::from)?;
 
     // All previous validations regarding this entity must be deleted!
-    context
+    // TODO: We should not ignore the error here completely!
+    let _ = context
         .validation_result_repository
         .delete_all_for(&entity_id) // String::from(R::TYPE.into()),
         .await;
@@ -285,7 +268,9 @@ pub async fn delete_one<R: CrudResource>(
             entity_id: serializable_id,
         }));
 
-    Ok(DeleteResult::Deleted(delete_result.entities_affected))
+    Ok(Deleted {
+        entities_affected: delete_result.entities_affected,
+    })
 }
 
 // TODO: IMPLEMENT. Match implementations above. Extract logic, reducing duplication if possible.
@@ -293,7 +278,7 @@ pub async fn delete_many<R: CrudResource>(
     _request: RequestContext<R::Auth>,
     _context: Arc<CrudContext<R>>,
     _body: DeleteMany,
-) -> Result<DeleteResult, CrudError> {
+) -> Result<Deleted, CrudError> {
     todo!();
     // TODO: Add missing validation logic to this function.
     // let delete_many = build_delete_many_query::<R::Entity>(&body.condition)?;
@@ -304,5 +289,5 @@ pub async fn delete_many<R: CrudResource>(
     //         reason: err.to_string(),
     //         backtrace: Backtrace::generate(),
     //     })?;
-    // Ok(DeleteResult::Deleted(delete_result.rows_affected))
+    // Ok(Deleted { entities_affected: delete_result.rows_affected })
 }
