@@ -175,20 +175,57 @@ pub enum ConditionElement {
     Condition(Box<Condition>),
 }
 
+/// A query condition combining multiple elements with AND (`All`) or OR (`Any`) logic.
+///
+/// # JSON Format
+///
+/// Uses externally tagged serialization for unambiguous deserialization:
+/// - `{"All": [...]}`  - All elements must match (AND)
+/// - `{"Any": [...]}`  - Any element must match (OR)
+///
+/// # Example
+///
+/// ```json
+/// {
+///   "Any": [
+///     {"All": [{"column_name": "id", "operator": "=", "value": {"I64": 1}}]},
+///     {"All": [{"column_name": "id", "operator": "=", "value": {"I64": 2}}]}
+///   ]
+/// }
+/// ```
 #[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
-#[serde(untagged)]
 pub enum Condition {
+    /// All elements must match (logical AND).
     All(Vec<ConditionElement>),
+
+    /// Any element must match (logical OR).
     Any(Vec<ConditionElement>),
 }
 
 impl Condition {
+    /// Creates an empty `All` condition.
+    ///
+    /// An empty `All` condition matches everything (vacuous truth).
     pub fn all() -> Self {
         Self::All(Vec::new())
     }
 
+    /// Creates an empty `Any` condition.
+    ///
+    /// An empty `Any` condition matches nothing (no element can satisfy it).
     pub fn any() -> Self {
         Self::Any(Vec::new())
+    }
+
+    /// Creates a condition that matches nothing.
+    ///
+    /// This is a semantic alias for [`Self::any()`] - an empty OR condition.
+    ///
+    /// Useful when building conditions dynamically and you need a neutral starting
+    /// point that won't match any entities (e.g., when no entities are selected
+    /// for a bulk operation).
+    pub fn none() -> Self {
+        Self::any()
     }
 
     pub fn push_elements(&mut self, mut elements: Vec<ConditionElement>) {

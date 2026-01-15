@@ -24,6 +24,11 @@ pub struct CrudListViewContext {
 }
 
 impl CrudListViewContext {
+    pub fn clear_selection(&self) {
+        self.set_selected
+            .update(|selected| *selected = Arc::new(Vec::new()));
+    }
+
     pub fn toggle_select_all(&self) {
         if let Ok(data) = self.data.get_untracked() {
             let selected = self.selected.get_untracked();
@@ -33,8 +38,7 @@ impl CrudListViewContext {
                     .update(|selected| *selected = data.clone());
             } else {
                 // Deselect all
-                self.set_selected
-                    .update(|selected| *selected = Arc::new(Vec::new()));
+                self.clear_selection();
             }
         } else {
             tracing::warn!("Tried to toggle_select_all when no data was present.");
@@ -156,7 +160,7 @@ pub fn CrudListView(
 
     let (selected, set_selected) = signal(Arc::new(Vec::<AnyReadModel>::new()));
 
-    provide_context(CrudListViewContext {
+    let list_view_context = CrudListViewContext {
         data: page,
         has_data: Signal::derive(move || {
             let data = page.read();
@@ -171,16 +175,35 @@ pub fn CrudListView(
                 && selected.len() == data.as_ref().unwrap().len()
                 && data.as_ref().unwrap().len() > 0
         }),
+    };
+    provide_context(list_view_context);
+
+    // Clear the selection when the data is reloaded (e.g., after mass deletion).
+    Effect::new(move || {
+        let _ = instance_ctx.reload.get();
+        list_view_context.clear_selection();
     });
 
     let multiselect_info = move || {
         selected.with(|selected| match selected.len() {
             0 => None,
-            num_selected => Some(view! {
-                <div class="multiselect-actions">
-                    <div>{num_selected} " selected"</div>
-                </div>
-            }),
+            num_selected => {
+                let selected_clone = selected.clone();
+                Some(view! {
+                    <div class="multiselect-actions">
+                        <div>{num_selected} " ausgewählt"</div>
+                        <Button
+                            color=ButtonColor::Danger
+                            on_press=move |_| {
+                                instance_ctx.request_mass_deletion(selected_clone.clone())
+                            }
+                        >
+                            <Icon icon=icondata::BsTrash/>
+                            "Auswahl löschen"
+                        </Button>
+                    </div>
+                })
+            }
         })
     };
 

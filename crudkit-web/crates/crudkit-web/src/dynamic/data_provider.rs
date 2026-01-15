@@ -2,7 +2,7 @@ use crate::dynamic::requests::request_post;
 use crate::dynamic::{AnyCreateModel, AnyUpdateModel, SerializableReadField};
 use crate::prelude::{RequestError, ReqwestExecutor};
 use crudkit_condition::{Condition, merge_conditions};
-use crudkit_core::{Deleted, Order};
+use crudkit_core::{Deleted, DeletedMany, Order};
 use crudkit_id::SerializableId;
 use indexmap::IndexMap;
 use serde::Serialize;
@@ -45,6 +45,11 @@ pub struct UpdateOne {
 #[derive(Debug, Serialize)]
 pub struct DeleteById {
     pub id: SerializableId,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DeleteMany {
+    pub condition: Option<Condition>,
 }
 
 #[derive(Debug, Clone)]
@@ -181,6 +186,26 @@ impl CrudRestDataProvider {
         )
         .await?;
         let result: Deleted = serde_json::from_value(json).unwrap();
+        Ok(result)
+    }
+
+    pub async fn delete_many(
+        &self,
+        mut delete_many: DeleteMany,
+    ) -> Result<DeletedMany, RequestError> {
+        delete_many.condition =
+            merge_conditions(self.base_condition.clone(), delete_many.condition);
+        let json = request_post(
+            format!(
+                "{}/{}/crud/delete-many",
+                self.api_base_url, self.resource_name
+            ),
+            self.executor.as_ref(),
+            delete_many,
+        )
+        .await?;
+        let result: DeletedMany = serde_json::from_value(json)
+            .map_err(|e| RequestError::Deserialize(e.to_string()))?;
         Ok(result)
     }
 }

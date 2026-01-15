@@ -152,7 +152,7 @@ macro_rules! impl_add_crud_routes {
                 use std::sync::Arc;
                 use crudkit_rs::prelude::*;
                 use crudkit_rs::auth::{AuthRequirement, CrudAuthPolicy, RequestContext};
-                use crudkit_core::{Deleted, Saved};
+                use crudkit_core::{DeletedMany, Deleted, Saved};
                 use axum::{
                     http::StatusCode,
                     response::{IntoResponse, Response},
@@ -488,12 +488,14 @@ macro_rules! impl_add_crud_routes {
                 /// Delete many entities using a standard filter query.
                 ///
                 /// Delete many entities based on the given [crate::delete::DeleteMany] body.
+                /// Returns detailed results including which entities were deleted successfully
+                /// and which failed for various reasons.
                 #[utoipa::path(
                     post,
                     path = "/" $name "/crud/delete-many",
                     request_body = DeleteMany,
                     //responses(
-                    //    (status = 200, description = "entities were deleted", body = Deleted),
+                    //    (status = 200, description = "Deletion results (may include partial failures)", body = DeletedMany),
                     //    (status = 422, description = "validation failed or business logic rejection", body = AxumCrudError),
                     //    (status = 500, description = "entities could not be deleted", body = String),
                     //),
@@ -508,7 +510,7 @@ macro_rules! impl_add_crud_routes {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
-                    let result: Result<Deleted, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type>(request_context, context.clone(), body)
+                    let result: Result<DeletedMany, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -534,6 +536,7 @@ macro_rules! impl_add_crud_routes {
                     ),
                     components(
                         schemas(crudkit_core::Deleted),
+                        schemas(crudkit_core::DeletedMany),
                         schemas(crudkit_core::Saved<Model>),
                         schemas(crudkit_condition::Condition),
                         schemas(crudkit_condition::ConditionElement),

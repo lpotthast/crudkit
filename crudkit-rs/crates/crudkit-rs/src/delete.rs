@@ -4,7 +4,7 @@ use std::{collections::HashMap, sync::Arc};
 use utoipa::ToSchema;
 
 use crudkit_condition::{Condition, TryIntoAllEqualCondition};
-use crudkit_core::{Deleted, Order};
+use crudkit_core::{Deleted, DeletedMany, Order};
 use crudkit_id::{Id, SerializableId};
 use crudkit_validation::PartialSerializableValidations;
 use crudkit_websocket::{CkWsMessage, EntityDeleted};
@@ -12,11 +12,60 @@ use crudkit_websocket::{CkWsMessage, EntityDeleted};
 use crate::{
     auth::RequestContext,
     error::CrudError,
-    lifetime::{CrudLifetime, DeleteOperation, DeleteRequest},
+    lifetime::{CrudLifetime, DeleteOperation, DeleteRequest, HookError},
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
     GetIdFromModel,
 };
+
+/// Maximum memory budget per batch (in bytes).
+///
+/// This limits how much memory a single batch of entities can consume.
+/// Default: 50 MB. Adjust based on available system memory.
+const BATCH_MEMORY_BUDGET: usize = 50_000_000;
+
+/// Multiplier to estimate total memory including heap allocations.
+///
+/// **Important:** `std::mem::size_of::<T>()` returns the *stack* size of a type,
+/// which is NOT the same as total memory usage! Heap-allocated data is not included.
+///
+/// Example: `String` always reports 24 bytes (pointer + len + capacity), but a
+/// 1000-ASCII-character string actually uses ~1024 bytes (24 stack + 1000 heap).
+///
+/// This multiplier compensates for heap allocations in fields like:
+/// - `String`, `Vec<T>`, `Box<T>`
+/// - `serde_json::Value`
+/// - `Option<T>` containing heap types
+///
+/// Tuning guide:
+/// - Set to 1 if models contain mostly primitive fields (i32, bool, Uuid, etc.)
+/// - Set to 2-3 if models have several String/Vec fields
+/// - Set to 4+ if models contain large JSON blobs or binary data
+const HEAP_OVERHEAD_MULTIPLIER: usize = 3;
+
+/// Minimum batch size to ensure progress even for large models.
+const MIN_BATCH_SIZE: u64 = 10;
+
+/// Maximum batch size to limit individual query load.
+const MAX_BATCH_SIZE: u64 = 1000;
+
+/// Calculate batch size based on model memory footprint.
+const fn calculate_batch_size<M>() -> u64 {
+    let stack_usage = size_of::<M>();
+    let estimated_combined_usage = stack_usage * HEAP_OVERHEAD_MULTIPLIER;
+    if estimated_combined_usage == 0 {
+        return MAX_BATCH_SIZE;
+    }
+    let batch_size = (BATCH_MEMORY_BUDGET / estimated_combined_usage) as u64;
+    // Note: clamp() is not const, so use manual bounds checking
+    if (batch_size) < MIN_BATCH_SIZE {
+        MIN_BATCH_SIZE
+    } else if (batch_size) > MAX_BATCH_SIZE {
+        MAX_BATCH_SIZE
+    } else {
+        batch_size
+    }
+}
 
 #[derive(Debug, ToSchema, Deserialize)]
 pub struct DeleteById {
@@ -32,7 +81,7 @@ pub struct DeleteOne<R: CrudResource> {
     pub condition: Option<Condition>,
 }
 
-#[derive(ToSchema, Deserialize)]
+#[derive(Debug, ToSchema, Deserialize)]
 pub struct DeleteMany {
     pub condition: Option<Condition>,
 }
@@ -273,21 +322,169 @@ pub async fn delete_one<R: CrudResource>(
     })
 }
 
-// TODO: IMPLEMENT. Match implementations above. Extract logic, reducing duplication if possible.
+/// Helper to convert SerializableId to JSON value for result reporting.
+fn id_to_json(id: &SerializableId) -> serde_json::Value {
+    serde_json::to_value(id).unwrap_or_else(|_| serde_json::Value::Null)
+}
+
+/// Delete multiple entities matching a condition.
+///
+/// This function fetches entities in batches to prevent OOM when deleting large numbers of entities.
+/// Each entity is processed individually, running lifecycle hooks and validation.
+/// Partial success is supported - if some entities fail to delete, others will still be processed.
+///
+/// # Parameters
+///
+/// * `keycloak_token` - The authentication token. Authorization checks are typically performed
+///   at the route/middleware level before this function is called. The token is available here
+///   for use in lifecycle hooks via the resource context if needed for entity-level permission checks.
+#[tracing::instrument(level = "info", skip(context, request))]
 pub async fn delete_many<R: CrudResource>(
-    _request: RequestContext<R::Auth>,
-    _context: Arc<CrudContext<R>>,
-    _body: DeleteMany,
-) -> Result<Deleted, CrudError> {
-    todo!();
-    // TODO: Add missing validation logic to this function.
-    // let delete_many = build_delete_many_query::<R::Entity>(&body.condition)?;
-    // let delete_result = delete_many
-    //     .exec(controller.get_database_connection())
-    //     .await
-    //     .map_err(|err| CrudError::Db {
-    //         reason: err.to_string(),
-    //         backtrace: Backtrace::generate(),
-    //     })?;
-    // Ok(Deleted { entities_affected: delete_result.rows_affected })
+    request: RequestContext<R::Auth>,
+    context: Arc<CrudContext<R>>,
+    body: DeleteMany,
+) -> Result<DeletedMany, CrudError> {
+    let mut result = DeletedMany {
+        deleted_count: 0,
+        deleted_ids: Vec::new(),
+        aborted: Vec::new(),
+        validation_failed: Vec::new(),
+        errors: Vec::new(),
+    };
+
+    let batch_size = calculate_batch_size::<R::Model>();
+
+    let delete_request = DeleteRequest {
+        operation: DeleteOperation::Many,
+        skip: None,
+        order_by: None,
+        condition: body.condition.clone(),
+    };
+
+    // Process entities in batches to prevent OOM issues.
+    // We always fetch from offset 0 because deleted entities no longer match the condition.
+    // If no deletions occur in a batch (all blocked by hooks/validation), we stop.
+    loop {
+        let models = context
+            .repository
+            .fetch_many(Some(batch_size), None, None, body.condition.as_ref())
+            .await
+            .map_err(|err| CrudError::Repository {
+                reason: Arc::new(err),
+            })?;
+
+        // No more entities to process.
+        if models.is_empty() {
+            break;
+        }
+
+        let already_deleted = result.deleted_count;
+
+        // Process each entity in the batch.
+        for model in models {
+            let entity_id = model.get_id();
+            let serializable_id = entity_id.to_serializable_id();
+
+            // Run before_delete hook.
+            let hook_data = R::HookData::default();
+            let hook_data = match R::Lifetime::before_delete(
+                &model,
+                &delete_request,
+                &context.res_context,
+                request.clone(),
+                hook_data,
+            )
+            .await
+            {
+                Ok(data) => data,
+                Err(HookError::Forbidden { reason })
+                | Err(HookError::UnprocessableEntity { reason }) => {
+                    result.aborted.push((id_to_json(&serializable_id), reason));
+                    continue;
+                }
+                Err(HookError::Internal(err)) => {
+                    result.errors.push((
+                        id_to_json(&serializable_id),
+                        format!("Lifecycle error: {err}"),
+                    ));
+                    continue;
+                }
+            };
+
+            // Validate the entity.
+            let active_model = model.clone().into();
+            let trigger = ValidationTrigger::CrudAction(ValidationContext {
+                action: CrudAction::Delete,
+                when: When::Before,
+            });
+            let partial_validation_results =
+                context.validator.validate_single(&active_model, trigger);
+
+            // Check for critical validation errors.
+            if partial_validation_results.has_critical_violations() {
+                // Broadcast validation errors via WebSocket.
+                let partial_serializable_validations: PartialSerializableValidations =
+                    HashMap::from([(
+                        String::from(R::TYPE.into()),
+                        partial_validation_results.clone().into(),
+                    )]);
+
+                let _ = context
+                    .ws_controller
+                    .broadcast_json(CkWsMessage::PartialValidationResult(
+                        partial_serializable_validations,
+                    ));
+
+                result.validation_failed.push(id_to_json(&serializable_id));
+                continue;
+            }
+
+            // Delete the entity.
+            let deleted_model = model.clone();
+            match context.repository.delete(model).await {
+                Ok(_delete_result) => {
+                    // Run after_delete hook (ignore errors for batch operations).
+                    let _ = R::Lifetime::after_delete(
+                        &deleted_model,
+                        &delete_request,
+                        &context.res_context,
+                        request.clone(),
+                        hook_data,
+                    )
+                    .await;
+
+                    // Clear validation results for this entity.
+                    let _ = context
+                        .validation_result_repository
+                        .delete_all_for(&entity_id)
+                        .await;
+
+                    // Broadcast deletion via WebSocket.
+                    let _ = context
+                        .ws_controller
+                        .broadcast_json(CkWsMessage::EntityDeleted(EntityDeleted {
+                            aggregate_name: R::TYPE.into().to_owned(),
+                            entity_id: serializable_id.clone(),
+                        }));
+
+                    result.deleted_count += 1;
+                    result.deleted_ids.push(id_to_json(&serializable_id));
+                }
+                Err(err) => {
+                    result.errors.push((
+                        id_to_json(&serializable_id),
+                        format!("Delete error: {err:?}"),
+                    ));
+                }
+            }
+        }
+
+        // If no entities were deleted in this batch, all remaining entities are blocked
+        // (aborted, validation failed, or errored). Stop to avoid infinite loop.
+        if result.deleted_count == already_deleted {
+            break;
+        }
+    }
+
+    Ok(result)
 }

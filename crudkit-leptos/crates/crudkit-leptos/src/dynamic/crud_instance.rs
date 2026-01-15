@@ -1,5 +1,6 @@
 use crate::dynamic::crud_action::CrudActionAftermath;
 use crate::dynamic::crud_create_view::CrudCreateView;
+use crate::dynamic::crud_delete_many_modal::CrudDeleteManyModal;
 use crate::dynamic::crud_delete_modal::CrudDeleteModal;
 use crate::dynamic::crud_edit_view::CrudEditView;
 use crate::dynamic::crud_instance_config::{
@@ -9,14 +10,16 @@ use crate::dynamic::crud_list_view::CrudListView;
 use crate::dynamic::crud_read_view::CrudReadView;
 use crate::shared::crud_instance_config::{ItemsPerPage, PageNr};
 use crate::shared::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
-use crudkit_core::{Deleted, Order};
+use crudkit_condition::{Condition, ConditionElement};
+use crudkit_core::{Deleted, DeletedMany, Order};
 use crudkit_id::SerializableId;
 use crudkit_web::dynamic::prelude::*;
-use crudkit_web::dynamic::{AnyReadField, AnyReadOrUpdateModel};
+use crudkit_web::dynamic::{AnyReadField, AnyReadModel, AnyReadOrUpdateModel};
 use crudkit_web::request_error::CrudOperationError;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
+use std::sync::Arc;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -64,6 +67,10 @@ pub struct CrudInstanceContext {
     /// Whenever the user requests to delete something, this is the place that information is stored.
     pub deletion_request: ReadSignal<Option<AnyReadOrUpdateModel>>,
     set_deletion_request: WriteSignal<Option<AnyReadOrUpdateModel>>,
+
+    /// Whenever the user requests to delete multiple entities, this stores the entities to delete.
+    pub mass_deletion_request: ReadSignal<Option<Arc<Vec<AnyReadModel>>>>,
+    set_mass_deletion_request: WriteSignal<Option<Arc<Vec<AnyReadModel>>>>,
 
     /// Whenever this signal changes, the current view should "refresh" by reloading all server provided data.
     /// It simply provides a new random ID on each invocation.
@@ -131,6 +138,16 @@ impl CrudInstanceContext {
         self.set_deletion_request.set(Some(entity));
     }
 
+    pub fn request_mass_deletion(&self, entities: Arc<Vec<AnyReadModel>>) {
+        if !entities.is_empty() {
+            self.set_mass_deletion_request.set(Some(entities));
+        }
+    }
+
+    pub fn cancel_mass_deletion(&self) {
+        self.set_mass_deletion_request.set(None);
+    }
+
     // TODO: Other functions do not take a . Should the instance provide its  to store it in this context? Would allow everyone to have access.
     pub fn handle_action_outcome(&self, outcome: Result<CrudActionAftermath, CrudActionAftermath>) {
         tracing::info!(?outcome, "handling action outcome");
@@ -161,6 +178,7 @@ impl CrudInstanceContext {
     pub fn reset(&self) {
         let default = self.default_config.get_value();
         self.set_deletion_request.set(None);
+        self.set_mass_deletion_request.set(None);
         self.set_current_page.set(default.page);
         self.set_items_per_page.set(default.items_per_page);
         self.set_order_by.set(default.order_by.clone());
@@ -240,6 +258,7 @@ pub fn CrudInstance(
     let (create_elements, _set_create_elements) = signal(config.create_elements.clone());
     let (update_elements, _set_update_elements) = signal(config.elements.clone());
     let (deletion_request, set_deletion_request) = signal(None);
+    let (mass_deletion_request, set_mass_deletion_request) = signal(None::<Arc<Vec<AnyReadModel>>>);
     let (reload, set_reload) = signal(Uuid::new_v4());
 
     let default_config = StoredValue::new(config);
@@ -270,6 +289,8 @@ pub fn CrudInstance(
         base_condition,
         deletion_request,
         set_deletion_request,
+        mass_deletion_request,
+        set_mass_deletion_request,
         reload,
         set_reload,
     };
@@ -319,6 +340,40 @@ pub fn CrudInstance(
             AnyReadOrUpdateModel::Update(model) => model.get_id(),
         };
         delete_action.dispatch(id);
+    });
+
+    let on_cancel_delete_many = Callback::new(move |()| {
+        tracing::info!("Removing mass delete request");
+        set_mass_deletion_request.set(None);
+    });
+
+    let delete_many_action = Action::new_local(move |entities: &Arc<Vec<AnyReadModel>>| {
+        let data_provider = data_provider.get();
+        let entities = entities.clone();
+        async move {
+            // Build a condition from all selected entity IDs.
+            // Each entity's ID fields become an AND condition, and all entities are OR'd together.
+            let condition = build_condition_from_entities(&entities);
+
+            let result = data_provider
+                .delete_many(DeleteMany {
+                    condition: Some(condition),
+                })
+                .await;
+
+            // The delete operation was performed and must therefore no longer be requested.
+            set_mass_deletion_request.set(None);
+
+            // The user must be notified how the delete operation went.
+            handle_delete_many_result(result);
+
+            // We have to reload the list-view!
+            ctx.reload();
+        }
+    });
+
+    let on_accept_delete_many = Callback::new(move |entities: Arc<Vec<AnyReadModel>>| {
+        delete_many_action.dispatch(entities);
     });
 
     view! {
@@ -388,6 +443,11 @@ pub fn CrudInstance(
                     entity=deletion_request
                     on_cancel=on_cancel_delete.clone()
                     on_accept=on_accept_delete.clone()
+                />
+                <CrudDeleteManyModal
+                    entities=mass_deletion_request
+                    on_cancel=on_cancel_delete_many.clone()
+                    on_accept=on_accept_delete_many.clone()
                 />
             </div>
         </div>
@@ -474,6 +534,139 @@ fn handle_delete_result(result: Result<Deleted, RequestError>) {
                     });
                 }
             }
+        }
+    }
+}
+
+// TODO: move below function somewhere more appropriate!
+
+/// Build a condition from a list of entities.
+/// Each entity's ID fields are combined with AND, and all entities are combined with OR.
+fn build_condition_from_entities(entities: &[AnyReadModel]) -> Condition {
+    use crudkit_condition::TryIntoAllEqualCondition;
+
+    if entities.is_empty() {
+        return Condition::none();
+    }
+
+    let entity_conditions: Vec<Condition> = entities
+        .iter()
+        .filter_map(|entity| {
+            let id = entity.get_id();
+            match id.0.into_iter().try_into_all_equal_condition() {
+                Ok(condition) => Some(condition),
+                Err(err) => {
+                    tracing::warn!(?err, "Could not convert entity ID to condition");
+                    None
+                }
+            }
+        })
+        .collect();
+
+    if entity_conditions.is_empty() {
+        return Condition::none();
+    }
+
+    // All entities are OR'd together.
+    if entity_conditions.len() == 1 {
+        entity_conditions.into_iter().next().expect("checked above")
+    } else {
+        Condition::Any(
+            entity_conditions
+                .into_iter()
+                .map(|c| ConditionElement::Condition(Box::new(c)))
+                .collect(),
+        )
+    }
+}
+
+fn handle_delete_many_result(result: Result<DeletedMany, RequestError>) {
+    match result {
+        Ok(delete_result) => {
+            let deleted = delete_result.deleted_count;
+            let aborted = delete_result.aborted.len();
+            let validation_failed = delete_result.validation_failed.len();
+            let errors = delete_result.errors.len();
+
+            if deleted > 0 && aborted == 0 && validation_failed == 0 && errors == 0 {
+                // Complete success
+                expect_context::<Toasts>().push(Toast {
+                    id: Uuid::new_v4(),
+                    created_at: OffsetDateTime::now_utc(),
+                    variant: ToastVariant::Success,
+                    header: ViewFn::from(|| "Löschen"),
+                    body: ViewFn::from(move || {
+                        format!(
+                            "{deleted} {} erfolgreich gelöscht.",
+                            match deleted {
+                                1 => "Eintrag",
+                                _ => "Einträge",
+                            }
+                        )
+                    }),
+                    timeout: ToastTimeout::DefaultDelay,
+                });
+            } else if deleted > 0 {
+                // Partial success
+                expect_context::<Toasts>().push(Toast {
+                    id: Uuid::new_v4(),
+                    created_at: OffsetDateTime::now_utc(),
+                    variant: ToastVariant::Warn,
+                    header: ViewFn::from(|| "Löschen"),
+                    body: ViewFn::from(move || {
+                        let mut msg = format!(
+                            "{deleted} {} gelöscht.",
+                            match deleted {
+                                1 => "Eintrag",
+                                _ => "Einträge",
+                            }
+                        );
+                        if aborted > 0 {
+                            msg.push_str(&format!(" {aborted} abgebrochen."));
+                        }
+                        if validation_failed > 0 {
+                            msg.push_str(&format!(" {validation_failed} Validierungsfehler."));
+                        }
+                        if errors > 0 {
+                            msg.push_str(&format!(" {errors} Fehler."));
+                        }
+                        msg
+                    }),
+                    timeout: ToastTimeout::DefaultDelay,
+                });
+            } else {
+                // Complete failure
+                expect_context::<Toasts>().push(Toast {
+                    id: Uuid::new_v4(),
+                    created_at: OffsetDateTime::now_utc(),
+                    variant: ToastVariant::Error,
+                    header: ViewFn::from(|| "Löschen"),
+                    body: ViewFn::from(move || {
+                        let mut msg = String::from("Keine Einträge gelöscht.");
+                        if aborted > 0 {
+                            msg.push_str(&format!(" {aborted} abgebrochen."));
+                        }
+                        if validation_failed > 0 {
+                            msg.push_str(&format!(" {validation_failed} Validierungsfehler."));
+                        }
+                        if errors > 0 {
+                            msg.push_str(&format!(" {errors} Fehler."));
+                        }
+                        msg
+                    }),
+                    timeout: ToastTimeout::DefaultDelay,
+                });
+            }
+        }
+        Err(err) => {
+            expect_context::<Toasts>().push(Toast {
+                id: Uuid::new_v4(),
+                created_at: OffsetDateTime::now_utc(),
+                variant: ToastVariant::Error,
+                header: ViewFn::from(|| "Löschen"),
+                body: ViewFn::from(move || format!("Konnte Einträge nicht Löschen: {err:#?}")),
+                timeout: ToastTimeout::DefaultDelay,
+            });
         }
     }
 }

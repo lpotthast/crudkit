@@ -477,3 +477,102 @@ pub struct Deleted {
     pub entities_affected: u64,
 }
 
+/// Result of a batch delete operation.
+///
+/// Provides detailed information about which entities were deleted successfully
+/// and which failed for various reasons.
+///
+/// Note: IDs are represented as `serde_json::Value` to avoid circular dependencies.
+/// They are serialized `SerializableId` values.
+#[derive(Debug, Clone, ToSchema, Serialize, Deserialize)]
+pub struct DeletedMany {
+    /// Number of successfully deleted entities.
+    pub deleted_count: u64,
+
+    /// IDs of successfully deleted entities.
+    #[schema(value_type = Vec<Object>)]
+    pub deleted_ids: Vec<serde_json::Value>,
+
+    /// IDs of entities where deletion was aborted by a lifecycle hook, with the abort reason.
+    #[schema(value_type = Vec<Object>)]
+    pub aborted: Vec<(serde_json::Value, String)>,
+
+    /// IDs of entities that failed validation (critical validation errors prevented deletion).
+    #[schema(value_type = Vec<Object>)]
+    pub validation_failed: Vec<serde_json::Value>,
+
+    /// IDs of entities that failed due to other errors, with the error message.
+    #[schema(value_type = Vec<Object>)]
+    pub errors: Vec<(serde_json::Value, String)>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assertr::prelude::*;
+
+    #[test]
+    fn delete_many_result_serializes_correctly() {
+        let result = DeletedMany {
+            deleted_count: 2,
+            deleted_ids: vec![
+                serde_json::json!([["id", {"I64": 1}]]),
+                serde_json::json!([["id", {"I64": 2}]]),
+            ],
+            aborted: vec![],
+            validation_failed: vec![],
+            errors: vec![],
+        };
+
+        let _json = serde_json::to_string(&result).expect("serialization should succeed");
+    }
+
+    #[test]
+    fn delete_many_result_deserializes_correctly() {
+        let json = r#"{
+            "deleted_count": 3,
+            "deleted_ids": [[["id", {"I64": 1}]], [["id", {"I64": 2}]], [["id", {"I64": 3}]]],
+            "aborted": [],
+            "validation_failed": [[["id", {"I64": 4}]]],
+            "errors": [[[["id", {"I64": 5}]], "Database error"]]
+        }"#;
+
+        let result: DeletedMany =
+            serde_json::from_str(json).expect("deserialization should succeed");
+
+        assert_that(result.deleted_count).is_equal_to(3);
+        assert_that(result.deleted_ids.len()).is_equal_to(3);
+        assert_that(result.aborted.len()).is_equal_to(0);
+        assert_that(result.validation_failed.len()).is_equal_to(1);
+        assert_that(result.errors.len()).is_equal_to(1);
+    }
+
+    #[test]
+    fn delete_many_result_with_partial_failures() {
+        let result = DeletedMany {
+            deleted_count: 1,
+            deleted_ids: vec![serde_json::json!([["id", {"I64": 1}]])],
+            aborted: vec![(
+                serde_json::json!([["id", {"I64": 2}]]),
+                "Entity is referenced elsewhere".to_string(),
+            )],
+            validation_failed: vec![serde_json::json!([["id", {"I64": 3}]])],
+            errors: vec![(
+                serde_json::json!([["id", {"I64": 4}]]),
+                "Database connection lost".to_string(),
+            )],
+        };
+
+        // Round-trip test
+        let json = serde_json::to_string(&result).expect("serialization should succeed");
+        let deserialized: DeletedMany =
+            serde_json::from_str(&json).expect("deserialization should succeed");
+
+        assert_that(deserialized.deleted_count).is_equal_to(result.deleted_count);
+        assert_that(deserialized.deleted_ids.len()).is_equal_to(result.deleted_ids.len());
+        assert_that(deserialized.aborted.len()).is_equal_to(result.aborted.len());
+        assert_that(deserialized.validation_failed.len())
+            .is_equal_to(result.validation_failed.len());
+        assert_that(deserialized.errors.len()).is_equal_to(result.errors.len());
+    }
+}

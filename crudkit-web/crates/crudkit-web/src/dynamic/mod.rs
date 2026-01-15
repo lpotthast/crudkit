@@ -32,6 +32,7 @@ pub mod prelude {
     pub use super::data_provider::CreateOne;
     pub use super::data_provider::CrudRestDataProvider;
     pub use super::data_provider::DeleteById;
+    pub use super::data_provider::DeleteMany;
     pub use super::data_provider::ReadCount;
     pub use super::data_provider::ReadMany;
     pub use super::data_provider::ReadOne;
