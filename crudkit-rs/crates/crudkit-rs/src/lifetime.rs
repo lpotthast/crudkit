@@ -1,7 +1,7 @@
 use snafu::Snafu;
 use utoipa::ToSchema;
 
-use crate::{resource::CrudResource, RequestContext};
+use crate::{auth::RequestContext, resource::CrudResource};
 
 #[derive(Debug, ToSchema)]
 pub enum Abort {
@@ -18,7 +18,7 @@ pub trait CrudLifetime<R: CrudResource> {
         create_model: &R::CreateModel,
         active_model: &mut R::ActiveModel,
         context: &R::Context,
-        request: RequestContext,
+        request: RequestContext<R::Auth>,
         data: R::HookData,
     ) -> Result<(Abort, R::HookData), Self::Error>;
 
@@ -26,6 +26,7 @@ pub trait CrudLifetime<R: CrudResource> {
         create_model: &R::CreateModel,
         model: &R::Model,
         context: &R::Context,
+        request: RequestContext<R::Auth>,
         data: R::HookData,
     ) -> Result<R::HookData, Self::Error>;
 
@@ -33,6 +34,7 @@ pub trait CrudLifetime<R: CrudResource> {
         update_model: &R::UpdateModel,
         active_model: &mut R::ActiveModel,
         context: &R::Context,
+        request: RequestContext<R::Auth>,
         data: R::HookData,
     ) -> Result<(Abort, R::HookData), Self::Error>;
 
@@ -40,18 +42,21 @@ pub trait CrudLifetime<R: CrudResource> {
         update_model: &R::UpdateModel,
         model: &R::Model,
         context: &R::Context,
+        request: RequestContext<R::Auth>,
         data: R::HookData,
     ) -> Result<R::HookData, Self::Error>;
 
     async fn before_delete(
         model: &R::Model,
         context: &R::Context,
+        request: RequestContext<R::Auth>,
         data: R::HookData,
     ) -> Result<(Abort, R::HookData), Self::Error>;
 
     async fn after_delete(
         model: &R::Model,
         context: &R::Context,
+        request: RequestContext<R::Auth>,
         data: R::HookData,
     ) -> Result<R::HookData, Self::Error>;
 }
@@ -69,7 +74,7 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
         _create_model: &<R as CrudResource>::CreateModel,
         _active_model: &mut <R as CrudResource>::ActiveModel,
         _context: &<R as CrudResource>::Context,
-        _request: RequestContext,
+        _request: RequestContext<<R as CrudResource>::Auth>,
         data: <R as CrudResource>::HookData,
     ) -> Result<(Abort, <R as CrudResource>::HookData), Self::Error> {
         Ok((Abort::No, data))
@@ -79,6 +84,7 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
         _create_model: &<R as CrudResource>::CreateModel,
         _model: &<R as CrudResource>::Model,
         _context: &<R as CrudResource>::Context,
+        _request: RequestContext<<R as CrudResource>::Auth>,
         data: <R as CrudResource>::HookData,
     ) -> Result<<R as CrudResource>::HookData, Self::Error> {
         Ok(data)
@@ -88,6 +94,7 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
         _update_model: &<R as CrudResource>::UpdateModel,
         _active_model: &mut <R as CrudResource>::ActiveModel,
         _context: &<R as CrudResource>::Context,
+        _request: RequestContext<<R as CrudResource>::Auth>,
         data: <R as CrudResource>::HookData,
     ) -> Result<(Abort, <R as CrudResource>::HookData), Self::Error> {
         Ok((Abort::No, data))
@@ -97,6 +104,7 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
         _update_model: &<R as CrudResource>::UpdateModel,
         _model: &<R as CrudResource>::Model,
         _context: &<R as CrudResource>::Context,
+        _request: RequestContext<<R as CrudResource>::Auth>,
         data: <R as CrudResource>::HookData,
     ) -> Result<<R as CrudResource>::HookData, Self::Error> {
         Ok(data)
@@ -105,6 +113,7 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
     async fn before_delete(
         _model: &<R as CrudResource>::Model,
         _context: &<R as CrudResource>::Context,
+        _request: RequestContext<<R as CrudResource>::Auth>,
         data: <R as CrudResource>::HookData,
     ) -> Result<(Abort, <R as CrudResource>::HookData), Self::Error> {
         Ok((Abort::No, data))
@@ -113,6 +122,7 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
     async fn after_delete(
         _model: &<R as CrudResource>::Model,
         _context: &<R as CrudResource>::Context,
+        _request: RequestContext<<R as CrudResource>::Auth>,
         data: <R as CrudResource>::HookData,
     ) -> Result<<R as CrudResource>::HookData, Self::Error> {
         Ok(data)

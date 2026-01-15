@@ -1,7 +1,7 @@
 use axum::{
-    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
+    Json,
 };
 use serde_json::json;
 use utoipa::ToSchema;
@@ -15,6 +15,7 @@ pub enum AxumCrudError {
     ReadOneFoundNone { reason: String },
     SaveValidations { reason: String },
     DeleteValidations { reason: String },
+    Unauthorized { reason: String },
 }
 
 impl From<CrudError> for AxumCrudError {
@@ -60,6 +61,7 @@ impl IntoResponse for AxumCrudError {
             Self::ReadOneFoundNone { reason } => (StatusCode::NOT_FOUND, reason),
             Self::SaveValidations { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
             Self::DeleteValidations { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
+            Self::Unauthorized { reason } => (StatusCode::UNAUTHORIZED, reason),
         };
 
         let body = Json(json!({
@@ -72,34 +74,69 @@ impl IntoResponse for AxumCrudError {
 
 // TODO: On error, e REPORT must be generated, containing all error sources!
 
+/// Macro to generate Axum CRUD routes for a resource.
+///
+/// # Parameters
+///
+/// - `$resource_type`: The type implementing `CrudResource`
+/// - `$name`: Identifier for the generated module name
+///
+/// # Authentication Behavior
+///
+/// Authentication is determined by the `CrudResource::Auth` associated type:
+///
+/// - If `Auth = NoAuth`, no authentication Extension is required
+/// - For types implementing `RequiresAuth`, the Extension MUST be present or requests will fail with 401 Unauthorized
+///
+/// # Example
+///
+/// ```ignore
+/// impl_add_crud_routes!(Article, article);
+/// impl_add_crud_routes!(Comment, comment);
+/// ```
+///
+/// You can then create a router with:
+///
+/// ```ìgnore
+/// pub fn crud(root: &str) -> Router {
+///     let mut router = Router::new();
+///     router = super::axum_article_crud_routes::add_crud_routes(root, router);
+///     router = super::axum_comment_crud_routes::add_crud_routes(root, router);
+///     // ...
+///     router
+/// }
+/// ```
 #[macro_export]
 macro_rules! impl_add_crud_routes {
-
-    ($resource_type:ty, $role_type:ty, $name:ident) => {
+    ($resource_type:ty, $name:ident) => {
         paste::item! {
             pub mod [< axum_ $name _crud_routes >] {
                 use std::sync::Arc;
                 use crudkit_rs::prelude::*;
-                use crudkit_core::{DeleteResult, SaveResult}; // TODO: Rely on crudkit_rs::prelude use?
+                use crudkit_rs::auth::{AuthExtractor, RequestContext};
+                use crudkit_core::{DeleteResult, SaveResult};
                 use axum::{
                     http::StatusCode,
                     response::{IntoResponse, Response},
                     routing::post,
                     Extension, Json, Router,
                 };
-                use axum_keycloak_auth::decode::KeycloakToken;
                 use sea_orm::JsonValue;
-                use serde_json::json;
 
-                // We define this 'ResourceType' use statement, as `$resource_type` can not be used in the utoipa block below...
+                // We define this 'ResourceType' use statement, as `$resource_type` can not be used
+                // in the `utoipa` block below...
                 use $resource_type as ResourceType;
+                type Auth = <$resource_type as CrudResource>::Auth;
                 type ReadViewModel = <$resource_type as CrudResource>::ReadViewModel;
                 type CreateModel = <$resource_type as CrudResource>::CreateModel;
                 type Model = <$resource_type as CrudResource>::Model;
                 type UpdateModel = <$resource_type as CrudResource>::UpdateModel;
 
-                // https://github.com/tokio-rs/axum/discussions/358
-                // states which requirements R must meet in order for this to compile!
+                /// Add all routes (create,read,update,delete) for this resource to `router`.
+                ///
+                /// The `root` parameter is prepended to all route paths, allowing you to use
+                /// any custom api prefix like `/my-api`. Use the empty string if no prefix is
+                /// required.
                 pub fn add_crud_routes(
                     root: &str,
                     mut router: Router,
@@ -155,11 +192,15 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_count(
-                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
+                    auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadCount>,
                 ) -> Response {
-                    let result: Result<u64, AxumCrudError> = crudkit_rs::read::read_count::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
+                    let request_context = match Auth::extract(auth) {
+                        Ok(auth) => RequestContext::new(auth),
+                        Err(resp) => return resp,
+                    };
+                    let result: Result<u64, AxumCrudError> = crudkit_rs::read::read_count::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -185,11 +226,15 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_one(
-                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
+                    auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadOne<$resource_type>>,
                 ) -> Response {
-                    let result: Result<ReadViewModel, AxumCrudError> = crudkit_rs::read::read_one::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
+                    let request_context = match Auth::extract(auth) {
+                        Ok(auth) => RequestContext::new(auth),
+                        Err(resp) => return resp,
+                    };
+                    let result: Result<ReadViewModel, AxumCrudError> = crudkit_rs::read::read_one::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -215,11 +260,15 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_many(
-                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
+                    auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadMany<$resource_type>>,
                 ) -> Response {
-                    let result: Result<Vec<ReadViewModel>, AxumCrudError> = crudkit_rs::read::read_many::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
+                    let request_context = match Auth::extract(auth) {
+                        Ok(auth) => RequestContext::new(auth),
+                        Err(resp) => return resp,
+                    };
+                    let result: Result<Vec<ReadViewModel>, AxumCrudError> = crudkit_rs::read::read_many::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -245,11 +294,15 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn create_one(
-                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
+                    auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<CreateOne<CreateModel>>,
                 ) -> Response {
-                    let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
+                    let request_context = match Auth::extract(auth) {
+                        Ok(auth) => RequestContext::new(auth),
+                        Err(resp) => return resp,
+                    };
+                    let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -275,11 +328,15 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn update_one(
-                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
+                    auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<UpdateOne<UpdateModel>>,
                 ) -> Response {
-                    let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
+                    let request_context = match Auth::extract(auth) {
+                        Ok(auth) => RequestContext::new(auth),
+                        Err(resp) => return resp,
+                    };
+                    let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -305,11 +362,15 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_by_id(
-                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
+                    auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteById>,
                 ) -> Response {
-                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
+                    let request_context = match Auth::extract(auth) {
+                        Ok(auth) => RequestContext::new(auth),
+                        Err(resp) => return resp,
+                    };
+                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -335,11 +396,15 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_one(
-                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
+                    auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteOne<$resource_type>>,
                 ) -> Response {
-                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
+                    let request_context = match Auth::extract(auth) {
+                        Ok(auth) => RequestContext::new(auth),
+                        Err(resp) => return resp,
+                    };
+                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
@@ -365,11 +430,15 @@ macro_rules! impl_add_crud_routes {
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_many(
-                    Extension(keycloak_token): Extension<KeycloakToken<$role_type>>,
+                    auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteMany>,
                 ) -> Response {
-                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type, $role_type>(keycloak_token, context.clone(), body)
+                    let request_context = match Auth::extract(auth) {
+                        Ok(auth) => RequestContext::new(auth),
+                        Err(resp) => return resp,
+                    };
+                    let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {

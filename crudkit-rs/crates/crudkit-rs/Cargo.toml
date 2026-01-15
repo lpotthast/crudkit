@@ -17,7 +17,7 @@ derive-validation-model = { path = "../derive-validation-model" }
 
 async-trait = "0.1.89"
 axum = "0.8.8"
-axum-keycloak-auth = "0.8.3"
+axum-keycloak-auth = { version = "0.8.3", optional = true }
 error-stack = "0.6.0"
 indexmap = { version = "2.12.1", features = ["serde"] }
 paste = "1.0.15"
@@ -35,3 +35,7 @@ time = { version = "0.3.44", features = ["serde", "serde-well-known"] }
 tracing = "0.1.44"
 utoipa = { version = "5.4.0", features = ["time", "uuid"] }
 uuid = { version = "1.19.0", features = ["v4", "v7", "serde"] }
+
+[features]
+default = []
+keycloak-auth = ["dep:axum-keycloak-auth"]

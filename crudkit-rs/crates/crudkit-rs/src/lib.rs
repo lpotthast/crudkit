@@ -10,6 +10,7 @@ use crudkit_id::Id;
 use prelude::{CrudContext, CrudResource};
 use validation::PersistableViolation;
 
+pub mod auth;
 pub mod axum_routes;
 pub mod context;
 pub mod controller;
@@ -57,6 +58,17 @@ pub mod prelude {
     pub use derive_model::CkUpdateModel;
     pub use derive_validation_model::CkValidationModel;
 
+    pub use super::auth::Auth;
+    pub use super::auth::AuthExtractor;
+    pub use super::auth::AuthRequirement;
+    pub use super::auth::CrudAuthPolicy;
+    pub use super::auth::DefaultAuthPolicy;
+    pub use super::auth::NoAuth;
+    pub use super::auth::OpenAuthPolicy;
+    pub use super::auth::RequestContext;
+    pub use super::auth::RequiresAuth;
+    pub use super::auth::RestrictedAuthPolicy;
+
     pub use super::axum_routes::AxumCrudError;
     pub use super::error::CrudError;
 
@@ -103,10 +115,6 @@ pub mod prelude {
     pub use super::read::read_one;
     pub use super::update::UpdateOne;
     pub use super::update::update_one;
-}
-
-pub struct RequestContext {
-    pub keycloak_uuid: uuid::Uuid,
 }
 
 pub trait ValidatorModel<I: Id> {

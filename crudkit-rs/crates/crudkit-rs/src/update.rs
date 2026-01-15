@@ -1,4 +1,3 @@
-use axum_keycloak_auth::{decode::KeycloakToken, role::Role};
 use serde::Deserialize;
 use snafu::{Backtrace, GenerateImplicitData};
 use std::{collections::HashMap, sync::Arc};
@@ -12,6 +11,7 @@ use crudkit_validation::PartialSerializableValidations;
 use crudkit_websocket::{CkWsMessage, EntityUpdated};
 
 use crate::{
+    auth::RequestContext,
     error::CrudError,
     lifetime::{Abort, CrudLifetime},
     prelude::*,
@@ -24,9 +24,9 @@ pub struct UpdateOne<T> {
     pub entity: T,
 }
 
-#[tracing::instrument(level = "info", skip(context))]
-pub async fn update_one<R: CrudResource, Ro: Role>(
-    keycloak_token: KeycloakToken<Ro>,
+#[tracing::instrument(level = "info", skip(context, request))]
+pub async fn update_one<R: CrudResource>(
+    request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
     body: UpdateOne<R::UpdateModel>,
 ) -> Result<SaveResult<R::Model>, CrudError> {
@@ -54,6 +54,7 @@ pub async fn update_one<R: CrudResource, Ro: Role>(
         &update_model,
         &mut active_model,
         &context.res_context,
+        request.clone(),
         hook_data,
     )
     .await
@@ -158,7 +159,7 @@ pub async fn update_one<R: CrudResource, Ro: Role>(
 
     // After update
     let _hook_data =
-        R::Lifetime::after_update(&update_model, &result, &context.res_context, hook_data)
+        R::Lifetime::after_update(&update_model, &result, &context.res_context, request, hook_data)
             .await
             .expect("after_update to not error");
 

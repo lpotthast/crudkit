@@ -1,4 +1,9 @@
-use crate::{lifetime::CrudLifetime, prelude::*, GetIdFromModel};
+use crate::{
+    auth::{AuthExtractor, CrudAuthPolicy},
+    lifetime::CrudLifetime,
+    prelude::*,
+    GetIdFromModel,
+};
 
 use crudkit_id::Id;
 
@@ -128,6 +133,19 @@ pub trait CrudResource: Sized + Debug {
 
     type HookData: Default + Send + Sync + 'static;
     type Lifetime: CrudLifetime<Self>;
+
+    /// Authentication type for this resource.
+    ///
+    /// Must implement [`AuthExtractor`](AuthExtractor) for Axum route generation.
+    /// Use [`NoAuth`](NoAuth) for public resources.
+    type Auth: AuthExtractor;
+
+    /// Per-operation authorization policy.
+    ///
+    /// Defines which operations require authentication.
+    /// Use [`DefaultAuthPolicy`](DefaultAuthPolicy) for standard behavior
+    /// (public reads, authenticated writes).
+    type AuthPolicy: CrudAuthPolicy;
 
     type ResourceType: Debug + Into<&'static str> + Clone + Copy;
     const TYPE: Self::ResourceType;

@@ -1,12 +1,12 @@
 use crate::{
-    GetIdFromModel, RequestContext,
+    GetIdFromModel,
+    auth::RequestContext,
     error::CrudError,
     lifetime::{Abort, CrudLifetime},
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When, into_persistable},
 };
 
-use axum_keycloak_auth::{decode::KeycloakToken, role::Role};
 use crudkit_core::{SaveResult, Saved};
 use crudkit_id::Id;
 use crudkit_validation::PartialSerializableValidations;
@@ -22,9 +22,9 @@ pub struct CreateOne<T> {
     pub entity: T,
 }
 
-#[tracing::instrument(level = "info", skip(context))]
-pub async fn create_one<R: CrudResource, Ro: Role>(
-    keycloak_token: KeycloakToken<Ro>,
+#[tracing::instrument(level = "info", skip(context, request))]
+pub async fn create_one<R: CrudResource>(
+    request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
     body: CreateOne<R::CreateModel>,
 ) -> Result<SaveResult<R::Model>, CrudError> {
@@ -45,9 +45,7 @@ pub async fn create_one<R: CrudResource, Ro: Role>(
         &create_model_clone,
         &mut active_model,
         &context.res_context,
-        RequestContext {
-            keycloak_uuid: uuid::Uuid::parse_str(&keycloak_token.subject).unwrap(),
-        },
+        request.clone(),
         hook_data,
     )
     .await
@@ -105,6 +103,7 @@ pub async fn create_one<R: CrudResource, Ro: Role>(
         &create_model_clone,
         &inserted_entity,
         &context.res_context,
+        request,
         hook_data,
     )
     .await;
