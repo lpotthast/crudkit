@@ -1,0 +1,223 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Crudkit is a type-safe, full-stack Rust CRUD framework featuring backend integration with SeaORM + Axum and frontend UI components built with Leptos 0.8. The project is organized as a multi-workspace repository with 8 independent top-level crates.
+
+## Common Commands
+
+This project uses `just` as a command runner. Run `just` to see all available commands.
+
+Note: The Justfile currently covers most crates but excludes `crudkit-web` and `crudkit-leptos-theme`. For these, use cargo commands directly with `--manifest-path`.
+
+### Building and Checking
+
+```bash
+# Check all crates for compilation errors
+just check
+
+# Run tests across all crates
+just test
+
+# Run clippy with strict linting
+just clippy
+```
+
+### Formatting
+
+```bash
+# Format Rust code in all crates
+just fmt
+
+# Format Leptos components (requires leptosfmt)
+just leptosfmt
+```
+
+### Single Crate Operations
+
+To work with a single crate, use the `--manifest-path` flag:
+
+```bash
+# Check a single crate
+cargo check --manifest-path ./crudkit-rs/Cargo.toml
+
+# Run tests for a single crate
+cargo test --manifest-path ./crudkit-leptos/Cargo.toml
+
+# Run a specific test
+cargo test --manifest-path ./crudkit-id/Cargo.toml test_name
+```
+
+### Dependency Management
+
+```bash
+# Update dependencies to latest compatible versions
+just update
+
+# Check for available upgrades (including breaking changes)
+just upgrades
+
+# Automatically upgrade all dependencies to latest versions
+just upgrade
+```
+
+## Architecture
+
+### Crate Organization
+
+The project follows a 3-layer architecture:
+
+1. **Shared Layer** - Core types used by both frontend and backend:
+   - `crudkit-id` - Type-safe entity identifiers with composite primary key support
+   - `crudkit-condition` - Query filtering and condition building
+   - `crudkit-core` - Shared types (Value enum, Order, SaveResult, DeleteResult, etc.)
+   - `crudkit-validation` - Entity validation framework with severity levels
+   - `crudkit-websocket` - Real-time entity change notifications
+
+2. **Backend Layer** (`crudkit-rs` workspace):
+   - `crudkit-rs/crates/crudkit-rs/` - Core backend framework
+   - `crudkit-rs/crates/crudkit-sea-orm/` - SeaORM repository implementation
+   - Derive macros: `CkCreateModel`, `CkUpdateModel`, `CkColumns`, `CkValidationModel`, `CkResourceContext`
+   - Axum REST API generation via `impl_add_crud_routes!` macro
+   - Lifecycle hooks (before/after create/update/delete)
+   - Keycloak authentication support
+
+3. **Frontend Layer**:
+   - `crudkit-web` workspace - Platform-agnostic web abstractions (no Leptos dependency)
+     - HTTP client via `CrudRestDataProvider`
+     - Derive macros: `CkResource`, `CkField`, `CkActionPayload`
+   - `crudkit-leptos` workspace - Leptos 0.8 UI components
+     - Views: `CrudListView`, `CrudCreateView`, `CrudEditView`, `CrudReadView`, `CrudDeleteModal`
+     - Fine-grained reactivity via `ReactiveValue` (field-level signals)
+   - `crudkit-leptos-theme` - CSS theme generation
+
+### The CrudResource Pattern
+
+The central abstraction is the `CrudResource` trait (crudkit-rs/crates/crudkit-rs/src/resource.rs), which defines:
+- Entity types (database models vs read-only views)
+- Create/Update DTOs
+- Repository implementation
+- Validators and validation result storage
+- WebSocket controller for real-time updates
+- Custom context and lifecycle hooks
+
+### Key Traits and Types
+
+**Backend** (crudkit-rs):
+- `CrudResource` - Central trait defining all types for a CRUD resource
+- `Repository<R>` - Data access abstraction with fetch/insert/update/delete operations
+- `CrudContext<R>` - Request context providing access to repository, validators, etc.
+- `CrudLifetime<R>` - Lifecycle hooks (before_create, after_create, etc.)
+
+**Web Layer** (crudkit-web):
+- `CrudMainTrait` - Defines frontend resource with CreateModel/ReadModel/UpdateModel
+- `CrudDataTrait` - Model with typed fields accessible via Field enum
+- `CrudRestDataProvider<T>` - HTTP client for CRUD operations
+
+**Frontend** (crudkit-leptos):
+- `ReactiveValue` - Fine-grained reactive wrapper around Value (each field has RwSignal)
+- `SignalsTrait` - Convert between models and reactive field maps
+- `CrudInstanceContext<T>` - Manages view state (List/Create/Edit/Read/Delete)
+
+### Derive Macro Ecosystem
+
+The framework provides derive macros to reduce boilerplate:
+
+**Shared**: `CkId` (crudkit-id)
+
+**Backend** (crudkit-rs): `CkCreateModel`, `CkUpdateModel`, `CkColumns`, `CkValidationModel`, `CkResourceContext`
+
+**Web Layer** (crudkit-web): `CkResource`, `CkField`, `CkActionPayload`
+
+### Composite Primary Keys
+
+Unlike most CRUD frameworks, Crudkit fully supports composite primary keys via the `Id` trait in crudkit-id. An entity's ID can be a tuple of multiple fields (e.g., `(user_id, org_id)`).
+
+### Framework Integrations
+
+- **SeaORM** 1.2.0 - Primary ORM (repository pattern allows alternatives)
+- **Leptos** 0.8.15 - Frontend reactive framework with fine-grained reactivity
+- **Leptonic** 0.5.0 - Leptos component library
+- **Axum** 0.8.8 - HTTP server with middleware support
+- **Keycloak** - Authentication (`axum-keycloak-auth` backend, `leptos-keycloak-auth` frontend)
+- **utoipa** 5.4.0 - OpenAPI documentation generation
+
+## Important File Locations
+
+### Core Trait Definitions
+- `crudkit-rs/crates/crudkit-rs/src/resource.rs` - CrudResource trait
+- `crudkit-rs/crates/crudkit-rs/src/repository.rs` - Repository trait
+- `crudkit-id/crates/crudkit-id/src/lib.rs` - Id trait
+- `crudkit-web/crates/crudkit-web/src/lib.rs` - CrudMainTrait, CrudDataTrait
+- `crudkit-core/crates/crudkit-core/src/lib.rs` - Value enum, Order, shared types
+
+### CRUD Operations
+- `crudkit-rs/crates/crudkit-rs/src/create.rs` - Create operations with validation
+- `crudkit-rs/crates/crudkit-rs/src/read.rs` - Read operations with filtering
+- `crudkit-rs/crates/crudkit-rs/src/update.rs` - Update operations with lifecycle hooks
+- `crudkit-rs/crates/crudkit-rs/src/delete.rs` - Delete operations with lifecycle hooks
+
+### Derive Macro Implementations
+- `crudkit-id/crates/derive-crudkit-id/src/lib.rs` - CkId macro
+- `crudkit-rs/crates/derive-*/src/lib.rs` - Backend derive macros
+- `crudkit-web/crates/derive-*/src/lib.rs` - Web layer derive macros
+- `crudkit-core/crates/crudkit-derive-core/src/lib.rs` - Shared derive macro utilities
+
+## Working with the Codebase
+
+### When Adding Shared Types
+- Put types used by both frontend and backend in `crudkit-core`
+- ID-related types go in `crudkit-id`
+- Filter/condition types go in `crudkit-condition`
+- Validation types go in `crudkit-validation`
+
+### When Modifying Backend Logic
+- Core framework changes go in `crudkit-rs/crates/crudkit-rs/`
+- SeaORM-specific code goes in `crudkit-rs/crates/crudkit-sea-orm/`
+- Backend derive macros are in `crudkit-rs/crates/derive-*/`
+
+### When Modifying Web Layer
+- Platform-agnostic abstractions go in `crudkit-web/crates/crudkit-web/`
+- Web derive macros are in `crudkit-web/crates/derive-*/`
+
+### When Modifying Frontend
+- Leptos components go in `crudkit-leptos/crates/crudkit-leptos/`
+- CSS/theming goes in `crudkit-leptos-theme/`
+
+### Understanding the Data Flow
+
+1. **Create Flow**:
+   - Frontend: User fills form -> CreateModel
+   - HTTP POST to backend REST endpoint
+   - Backend: `before_create` hook -> Repository.insert() -> Validation -> `after_create` hook -> WebSocket broadcast
+
+2. **Read Flow**:
+   - Frontend: CrudInstanceContext.load() -> CrudRestDataProvider.read_many()
+   - HTTP GET with filters/pagination
+   - Backend: Repository.read_many() from ReadViewEntity (may be SQL view)
+   - Returns paginated results
+
+3. **Update Flow**:
+   - Frontend: User edits -> UpdateModel with field-level reactive signals
+   - HTTP PUT/PATCH to backend
+   - Backend: `before_update` hook -> Repository.update() -> Validation -> `after_update` hook -> WebSocket broadcast
+
+4. **Delete Flow**:
+   - Frontend: Delete button -> Confirmation modal
+   - HTTP DELETE to backend
+   - Backend: `before_delete` hook -> Repository.delete() -> `after_delete` hook -> WebSocket broadcast
+
+### Validation System
+
+The validation system supports:
+- Multiple validators per entity (tracked by name + version)
+- Two severity levels: Major (warnings) vs Critical (blocks save)
+- Per-field violations with custom messages
+- Validation result storage in database
+- Real-time validation updates via WebSocket
+
+### Parent-Child Resources
+
+The framework supports hierarchical relationships where child resources are filtered by parent ID. The `CrudInstanceContext` tracks parent links and automatically includes parent filters in queries.
