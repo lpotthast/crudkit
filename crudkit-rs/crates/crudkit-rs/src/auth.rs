@@ -39,10 +39,16 @@ impl<A: Clone + Send + Sync + 'static> Auth for A {}
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NoAuth;
 
-/// Context passed to lifecycle hooks containing authentication data.
+/// Request specific context passed to lifecycle hooks (before_create, after_create, etc.).
 ///
-/// This struct wraps the authentication data and is passed to lifecycle hooks
-/// (before_create, after_create, etc.) so they can perform custom authorization logic.
+/// This struct contains authentication data allowing for custom authorization logic inside
+/// lifecycle hooks.
+///
+/// The `auth` field is `Option<A>` because whether authentication is required depends on
+/// the resource's [`AuthPolicy`](CrudAuthPolicy). For public operations (where
+/// [`AuthRequirement::None`] is specified), `auth` may be `None` (or some if the user is still
+/// authenticated). For operations requiring authentication ([`AuthRequirement::Authenticated`]),
+/// `auth` will always be `Some(...)`.
 ///
 /// # Example
 ///
@@ -53,11 +59,13 @@ pub struct NoAuth;
 ///         context: &ArticleContext,
 ///         request: RequestContext<KeycloakToken<MyRoles>>,
 ///     ) -> Result<Abort, Self::Error> {
-///         // Access auth fields directly
-///         let user_subject = &request.auth.subject;
+///         // Auth should be present for delete operations (enforced by AuthPolicy).
+///         let Some(auth) = &request.auth else {
+///             return Ok(Abort::Yes { reason: "Authentication required".into() });
+///         };
 ///
-///         if entity.author_subject != *user_subject {
-///             return Ok(Abort::WithReason("Only the author can delete".into()));
+///         if entity.author_subject != auth.subject {
+///             return Ok(Abort::Yes { reason: "Only the author can delete".into() });
 ///         }
 ///         Ok(Abort::No)
 ///     }
@@ -65,20 +73,34 @@ pub struct NoAuth;
 /// ```
 #[derive(Clone, Debug)]
 pub struct RequestContext<A: Auth = NoAuth> {
-    /// The authentication data. Access fields directly based on your auth type.
-    pub auth: A,
+    /// The authentication data, if present.
+    ///
+    /// This is `Some` when the request included valid authentication and `None` otherwise.
+    /// Whether authentication is required for a given operation is determined by the
+    /// resource's [`AuthPolicy`](CrudAuthPolicy), not by this field's presence.
+    ///
+    /// Lifetime hooks should check this field when implementing custom authorization
+    /// logic (e.g., role or entity-ownership checks).
+    pub auth: Option<A>,
 }
 
 impl<A: Auth> RequestContext<A> {
-    /// Create a new request context with the given authentication data.
-    pub fn new(auth: A) -> Self {
-        Self { auth }
+    /// Create a new request context with authentication data.
+    pub fn authenticated(auth: A) -> Self {
+        Self { auth: Some(auth) }
+    }
+
+    /// Create a new request context without authentication data.
+    ///
+    /// Use this for public operations where authentication is not required.
+    pub fn unauthenticated() -> Self {
+        Self { auth: None }
     }
 }
 
-impl Default for RequestContext<NoAuth> {
+impl<A: Auth> Default for RequestContext<A> {
     fn default() -> Self {
-        Self { auth: NoAuth }
+        Self { auth: None }
     }
 }
 
@@ -125,9 +147,7 @@ impl<R> RequiresAuth for axum_keycloak_auth::decode::KeycloakToken<R> where
 /// - Types implementing `RequiresAuth`: Requires Extension present, returns 401 if missing
 pub trait AuthExtractor: Auth + Sized {
     /// Extract auth from an optional Extension.
-    fn extract(
-        extension: Option<axum::Extension<Self>>,
-    ) -> Result<Self, axum::response::Response>;
+    fn extract(extension: Option<axum::Extension<Self>>) -> Result<Self, axum::response::Response>;
 }
 
 impl AuthExtractor for NoAuth {
@@ -139,9 +159,7 @@ impl AuthExtractor for NoAuth {
 }
 
 impl<A: RequiresAuth> AuthExtractor for A {
-    fn extract(
-        extension: Option<axum::Extension<Self>>,
-    ) -> Result<Self, axum::response::Response> {
+    fn extract(extension: Option<axum::Extension<Self>>) -> Result<Self, axum::response::Response> {
         use axum::{http::StatusCode, response::IntoResponse, Json};
         match extension {
             Some(axum::Extension(auth)) => Ok(auth),
@@ -158,40 +176,73 @@ impl<A: RequiresAuth> AuthExtractor for A {
 ///
 /// Used by [`CrudAuthPolicy`] to specify what level of authentication
 /// is required for each CRUD operation.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum AuthRequirement {
     /// No authentication required (public access).
     #[default]
     None,
+
     /// User must be authenticated (any valid auth).
+    ///
+    /// This requirement only checks that authentication is present - it does not
+    /// verify any specific claims, roles, or permissions. For fine-grained authorization
+    /// (such as role-based access control or ownership checks), use lifecycle hooks
+    /// to inspect the authentication data in [`RequestContext::auth`].
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // In your CrudLifetime implementation:
+    /// async fn before_delete(
+    ///     model: &Article,
+    ///     context: &ArticleContext,
+    ///     request: RequestContext<KeycloakToken<Role>>,
+    ///     data: HookData,
+    /// ) -> Result<(Abort, HookData), Self::Error> {
+    ///     let Some(auth) = &request.auth else {
+    ///         return Ok((Abort::Yes { reason: "Authentication required".into() }, data));
+    ///     };
+    ///
+    ///     // Check roles, ownership, or other claims
+    ///     if !auth.has_role("admin") && model.creator_id != auth.subject {
+    ///         return Ok((Abort::Yes { reason: "Not authorized".into() }, data));
+    ///     }
+    ///
+    ///     Ok((Abort::No, data))
+    /// }
+    /// ```
     Authenticated,
-    /// User must have one of the specified roles.
-    /// Role checking is delegated to middleware or custom logic.
-    Roles(Vec<String>),
 }
 
 /// Defines authorization policy per CRUD operation.
 ///
 /// Implement this trait to customize which operations require authentication
-/// for a given resource.
+/// for a given resource. This trait only controls whether authentication is
+/// **required** - for fine-grained authorization (roles, ownership, etc.),
+/// use lifecycle hooks.
 ///
-/// # Default Implementation
+/// # Built-in Policies
 ///
-/// The default implementation ([`DefaultAuthPolicy`]) allows public reads
-/// but requires authentication for create, update, and delete operations.
+/// - [`OpenAuthPolicy`]: All operations are public
+/// - [`DefaultAuthPolicy`]: Reads are public, writes require authentication
+/// - [`RestrictedAuthPolicy`]: All operations require authentication
 ///
-/// # Example
+/// # Custom Policy Example
 ///
 /// ```ignore
 /// struct ArticleAuthPolicy;
 ///
 /// impl CrudAuthPolicy for ArticleAuthPolicy {
+///     // Reads are public
 ///     fn read_requirement() -> AuthRequirement { AuthRequirement::None }
-///     fn create_requirement() -> AuthRequirement { AuthRequirement::Roles(vec!["author".into()]) }
-///     fn update_requirement() -> AuthRequirement { AuthRequirement::Roles(vec!["author".into(), "editor".into()]) }
-///     fn delete_requirement() -> AuthRequirement { AuthRequirement::Roles(vec!["admin".into()]) }
+///     // All writes require authentication
+///     fn create_requirement() -> AuthRequirement { AuthRequirement::Authenticated }
+///     fn update_requirement() -> AuthRequirement { AuthRequirement::Authenticated }
+///     fn delete_requirement() -> AuthRequirement { AuthRequirement::Authenticated }
 /// }
 /// ```
+///
+/// For role-based authorization, implement checks in your [`CrudLifetime`] hooks.
 pub trait CrudAuthPolicy: Send + Sync + 'static {
     /// Authorization requirement for read operations (count, read_one, read_many).
     fn read_requirement() -> AuthRequirement {

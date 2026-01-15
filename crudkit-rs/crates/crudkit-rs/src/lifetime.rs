@@ -9,6 +9,39 @@ pub enum Abort {
     No,
 }
 
+/// Lifecycle hooks for CRUD operations.
+///
+/// Implement this trait to add custom logic before and after create, read, update, and delete
+/// operations.
+/// These hooks are called within the transaction, so any failure will roll back the operation.
+///
+/// # Authentication in Hooks
+///
+/// The `request` ([`RequestContext`]) parameter contains optional authentication data.
+/// The `request.auth` field is `Option<A>` because whether authentication is present
+/// depends on the resource's [`AuthPolicy`](crate::auth::CrudAuthPolicy) for the current operation:
+///
+/// - If the policy allows public access (`AuthRequirement::None`), `request.auth` may be `None`.
+/// - If the policy requires authentication, `request.auth` will be `Some(...)`.
+///
+/// For ownership checks or other auth-dependent logic, check if auth is present or use
+/// `expect("present")`:
+///
+/// ```ignore
+/// async fn before_delete(
+///     model: &Article,
+///     context: &ArticleContext,
+///     request: RequestContext<KeycloakToken<Role>>,
+///     data: HookData,
+/// ) -> Result<(Abort, HookData), Self::Error> {
+///     if let Some(auth) = &request.auth {
+///         if model.creator_subject != auth.subject {
+///             return Ok((Abort::Yes { reason: "Only creator can delete".into() }, data));
+///         }
+///     }
+///     Ok((Abort::No, data))
+/// }
+/// ```
 pub trait CrudLifetime<R: CrudResource> {
     type Error: std::error::Error; // TODO: Only when the "snafu" feature is activated. Otherwise use core or thiserror.
 

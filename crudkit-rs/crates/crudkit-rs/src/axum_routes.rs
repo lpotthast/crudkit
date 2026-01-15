@@ -81,12 +81,23 @@ impl IntoResponse for AxumCrudError {
 /// - `$resource_type`: The type implementing `CrudResource`
 /// - `$name`: Identifier for the generated module name
 ///
-/// # Authentication Behavior
+/// # Authentication/Authorization Behavior
 ///
-/// Authentication is determined by the `CrudResource::Auth` associated type:
+/// Authorization is determined by the `CrudResource::AuthPolicy` associated type,
+/// which specifies requirements per operation via [`CrudAuthPolicy`]:
 ///
-/// - If `Auth = NoAuth`, no authentication Extension is required
-/// - For types implementing `RequiresAuth`, the Extension MUST be present or requests will fail with 401 Unauthorized
+/// - [`AuthRequirement::None`]: No authentication required for the operation (public access).
+/// - [`AuthRequirement::Authenticated`]: Authentication required, state must be present
+///  (automatic 401 response if `axum` `Extension` for that state is missing).
+///
+/// For fine-grained authorization logic (role-based access, ownership verification), implement
+/// checks in your [`CrudLifetime`] hooks.
+///
+/// ## Built-in Policies
+///
+/// - [`OpenAuthPolicy`]: All operations are public.
+/// - [`DefaultAuthPolicy`]: Reads public, writes require authentication.
+/// - [`RestrictedAuthPolicy`]: All operations require authentication.
 ///
 /// # Example
 ///
@@ -97,7 +108,7 @@ impl IntoResponse for AxumCrudError {
 ///
 /// You can then create a router with:
 ///
-/// ```ìgnore
+/// ```ignore
 /// pub fn crud(root: &str) -> Router {
 ///     let mut router = Router::new();
 ///     router = super::axum_article_crud_routes::add_crud_routes(root, router);
@@ -113,7 +124,7 @@ macro_rules! impl_add_crud_routes {
             pub mod [< axum_ $name _crud_routes >] {
                 use std::sync::Arc;
                 use crudkit_rs::prelude::*;
-                use crudkit_rs::auth::{AuthExtractor, RequestContext};
+                use crudkit_rs::auth::{AuthRequirement, CrudAuthPolicy, RequestContext};
                 use crudkit_core::{DeleteResult, SaveResult};
                 use axum::{
                     http::StatusCode,
@@ -127,10 +138,37 @@ macro_rules! impl_add_crud_routes {
                 // in the `utoipa` block below...
                 use $resource_type as ResourceType;
                 type Auth = <$resource_type as CrudResource>::Auth;
+                type Policy = <$resource_type as CrudResource>::AuthPolicy;
                 type ReadViewModel = <$resource_type as CrudResource>::ReadViewModel;
                 type CreateModel = <$resource_type as CrudResource>::CreateModel;
                 type Model = <$resource_type as CrudResource>::Model;
                 type UpdateModel = <$resource_type as CrudResource>::UpdateModel;
+
+                /// Check the authorization requirement and build a RequestContext.
+                ///
+                /// Returns `Ok(RequestContext)` if the requirement is satisfied,
+                /// or `Err(AxumCrudError)` with the Unauthorized variant.
+                fn check_auth_requirement(
+                    auth_requirement: AuthRequirement,
+                    auth: Option<Extension<Auth>>,
+                ) -> Result<RequestContext<Auth>, AxumCrudError> {
+                    match auth_requirement {
+                        AuthRequirement::None => {
+                            match auth {
+                                Some(Extension(a)) => Ok(RequestContext::authenticated(a)),
+                                None => Ok(RequestContext::unauthenticated()),
+                            }
+                        }
+                        AuthRequirement::Authenticated => {
+                            match auth {
+                                Some(Extension(a)) => Ok(RequestContext::authenticated(a)),
+                                None => Err(AxumCrudError::Unauthorized {
+                                    reason: "Authentication required".into(),
+                                }),
+                            }
+                        }
+                    }
+                }
 
                 /// Add all routes (create,read,update,delete) for this resource to `router`.
                 ///
@@ -196,9 +234,9 @@ macro_rules! impl_add_crud_routes {
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadCount>,
                 ) -> Response {
-                    let request_context = match Auth::extract(auth) {
-                        Ok(auth) => RequestContext::new(auth),
-                        Err(resp) => return resp,
+                    let request_context = match check_auth_requirement(Policy::read_requirement(), auth) {
+                        Ok(ctx) => ctx,
+                        Err(err) => return err.into_response(),
                     };
                     let result: Result<u64, AxumCrudError> = crudkit_rs::read::read_count::<$resource_type>(request_context, context.clone(), body)
                         .await
@@ -230,9 +268,9 @@ macro_rules! impl_add_crud_routes {
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadOne<$resource_type>>,
                 ) -> Response {
-                    let request_context = match Auth::extract(auth) {
-                        Ok(auth) => RequestContext::new(auth),
-                        Err(resp) => return resp,
+                    let request_context = match check_auth_requirement(Policy::read_requirement(), auth) {
+                        Ok(ctx) => ctx,
+                        Err(err) => return err.into_response(),
                     };
                     let result: Result<ReadViewModel, AxumCrudError> = crudkit_rs::read::read_one::<$resource_type>(request_context, context.clone(), body)
                         .await
@@ -264,9 +302,9 @@ macro_rules! impl_add_crud_routes {
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<ReadMany<$resource_type>>,
                 ) -> Response {
-                    let request_context = match Auth::extract(auth) {
-                        Ok(auth) => RequestContext::new(auth),
-                        Err(resp) => return resp,
+                    let request_context = match check_auth_requirement(Policy::read_requirement(), auth) {
+                        Ok(ctx) => ctx,
+                        Err(err) => return err.into_response(),
                     };
                     let result: Result<Vec<ReadViewModel>, AxumCrudError> = crudkit_rs::read::read_many::<$resource_type>(request_context, context.clone(), body)
                         .await
@@ -298,9 +336,9 @@ macro_rules! impl_add_crud_routes {
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<CreateOne<CreateModel>>,
                 ) -> Response {
-                    let request_context = match Auth::extract(auth) {
-                        Ok(auth) => RequestContext::new(auth),
-                        Err(resp) => return resp,
+                    let request_context = match check_auth_requirement(Policy::create_requirement(), auth) {
+                        Ok(ctx) => ctx,
+                        Err(err) => return err.into_response(),
                     };
                     let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type>(request_context, context.clone(), body)
                         .await
@@ -332,9 +370,9 @@ macro_rules! impl_add_crud_routes {
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<UpdateOne<UpdateModel>>,
                 ) -> Response {
-                    let request_context = match Auth::extract(auth) {
-                        Ok(auth) => RequestContext::new(auth),
-                        Err(resp) => return resp,
+                    let request_context = match check_auth_requirement(Policy::update_requirement(), auth) {
+                        Ok(ctx) => ctx,
+                        Err(err) => return err.into_response(),
                     };
                     let result: Result<SaveResult<Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type>(request_context, context.clone(), body)
                         .await
@@ -366,9 +404,9 @@ macro_rules! impl_add_crud_routes {
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteById>,
                 ) -> Response {
-                    let request_context = match Auth::extract(auth) {
-                        Ok(auth) => RequestContext::new(auth),
-                        Err(resp) => return resp,
+                    let request_context = match check_auth_requirement(Policy::delete_requirement(), auth) {
+                        Ok(ctx) => ctx,
+                        Err(err) => return err.into_response(),
                     };
                     let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type>(request_context, context.clone(), body)
                         .await
@@ -400,9 +438,9 @@ macro_rules! impl_add_crud_routes {
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteOne<$resource_type>>,
                 ) -> Response {
-                    let request_context = match Auth::extract(auth) {
-                        Ok(auth) => RequestContext::new(auth),
-                        Err(resp) => return resp,
+                    let request_context = match check_auth_requirement(Policy::delete_requirement(), auth) {
+                        Ok(ctx) => ctx,
+                        Err(err) => return err.into_response(),
                     };
                     let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type>(request_context, context.clone(), body)
                         .await
@@ -434,9 +472,9 @@ macro_rules! impl_add_crud_routes {
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
                     Json(body): Json<DeleteMany>,
                 ) -> Response {
-                    let request_context = match Auth::extract(auth) {
-                        Ok(auth) => RequestContext::new(auth),
-                        Err(resp) => return resp,
+                    let request_context = match check_auth_requirement(Policy::delete_requirement(), auth) {
+                        Ok(ctx) => ctx,
+                        Err(err) => return err.into_response(),
                     };
                     let result: Result<DeleteResult, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type>(request_context, context.clone(), body)
                         .await
