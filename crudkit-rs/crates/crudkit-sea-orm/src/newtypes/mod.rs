@@ -1,7 +1,7 @@
 use sea_orm::{
-    entity::prelude::*, sea_query::{Nullable, ValueType},
-    TryGetError,
-    TryGetable,
+    TryGetError, TryGetable,
+    entity::prelude::*,
+    sea_query::{Nullable, ValueType},
 };
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;

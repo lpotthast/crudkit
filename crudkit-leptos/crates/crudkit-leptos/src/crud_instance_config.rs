@@ -3,11 +3,10 @@ use crate::fields::FieldRenderer;
 use crate::{IntoReactiveValue, ReactiveValue};
 use crudkit_condition::Condition;
 use crudkit_core::{Order, Saved};
-use crudkit_web::dynamic::prelude::*;
-use crudkit_web::dynamic::{
-    AnyCreateField, AnyCreateModel, AnyReadField, AnyReadModel, AnyUpdateField, AnyUpdateModel,
-    CreateField, CreateModel, ReadField, ReadModel, UpdateField, UpdateModel,
-};
+use crudkit_web::prelude::*;
+use crudkit_web::reqwest_executor::ReqwestExecutor;
+use crudkit_web::view::SerializableCrudView;
+use crudkit_web::{CrudDataTrait, CrudFieldValueTrait, HeaderOptions};
 use indexmap::IndexMap;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};

@@ -1,9 +1,7 @@
 use crate::ReactiveValue;
 use crate::crud_field_label::CrudFieldLabelOpt;
 use crate::fields::boolean::{CrudBoolField, CrudOptionalBoolField};
-use crate::fields::date_time::{
-    CrudOptionalPrimitiveDateTimeField, CrudPrimitiveDateTimeField,
-};
+use crate::fields::date_time::{CrudOptionalPrimitiveDateTimeField, CrudPrimitiveDateTimeField};
 use crate::fields::duration::{CrudDurationField, CrudOptionalDurationField};
 use crate::fields::json::{CrudJsonField, CrudOptionalJsonField};
 use crate::fields::number::{
@@ -16,7 +14,7 @@ use crate::fields::number::{
 use crate::fields::string::{CrudOptionalStringField, CrudStringField};
 use crate::fields::uuid::{CrudOptionalUuidField, CrudUuidField};
 use crudkit_core::Value;
-use crudkit_web::dynamic::prelude::*;
+use crudkit_web::prelude::*;
 use crudkit_web::{FieldMode, FieldOptions, Label};
 use leptonic::components::prelude::{Alert, AlertContent, AlertTitle, AlertVariant};
 use leptonic::prelude::ViewCallback;

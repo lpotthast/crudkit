@@ -160,7 +160,7 @@ impl AuthExtractor for NoAuth {
 
 impl<A: RequiresAuth> AuthExtractor for A {
     fn extract(extension: Option<axum::Extension<Self>>) -> Result<Self, axum::response::Response> {
-        use axum::{http::StatusCode, response::IntoResponse, Json};
+        use axum::{Json, http::StatusCode, response::IntoResponse};
         match extension {
             Some(axum::Extension(auth)) => Ok(auth),
             None => Err((

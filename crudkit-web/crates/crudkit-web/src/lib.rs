@@ -4,15 +4,17 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{borrow::Cow, fmt::Debug, hash::Hash};
 
+pub mod action;
 pub mod data_provider;
-pub mod dynamic;
+pub mod dyn_data_provider;
 pub mod error;
 pub mod files;
+pub mod layout;
+pub mod model;
+pub mod request;
 pub mod request_error;
-pub mod requests;
 pub mod reqwest_executor;
 pub mod view;
-
 /*
 * Reexport common modules.
 * This allows the user to only
@@ -27,6 +29,7 @@ pub mod view;
 use crate::request_error::RequestError;
 use crudkit_core::Value;
 
+use crate::action::CrudActionPayload;
 pub use crudkit_condition;
 pub use crudkit_core;
 pub use crudkit_id;
@@ -55,20 +58,16 @@ pub mod prelude {
     pub use super::view::CrudSimpleView;
     pub use super::view::CrudView;
     pub use super::view::SerializableCrudView;
-    pub use super::CrudActionPayload;
     pub use super::CrudDataTrait;
     pub use super::CrudFieldNameTrait;
     pub use super::CrudFieldValueTrait;
     pub use super::CrudIdTrait;
     pub use super::CrudMainTrait;
     pub use super::CrudResourceTrait;
-    pub use super::DeletableModel;
-    pub use super::EmptyActionPayload;
     pub use super::FieldMode;
     pub use super::FieldOptions;
     pub use super::HeaderOptions;
     pub use super::Label;
-    pub use super::Layout;
     pub use super::NoData;
     pub use super::OrderByUpdateOptions;
     pub use super::TabId;
@@ -81,11 +80,56 @@ pub mod prelude {
     pub use super::data_provider::ReadOne;
     pub use super::data_provider::UpdateOne;
 
-    pub use super::requests::request;
-    pub use super::requests::request_delete;
-    pub use super::requests::request_get;
-    pub use super::requests::request_post;
-    pub use super::requests::request_put;
+    pub use super::action::ActionPayload;
+    pub use super::action::AnyActionPayload;
+    pub use super::action::CrudActionPayload;
+    pub use super::action::EmptyActionPayload;
+
+    pub use super::request::delete;
+    pub use super::request::get;
+    pub use super::request::post;
+    pub use super::request::post_json;
+    pub use super::request::put;
+    pub use super::request::request;
+
+    // Dynamic (type-erased) types
+    pub use super::model::AnyCreateField;
+    pub use super::model::AnyCreateModel;
+    pub use super::model::AnyIdentifiable;
+    pub use super::model::AnyModel;
+    pub use super::model::AnyReadField;
+    pub use super::model::AnyReadModel;
+    pub use super::model::AnyReadOrUpdateModel;
+    pub use super::model::AnyUpdateField;
+    pub use super::model::AnyUpdateModel;
+    pub use super::model::CreateField;
+    pub use super::model::CreateModel;
+    pub use super::model::DynField;
+    pub use super::model::Field;
+    pub use super::model::Identifiable;
+    pub use super::model::Model;
+    pub use super::model::NamedProperty;
+    pub use super::model::ReadField;
+    pub use super::model::ReadModel;
+    pub use super::model::ReadOrUpdateModel;
+    pub use super::model::SerializableReadField;
+    pub use super::model::SerializeAsKey;
+    pub use super::model::UpdateField;
+    pub use super::model::UpdateModel;
+
+    pub use super::layout::Elem;
+    pub use super::layout::Enclosing;
+    pub use super::layout::Group;
+    pub use super::layout::Layout;
+    pub use super::layout::Tab;
+
+    // Dynamic data provider (Dyn-prefixed types only, DeleteById and ReadCount come from data_provider)
+    pub use super::dyn_data_provider::DynCreateOne;
+    pub use super::dyn_data_provider::DynCrudRestDataProvider;
+    pub use super::dyn_data_provider::DynDeleteMany;
+    pub use super::dyn_data_provider::DynReadMany;
+    pub use super::dyn_data_provider::DynReadOne;
+    pub use super::dyn_data_provider::DynUpdateOne;
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -139,18 +183,6 @@ pub trait CrudMainTrait:
 
     type ActionPayload: Serialize + CrudActionPayload + Send + Sync;
 }
-
-/// Marker trait for specifying data which can be used as payload for CRUD actions.
-/// Use the `CrudActionPayload` derive macro from derive-crud-action-payload to implement this for your type.
-pub trait CrudActionPayload:
-    PartialEq + Clone + Debug + Serialize + DeserializeOwned + Send + Sync
-{
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
-pub struct EmptyActionPayload {}
-
-impl CrudActionPayload for EmptyActionPayload {}
 
 /// This does not have CrudIdTrait as a super trait, as not all data models
 /// (namely the CreateModel) can supply an ID!
@@ -214,15 +246,6 @@ pub enum FieldMode {
     Editable,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum DeletableModel<
-    ReadModel: CrudDataTrait + CrudIdTrait,
-    UpdateModel: CrudDataTrait + CrudIdTrait,
-> {
-    Read(ReadModel),
-    Update(UpdateModel),
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct HeaderOptions {
     pub display_name: Cow<'static, str>,
@@ -265,7 +288,6 @@ pub struct FieldOptions {
     pub disabled: bool,
     pub label: Option<Label>,
     pub date_time_display: DateTimeDisplay,
-    //validations: Vec<u32>,
 }
 
 impl Default for FieldOptions {
@@ -284,17 +306,3 @@ pub struct OrderByUpdateOptions {
 }
 
 pub type TabId = Cow<'static, str>;
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Layout {
-    Columns1,
-    Columns2,
-    Columns3,
-    Columns4,
-}
-
-impl Default for Layout {
-    fn default() -> Self {
-        Self::Columns2
-    }
-}

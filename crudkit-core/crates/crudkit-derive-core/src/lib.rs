@@ -33,9 +33,7 @@ pub fn capitalize_first_letter(s: &str) -> String {
 /// assert_eq!(to_pascal_case("id"), "Id");
 /// ```
 pub fn to_pascal_case(name: &str) -> String {
-    name.split('_')
-        .map(capitalize_first_letter)
-        .collect()
+    name.split('_').map(capitalize_first_letter).collect()
 }
 
 /// Converts a snake_case field name to a PascalCase identifier.

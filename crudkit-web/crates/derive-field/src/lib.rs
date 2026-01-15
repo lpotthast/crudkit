@@ -262,9 +262,8 @@ impl From<&syn::Type> for ValueType {
             },
             other => {
                 let span = ty.span();
-                let message = format!(
-                    "crudkit: derive-field: Unknown type {other:?}. Not a 'Path' variant."
-                );
+                let message =
+                    format!("crudkit: derive-field: Unknown type {other:?}. Not a 'Path' variant.");
                 abort!(span, message);
             }
         }
@@ -276,7 +275,10 @@ fn join_path(path: &syn::Path) -> String {
 }
 
 /// Generates the `get_value` match arms for CrudFieldValueTrait.
-fn generate_get_value_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> proc_macro2::TokenStream {
+fn generate_get_value_arm(
+    field: &CkFieldConfig,
+    field_enum_ident: &Ident,
+) -> proc_macro2::TokenStream {
     let field_ident = field.ident.as_ref().expect("Expected named field!");
     let field_name = field_ident.to_string();
     let pascal_case = to_pascal_case(&field_name);
@@ -318,7 +320,9 @@ fn generate_get_value_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> pr
         ValueType::OptionalString => quote! { entity.#field_ident.clone() },
 
         ValueType::Json => quote! { crudkit_web::JsonValue::new(entity.#field_ident.clone()) },
-        ValueType::OptionalJson => quote! { entity.#field_ident.clone().map(|it| crudkit_web::JsonValue::new(it)) },
+        ValueType::OptionalJson => {
+            quote! { entity.#field_ident.clone().map(|it| crudkit_web::JsonValue::new(it)) }
+        }
 
         ValueType::Uuid => quote! { entity.#field_ident },
         ValueType::OptionalUuid => quote! { entity.#field_ident.clone() },
@@ -346,7 +350,10 @@ fn generate_get_value_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> pr
 }
 
 /// Generates the `set_value` match arms for CrudFieldValueTrait.
-fn generate_set_value_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> proc_macro2::TokenStream {
+fn generate_set_value_arm(
+    field: &CkFieldConfig,
+    field_enum_ident: &Ident,
+) -> proc_macro2::TokenStream {
     let field_ident = field.ident.as_ref().expect("Expected named field!");
     let field_name = field_ident.to_string();
     let pascal_case = to_pascal_case(&field_name);
@@ -401,12 +408,20 @@ fn generate_set_value_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> pr
         ValueType::Uuid => quote! { entity.#field_ident = value.to_uuid() },
         ValueType::OptionalUuid => quote! { entity.#field_ident = value.to_optional_uuid() },
 
-        ValueType::PrimitiveDateTime => quote! { entity.#field_ident = value.take_primitive_date_time() },
+        ValueType::PrimitiveDateTime => {
+            quote! { entity.#field_ident = value.take_primitive_date_time() }
+        }
         ValueType::OffsetDateTime => quote! { entity.#field_ident = value.take_offset_date_time() },
         ValueType::Duration => quote! { entity.#field_ident = value.take_duration() },
-        ValueType::OptionalPrimitiveDateTime => quote! { entity.#field_ident = value.take_optional_primitive_date_time() },
-        ValueType::OptionalOffsetDateTime => quote! { entity.#field_ident = value.take_optional_offset_date_time() },
-        ValueType::OptionalDuration => quote! { entity.#field_ident = value.take_optional_duration() },
+        ValueType::OptionalPrimitiveDateTime => {
+            quote! { entity.#field_ident = value.take_optional_primitive_date_time() }
+        }
+        ValueType::OptionalOffsetDateTime => {
+            quote! { entity.#field_ident = value.take_optional_offset_date_time() }
+        }
+        ValueType::OptionalDuration => {
+            quote! { entity.#field_ident = value.take_optional_duration() }
+        }
 
         ValueType::Other => {
             quote! { ::tracing::warn!("Setting a custom field is not allowed") }
@@ -481,7 +496,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                impl crudkit_web::dynamic::Identifiable for #name {
+                impl crudkit_web::model::Identifiable for #name {
                     fn get_id(&self) -> crudkit_id::SerializableId {
                         let id = crudkit_web::CrudIdTrait::get_id(&self);
                         crudkit_id::Id::to_serializable_id(&id)
@@ -543,17 +558,17 @@ pub fn store(input: TokenStream) -> TokenStream {
     let model_type_based_model_trait_impl = match input.model {
         ModelType::Create => quote! {
             #[typetag::serde]
-            impl crudkit_web::dynamic::CreateModel for #name {
+            impl crudkit_web::model::CreateModel for #name {
             }
         },
         ModelType::Read => quote! {
             #[typetag::serde]
-            impl crudkit_web::dynamic::ReadModel for #name {
+            impl crudkit_web::model::ReadModel for #name {
             }
         },
         ModelType::Update => quote! {
             #[typetag::serde]
-            impl crudkit_web::dynamic::UpdateModel for #name {
+            impl crudkit_web::model::UpdateModel for #name {
             }
         },
     };
@@ -561,8 +576,8 @@ pub fn store(input: TokenStream) -> TokenStream {
     let model_type_based_field_trait_impl = match input.model {
         ModelType::Create => quote! {
             #[typetag::serde]
-            impl crudkit_web::dynamic::CreateField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyCreateModel, value: crudkit_core::Value) {
+            impl crudkit_web::model::CreateField for #field_name {
+                fn set_value(&self, model: &mut crudkit_web::model::AnyCreateModel, value: crudkit_core::Value) {
                     let model = model.downcast_mut::<#name>();
                     crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
                 }
@@ -570,8 +585,8 @@ pub fn store(input: TokenStream) -> TokenStream {
         },
         ModelType::Read => quote! {
             #[typetag::serde]
-            impl crudkit_web::dynamic::ReadField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyReadModel, value: crudkit_core::Value) {
+            impl crudkit_web::model::ReadField for #field_name {
+                fn set_value(&self, model: &mut crudkit_web::model::AnyReadModel, value: crudkit_core::Value) {
                     let model = model.downcast_mut::<#name>();
                     crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
                 }
@@ -579,8 +594,8 @@ pub fn store(input: TokenStream) -> TokenStream {
         },
         ModelType::Update => quote! {
             #[typetag::serde]
-            impl crudkit_web::dynamic::UpdateField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::dynamic::AnyUpdateModel, value: crudkit_core::Value) {
+            impl crudkit_web::model::UpdateField for #field_name {
+                fn set_value(&self, model: &mut crudkit_web::model::AnyUpdateModel, value: crudkit_core::Value) {
                     let model = model.downcast_mut::<#name>();
                     crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
                 }
@@ -589,9 +604,10 @@ pub fn store(input: TokenStream) -> TokenStream {
     };
 
     // Generate CrudFieldValueTrait implementation
-    let get_field_value_arms = input.fields().iter().map(|field| {
-        generate_get_value_arm(field, &field_name)
-    });
+    let get_field_value_arms = input
+        .fields()
+        .iter()
+        .map(|field| generate_get_value_arm(field, &field_name));
     let get_value_impl = match input.fields().len() {
         0 => {
             quote! { panic!("Cannot get value. Zero fields available! Should be unreachable. Source-crate: derive-field") }
@@ -603,9 +619,10 @@ pub fn store(input: TokenStream) -> TokenStream {
         },
     };
 
-    let set_field_value_arms = input.fields().iter().map(|field| {
-        generate_set_value_arm(field, &field_name)
-    });
+    let set_field_value_arms = input
+        .fields()
+        .iter()
+        .map(|field| generate_set_value_arm(field, &field_name));
     let set_value_impl = match input.fields().len() {
         0 => {
             quote! { panic!("Cannot set value. Zero fields available! Should be unreachable. Source-crate: derive-field") }
@@ -662,8 +679,8 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
 
         #[typetag::serde]
-        impl crudkit_web::dynamic::Field for #field_name {
-            fn set_value(&self, model: &mut crudkit_web::dynamic::AnyModel, value: crudkit_core::Value) {
+        impl crudkit_web::model::Field for #field_name {
+            fn set_value(&self, model: &mut crudkit_web::model::AnyModel, value: crudkit_core::Value) {
                 let model = model.downcast_mut::<#name>();
                 crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
             }
@@ -671,20 +688,20 @@ pub fn store(input: TokenStream) -> TokenStream {
 
         #model_type_based_field_trait_impl
 
-        impl crudkit_web::dynamic::SerializeAsKey for #field_name {
+        impl crudkit_web::model::SerializeAsKey for #field_name {
             fn serialize_as_key(&self) -> String {
                 serde_json::to_string(self).unwrap()
             }
         }
 
-        impl crudkit_web::dynamic::NamedProperty for #field_name {
+        impl crudkit_web::model::NamedProperty for #field_name {
             fn get_name(&self) -> String {
                 crudkit_web::CrudFieldNameTrait::get_name(self).to_string()
             }
         }
 
         #[typetag::serde]
-        impl crudkit_web::dynamic::Model for #name {}
+        impl crudkit_web::model::Model for #name {}
 
         #field_value_trait_impl
     }

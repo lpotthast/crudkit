@@ -2,11 +2,11 @@ use crate::crud_action::{CrudAction, ResourceActionViewInput};
 use crate::crud_action_context::CrudActionContext;
 use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{FieldRendererRegistry, Header};
-use crate::crud_table::{CrudTable, NoDataAvailable};
 use crate::crud_pagination::CrudPagination;
+use crate::crud_table::{CrudTable, NoDataAvailable};
 use crudkit_core::Order;
-use crudkit_web::dynamic::prelude::*;
-use crudkit_web::dynamic::{AnyReadField, AnyReadModel, SerializableReadField};
+use crudkit_web::prelude::*;
+use crudkit_web::request_error::RequestError;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
@@ -82,7 +82,7 @@ impl CrudListViewContext {
 
 #[component]
 pub fn CrudListView(
-    #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
+    #[prop(into)] data_provider: Signal<DynCrudRestDataProvider>,
     #[prop(into)] headers: Signal<Vec<Header>>,
     #[prop(into)] order_by: Signal<IndexMap<AnyReadField, Order>>,
     #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyReadField>>,
@@ -112,7 +112,7 @@ pub fn CrudListView(
 
         data_provider
             .get()
-            .read_many(ReadMany {
+            .read_many(DynReadMany {
                 limit: Some(items_per_page),
                 skip: Some(items_per_page * (page - 1)),
                 order_by: Some({

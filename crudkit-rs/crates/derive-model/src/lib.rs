@@ -4,7 +4,7 @@
 use darling::*;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 // TODO: Automatically derive Eq on new type if source type is already able to derive it!
 
@@ -51,25 +51,23 @@ impl ModelFieldConfig {
 fn generate_model_fields<'a>(
     fields: impl Iterator<Item = &'a ModelFieldConfig> + 'a,
 ) -> impl Iterator<Item = proc_macro2::TokenStream> + 'a {
-    fields
-        .filter(|field| !field.is_excluded())
-        .map(|field| {
-            let vis = &field.vis;
-            let ident = &field.ident;
-            let ty = &field.ty;
-            let attrs = &field.attrs;
-            if field.is_optional() {
-                quote! {
-                    #(#attrs)*
-                    #vis #ident: Option<#ty>
-                }
-            } else {
-                quote! {
-                    #(#attrs)*
-                    #vis #ident: #ty
-                }
+    fields.filter(|field| !field.is_excluded()).map(|field| {
+        let vis = &field.vis;
+        let ident = &field.ident;
+        let ty = &field.ty;
+        let attrs = &field.attrs;
+        if field.is_optional() {
+            quote! {
+                #(#attrs)*
+                #vis #ident: Option<#ty>
             }
-        })
+        } else {
+            quote! {
+                #(#attrs)*
+                #vis #ident: #ty
+            }
+        }
+    })
 }
 
 /// Generates the into_active_model arms for CreateModel.

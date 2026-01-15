@@ -4,7 +4,7 @@
 use darling::*;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident, Type};
+use syn::{DeriveInput, Ident, Type, parse_macro_input, spanned::Spanned};
 
 #[derive(Debug, FromField)]
 #[darling(attributes(ck_validation_model))]

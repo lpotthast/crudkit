@@ -65,28 +65,25 @@ where
 
 #[allow(dead_code)]
 /// Delete request
-pub async fn request_delete<T>(
-    url: String,
-    executor: &impl ReqwestExecutor,
-) -> Result<T, RequestError>
+pub async fn delete<T>(url: String, executor: &impl ReqwestExecutor) -> Result<T, RequestError>
 where
     T: DeserializeOwned + Debug,
 {
-    request(Method::DELETE, url, executor, ()).await
+    request::<(), T>(Method::DELETE, url, executor, ()).await
 }
 
 /// Get request
 #[allow(dead_code)]
-pub async fn request_get<T>(url: String, executor: &impl ReqwestExecutor) -> Result<T, RequestError>
+pub async fn get<T>(url: String, executor: &impl ReqwestExecutor) -> Result<T, RequestError>
 where
     T: DeserializeOwned + Debug,
 {
-    request(Method::GET, url, executor, ()).await
+    request::<(), T>(Method::GET, url, executor, ()).await
 }
 
 /// Post request with a body
 #[allow(dead_code)]
-pub async fn request_post<B, T>(
+pub async fn post<B, T>(
     url: String,
     executor: &(impl ReqwestExecutor + ?Sized),
     body: B,
@@ -95,19 +92,28 @@ where
     T: DeserializeOwned + Debug,
     B: Serialize + Debug + Send + Sync + 'static,
 {
-    request(Method::POST, url, executor, body).await
+    request::<B, T>(Method::POST, url, executor, body).await
+}
+
+/// Post request returning raw JSON (for dynamic/type-erased usage)
+#[allow(dead_code)]
+pub async fn post_json<B>(
+    url: String,
+    executor: &(impl ReqwestExecutor + ?Sized),
+    body: B,
+) -> Result<serde_json::Value, RequestError>
+where
+    B: Serialize + Debug + Send + Sync + 'static,
+{
+    request::<B, serde_json::Value>(Method::POST, url, executor, body).await
 }
 
 /// Put request with a body
 #[allow(dead_code)]
-pub async fn request_put<B, T>(
-    url: String,
-    auth: &impl ReqwestExecutor,
-    body: B,
-) -> Result<T, RequestError>
+pub async fn put<B, T>(url: String, auth: &impl ReqwestExecutor, body: B) -> Result<T, RequestError>
 where
     T: DeserializeOwned + Debug,
     B: Serialize + Debug + Send + Sync + 'static,
 {
-    request(Method::PUT, url, auth, body).await
+    request::<B, T>(Method::PUT, url, auth, body).await
 }

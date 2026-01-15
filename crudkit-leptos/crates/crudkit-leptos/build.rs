@@ -106,7 +106,10 @@ fn read_leptonic_metadata(cargo_toml_path: &PathBuf) -> Result<Option<LeptonicMe
             metadata
         }
         None => {
-            log(Level::Debug, "Aborting. Cargo.toml in root dir does not contain a package or workspace or is missing the necessary metadata.");
+            log(
+                Level::Debug,
+                "Aborting. Cargo.toml in root dir does not contain a package or workspace or is missing the necessary metadata.",
+            );
             return Ok(None);
         }
     };

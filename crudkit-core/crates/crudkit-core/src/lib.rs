@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::fmt::Debug;
 use time::format_description::well_known::Rfc3339;
-use utoipa::openapi::Type;
 use utoipa::ToSchema;
+use utoipa::openapi::Type;
 
 #[derive(Default, PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
 pub enum Order {

@@ -1,8 +1,8 @@
 use crate::{
+    GetIdFromModel,
     auth::{AuthExtractor, CrudAuthPolicy},
     lifetime::CrudLifetime,
     prelude::*,
-    GetIdFromModel,
 };
 
 use crudkit_id::Id;
@@ -11,7 +11,7 @@ use sea_orm::{
     ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, FromQueryResult,
     IntoActiveModel, ModelTrait,
 };
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::{fmt::Debug, hash::Hash};
 
 // TODO: Can this be a member of CrudContext?

@@ -5,14 +5,15 @@ use crate::crud_action_context::CrudActionContext;
 use crate::crud_fields::CrudFields;
 use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{FieldRendererRegistry, UpdateElements};
-use crate::crud_table::NoDataAvailable;
 use crate::crud_leave_modal::CrudLeaveModal;
+use crate::crud_table::NoDataAvailable;
 use crudkit_condition::{TryIntoAllEqualCondition, merge_conditions};
 use crudkit_core::{Saved, Value};
 use crudkit_id::SerializableId;
-use crudkit_web::dynamic::prelude::*;
-use crudkit_web::dynamic::{AnyReadOrUpdateModel, AnyUpdateField, AnyUpdateModel};
+use crudkit_web::prelude::*;
 use crudkit_web::request_error::{CrudOperationError, RequestError};
+use crudkit_web::view::CrudSimpleView;
+use crudkit_web::{FieldMode, TabId};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -38,17 +39,19 @@ pub fn CrudEditView(
     /// The ID of the entity being edited.
     #[prop(into)]
     id: Signal<SerializableId>, // UpdateModel id
-    #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
+    #[prop(into)] data_provider: Signal<DynCrudRestDataProvider>,
     #[prop(into)] actions: Signal<Vec<CrudEntityAction>>,
     #[prop(into)] elements: Signal<UpdateElements>,
     #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyUpdateField>>,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
     /// Called when the entity is successfully updated.
-    #[prop(into)] on_entity_updated: Callback<Saved<AnyUpdateModel>>,
+    #[prop(into)]
+    on_entity_updated: Callback<Saved<AnyUpdateModel>>,
     /// Called when entity update fails for any reason (permission denied, validation errors, server error, etc.).
     /// Use pattern matching on `CrudOperationError` to handle different failure types.
-    #[prop(into)] on_entity_update_failed: Callback<CrudOperationError>,
+    #[prop(into)]
+    on_entity_update_failed: Callback<CrudOperationError>,
     #[prop(into)] on_tab_selected: Callback<TabId>,
 ) -> impl IntoView {
     let instance_ctx = expect_context::<CrudInstanceContext>();
@@ -70,7 +73,7 @@ pub fn CrudEditView(
             .unwrap();
         data_provider
             .read()
-            .read_one(ReadOne {
+            .read_one(DynReadOne {
                 skip: None,
                 order_by: None,
                 condition: merge_conditions(
@@ -169,7 +172,7 @@ pub fn CrudEditView(
             (
                 data_provider
                     .read()
-                    .update_one(UpdateOne {
+                    .update_one(DynUpdateOne {
                         entity: entity.clone(),
                         condition: merge_conditions(
                             instance_ctx.base_condition.get(),

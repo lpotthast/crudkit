@@ -1,12 +1,11 @@
-use crate::requests::*;
 use crate::request_error::RequestError;
 use crate::reqwest_executor::ReqwestExecutor;
-use crate::{CrudDataTrait, CrudMainTrait};
-use crudkit_condition::{Condition, merge_conditions};
+use crate::{request, CrudDataTrait, CrudMainTrait};
+use crudkit_condition::{merge_conditions, Condition};
 use crudkit_core::{Deleted, Order, Saved};
 use crudkit_id::SerializableId;
 use indexmap::IndexMap;
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
 use std::{fmt::Debug, marker::PhantomData};
 use typed_builder::TypedBuilder;
@@ -70,7 +69,7 @@ pub struct CrudRestDataProvider<T: CrudMainTrait> {
 impl<T: CrudMainTrait> CrudRestDataProvider<T> {
     pub fn new(api_base_url: String, executor: Arc<dyn ReqwestExecutor>) -> Self {
         Self {
-            api_base_url: api_base_url,
+            api_base_url,
             executor,
             base_condition: None,
             resource_name: T::get_resource_name(),
@@ -84,7 +83,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
 
     pub async fn read_count(&self, mut read_count: ReadCount) -> Result<u64, RequestError> {
         read_count.condition = merge_conditions(self.base_condition.clone(), read_count.condition);
-        request_post(
+        request::post(
             format!(
                 "{}/{}/crud/read-count",
                 self.api_base_url, self.resource_name
@@ -103,7 +102,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         <T as CrudMainTrait>::ReadModel: 'static,
     {
         read_many.condition = merge_conditions(self.base_condition.clone(), read_many.condition);
-        request_post(
+        request::post(
             format!(
                 "{}/{}/crud/read-many",
                 self.api_base_url, self.resource_name
@@ -122,7 +121,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         <T as CrudMainTrait>::ReadModel: 'static,
     {
         read_one.condition = merge_conditions(self.base_condition.clone(), read_one.condition);
-        request_post(
+        request::post(
             format!("{}/{}/crud/read-one", self.api_base_url, self.resource_name),
             self.executor.as_ref(),
             read_one,
@@ -137,7 +136,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
     where
         <T as CrudMainTrait>::CreateModel: 'static,
     {
-        request_post(
+        request::post(
             format!(
                 "{}/{}/crud/create-one",
                 self.api_base_url, self.resource_name
@@ -156,7 +155,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
     where
         <T as CrudMainTrait>::UpdateModel: 'static,
     {
-        request_post(
+        request::post(
             format!(
                 "{}/{}/crud/create-one",
                 self.api_base_url, self.resource_name
@@ -175,7 +174,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         <T as CrudMainTrait>::UpdateModel: 'static,
     {
         update_one.condition = merge_conditions(self.base_condition.clone(), update_one.condition);
-        request_post(
+        request::post(
             format!(
                 "{}/{}/crud/update-one",
                 self.api_base_url, self.resource_name
@@ -186,11 +185,8 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
         .await
     }
 
-    pub async fn delete_by_id(
-        &self,
-        delete_by_id: DeleteById,
-    ) -> Result<Deleted, RequestError> {
-        request_post(
+    pub async fn delete_by_id(&self, delete_by_id: DeleteById) -> Result<Deleted, RequestError> {
+        request::post(
             format!(
                 "{}/{}/crud/delete-by-id",
                 self.api_base_url, self.resource_name

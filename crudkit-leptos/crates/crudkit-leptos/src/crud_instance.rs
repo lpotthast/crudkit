@@ -6,16 +6,18 @@ use crate::crud_edit_view::CrudEditView;
 use crate::crud_instance_config::{
     CrudInstanceConfig, CrudMutableInstanceConfig, CrudParentConfig, CrudStaticInstanceConfig,
 };
-use crate::crud_list_view::CrudListView;
-use crate::crud_read_view::CrudReadView;
 use crate::crud_instance_config::{ItemsPerPage, PageNr};
 use crate::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
+use crate::crud_list_view::CrudListView;
+use crate::crud_read_view::CrudReadView;
 use crudkit_condition::{Condition, ConditionElement};
 use crudkit_core::{Deleted, DeletedMany, Order};
 use crudkit_id::SerializableId;
-use crudkit_web::dynamic::prelude::*;
-use crudkit_web::dynamic::{AnyReadField, AnyReadModel, AnyReadOrUpdateModel};
+use crudkit_web::prelude::*;
 use crudkit_web::request_error::CrudOperationError;
+use crudkit_web::request_error::RequestError;
+use crudkit_web::view::SerializableCrudView;
+use crudkit_web::{OrderByUpdateOptions, TabId};
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
@@ -264,7 +266,7 @@ pub fn CrudInstance(
     let default_config = StoredValue::new(config);
 
     let data_provider = Signal::derive(move || {
-        CrudRestDataProvider::new(
+        DynCrudRestDataProvider::new(
             api_base_url.get(),
             static_config.read_value().reqwest_executor.clone(),
             static_config.read_value().resource_name.clone(),
@@ -356,7 +358,7 @@ pub fn CrudInstance(
             let condition = build_condition_from_entities(&entities);
 
             let result = data_provider
-                .delete_many(DeleteMany {
+                .delete_many(DynDeleteMany {
                     condition: Some(condition),
                 })
                 .await;

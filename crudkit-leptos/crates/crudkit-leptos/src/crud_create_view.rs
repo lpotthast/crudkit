@@ -5,9 +5,10 @@ use crate::crud_instance_config::{CreateElements, FieldRendererRegistry};
 use crate::crud_leave_modal::CrudLeaveModal;
 use crudkit_core::{Saved, Value};
 use crudkit_id::SerializableId;
-use crudkit_web::dynamic::prelude::*;
-use crudkit_web::dynamic::{AnyCreateField, AnyCreateModel, AnyUpdateModel};
+use crudkit_web::prelude::*;
 use crudkit_web::request_error::{CrudOperationError, RequestError};
+use crudkit_web::view::CrudSimpleView;
+use crudkit_web::{FieldMode, TabId};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -60,17 +61,19 @@ fn default_create_model(ctx: &CrudInstanceContext) -> AnyCreateModel {
 /// This component decides on its own, depending on the instance configuration, which fields to display.
 #[component]
 pub fn CrudCreateView(
-    #[prop(into)] data_provider: Signal<CrudRestDataProvider>,
+    #[prop(into)] data_provider: Signal<DynCrudRestDataProvider>,
     #[prop(into)] create_elements: Signal<CreateElements>,
     #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyCreateField>>,
     #[prop(into)] on_edit_view: Callback<SerializableId>, // UpdateModel id
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
     /// Called when the entity is successfully created.
-    #[prop(into)] on_entity_created: Callback<Saved<AnyUpdateModel>>,
+    #[prop(into)]
+    on_entity_created: Callback<Saved<AnyUpdateModel>>,
     /// Called when entity creation fails for any reason (permission denied, validation errors, server error, etc.).
     /// Use pattern matching on `CrudOperationError` to handle different failure types.
-    #[prop(into)] on_entity_creation_failed: Callback<CrudOperationError>,
+    #[prop(into)]
+    on_entity_creation_failed: Callback<CrudOperationError>,
     #[prop(into)] on_tab_selected: Callback<TabId>,
 ) -> impl IntoView {
     let ctx = expect_context::<CrudInstanceContext>();
@@ -119,7 +122,7 @@ pub fn CrudCreateView(
             async move {
                 (
                     data_provider
-                        .create_one(CreateOne {
+                        .create_one(DynCreateOne {
                             entity: create_model,
                         })
                         .await

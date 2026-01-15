@@ -1,7 +1,6 @@
 use crate::crud_action::{EntityActionInput, ResourceActionInput};
 use crate::crud_instance::CrudInstanceContext;
-use crudkit_web::dynamic::prelude::*;
-use crudkit_web::dynamic::AnyUpdateModel;
+use crudkit_web::prelude::*;
 use leptos::prelude::*;
 
 pub type ActionId = &'static str;

@@ -99,7 +99,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             let ident = Ident::new(it.as_str(), Span::call_site());
             quote! { #ident }
         })
-        .unwrap_or_else(|| quote! { crudkit_web::EmptyActionPayload });
+        .unwrap_or_else(|| quote! { crudkit_web::action::EmptyActionPayload });
 
     quote! {
         #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]

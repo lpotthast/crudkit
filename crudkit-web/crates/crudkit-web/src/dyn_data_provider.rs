@@ -1,21 +1,21 @@
-use crate::dynamic::requests::request_post;
-use crate::dynamic::{AnyCreateModel, AnyUpdateModel, SerializableReadField};
-use crate::prelude::{RequestError, ReqwestExecutor};
-use crudkit_condition::{Condition, merge_conditions};
+//! Type-erased data provider for runtime polymorphic CRUD operations.
+
+use crate::model::{AnyCreateModel, AnyUpdateModel, SerializableReadField};
+use crate::request::post_json;
+use crate::request_error::RequestError;
+use crate::reqwest_executor::ReqwestExecutor;
+use crudkit_condition::{merge_conditions, Condition};
 use crudkit_core::{Deleted, DeletedMany, Order};
-use crudkit_id::SerializableId;
 use indexmap::IndexMap;
 use serde::Serialize;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-#[derive(Debug, Serialize)]
-pub struct ReadCount {
-    pub condition: Option<Condition>,
-}
+// Re-export shared types from data_provider
+pub use crate::data_provider::{DeleteById, ReadCount};
 
 #[derive(Debug, Serialize)]
-pub struct ReadMany {
+pub struct DynReadMany {
     pub limit: Option<u64>,
     pub skip: Option<u64>,
     pub order_by: Option<IndexMap<SerializableReadField, Order>>,
@@ -23,7 +23,7 @@ pub struct ReadMany {
 }
 
 #[derive(Debug, Serialize)]
-pub struct ReadOne {
+pub struct DynReadOne {
     pub skip: Option<u64>,
     pub order_by: Option<IndexMap<SerializableReadField, Order>>,
     pub condition: Option<Condition>,
@@ -31,43 +31,38 @@ pub struct ReadOne {
 
 /// Not `Serialize`, as we perform custom serialization of the model on use.
 #[derive(Debug)]
-pub struct CreateOne {
+pub struct DynCreateOne {
     pub entity: AnyCreateModel,
 }
 
 /// Not `Serialize`, as we perform custom serialization of the model on use.
 #[derive(Debug)]
-pub struct UpdateOne {
+pub struct DynUpdateOne {
     pub entity: AnyUpdateModel,
     pub condition: Option<Condition>,
 }
 
 #[derive(Debug, Serialize)]
-pub struct DeleteById {
-    pub id: SerializableId,
-}
-
-#[derive(Debug, Serialize)]
-pub struct DeleteMany {
+pub struct DynDeleteMany {
     pub condition: Option<Condition>,
 }
 
 #[derive(Debug, Clone)]
-pub struct CrudRestDataProvider {
+pub struct DynCrudRestDataProvider {
     api_base_url: String,
     executor: Arc<dyn ReqwestExecutor>,
     base_condition: Option<Condition>,
     resource_name: String,
 }
 
-impl CrudRestDataProvider {
+impl DynCrudRestDataProvider {
     pub fn new(
         api_base_url: String,
         executor: Arc<dyn ReqwestExecutor>,
         resource_name: String,
     ) -> Self {
         Self {
-            api_base_url: api_base_url,
+            api_base_url,
             executor,
             base_condition: None,
             resource_name,
@@ -80,7 +75,7 @@ impl CrudRestDataProvider {
 
     pub async fn read_count(&self, mut read_count: ReadCount) -> Result<u64, RequestError> {
         read_count.condition = merge_conditions(self.base_condition.clone(), read_count.condition);
-        crate::requests::request_post(
+        crate::request::post(
             format!(
                 "{}/{}/crud/read-count",
                 self.api_base_url, self.resource_name
@@ -93,11 +88,10 @@ impl CrudRestDataProvider {
 
     pub async fn read_many(
         &self,
-        mut read_many: ReadMany,
+        mut read_many: DynReadMany,
     ) -> Result<serde_json::Value, RequestError> {
-        // ReadModel!
         read_many.condition = merge_conditions(self.base_condition.clone(), read_many.condition);
-        request_post(
+        post_json(
             format!(
                 "{}/{}/crud/read-many",
                 self.api_base_url, self.resource_name
@@ -108,10 +102,12 @@ impl CrudRestDataProvider {
         .await
     }
 
-    pub async fn read_one(&self, mut read_one: ReadOne) -> Result<serde_json::Value, RequestError> // ReadModel
-    {
+    pub async fn read_one(
+        &self,
+        mut read_one: DynReadOne,
+    ) -> Result<serde_json::Value, RequestError> {
         read_one.condition = merge_conditions(self.base_condition.clone(), read_one.condition);
-        request_post(
+        post_json(
             format!("{}/{}/crud/read-one", self.api_base_url, self.resource_name),
             self.executor.as_ref(),
             read_one,
@@ -121,14 +117,13 @@ impl CrudRestDataProvider {
 
     pub async fn create_one(
         &self,
-        create_one: CreateOne,
-    ) -> Result<serde_json::Value, RequestError> // UpdateModel
-    {
+        create_one: DynCreateOne,
+    ) -> Result<serde_json::Value, RequestError> {
         #[derive(Debug, Serialize)]
         struct CreateOneDto {
             entity: serde_json::Value,
         }
-        request_post(
+        post_json(
             format!(
                 "{}/{}/crud/create-one",
                 self.api_base_url, self.resource_name
@@ -145,10 +140,8 @@ impl CrudRestDataProvider {
 
     pub async fn update_one(
         &self,
-        mut update_one: UpdateOne,
-    ) -> Result<serde_json::Value, RequestError> // UpdateModel
-    {
-        // TODO: Should we let a callback do the concrete serialization?
+        mut update_one: DynUpdateOne,
+    ) -> Result<serde_json::Value, RequestError> {
         #[derive(Debug, Serialize)]
         struct UpdateOneDto {
             entity: serde_json::Value,
@@ -156,7 +149,7 @@ impl CrudRestDataProvider {
         }
 
         update_one.condition = merge_conditions(self.base_condition.clone(), update_one.condition);
-        request_post(
+        post_json(
             format!(
                 "{}/{}/crud/update-one",
                 self.api_base_url, self.resource_name
@@ -172,11 +165,8 @@ impl CrudRestDataProvider {
         .await
     }
 
-    pub async fn delete_by_id(
-        &self,
-        delete_by_id: DeleteById,
-    ) -> Result<Deleted, RequestError> {
-        let json = request_post(
+    pub async fn delete_by_id(&self, delete_by_id: DeleteById) -> Result<Deleted, RequestError> {
+        let json = post_json(
             format!(
                 "{}/{}/crud/delete-by-id",
                 self.api_base_url, self.resource_name
@@ -185,17 +175,16 @@ impl CrudRestDataProvider {
             delete_by_id,
         )
         .await?;
-        let result: Deleted = serde_json::from_value(json).unwrap();
-        Ok(result)
+        serde_json::from_value(json).map_err(|e| RequestError::Deserialize(e.to_string()))
     }
 
     pub async fn delete_many(
         &self,
-        mut delete_many: DeleteMany,
+        mut delete_many: DynDeleteMany,
     ) -> Result<DeletedMany, RequestError> {
         delete_many.condition =
             merge_conditions(self.base_condition.clone(), delete_many.condition);
-        let json = request_post(
+        let json = post_json(
             format!(
                 "{}/{}/crud/delete-many",
                 self.api_base_url, self.resource_name
@@ -204,25 +193,19 @@ impl CrudRestDataProvider {
             delete_many,
         )
         .await?;
-        let result: DeletedMany = serde_json::from_value(json)
-            .map_err(|e| RequestError::Deserialize(e.to_string()))?;
-        Ok(result)
+        serde_json::from_value(json).map_err(|e| RequestError::Deserialize(e.to_string()))
     }
 }
 
+// Serialization helpers for type-erased models
+
+#[allow(dead_code)]
 pub(crate) fn serialize_any_as_json(data: &(impl erased_serde::Serialize + Debug)) -> String {
-    // Construct some serializers.
     let mut buf = Vec::new();
     let json = &mut serde_json::Serializer::new(&mut buf);
-
-    // The values in this map are boxed trait objects. Ordinarily this would not
-    // be possible with serde::Serializer because of object safety, but type
-    // erasure makes it possible with erased_serde::Serializer.
     let mut json_format = Box::new(<dyn erased_serde::Serializer>::erase(json));
-
     data.erased_serialize(&mut json_format).unwrap();
     drop(json_format);
-
     String::from_utf8_lossy(buf.as_slice()).to_string()
 }
 
@@ -233,11 +216,6 @@ pub(crate) fn serialize_any_as_json_value_omitting_type_information(
         erased_serde::serialize(data, serde_json::value::Serializer).unwrap();
     assert!(value.is_object());
     match value {
-        serde_json::Value::Null => unreachable!(),
-        serde_json::Value::Bool(_) => unreachable!(),
-        serde_json::Value::Number(_) => unreachable!(),
-        serde_json::Value::String(_) => unreachable!(),
-        serde_json::Value::Array(_) => unreachable!(),
         serde_json::Value::Object(object) => {
             assert_eq!(object.len(), 1);
             object
@@ -245,5 +223,6 @@ pub(crate) fn serialize_any_as_json_value_omitting_type_information(
                 .next()
                 .expect("real data to be present")
         }
+        _ => unreachable!(),
     }
 }

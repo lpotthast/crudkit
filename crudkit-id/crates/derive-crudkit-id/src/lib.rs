@@ -3,11 +3,11 @@
 
 use darling::*;
 use proc_macro::TokenStream;
-use proc_macro2::Span;
 use proc_macro_error::{abort, proc_macro_error};
 use proc_macro_type_name::ToTypeName;
+use proc_macro2::Span;
 use quote::quote;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident};
+use syn::{DeriveInput, Ident, parse_macro_input, spanned::Spanned};
 
 #[derive(Debug, FromField)]
 #[darling(attributes(ck_id))]

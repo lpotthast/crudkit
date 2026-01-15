@@ -1,6 +1,5 @@
 use crate::prelude::*;
-use crudkit_web::dynamic::prelude::*;
-use crudkit_web::dynamic::AnyUpdateModel;
+use crudkit_web::prelude::*;
 use leptonic::prelude::icondata;
 use leptos::prelude::*;
 use std::{fmt::Debug, rc::Rc};

@@ -14,10 +14,10 @@ pub fn store(input: TokenStream) -> TokenStream {
     let ident = &ast.ident;
 
     quote! {
-        impl crudkit_web::CrudActionPayload for #ident {
+        impl crudkit_web::action::CrudActionPayload for #ident {
         }
 
-        impl crudkit_web::dynamic::ActionPayload for #ident {
+        impl crudkit_web::action::ActionPayload for #ident {
         }
     }
     .into()

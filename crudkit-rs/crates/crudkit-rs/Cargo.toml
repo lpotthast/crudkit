@@ -3,6 +3,10 @@ name = "crudkit-rs"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+keycloak-auth = ["dep:axum-keycloak-auth"]
+
 [dependencies]
 crudkit-condition = { path = "../../../crudkit-condition" }
 crudkit-core = { path = "../../../crudkit-core/crates/crudkit-core" }
@@ -35,7 +39,3 @@ time = { version = "0.3.44", features = ["serde", "serde-well-known"] }
 tracing = "0.1.44"
 utoipa = { version = "5.4.0", features = ["time", "uuid"] }
 uuid = { version = "1.19.0", features = ["v4", "v7", "serde"] }
-
-[features]
-default = []
-keycloak-auth = ["dep:axum-keycloak-auth"]
