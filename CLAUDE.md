@@ -72,7 +72,7 @@ The project follows a 3-layer architecture:
 1. **Shared Layer** - Core types used by both frontend and backend:
    - `crudkit-id` - Type-safe entity identifiers with composite primary key support
    - `crudkit-condition` - Query filtering and condition building
-   - `crudkit-core` - Shared types (Value enum, Order, SaveResult, DeleteResult, etc.)
+   - `crudkit-core` - Shared types (Value enum, Order, Saved, Deleted, etc.)
    - `crudkit-validation` - Entity validation framework with severity levels
    - `crudkit-websocket` - Real-time entity change notifications
 
@@ -120,6 +120,37 @@ The central abstraction is the `CrudResource` trait (crudkit-rs/crates/crudkit-r
 - `ReactiveValue` - Fine-grained reactive wrapper around Value (each field has RwSignal)
 - `SignalsTrait` - Convert between models and reactive field maps
 - `CrudInstanceContext<T>` - Manages view state (List/Create/Edit/Read/Delete)
+
+### Error Handling Architecture
+
+The framework follows a unified error handling approach: **HTTP 200 always means success with entity. Everything else is an error.**
+
+**Backend Error Types** (crudkit-rs):
+
+`HookError<E>` - Returned by lifecycle hooks to reject operations:
+- `Forbidden { reason }` - Permission denied (maps to HTTP 403)
+- `UnprocessableEntity { reason }` - Business logic rejection (maps to HTTP 422)
+- `Internal(E)` - Technical/infrastructure error (maps to HTTP 500)
+
+`CrudError` - Unified error type for all CRUD operations:
+- `Forbidden` / `UnprocessableEntity` - From lifecycle hooks
+- `ValidationFailed` - Critical validation errors (HTTP 422)
+- `NotFound` - Entity not found (HTTP 404)
+- `Repository` / `LifecycleError` - Infrastructure errors (HTTP 500)
+
+**Frontend Error Type** (crudkit-web):
+
+`CrudOperationError` - Type-safe error for frontend handlers:
+- `Forbidden { reason }` - Permission denied
+- `UnprocessableEntity { reason }` - Business logic rejection
+- `NotFound { message }` - Entity not found
+- `ServerError { message }` - Server error
+- `Unauthorized { message }` - Authentication required
+- `NetworkError { message }` - Client-side error
+
+**Return Types**:
+- Create/Update operations return `Result<Saved<T>, CrudError>` where `Saved<T>` contains the entity and validation warning flag
+- Delete operations return `Result<Deleted, CrudError>` where `Deleted` contains the count of affected entities
 
 ### Derive Macro Ecosystem
 
@@ -192,28 +223,65 @@ Unlike most CRUD frameworks, Crudkit fully supports composite primary keys via t
    - Frontend: User fills form -> CreateModel
    - HTTP POST to backend REST endpoint
    - Backend: `before_create` hook -> Repository.insert() -> Validation -> `after_create` hook -> WebSocket broadcast
+   - Success: HTTP 200 with `Saved<T>` | Failure: HTTP 4xx/5xx with error
+   - Frontend receives `Result<Saved<T>, CrudOperationError>`, calls `on_entity_created` or `on_entity_creation_failed`
 
 2. **Read Flow**:
    - Frontend: CrudInstanceContext.load() -> CrudRestDataProvider.read_many()
-   - HTTP GET with filters/pagination
+   - HTTP POST with filters/pagination (uses POST for complex query bodies)
    - Backend: Repository.read_many() from ReadViewEntity (may be SQL view)
-   - Returns paginated results
+   - Returns paginated results or error
 
 3. **Update Flow**:
    - Frontend: User edits -> UpdateModel with field-level reactive signals
-   - HTTP PUT/PATCH to backend
+   - HTTP POST to backend
    - Backend: `before_update` hook -> Repository.update() -> Validation -> `after_update` hook -> WebSocket broadcast
+   - Success: HTTP 200 with `Saved<T>` | Failure: HTTP 4xx/5xx with error
+   - Frontend receives `Result<Saved<T>, CrudOperationError>`, calls `on_entity_updated` or `on_entity_update_failed`
 
 4. **Delete Flow**:
    - Frontend: Delete button -> Confirmation modal
-   - HTTP DELETE to backend
+   - HTTP POST to backend (delete-by-id endpoint)
    - Backend: `before_delete` hook -> Repository.delete() -> `after_delete` hook -> WebSocket broadcast
+   - Success: HTTP 200 with `Deleted` | Failure: HTTP 4xx/5xx with error
+   - Frontend shows toast based on `Result<Deleted, CrudOperationError>`
+
+### Lifecycle Hooks
+
+The `CrudLifetime<R>` trait provides hooks that run before/after each CRUD operation. Hooks can:
+- Modify data before persistence (e.g., set timestamps, normalize values)
+- Reject operations by returning `HookError::Forbidden` (permission check) or `HookError::UnprocessableEntity` (business rule)
+- Perform side effects after successful operations (e.g., send notifications)
+
+Example lifecycle hook:
+```rust
+async fn before_delete(
+    model: &Article,
+    context: &MyContext,
+    request: RequestContext<Auth>,
+    data: HookData,
+) -> Result<HookData, HookError<MyError>> {
+    // Permission check -> HTTP 403
+    if model.creator_id != request.auth.user_id && !request.auth.is_admin {
+        return Err(HookError::Forbidden {
+            reason: "Only the creator or admin can delete".into()
+        });
+    }
+    // Business rule check -> HTTP 422
+    if model.has_active_orders() {
+        return Err(HookError::UnprocessableEntity {
+            reason: "Cannot delete article with active orders".into()
+        });
+    }
+    Ok(data)
+}
+```
 
 ### Validation System
 
 The validation system supports:
 - Multiple validators per entity (tracked by name + version)
-- Two severity levels: Major (warnings) vs Critical (blocks save)
+- Two severity levels: Major (warnings, allow save) vs Critical (blocks save, returns HTTP 422)
 - Per-field violations with custom messages
 - Validation result storage in database
 - Real-time validation updates via WebSocket
