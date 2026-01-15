@@ -131,7 +131,17 @@ pub trait CrudResource: Sized + Debug {
     /// Use this to supply arbitrary data, like custom services.
     type Context: CrudResourceContext + Send + Sync + 'static;
 
+    /// This type is `Default` created at the start of any operation (create, read, update, delete)
+    /// and passed mutably to all lifecycle hooks called in that operation. For example, when
+    /// creating an entity, the same instance of this type is passed to `before_create` and
+    /// `after_create`.
+    ///
+    /// In case that an operation triggers multiple lifecycle hooks (like create), this type can
+    /// allow you to hold onto some data across these hooks for later reference.
+    ///
+    /// Simply set this to `()` if not required.
     type HookData: Default + Send + Sync + 'static;
+
     type Lifetime: CrudLifetime<Self>;
 
     /// Authentication type for this resource.

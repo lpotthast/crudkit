@@ -13,9 +13,9 @@ use crudkit_websocket::{CkWsMessage, EntityUpdated};
 use crate::{
     auth::RequestContext,
     error::CrudError,
-    lifetime::{Abort, CrudLifetime},
+    lifetime::{Abort, CrudLifetime, UpdateRequest},
     prelude::*,
-    validation::{CrudAction, ValidationContext, ValidationTrigger, When, into_persistable},
+    validation::{into_persistable, CrudAction, ValidationContext, ValidationTrigger, When},
 };
 
 #[derive(Debug, ToSchema, Deserialize)]
@@ -23,6 +23,8 @@ pub struct UpdateOne<T> {
     pub condition: Option<Condition>,
     pub entity: T,
 }
+
+// TODO(stretch): UpdateMany? Supporting this would require a huge change for our leptos frontend. It would also require a `PartialUpdateModel`, allowing for unobserved / unchanged fields. This could(?) also be helpful as another UpdateOne variant, (more geared towards programmatic updates which dont want to read in the entity before).
 
 #[tracing::instrument(level = "info", skip(context, request))]
 pub async fn update_one<R: CrudResource>(
@@ -47,12 +49,18 @@ pub async fn update_one<R: CrudResource>(
 
     let update_model = body.entity;
 
+    let update_request = UpdateRequest {
+        condition: body.condition,
+    };
+
     let hook_data = R::HookData::default();
 
     // Before update
+    // TODO: Do not ignore error! What to do? Should an error roll back a transaction. Should the error tell us that!?
     let (abort, hook_data) = R::Lifetime::before_update(
         &update_model,
         &mut active_model,
+        &update_request,
         &context.res_context,
         request.clone(),
         hook_data,
@@ -65,7 +73,7 @@ pub async fn update_one<R: CrudResource>(
     }
 
     // Update the persisted active_model!
-    active_model.update_with(update_model.clone()); // Clone required becase we later reference the update_model in after_update. Could be optimized away when using NoopLifetimeHooks.
+    active_model.update_with(update_model.clone()); // Clone required because we later reference the update_model in after_update. Could be optimized away when using NoopLifetimeHooks.
 
     // TODO: Just like model.get_id(), provide an active_model.get_id() implementation...?
     let entity_id = R::CrudColumn::get_id_active(&active_model)
@@ -158,10 +166,17 @@ pub async fn update_one<R: CrudResource>(
         })?;
 
     // After update
-    let _hook_data =
-        R::Lifetime::after_update(&update_model, &result, &context.res_context, request, hook_data)
-            .await
-            .expect("after_update to not error");
+    // TODO: Do not ignore error! What to do? Should an error roll back a transaction. Should the error tell us that!?
+    let _hook_data = R::Lifetime::after_update(
+        &update_model,
+        &result,
+        &update_request,
+        &context.res_context,
+        request,
+        hook_data,
+    )
+    .await
+    .expect("after_update to not error");
 
     // Inform all participants that the entity was updated.
     // TODO: Exclude the current user!

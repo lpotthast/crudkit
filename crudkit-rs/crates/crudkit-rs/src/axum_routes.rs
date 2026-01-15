@@ -16,6 +16,7 @@ pub enum AxumCrudError {
     SaveValidations { reason: String },
     DeleteValidations { reason: String },
     Unauthorized { reason: String },
+    ReadAborted { reason: String },
 }
 
 impl From<CrudError> for AxumCrudError {
@@ -48,6 +49,10 @@ impl From<CrudError> for AxumCrudError {
             } => Self::DeleteValidations {
                 reason: err.to_string(),
             },
+            CrudError::ReadAborted {
+                reason,
+                backtrace: _,
+            } => Self::ReadAborted { reason },
         }
     }
 }
@@ -62,6 +67,7 @@ impl IntoResponse for AxumCrudError {
             Self::SaveValidations { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
             Self::DeleteValidations { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
             Self::Unauthorized { reason } => (StatusCode::UNAUTHORIZED, reason),
+            Self::ReadAborted { reason } => (StatusCode::FORBIDDEN, reason),
         };
 
         let body = Json(json!({

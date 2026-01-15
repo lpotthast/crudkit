@@ -77,6 +77,18 @@ pub mod prelude {
     pub use super::resource::CrudResourceContext;
     pub use super::websocket::CrudWebsocketService;
 
+    // Lifetime hooks and related types
+    pub use super::lifetime::Abort;
+    pub use super::lifetime::CrudLifetime;
+    pub use super::lifetime::DeleteOperation;
+    pub use super::lifetime::DeleteRequest;
+    pub use super::lifetime::NoopError;
+    pub use super::lifetime::NoopLifetimeHooks;
+    pub use super::lifetime::ReadOperation;
+    pub use super::lifetime::ReadRequest;
+    pub use super::lifetime::ReadResult;
+    pub use super::lifetime::UpdateRequest;
+
     pub use super::AsColType;
     pub use super::CreateModelTrait;
     pub use super::CrudColumns;

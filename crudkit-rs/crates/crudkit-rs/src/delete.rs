@@ -11,12 +11,12 @@ use crudkit_validation::PartialSerializableValidations;
 use crudkit_websocket::{CkWsMessage, EntityDeleted};
 
 use crate::{
-    GetIdFromModel,
     auth::RequestContext,
     error::CrudError,
-    lifetime::{Abort, CrudLifetime},
+    lifetime::{Abort, CrudLifetime, DeleteOperation, DeleteRequest},
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
+    GetIdFromModel,
 };
 
 #[derive(Debug, ToSchema, Deserialize)]
@@ -44,26 +44,21 @@ pub async fn delete_by_id<R: CrudResource>(
     context: Arc<CrudContext<R>>,
     body: DeleteById,
 ) -> Result<DeleteResult, CrudError> {
+    let id_condition = body
+        .id
+        .0
+        .iter()
+        .map(|(name, value)| (name.clone(), value.clone()))
+        .try_into_all_equal_condition()
+        .map_err(|err| CrudError::IntoCondition {
+            source: err,
+            backtrace: Backtrace::generate(),
+        })?;
+
     // TODO: This initially fetched Model, not ReadViewModel...
     let model = context
         .repository
-        .fetch_one(
-            None,
-            None,
-            None,
-            Some(
-                &body
-                    .id
-                    .0
-                    .iter()
-                    .map(|(name, value)| (name.clone(), value.clone()))
-                    .try_into_all_equal_condition()
-                    .map_err(|err| CrudError::IntoCondition {
-                        source: err,
-                        backtrace: Backtrace::generate(),
-                    })?,
-            ),
-        )
+        .fetch_one(None, None, None, Some(&id_condition))
         .await
         .map_err(|err| CrudError::Repository {
             reason: Arc::new(err),
@@ -73,12 +68,24 @@ pub async fn delete_by_id<R: CrudResource>(
             backtrace: Backtrace::generate(),
         })?;
 
-    // TODO: Make sure that the user really has the right to delete this entry!!! Maybe an additional lifetime check?
+    let delete_request = DeleteRequest {
+        operation: DeleteOperation::ById,
+        skip: None,
+        order_by: None,
+        condition: Some(id_condition),
+    };
 
+    // TODO: Do not ignore error! What to do? Should an error roll back a transaction. Should the error tell us that!?
     let hook_data = R::HookData::default();
-    let (abort, hook_data) = R::Lifetime::before_delete(&model, &context.res_context, request.clone(), hook_data)
-        .await
-        .expect("before_create to no error");
+    let (abort, hook_data) = R::Lifetime::before_delete(
+        &model,
+        &delete_request,
+        &context.res_context,
+        request.clone(),
+        hook_data,
+    )
+    .await
+    .expect("before_delete to not error");
 
     if let Abort::Yes { reason } = abort {
         return Ok(DeleteResult::Aborted { reason });
@@ -130,8 +137,15 @@ pub async fn delete_by_id<R: CrudResource>(
                 backtrace: Backtrace::generate(),
             })?;
 
-    let _hook_data =
-        R::Lifetime::after_delete(&deleted_model, &context.res_context, request, hook_data).await;
+    // TODO: Do not ignore error! What to do? Should an error roll back a transaction. Should the error tell us that!?
+    let _hook_data = R::Lifetime::after_delete(
+        &deleted_model,
+        &delete_request,
+        &context.res_context,
+        request,
+        hook_data,
+    )
+    .await;
 
     // Deleting the entity could have introduced new validation errors in other parts ot the system.
     // TODO: let validation run again...
@@ -162,7 +176,12 @@ pub async fn delete_one<R: CrudResource>(
 ) -> Result<DeleteResult, CrudError> {
     let model = context
         .repository
-        .fetch_one(None, body.skip, body.order_by, body.condition.as_ref())
+        .fetch_one(
+            None,
+            body.skip,
+            body.order_by.clone(),
+            body.condition.as_ref(),
+        )
         .await
         .map_err(|err| CrudError::Repository {
             reason: Arc::new(err),
@@ -172,10 +191,24 @@ pub async fn delete_one<R: CrudResource>(
             backtrace: Backtrace::generate(),
         })?;
 
+    let delete_request = DeleteRequest {
+        operation: DeleteOperation::One,
+        skip: body.skip,
+        order_by: body.order_by,
+        condition: body.condition,
+    };
+
     let hook_data = R::HookData::default();
-    let (abort, hook_data) = R::Lifetime::before_delete(&model, &context.res_context, request.clone(), hook_data)
-        .await
-        .expect("before_create to no error");
+    // TODO: Do not ignore error! What to do? Should an error roll back a transaction. Should the error tell us that!?
+    let (abort, hook_data) = R::Lifetime::before_delete(
+        &model,
+        &delete_request,
+        &context.res_context,
+        request.clone(),
+        hook_data,
+    )
+    .await
+    .expect("before_delete to not error");
 
     if let Abort::Yes { reason } = abort {
         return Ok(DeleteResult::Aborted { reason });
@@ -227,8 +260,15 @@ pub async fn delete_one<R: CrudResource>(
                 backtrace: Backtrace::generate(),
             })?;
 
-    let _hook_data =
-        R::Lifetime::after_delete(&deleted_model, &context.res_context, request, hook_data).await;
+    // TODO: Do not ignore error! What to do? Should an error roll back a transaction. Should the error tell us that!?
+    let _hook_data = R::Lifetime::after_delete(
+        &deleted_model,
+        &delete_request,
+        &context.res_context,
+        request,
+        hook_data,
+    )
+    .await;
 
     // All previous validations regarding this entity must be deleted!
     context
