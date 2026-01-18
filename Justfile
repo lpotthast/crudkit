@@ -12,7 +12,7 @@ sort:
   cargo sort ./crudkit-leptos -w -g
   cargo sort ./crudkit-rs -w -g
   cargo sort ./crudkit-validation -w -g
-  cargo sort ./crudkit-websocket -w -g
+  cargo sort ./crudkit-collaboration -w -g
 
 # Run `cargo fmt` for every crate.
 fmt:
@@ -22,7 +22,7 @@ fmt:
   cargo fmt --all --manifest-path ./crudkit-leptos/Cargo.toml
   cargo fmt --all --manifest-path ./crudkit-rs/Cargo.toml
   cargo fmt --all --manifest-path ./crudkit-validation/Cargo.toml
-  cargo fmt --all --manifest-path ./crudkit-websocket/Cargo.toml
+  cargo fmt --all --manifest-path ./crudkit-collaboration/Cargo.toml
 
 leptosfmt:
   cargo install leptosfmt
@@ -36,7 +36,7 @@ update:
   cargo update --manifest-path ./crudkit-leptos/Cargo.toml
   cargo update --manifest-path ./crudkit-rs/Cargo.toml
   cargo update --manifest-path ./crudkit-validation/Cargo.toml
-  cargo update --manifest-path ./crudkit-websocket/Cargo.toml
+  cargo update --manifest-path ./crudkit-collaboration/Cargo.toml
 
 # Run `cargo check` for every crate.
 check:
@@ -46,7 +46,7 @@ check:
   cargo check --manifest-path ./crudkit-leptos/Cargo.toml
   cargo check --manifest-path ./crudkit-rs/Cargo.toml
   cargo check --manifest-path ./crudkit-validation/Cargo.toml
-  cargo check --manifest-path ./crudkit-websocket/Cargo.toml
+  cargo check --manifest-path ./crudkit-collaboration/Cargo.toml
 
 # Run `cargo test` for every crate.
 test:
@@ -56,7 +56,7 @@ test:
   cargo test --manifest-path ./crudkit-leptos/Cargo.toml
   cargo test --manifest-path ./crudkit-rs/Cargo.toml
   cargo test --manifest-path ./crudkit-validation/Cargo.toml
-  cargo test --manifest-path ./crudkit-websocket/Cargo.toml
+  cargo test --manifest-path ./crudkit-collaboration/Cargo.toml
 
 # Run `cargo upgrades` for every crate, checking if new crate versions including potentially breaking changes are available.
 upgrades: # "-" prefixes allow for non-zero status codes!
@@ -66,7 +66,7 @@ upgrades: # "-" prefixes allow for non-zero status codes!
   -cargo upgrades --manifest-path ./crudkit-leptos/Cargo.toml
   -cargo upgrades --manifest-path ./crudkit-rs/Cargo.toml
   -cargo upgrades --manifest-path ./crudkit-validation/Cargo.toml
-  -cargo upgrades --manifest-path ./crudkit-websocket/Cargo.toml
+  -cargo upgrades --manifest-path ./crudkit-collaboration/Cargo.toml
 
 # Run `cargo upgrade` for every crate, automatically bumping all dependencies to their latest versions
 upgrade: # "-" prefixes allow for non-zero status codes!
@@ -76,7 +76,7 @@ upgrade: # "-" prefixes allow for non-zero status codes!
   -cargo upgrade --manifest-path ./crudkit-leptos/Cargo.toml
   -cargo upgrade --manifest-path ./crudkit-rs/Cargo.toml
   -cargo upgrade --manifest-path ./crudkit-validation/Cargo.toml
-  -cargo upgrade --manifest-path ./crudkit-websocket/Cargo.toml
+  -cargo upgrade --manifest-path ./crudkit-collaboration/Cargo.toml
 
 # Run `cargo clippy --tests -- -Dclippy::all -Dclippy::pedantic` for every crate.
 clippy: # "-" prefixes allow for non-zero status codes!
@@ -86,4 +86,4 @@ clippy: # "-" prefixes allow for non-zero status codes!
   -cargo clippy --tests --manifest-path ./crudkit-leptos/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
   -cargo clippy --tests --manifest-path ./crudkit-rs/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
   -cargo clippy --tests --manifest-path ./crudkit-validation/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
-  -cargo clippy --tests --manifest-path ./crudkit-websocket/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
+  -cargo clippy --tests --manifest-path ./crudkit-collaboration/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
