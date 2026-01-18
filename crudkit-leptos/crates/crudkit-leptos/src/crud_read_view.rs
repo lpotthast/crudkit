@@ -1,4 +1,3 @@
-use crate::ReactiveValue;
 use crate::crud_action::{CrudEntityAction, States};
 use crate::crud_action_buttons::CrudActionButtons;
 use crate::crud_action_context::CrudActionContext;
@@ -6,11 +5,11 @@ use crate::crud_fields::CrudFields;
 use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{FieldRendererRegistry, UpdateElements};
 use crate::crud_table::NoDataAvailable;
-use crudkit_condition::{TryIntoAllEqualCondition, merge_conditions};
+use crate::ReactiveValue;
+use crudkit_condition::{merge_conditions, TryIntoAllEqualCondition};
 use crudkit_id::SerializableId;
 use crudkit_web::prelude::*;
 use crudkit_web::request_error::RequestError;
-use crudkit_web::view::CrudSimpleView;
 use crudkit_web::{FieldMode, TabId};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
@@ -164,7 +163,6 @@ pub fn CrudReadView(
                         elements=elements
                         signals=signals
                         mode=FieldMode::Readable
-                        current_view=CrudSimpleView::Read
                         value_changed=value_changed.clone()
                         on_tab_selection=on_tab_selected.clone()
                     />

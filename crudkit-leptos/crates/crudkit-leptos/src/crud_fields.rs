@@ -1,9 +1,8 @@
-use crate::ReactiveValue;
 use crate::crud_field::CrudField;
 use crate::crud_instance_config::FieldRendererRegistry;
+use crate::ReactiveValue;
 use crudkit_core::Value;
 use crudkit_web::prelude::*;
-use crudkit_web::view::CrudSimpleView;
 use crudkit_web::{FieldMode, TabId};
 use leptonic::components::prelude::*;
 use leptos::prelude::*;
@@ -15,7 +14,6 @@ pub fn CrudFields<F: DynField>(
     #[prop(into)] elements: Signal<Vec<Elem<F>>>,
     #[prop(into)] signals: StoredValue<HashMap<F, ReactiveValue>>,
     mode: FieldMode,
-    current_view: CrudSimpleView,
     value_changed: Callback<(F, Result<Value, String>)>,
     on_tab_selection: Callback<TabId>,
 ) -> impl IntoView {
@@ -33,7 +31,6 @@ pub fn CrudFields<F: DynField>(
                                     elements=group.children.clone()
                                     signals=signals
                                     mode=mode.clone()
-                                    current_view=current_view
                                     value_changed=value_changed
                                     on_tab_selection=on_tab_selection
                                 />
@@ -59,7 +56,6 @@ pub fn CrudFields<F: DynField>(
                                                         elements=tab.group.children.clone()
                                                         signals=signals
                                                         mode=mode.clone()
-                                                        current_view=current_view
                                                         value_changed=value_changed
                                                         on_tab_selection=on_tab_selection
                                                     />
@@ -77,7 +73,6 @@ pub fn CrudFields<F: DynField>(
                                         elements=group.children.clone()
                                         signals=signals
                                         mode=mode.clone()
-                                        current_view=current_view
                                         value_changed=value_changed
                                         on_tab_selection=on_tab_selection
                                     />
@@ -89,7 +84,6 @@ pub fn CrudFields<F: DynField>(
                     Elem::Field((field, field_options)) => view! {
                         <CrudField
                             field_renderer_registry=field_renderer_registry
-                            current_view=current_view
                             field=field.clone()
                             field_options=field_options.clone()
                             field_mode=mode.clone()

@@ -19,47 +19,43 @@ pub fn CrudPrimitiveDateTimeField(
     match field_mode {
         FieldMode::Display => match field_options.date_time_display {
             DateTimeDisplay::IsoUtc => {
-                view! { <div>{move || value.get().format(&Rfc3339).expect("infallible using well-known format")}</div> }.into_any()
+                view! { {move || value.get().format(&Rfc3339).expect("infallible using well-known format")} }.into_any()
             }
             // TODO: Use icu4x formatting using the current users locale!
             DateTimeDisplay::LocalizedLocal => view! {
-                <div>
-                    {move || {
-                        value.get().format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap()
-                    }}
-                </div>
+                {move || {
+                    value.get().format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap()
+                }}
             }.into_any(),
         },
         FieldMode::Readable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())} <div id=id.clone() class="crud-input-field">
-                    <DateTimeInput
-                        id=id.clone()
-                        get=Signal::derive(move || Some(value.get().assume_utc()))
-                        set=move |_v| {}
-                        disabled=true
-                    />
-                </div>
+            {render_label(field_options.label.clone())}
+            <div id=id.clone() class="crud-input-field">
+                <DateTimeInput
+                    id=id.clone()
+                    get=Signal::derive(move || Some(value.get().assume_utc()))
+                    set=move |_v| {}
+                    disabled=true
+                />
             </div>
         }.into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())} <div id=id.clone() class="crud-input-field">
-                    <DateTimeInput
-                        id=id.clone()
-                        get=Signal::derive(move || Some(value.get().assume_utc()))
-                        set={move |v: Option<time::OffsetDateTime>| {
-                            match v {
-                                Some(v) => {
-                                    value_changed
-                                        .run(Ok(Value::PrimitiveDateTime(PrimitiveDateTime::new(v.date(), v.time()))))
-                                }
-                                None => {}
+            {render_label(field_options.label.clone())}
+            <div id=id.clone() class="crud-input-field">
+                <DateTimeInput
+                    id=id.clone()
+                    get=Signal::derive(move || Some(value.get().assume_utc()))
+                    set={move |v: Option<time::OffsetDateTime>| {
+                        match v {
+                            Some(v) => {
+                                value_changed
+                                    .run(Ok(Value::PrimitiveDateTime(PrimitiveDateTime::new(v.date(), v.time()))))
                             }
-                        }}
-                        disabled=field_options.disabled
-                    />
-                </div>
+                            None => {}
+                        }
+                    }}
+                    disabled=field_options.disabled
+                />
             </div>
         }.into_any(),
     }
@@ -76,18 +72,17 @@ pub fn CrudOptionalPrimitiveDateTimeField(
     match field_mode {
         FieldMode::Display => match field_options.date_time_display {
             DateTimeDisplay::IsoUtc => {move || match value.get() {
-                Some(date_time) => view! { <div>{date_time.format(&Rfc3339).unwrap()}</div> }.into_any(),
-                None => view! { <div>""</div> }.into_any(),
+                Some(date_time) => view! { {date_time.format(&Rfc3339).unwrap()} }.into_any(),
+                None => view! { "" }.into_any(),
             }}.into_any(),
             DateTimeDisplay::LocalizedLocal => {move || match value.get() {
                 // TODO: Use icu4x formatting using the current users locale!
-                Some(date_time) => view! { <div>{date_time.format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap()}</div> }.into_any(),
-                None => view! { <div>""</div> }.into_any(),
+                Some(date_time) => view! { {date_time.format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap()} }.into_any(),
+                None => view! { "" }.into_any(),
             }}.into_any(),
         },
         FieldMode::Readable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())} "TODO: DataTime input field"
+            {render_label(field_options.label.clone())} "TODO: DataTime input field"
             // id=id.clone()
             // ty=InputType::Number
             // class="crud-input-field" // TODO: This should not be necessary. We can style the leptonic-input directly.
@@ -95,18 +90,15 @@ pub fn CrudOptionalPrimitiveDateTimeField(
             // get=format!("{value}")
             // set=move |_| {}
             // />
-            </div>
         }.into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
-                "TODO: DataTime input field" {render_label(field_options.label.clone())}
+            "TODO: DataTime input field" {render_label(field_options.label.clone())}
             // <CrudOffsetDatetime
             // id={self.format_id()}
             // value={optional_primitive_date_time.clone().map(|it| it.assume_utc())}
             // onchange={ctx.link().callback(|datetime: Option<time::OffsetDateTime>| Msg::Send(Value::OptionalOffsetDateTime(datetime)))}
             // disabled={options.disabled}
             // />
-            </div>
         }.into_any(),
     }
 }

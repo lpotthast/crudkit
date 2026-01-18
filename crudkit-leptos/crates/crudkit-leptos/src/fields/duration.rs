@@ -232,33 +232,29 @@ pub fn CrudDurationField(
 ) -> impl IntoView {
     match field_mode {
         FieldMode::Display => {
-            view! { <div>{move || duration_to_string(value.get().0) }</div> }.into_any()
+            view! { {move || duration_to_string(value.get().0) } }.into_any()
         }
         FieldMode::Readable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())}
-                <DurationInput
-                    attr:id=id.clone()
-                    // TODO: This should not be necessary. We can style the leptonic-input directly.
-                    attr:class="crud-input-field"
-                    disabled=true
-                    get=Signal::derive(move || value.get().0)
-                />
-            </div>
+            {render_label(field_options.label.clone())}
+            <DurationInput
+                attr:id=id.clone()
+                // TODO: This should not be necessary. We can style the leptonic-input directly.
+                attr:class="crud-input-field"
+                disabled=true
+                get=Signal::derive(move || value.get().0)
+            />
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())}
-                <DurationInput
-                    attr:id=id.clone()
-                    // TODO: This should not be necessary. We can style the leptonic-input directly.
-                    attr:class="crud-input-field"
-                    disabled=false
-                    get=Signal::derive(move || value.get().0)
-                    set=move |new: time::Duration| value_changed.run(Ok(Value::Duration(TimeDuration(new))))
-                />
-            </div>
+            {render_label(field_options.label.clone())}
+            <DurationInput
+                attr:id=id.clone()
+                // TODO: This should not be necessary. We can style the leptonic-input directly.
+                attr:class="crud-input-field"
+                disabled=false
+                get=Signal::derive(move || value.get().0)
+                set=move |new: time::Duration| value_changed.run(Ok(Value::Duration(TimeDuration(new))))
+            />
         }
         .into_any(),
     }
@@ -275,42 +271,38 @@ pub fn CrudOptionalDurationField(
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { <div>{duration_to_string(value.0)}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
+                Some(value) => view! { {duration_to_string(value.0)} }.into_any(),
+                None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
         FieldMode::Readable => {
             view! {
-                <div class="crud-field">
-                    {render_label(field_options.label.clone())}
-                    <OptionalDurationInput
-                        attr:id=id.clone()
-                        // TODO: This should not be necessary. We can style the leptonic-input directly.
-                        attr:class="crud-input-field"
-                        disabled=false
-                        get=Signal::derive(move || { value.get().map(|it| it.0) })
-                        set={move |_new: Option<time::Duration>| {}}
-                    />
-                </div>
+                {render_label(field_options.label.clone())}
+                <OptionalDurationInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=false
+                    get=Signal::derive(move || { value.get().map(|it| it.0) })
+                    set={move |_new: Option<time::Duration>| {}}
+                />
             }
             .into_any()
         }
         FieldMode::Editable => {
             view! {
-                <div class="crud-field">
-                    {render_label(field_options.label.clone())}
-                    <OptionalDurationInput
-                        attr:id=id.clone()
-                        // TODO: This should not be necessary. We can style the leptonic-input directly.
-                        attr:class="crud-input-field"
-                        disabled=field_options.disabled
-                        get=Signal::derive(move || { value.get().map(|it| it.0) })
-                        set={move |new: Option<time::Duration>| {
-                            value_changed.run(Ok(Value::OptionalDuration(new.map(|it| TimeDuration(it)))))
-                        }}
-                    />
-                </div>
+                {render_label(field_options.label.clone())}
+                <OptionalDurationInput
+                    attr:id=id.clone()
+                    // TODO: This should not be necessary. We can style the leptonic-input directly.
+                    attr:class="crud-input-field"
+                    disabled=field_options.disabled
+                    get=Signal::derive(move || { value.get().map(|it| it.0) })
+                    set={move |new: Option<time::Duration>| {
+                        value_changed.run(Ok(Value::OptionalDuration(new.map(|it| TimeDuration(it)))))
+                    }}
+                />
             }
             .into_any()
         }

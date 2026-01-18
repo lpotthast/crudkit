@@ -14,9 +14,9 @@ pub fn CrudU8Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -25,11 +25,10 @@ pub fn CrudU8Field(
                     disabled=true
                     get=Signal::derive(move || value.get() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -38,7 +37,6 @@ pub fn CrudU8Field(
                     get=Signal::derive(move || value.get() as f64)
                     set=move |new: f64| { value_changed.run(Ok(Value::U8(new as u8))) }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -53,9 +51,9 @@ pub fn CrudU16Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -64,11 +62,10 @@ pub fn CrudU16Field(
                     disabled=true
                     get=Signal::derive(move || value.get() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -77,7 +74,6 @@ pub fn CrudU16Field(
                     get=Signal::derive(move || value.get() as f64)
                     set=move |new: f64| { value_changed.run(Ok(Value::U16(new as u16))) }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -92,9 +88,9 @@ pub fn CrudU32Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -103,11 +99,10 @@ pub fn CrudU32Field(
                     disabled=true
                     get=Signal::derive(move || value.get() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -116,7 +111,6 @@ pub fn CrudU32Field(
                     get=Signal::derive(move || value.get() as f64)
                     set=move |new: f64| { value_changed.run(Ok(Value::U32(new as u32))) }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -131,9 +125,9 @@ pub fn CrudU64Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -142,11 +136,10 @@ pub fn CrudU64Field(
                     disabled=true
                     get=Signal::derive(move || value.get() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -155,7 +148,6 @@ pub fn CrudU64Field(
                     get=Signal::derive(move || value.get() as f64)
                     set=move |new: f64| { value_changed.run(Ok(Value::U64(new as u64))) }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -170,9 +162,9 @@ pub fn CrudU128Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -181,11 +173,10 @@ pub fn CrudU128Field(
                     disabled=true
                     get=Signal::derive(move || value.get() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -194,7 +185,6 @@ pub fn CrudU128Field(
                     get=Signal::derive(move || value.get() as f64)
                     set=move |new: f64| { value_changed.run(Ok(Value::U128(new as u128))) }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -211,13 +201,13 @@ pub fn CrudOptionalU8Field(
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { <div>{value}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
+                Some(value) => view! { {value} }.into_any(),
+                None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -226,11 +216,10 @@ pub fn CrudOptionalU8Field(
                     disabled=true
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -241,7 +230,6 @@ pub fn CrudOptionalU8Field(
                         value_changed.run(Ok(Value::OptionalU8(Some(new as u8))))
                     }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -258,13 +246,13 @@ pub fn CrudOptionalU16Field(
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { <div>{value}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
+                Some(value) => view! { {value} }.into_any(),
+                None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -273,11 +261,10 @@ pub fn CrudOptionalU16Field(
                     disabled=true
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -288,7 +275,6 @@ pub fn CrudOptionalU16Field(
                         value_changed.run(Ok(Value::OptionalU16(Some(new as u16))))
                     }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -305,13 +291,13 @@ pub fn CrudOptionalU32Field(
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { <div>{value}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
+                Some(value) => view! { {value} }.into_any(),
+                None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -320,11 +306,10 @@ pub fn CrudOptionalU32Field(
                     disabled=true
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -335,7 +320,6 @@ pub fn CrudOptionalU32Field(
                         value_changed.run(Ok(Value::OptionalU32(Some(new as u32))))
                     }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -352,13 +336,13 @@ pub fn CrudOptionalU64Field(
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { <div>{value}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
+                Some(value) => view! { {value} }.into_any(),
+                None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -367,11 +351,10 @@ pub fn CrudOptionalU64Field(
                     disabled=true
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -382,7 +365,6 @@ pub fn CrudOptionalU64Field(
                         value_changed.run(Ok(Value::OptionalU64(Some(new as u64))))
                     }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -399,13 +381,13 @@ pub fn CrudOptionalU128Field(
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { <div>{value}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
+                Some(value) => view! { {value} }.into_any(),
+                None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -414,11 +396,10 @@ pub fn CrudOptionalU128Field(
                     disabled=true
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -429,7 +410,6 @@ pub fn CrudOptionalU128Field(
                         value_changed.run(Ok(Value::OptionalU128(Some(new as u128))))
                     }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -444,9 +424,9 @@ pub fn CrudI8Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -455,11 +435,10 @@ pub fn CrudI8Field(
                     disabled=true
                     get=Signal::derive(move || value.get() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -468,7 +447,6 @@ pub fn CrudI8Field(
                     get=Signal::derive(move || value.get() as f64)
                     set=move |new: f64| { value_changed.run(Ok(Value::I8(new as i8))) }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -483,9 +461,9 @@ pub fn CrudI16Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -494,11 +472,10 @@ pub fn CrudI16Field(
                     disabled=true
                     get=Signal::derive(move || value.get() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -507,7 +484,6 @@ pub fn CrudI16Field(
                     get=Signal::derive(move || value.get() as f64)
                     set=move |new: f64| { value_changed.run(Ok(Value::I16(new as i16))) }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -522,9 +498,9 @@ pub fn CrudI32Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -533,11 +509,10 @@ pub fn CrudI32Field(
                     disabled=true
                     get=Signal::derive(move || value.get() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -546,7 +521,6 @@ pub fn CrudI32Field(
                     get=Signal::derive(move || value.get() as f64)
                     set=move |new: f64| { value_changed.run(Ok(Value::I32(new as i32))) }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -561,9 +535,9 @@ pub fn CrudI64Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -572,11 +546,10 @@ pub fn CrudI64Field(
                     disabled=true
                     get=Signal::derive(move || value.get() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -585,7 +558,6 @@ pub fn CrudI64Field(
                     get=Signal::derive(move || value.get() as f64)
                     set=move |new: f64| { value_changed.run(Ok(Value::I64(new as i64))) }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -600,9 +572,9 @@ pub fn CrudI128Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -611,11 +583,10 @@ pub fn CrudI128Field(
                     disabled=true
                     get=Signal::derive(move || value.get() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -624,7 +595,6 @@ pub fn CrudI128Field(
                     get=Signal::derive(move || value.get() as f64)
                     set=move |new: f64| { value_changed.run(Ok(Value::I128(new as i128))) }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -641,13 +611,13 @@ pub fn CrudOptionalI8Field(
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { <div>{value}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
+                Some(value) => view! { {value} }.into_any(),
+                None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -656,11 +626,10 @@ pub fn CrudOptionalI8Field(
                     disabled=true
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -671,7 +640,6 @@ pub fn CrudOptionalI8Field(
                         value_changed.run(Ok(Value::OptionalI8(Some(new as i8))))
                     }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -688,13 +656,13 @@ pub fn CrudOptionalI16Field(
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { <div>{value}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
+                Some(value) => view! { {value} }.into_any(),
+                None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -703,11 +671,10 @@ pub fn CrudOptionalI16Field(
                     disabled=true
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -718,7 +685,6 @@ pub fn CrudOptionalI16Field(
                         value_changed.run(Ok(Value::OptionalI16(Some(new as i16))))
                     }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -735,13 +701,13 @@ pub fn CrudOptionalI32Field(
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { <div>{value}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
+                Some(value) => view! { {value} }.into_any(),
+                None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -750,11 +716,10 @@ pub fn CrudOptionalI32Field(
                     disabled=true
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -765,7 +730,6 @@ pub fn CrudOptionalI32Field(
                         value_changed.run(Ok(Value::OptionalI32(Some(new as i32))))
                     }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -782,13 +746,13 @@ pub fn CrudOptionalI64Field(
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { <div>{value}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
+                Some(value) => view! { {value} }.into_any(),
+                None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -797,11 +761,10 @@ pub fn CrudOptionalI64Field(
                     disabled=true
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -812,7 +775,6 @@ pub fn CrudOptionalI64Field(
                         value_changed.run(Ok(Value::OptionalI64(Some(new as i64))))
                     }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -829,13 +791,13 @@ pub fn CrudOptionalI128Field(
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { <div>{value}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
+                Some(value) => view! { {value} }.into_any(),
+                None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -844,11 +806,10 @@ pub fn CrudOptionalI128Field(
                     disabled=true
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -859,7 +820,6 @@ pub fn CrudOptionalI128Field(
                         value_changed.run(Ok(Value::OptionalI128(Some(new as i128))))
                     }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -874,9 +834,9 @@ pub fn CrudF32Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -885,11 +845,10 @@ pub fn CrudF32Field(
                     disabled=true
                     get=Signal::derive(move || value.get() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -898,7 +857,6 @@ pub fn CrudF32Field(
                     get=Signal::derive(move || value.get() as f64)
                     set=move |new: f64| { value_changed.run(Ok(Value::F32(new as f32))) }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -913,9 +871,9 @@ pub fn CrudF64Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -924,11 +882,10 @@ pub fn CrudF64Field(
                     disabled=true
                     get=Signal::derive(move || value.get())
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -937,7 +894,6 @@ pub fn CrudF64Field(
                     get=Signal::derive(move || value.get())
                     set=move |new: f64| { value_changed.run(Ok(Value::F64(new))) }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -954,13 +910,13 @@ pub fn CrudOptionalF32Field(
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { <div>{value}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
+                Some(value) => view! { {value} }.into_any(),
+                None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -969,11 +925,10 @@ pub fn CrudOptionalF32Field(
                     disabled=true
                     get=Signal::derive(move || value.get().unwrap_or_default() as f64)
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -984,7 +939,6 @@ pub fn CrudOptionalF32Field(
                         value_changed.run(Ok(Value::OptionalF32(Some(new as f32))))
                     }
                 />
-            </div>
         }
         .into_any(),
     }
@@ -1000,13 +954,13 @@ pub fn CrudOptionalF64Field(
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { <div>{value}</div> }.into_any(),
-                None => view! { <div>"-"</div> }.into_any(),
+                Some(value) => view! { {value} }.into_any(),
+                None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -1015,11 +969,10 @@ pub fn CrudOptionalF64Field(
                     disabled=true
                     get=Signal::derive(move || value.get().unwrap_or_default())
                 />
-            </div>
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
+            
                 {render_label(field_options.label.clone())}
                 <NumberInput
                     attr:id=id.clone()
@@ -1030,7 +983,6 @@ pub fn CrudOptionalF64Field(
                         value_changed.run(Ok(Value::OptionalF64(Some(new))))
                     }
                 />
-            </div>
         }
         .into_any(),
     }

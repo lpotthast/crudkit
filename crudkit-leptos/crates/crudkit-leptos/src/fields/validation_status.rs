@@ -12,24 +12,20 @@ pub fn CrudValidationStatusField(
     #[prop(into)] value: Signal<bool>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! {
-            <div>
+        FieldMode::Display => (move || match value.get() {
+            true => view! { <Icon icon=icondata::BsExclamationTriangleFill/> },
+            false => view! { <Icon icon=icondata::BsCheck/> },
+        })
+        .into_any(),
+        FieldMode::Readable | FieldMode::Editable => view! {
+            {render_label(field_options.label.clone())}
+            <div id=id.clone() class="crud-input-field">
                 {move || match value.get() {
                     true => view! { <Icon icon=icondata::BsExclamationTriangleFill/> },
                     false => view! { <Icon icon=icondata::BsCheck/> },
                 }}
-
             </div>
-        }.into_any(),
-        FieldMode::Readable | FieldMode::Editable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())} <div id=id.clone() class="crud-input-field">
-                    {move || match value.get() {
-                        true => view! { <Icon icon=icondata::BsExclamationTriangleFill/> },
-                        false => view! { <Icon icon=icondata::BsCheck/> },
-                    }}
-                </div>
-            </div>
-        }.into_any(),
+        }
+        .into_any(),
     }
 }

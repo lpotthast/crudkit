@@ -328,4 +328,228 @@ impl ReactiveValue {
             _ => panic!("Expected ReactiveValue of variant: Custom"),
         }
     }
+
+    pub fn expect_optional_bool(self) -> RwSignal<Option<bool>> {
+        match self {
+            ReactiveValue::OptionalBool(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalBool"),
+        }
+    }
+
+    pub fn expect_u8(self) -> RwSignal<u8> {
+        match self {
+            ReactiveValue::U8(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: U8"),
+        }
+    }
+
+    pub fn expect_u16(self) -> RwSignal<u16> {
+        match self {
+            ReactiveValue::U16(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: U16"),
+        }
+    }
+
+    pub fn expect_u32(self) -> RwSignal<u32> {
+        match self {
+            ReactiveValue::U32(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: U32"),
+        }
+    }
+
+    pub fn expect_u64(self) -> RwSignal<u64> {
+        match self {
+            ReactiveValue::U64(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: U64"),
+        }
+    }
+
+    pub fn expect_u128(self) -> RwSignal<u128> {
+        match self {
+            ReactiveValue::U128(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: U128"),
+        }
+    }
+
+    pub fn expect_optional_u8(self) -> RwSignal<Option<u8>> {
+        match self {
+            ReactiveValue::OptionalU8(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalU8"),
+        }
+    }
+
+    pub fn expect_optional_u16(self) -> RwSignal<Option<u16>> {
+        match self {
+            ReactiveValue::OptionalU16(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalU16"),
+        }
+    }
+
+    pub fn expect_optional_u32(self) -> RwSignal<Option<u32>> {
+        match self {
+            ReactiveValue::OptionalU32(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalU32"),
+        }
+    }
+
+    pub fn expect_optional_u64(self) -> RwSignal<Option<u64>> {
+        match self {
+            ReactiveValue::OptionalU64(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalU64"),
+        }
+    }
+
+    pub fn expect_optional_u128(self) -> RwSignal<Option<u128>> {
+        match self {
+            ReactiveValue::OptionalU128(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalU128"),
+        }
+    }
+
+    pub fn expect_i8(self) -> RwSignal<i8> {
+        match self {
+            ReactiveValue::I8(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: I8"),
+        }
+    }
+
+    pub fn expect_i16(self) -> RwSignal<i16> {
+        match self {
+            ReactiveValue::I16(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: I16"),
+        }
+    }
+
+    pub fn expect_i128(self) -> RwSignal<i128> {
+        match self {
+            ReactiveValue::I128(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: I128"),
+        }
+    }
+
+    pub fn expect_optional_i8(self) -> RwSignal<Option<i8>> {
+        match self {
+            ReactiveValue::OptionalI8(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalI8"),
+        }
+    }
+
+    pub fn expect_optional_i16(self) -> RwSignal<Option<i16>> {
+        match self {
+            ReactiveValue::OptionalI16(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalI16"),
+        }
+    }
+
+    pub fn expect_optional_i32(self) -> RwSignal<Option<i32>> {
+        match self {
+            ReactiveValue::OptionalI32(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalI32"),
+        }
+    }
+
+    pub fn expect_optional_i128(self) -> RwSignal<Option<i128>> {
+        match self {
+            ReactiveValue::OptionalI128(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalI128"),
+        }
+    }
+
+    pub fn expect_f32(self) -> RwSignal<f32> {
+        match self {
+            ReactiveValue::F32(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: F32"),
+        }
+    }
+
+    pub fn expect_f64(self) -> RwSignal<f64> {
+        match self {
+            ReactiveValue::F64(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: F64"),
+        }
+    }
+
+    pub fn expect_optional_f32(self) -> RwSignal<Option<f32>> {
+        match self {
+            ReactiveValue::OptionalF32(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalF32"),
+        }
+    }
+
+    pub fn expect_optional_f64(self) -> RwSignal<Option<f64>> {
+        match self {
+            ReactiveValue::OptionalF64(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalF64"),
+        }
+    }
+
+    pub fn expect_json(self) -> RwSignal<serde_json::Value> {
+        match self {
+            ReactiveValue::Json(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: Json"),
+        }
+    }
+
+    pub fn expect_optional_json(self) -> RwSignal<Option<serde_json::Value>> {
+        match self {
+            ReactiveValue::OptionalJson(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalJson"),
+        }
+    }
+
+    pub fn expect_uuid(self) -> RwSignal<uuid::Uuid> {
+        match self {
+            ReactiveValue::Uuid(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: Uuid"),
+        }
+    }
+
+    pub fn expect_optional_uuid(self) -> RwSignal<Option<uuid::Uuid>> {
+        match self {
+            ReactiveValue::OptionalUuid(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalUuid"),
+        }
+    }
+
+    pub fn expect_primitive_date_time(self) -> RwSignal<time::PrimitiveDateTime> {
+        match self {
+            ReactiveValue::PrimitiveDateTime(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: PrimitiveDateTime"),
+        }
+    }
+
+    pub fn expect_offset_date_time(self) -> RwSignal<time::OffsetDateTime> {
+        match self {
+            ReactiveValue::OffsetDateTime(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OffsetDateTime"),
+        }
+    }
+
+    pub fn expect_duration(self) -> RwSignal<TimeDuration> {
+        match self {
+            ReactiveValue::Duration(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: Duration"),
+        }
+    }
+
+    pub fn expect_optional_primitive_date_time(self) -> RwSignal<Option<time::PrimitiveDateTime>> {
+        match self {
+            ReactiveValue::OptionalPrimitiveDateTime(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalPrimitiveDateTime"),
+        }
+    }
+
+    pub fn expect_optional_offset_date_time(self) -> RwSignal<Option<time::OffsetDateTime>> {
+        match self {
+            ReactiveValue::OptionalOffsetDateTime(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalOffsetDateTime"),
+        }
+    }
+
+    pub fn expect_optional_duration(self) -> RwSignal<Option<TimeDuration>> {
+        match self {
+            ReactiveValue::OptionalDuration(sig) => sig,
+            _ => panic!("Expected ReactiveValue of variant: OptionalDuration"),
+        }
+    }
 }

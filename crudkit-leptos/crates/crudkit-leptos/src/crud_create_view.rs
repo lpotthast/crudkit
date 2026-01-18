@@ -1,13 +1,12 @@
-use crate::ReactiveValue;
 use crate::crud_fields::CrudFields;
 use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{CreateElements, FieldRendererRegistry};
 use crate::crud_leave_modal::CrudLeaveModal;
+use crate::ReactiveValue;
 use crudkit_core::{Saved, Value};
 use crudkit_id::SerializableId;
 use crudkit_web::prelude::*;
 use crudkit_web::request_error::{CrudOperationError, RequestError};
-use crudkit_web::view::CrudSimpleView;
 use crudkit_web::{FieldMode, TabId};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
@@ -204,7 +203,6 @@ pub fn CrudCreateView(
                         elements=create_elements
                         signals=signals
                         mode=FieldMode::Editable
-                        current_view=CrudSimpleView::Create
                         value_changed=value_changed
                         on_tab_selection=on_tab_selected
                     />

@@ -27,14 +27,6 @@ pub enum SerializableCrudView {
     Edit(SerializableId),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum CrudSimpleView {
-    List,
-    Create,
-    Read,
-    Edit,
-}
-
 impl<ReadId, UpdateId> Into<SerializableCrudView> for CrudView<ReadId, UpdateId>
 where
     ReadId: crudkit_id::Id + Serialize + DeserializeOwned,
@@ -46,21 +38,6 @@ where
             CrudView::Create => SerializableCrudView::Create,
             CrudView::Read(id) => SerializableCrudView::Read(id.to_serializable_id()),
             CrudView::Edit(id) => SerializableCrudView::Edit(id.to_serializable_id()),
-        }
-    }
-}
-
-impl<ReadId, UpdateId> Into<CrudSimpleView> for CrudView<ReadId, UpdateId>
-where
-    ReadId: crudkit_id::Id + Serialize + DeserializeOwned,
-    UpdateId: crudkit_id::Id + Serialize + DeserializeOwned,
-{
-    fn into(self) -> CrudSimpleView {
-        match self {
-            CrudView::List => CrudSimpleView::List,
-            CrudView::Create => CrudSimpleView::Create,
-            CrudView::Read(_) => CrudSimpleView::Read,
-            CrudView::Edit(_) => CrudSimpleView::Edit,
         }
     }
 }

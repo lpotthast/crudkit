@@ -5,7 +5,6 @@ use crate::crud_instance_config::{FieldRendererRegistry, Header};
 use crate::crud_list_view::CrudListViewContext;
 use crate::crud_table::NoDataAvailable;
 use crudkit_web::prelude::*;
-use crudkit_web::view::CrudSimpleView;
 use crudkit_web::{FieldMode, FieldOptions};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
@@ -95,7 +94,6 @@ pub fn CrudTableBody(
                             <TableCell class:fit-content=options.min_width>
                                 <CrudField
                                     field_renderer_registry=field_renderer_registry
-                                    current_view=CrudSimpleView::List
                                     field=field.clone()
                                     field_options=FieldOptions {
                                         disabled: false,

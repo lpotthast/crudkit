@@ -14,31 +14,27 @@ pub fn CrudStringField(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())}
-                <TextInput
-                    attr:id=id.clone()
-                    // TODO: This should not be necessary. We can style the leptonic-input directly.
-                    attr:class="crud-input-field"
-                    disabled=true
-                    get=value
-                />
-            </div>
+            {render_label(field_options.label.clone())}
+            <TextInput
+                attr:id=id.clone()
+                // TODO: This should not be necessary. We can style the leptonic-input directly.
+                attr:class="crud-input-field"
+                disabled=true
+                get=value
+            />
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())}
-                <TextInput
-                    attr:id=id.clone()
-                    attr:class="crud-input-field"
-                    disabled=field_options.disabled
-                    get=value
-                    set=move |new| value_changed.run(Ok(Value::String(new)))
-                />
-            </div>
+            {render_label(field_options.label.clone())}
+            <TextInput
+                attr:id=id.clone()
+                attr:class="crud-input-field"
+                disabled=field_options.disabled
+                get=value
+                set=move |new| value_changed.run(Ok(Value::String(new)))
+            />
         }
         .into_any(),
     }
@@ -53,31 +49,27 @@ pub fn CrudOptionalStringField(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     match field_mode {
-        FieldMode::Display => view! { <div>{move || value.get()}</div> }.into_any(),
+        FieldMode::Display => view! { {move || value.get()} }.into_any(),
         FieldMode::Readable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())}
-                <TextInput
-                    attr:id=id.clone()
-                    // TODO: This should not be necessary. We can style the leptonic-input directly.
-                    attr:class="crud-input-field"
-                    disabled=true
-                    get=Signal::derive(move || value.get().unwrap_or_default())
-                />
-            </div>
+            {render_label(field_options.label.clone())}
+            <TextInput
+                attr:id=id.clone()
+                // TODO: This should not be necessary. We can style the leptonic-input directly.
+                attr:class="crud-input-field"
+                disabled=true
+                get=Signal::derive(move || value.get().unwrap_or_default())
+            />
         }
         .into_any(),
         FieldMode::Editable => view! {
-            <div class="crud-field">
-                {render_label(field_options.label.clone())}
-                <TextInput
-                    attr:id=id.clone()
-                    attr:class="crud-input-field"
-                    disabled=field_options.disabled
-                    get=Signal::derive(move || value.get().unwrap_or_default())
-                    set=move |new| value_changed.run(Ok(Value::OptionalString(Some(new))))
-                />
-            </div>
+            {render_label(field_options.label.clone())}
+            <TextInput
+                attr:id=id.clone()
+                attr:class="crud-input-field"
+                disabled=field_options.disabled
+                get=Signal::derive(move || value.get().unwrap_or_default())
+                set=move |new| value_changed.run(Ok(Value::OptionalString(Some(new))))
+            />
         }
         .into_any(),
     }
