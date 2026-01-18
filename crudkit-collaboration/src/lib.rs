@@ -4,7 +4,7 @@ use crudkit_id::SerializableId;
 use crudkit_validation::{FullSerializableValidations, PartialSerializableValidations};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum CkWsMessage {
+pub enum CollabMessage {
     EntityCreated(EntityCreated),
     EntityUpdated(EntityUpdated),
     EntityDeleted(EntityDeleted),

@@ -1,5 +1,5 @@
 [package]
-name = "crudkit-websocket"
+name = "crudkit-collaboration"
 version = "0.1.0"
 edition = "2024"
 
