@@ -35,6 +35,8 @@ name = "crudkit-core"
 version = "0.1.0"
 dependencies = [
  "assertr",
+ "crudkit-id",
+ "crudkit-validation",
  "dyn-clone",
  "serde",
  "serde_json",
@@ -51,6 +53,25 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "crudkit-id"
+version = "0.1.0"
+dependencies = [
+ "dyn-clone",
+ "serde",
+ "time",
+ "utoipa",
+ "uuid",
+]
+
+[[package]]
+name = "crudkit-validation"
+version = "0.1.0"
+dependencies = [
+ "crudkit-id",
+ "serde",
 ]
 
 [[package]]

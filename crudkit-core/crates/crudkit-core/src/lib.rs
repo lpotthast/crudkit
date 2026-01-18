@@ -193,6 +193,24 @@ pub enum Value {
     Other(Box<dyn FieldValue>),
 }
 
+impl From<crudkit_id::IdValue> for Value {
+    fn from(value: crudkit_id::IdValue) -> Self {
+        match value {
+            crudkit_id::IdValue::I32(value) => Value::I32(value),
+            crudkit_id::IdValue::U32(value) => Value::U32(value),
+            crudkit_id::IdValue::I64(value) => Value::I64(value),
+            crudkit_id::IdValue::U64(value) => Value::U64(value),
+            crudkit_id::IdValue::I128(value) => Value::I128(value),
+            crudkit_id::IdValue::U128(value) => Value::U128(value),
+            crudkit_id::IdValue::Bool(value) => Value::Bool(value),
+            crudkit_id::IdValue::String(value) => Value::String(value),
+            crudkit_id::IdValue::Uuid(value) => Value::Uuid(value),
+            crudkit_id::IdValue::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
+            crudkit_id::IdValue::OffsetDateTime(value) => Value::OffsetDateTime(value),
+        }
+    }
+}
+
 impl Value {
     pub fn take_bool(self) -> bool {
         match self {
@@ -463,9 +481,17 @@ pub struct Saved<T> {
     /// The saved entity.
     pub entity: T,
 
-    /// Whether non-critical validation warnings exist.
-    // TODO: Should this really be part of this type? Should we provide the violations also synchronously to the user who initiated the operation that lead to the save result.
-    pub with_validation_errors: bool,
+    /// Non-critical validation violations (warnings) associated with this entity.
+    /// Empty if no violations exist.
+    #[schema(value_type = Object)]
+    pub violations: crudkit_validation::SerializableAggregateViolations,
+}
+
+impl<T> Saved<T> {
+    /// Returns true if there are any validation violations (warnings) for this entity.
+    pub fn has_validation_errors(&self) -> bool {
+        !self.violations.is_empty()
+    }
 }
 
 /// Successful delete result.
