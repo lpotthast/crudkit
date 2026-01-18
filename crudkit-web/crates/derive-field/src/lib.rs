@@ -4,11 +4,11 @@
 use crudkit_derive_core::to_pascal_case;
 use darling::*;
 use proc_macro::TokenStream;
-use proc_macro2::{Ident, Span};
 use proc_macro_error::{abort, proc_macro_error};
+use proc_macro2::{Ident, Span};
 use quote::quote;
 use serde::Deserialize;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
+use syn::{DeriveInput, parse_macro_input, spanned::Spanned};
 use types::ModelType;
 
 // Helper to parse explicit type hints from the `ty` attribute.

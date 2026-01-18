@@ -3,10 +3,10 @@
 
 use darling::*;
 use proc_macro::TokenStream;
-use proc_macro2::{Ident, Span};
 use proc_macro_error::proc_macro_error;
+use proc_macro2::{Ident, Span};
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 fn strip_quotes(string: Option<String>) -> Option<String> {
     string.map(|it| it.trim_start_matches('"').trim_end_matches('"').to_string())

@@ -4,7 +4,7 @@
 use proc_macro::TokenStream;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 #[proc_macro_derive(CkActionPayload, attributes(ck_action_payload))]
 #[proc_macro_error]
