@@ -79,7 +79,7 @@ impl<E: std::error::Error> From<HookError<E>> for CrudError {
         match err {
             HookError::Forbidden { reason } => CrudError::Forbidden { reason },
             HookError::UnprocessableEntity { reason } => CrudError::UnprocessableEntity { reason },
-            HookError::Internal(e) => CrudError::LifecycleError {
+            HookError::Internal(e) => CrudError::LifecycleHookError {
                 reason: e.to_string(),
             },
         }
@@ -271,12 +271,12 @@ pub trait CrudLifetime<R: CrudResource> {
     /// - `condition`: Add security filters (AND with existing conditions)
     /// - `limit`: Enforce maximum page sizes
     /// - `skip`: Adjust pagination
-    async fn before_read(
+    fn before_read(
         read_request: &mut ReadRequest<R>,
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>>;
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send;
 
     /// Called after any read operation completes successfully.
     ///
@@ -288,13 +288,13 @@ pub trait CrudLifetime<R: CrudResource> {
     /// # Note on Result Modification
     /// The `read_result` is passed by mutable reference to allow field masking
     /// or result modification.
-    async fn after_read(
+    fn after_read(
         read_request: &ReadRequest<R>,
         read_result: &mut ReadResult<R>,
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>>;
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send;
 
     // =========================================================================
     // Create Hooks
@@ -303,22 +303,22 @@ pub trait CrudLifetime<R: CrudResource> {
     /// Called before creating an entity.
     ///
     /// The `active_model` can be modified to change fields before insertion.
-    async fn before_create(
+    fn before_create(
         create_model: &R::CreateModel,
         active_model: &mut R::ActiveModel,
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>>;
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send;
 
     /// Called after an entity was created successfully.
-    async fn after_create(
+    fn after_create(
         create_model: &R::CreateModel,
         model: &R::Model,
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>>;
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send;
 
     // =========================================================================
     // Update Hooks
@@ -327,46 +327,46 @@ pub trait CrudLifetime<R: CrudResource> {
     /// Called before updating an entity.
     ///
     /// The `active_model` can be modified to change fields before the update occurs.
-    async fn before_update(
+    fn before_update(
         update_model: &R::UpdateModel,
         active_model: &mut R::ActiveModel,
         update_request: &UpdateRequest,
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>>;
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send;
 
     /// Called after an entity was updated successfully.
-    async fn after_update(
+    fn after_update(
         update_model: &R::UpdateModel,
         model: &R::Model,
         update_request: &UpdateRequest,
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>>;
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send;
 
     // =========================================================================
     // Delete Hooks
     // =========================================================================
 
     /// Called before deleting an entity.
-    async fn before_delete(
+    fn before_delete(
         model: &R::Model,
         delete_request: &DeleteRequest<R>,
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>>;
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send;
 
     /// Called after an entity was deleted successfully.
-    async fn after_delete(
+    fn after_delete(
         model: &R::Model,
         delete_request: &DeleteRequest<R>,
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>>;
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send;
 }
 
 /// Default no-op implementation of lifecycle hooks.

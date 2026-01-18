@@ -1,8 +1,9 @@
 use axum::{
-    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
+    Json,
 };
+use crudkit_validation::SerializableAggregateViolations;
 use serde_json::json;
 use utoipa::ToSchema;
 
@@ -20,7 +21,11 @@ pub enum AxumCrudError {
     UnprocessableEntity { reason: String },
 
     /// Critical validation errors prevent the operation (HTTP 422 Unprocessable Entity)
-    ValidationFailed { reason: String },
+    CriticalValidationErrors {
+        reason: String,
+        #[schema(value_type = Object)]
+        violations: SerializableAggregateViolations,
+    },
 
     /// Entity not found (HTTP 404 Not Found)
     NotFound { reason: String },
@@ -47,26 +52,37 @@ pub enum AxumCrudError {
 impl From<CrudError> for AxumCrudError {
     fn from(value: CrudError) -> Self {
         match value {
+            /*
+            User-facing errors: pass through the reason as-is.
+            */
             CrudError::Forbidden { reason } => Self::Forbidden { reason },
             CrudError::UnprocessableEntity { reason } => Self::UnprocessableEntity { reason },
-            CrudError::ValidationFailed => Self::ValidationFailed {
-                reason: "Validation failed with critical errors.".to_string(),
+            CrudError::CriticalValidationErrors { violations } => Self::CriticalValidationErrors {
+                reason: "Critical validation errors prevent the operation.".into(),
+                violations,
             },
             CrudError::NotFound => Self::NotFound {
-                reason: "Entity not found.".to_string(),
+                reason: "Not found".into(),
             },
-            err @ CrudError::IntoCondition { source: _ } => Self::BadRequest {
-                reason: err.to_string(),
+            CrudError::IntoCondition { .. } => Self::BadRequest {
+                reason: "Invalid query parameters".into(),
             },
-            err @ CrudError::Repository { reason: _ } => Self::Repository {
-                reason: err.to_string(),
+
+            /*
+            Server errors: use minimal generic messages. Full details are in the original
+            CrudError and should be logged via `Debug` format before conversion.
+            */
+            CrudError::Repository { .. } => Self::Repository {
+                reason: "Repository error.".into(),
             },
-            CrudError::LifecycleError { reason } => Self::LifecycleError { reason },
-            err @ CrudError::SaveValidations { reason: _ } => Self::SaveValidations {
-                reason: err.to_string(),
+            CrudError::LifecycleHookError { .. } => Self::LifecycleError {
+                reason: "Lifecycle error.".into(),
             },
-            err @ CrudError::DeleteValidations { reason: _ } => Self::DeleteValidations {
-                reason: err.to_string(),
+            CrudError::SaveValidations { .. } => Self::SaveValidations {
+                reason: "Could not save validations.".into(),
+            },
+            CrudError::DeleteValidations { .. } => Self::DeleteValidations {
+                reason: "Could not delete validations.".into(),
             },
         }
     }
@@ -75,27 +91,57 @@ impl From<CrudError> for AxumCrudError {
 // TODO: Use reporting mechanism (https://docs.rs/snafu/latest/snafu/attr.report.html)
 impl IntoResponse for AxumCrudError {
     fn into_response(self) -> Response {
-        let (status, error_message) = match self {
+        match self {
+            // ValidationFailed includes violations in the response body
+            Self::CriticalValidationErrors { reason, violations } => {
+                let body = Json(json!({
+                    "error": reason,
+                    "violations": violations,
+                }));
+                (StatusCode::UNPROCESSABLE_ENTITY, body).into_response()
+            }
+
             // Client errors
-            Self::Forbidden { reason } => (StatusCode::FORBIDDEN, reason),
-            Self::UnprocessableEntity { reason } => (StatusCode::UNPROCESSABLE_ENTITY, reason),
-            Self::ValidationFailed { reason } => (StatusCode::UNPROCESSABLE_ENTITY, reason),
-            Self::NotFound { reason } => (StatusCode::NOT_FOUND, reason),
-            Self::BadRequest { reason } => (StatusCode::BAD_REQUEST, reason),
-            Self::Unauthorized { reason } => (StatusCode::UNAUTHORIZED, reason),
+            Self::Forbidden { reason } => {
+                (StatusCode::FORBIDDEN, Json(json!({"error": reason}))).into_response()
+            }
+            Self::UnprocessableEntity { reason } => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({"error": reason})),
+            )
+                .into_response(),
+            Self::NotFound { reason } => {
+                (StatusCode::NOT_FOUND, Json(json!({"error": reason}))).into_response()
+            }
+            Self::BadRequest { reason } => {
+                (StatusCode::BAD_REQUEST, Json(json!({"error": reason}))).into_response()
+            }
+            Self::Unauthorized { reason } => {
+                (StatusCode::UNAUTHORIZED, Json(json!({"error": reason}))).into_response()
+            }
 
             // Server errors
-            Self::Repository { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
-            Self::LifecycleError { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
-            Self::SaveValidations { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
-            Self::DeleteValidations { reason } => (StatusCode::INTERNAL_SERVER_ERROR, reason),
-        };
-
-        let body = Json(json!({
-            "error": error_message,
-        }));
-
-        (status, body).into_response()
+            Self::Repository { reason } => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": reason})),
+            )
+                .into_response(),
+            Self::LifecycleError { reason } => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": reason})),
+            )
+                .into_response(),
+            Self::SaveValidations { reason } => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": reason})),
+            )
+                .into_response(),
+            Self::DeleteValidations { reason } => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": reason})),
+            )
+                .into_response(),
+        }
     }
 }
 

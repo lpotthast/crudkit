@@ -1,28 +1,31 @@
-use crate::ReactiveValue;
 use crate::crud_field_label::CrudFieldLabelOpt;
 use crate::fields::boolean::{CrudBoolField, CrudOptionalBoolField};
 use crate::fields::date_time::{CrudOptionalPrimitiveDateTimeField, CrudPrimitiveDateTimeField};
 use crate::fields::duration::{CrudDurationField, CrudOptionalDurationField};
 use crate::fields::json::{CrudJsonField, CrudOptionalJsonField};
 use crate::fields::number::{
-    CrudF32Field, CrudF64Field, CrudI8Field, CrudI16Field, CrudI32Field, CrudI64Field,
-    CrudI128Field, CrudOptionalF32Field, CrudOptionalF64Field, CrudOptionalI8Field,
-    CrudOptionalI16Field, CrudOptionalI32Field, CrudOptionalI64Field, CrudOptionalI128Field,
-    CrudOptionalU8Field, CrudOptionalU16Field, CrudOptionalU32Field, CrudOptionalU64Field,
-    CrudOptionalU128Field, CrudU8Field, CrudU16Field, CrudU32Field, CrudU64Field, CrudU128Field,
+    CrudF32Field, CrudF64Field, CrudI128Field, CrudI16Field, CrudI32Field, CrudI64Field,
+    CrudI8Field, CrudOptionalF32Field, CrudOptionalF64Field, CrudOptionalI128Field,
+    CrudOptionalI16Field, CrudOptionalI32Field, CrudOptionalI64Field, CrudOptionalI8Field,
+    CrudOptionalU128Field, CrudOptionalU16Field, CrudOptionalU32Field, CrudOptionalU64Field,
+    CrudOptionalU8Field, CrudU128Field, CrudU16Field, CrudU32Field, CrudU64Field, CrudU8Field,
 };
 use crate::fields::string::{CrudOptionalStringField, CrudStringField};
 use crate::fields::uuid::{CrudOptionalUuidField, CrudUuidField};
+use crate::fields::validation_status::CrudValidationStatusField;
+use crate::ReactiveValue;
 use crudkit_core::Value;
 use crudkit_web::prelude::*;
 use crudkit_web::{FieldMode, FieldOptions, Label};
 use leptonic::components::prelude::{Alert, AlertContent, AlertTitle, AlertVariant};
 use leptonic::prelude::ViewCallback;
+use leptos::either::Either;
 use leptos::prelude::*;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::Debug;
 use std::sync::Arc;
+use ::uuid::Uuid;
 
 pub mod boolean;
 pub mod date_time;
@@ -66,33 +69,73 @@ impl<F: DynField> FieldRenderer<F> {
             })),
         }
     }
+
+    /// Creates a `FieldRenderer` that uses the predefined `CrudValidationStatusField` component
+    /// to render a boolean field indicating "validation errors exist" as either a checkmark
+    /// when `false`, as no errors exist, or an exclamation mark when `true`, as errors do exist.
+    ///
+    /// # Usage
+    ///
+    /// In a crud instance configuration, use it like this:
+    /// ```ignore
+    /// read_field_renderer: FieldRendererRegistry::builder()
+    ///     .register(
+    ///         ReadUser::HasValidationErrors,
+    ///         FieldRenderer::render_validation_status(),
+    ///     )
+    ///     .build(),
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// When used on any field not of type `bool`!
+    pub fn render_validation_status() -> FieldRenderer<F> {
+        FieldRenderer::new(
+            move |_signals, field_mode, field_options, value, _value_changed| {
+                view! {
+                    <CrudValidationStatusField
+                        id=format!("f{}", Uuid::new_v4())
+                        field_options
+                        field_mode
+                        value=move || value.expect_bool().get()
+                    />
+                }
+            },
+        )
+    }
+
+    pub fn render_bool() -> FieldRenderer<F> {
+        FieldRenderer::new(
+            move |_signals, field_mode, field_options, value, value_changed| {
+                view! {
+                    <CrudBoolField
+                        id=format!("f{}", Uuid::new_v4())
+                        field_options=field_options
+                        field_mode=field_mode
+                        value=move || value.expect_bool().get()
+                        value_changed=value_changed
+                    />
+                }
+            },
+        )
+    }
 }
 
 pub fn render_label(label: Option<Label>) -> impl IntoView {
     view! { <CrudFieldLabelOpt label=label/> }
 }
 
-pub(crate) fn default_field_renderer(
+pub(crate) fn default_field_renderer<F: DynField>(
     value: ReactiveValue,
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
     value_changed: Callback<Result<Value, Arc<dyn Error>>>,
-) -> impl IntoView {
+) -> Either<FieldRenderer<F>, impl IntoView> {
     match value {
-        ReactiveValue::Void(_) => view! {}.into_any(),
-
-        ReactiveValue::Bool(value) => view! {
-            <CrudBoolField
-                id=id.clone()
-                field_options=field_options
-                field_mode=field_mode
-                value=value
-                value_changed=value_changed
-            />
-        }
-        .into_any(),
-        ReactiveValue::OptionalBool(value) => view! {
+        ReactiveValue::Void(_) => Either::Right(view! {}.into_any()),
+        ReactiveValue::Bool(value) => Either::Left(FieldRenderer::render_bool()),
+        ReactiveValue::OptionalBool(value) => Either::Right(view! {
             <CrudOptionalBoolField
                 id=id.clone()
                 field_options=field_options
@@ -101,9 +144,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-
-        ReactiveValue::U8(value) => view! {
+        .into_any()),
+        ReactiveValue::U8(value) => Either::Right(view! {
             <CrudU8Field
                 id=id.clone()
                 field_options=field_options
@@ -112,8 +154,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::U16(value) => view! {
+        .into_any()),
+        ReactiveValue::U16(value) => Either::Right(view! {
             <CrudU16Field
                 id=id.clone()
                 field_options=field_options
@@ -122,8 +164,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::U32(value) => view! {
+        .into_any()),
+        ReactiveValue::U32(value) => Either::Right(view! {
             <CrudU32Field
                 id=id.clone()
                 field_options=field_options
@@ -132,8 +174,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::U64(value) => view! {
+        .into_any()),
+        ReactiveValue::U64(value) => Either::Right(view! {
             <CrudU64Field
                 id=id.clone()
                 field_options=field_options
@@ -142,8 +184,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::U128(value) => view! {
+        .into_any()),
+        ReactiveValue::U128(value) => Either::Right(view! {
             <CrudU128Field
                 id=id.clone()
                 field_options=field_options
@@ -152,8 +194,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalU8(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalU8(value) => Either::Right(view! {
             <CrudOptionalU8Field
                 id=id.clone()
                 field_options=field_options
@@ -162,8 +204,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalU16(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalU16(value) => Either::Right(view! {
             <CrudOptionalU16Field
                 id=id.clone()
                 field_options=field_options
@@ -172,8 +214,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalU32(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalU32(value) => Either::Right(view! {
             <CrudOptionalU32Field
                 id=id.clone()
                 field_options=field_options
@@ -182,8 +224,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalU64(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalU64(value) => Either::Right(view! {
             <CrudOptionalU64Field
                 id=id.clone()
                 field_options=field_options
@@ -192,8 +234,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalU128(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalU128(value) => Either::Right(view! {
             <CrudOptionalU128Field
                 id=id.clone()
                 field_options=field_options
@@ -202,9 +244,9 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
+        .into_any()),
 
-        ReactiveValue::I8(value) => view! {
+        ReactiveValue::I8(value) => Either::Right(view! {
             <CrudI8Field
                 id=id.clone()
                 field_options=field_options
@@ -213,8 +255,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::I16(value) => view! {
+        .into_any()),
+        ReactiveValue::I16(value) => Either::Right(view! {
             <CrudI16Field
                 id=id.clone()
                 field_options=field_options
@@ -223,8 +265,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::I32(value) => view! {
+        .into_any()),
+        ReactiveValue::I32(value) => Either::Right(view! {
             <CrudI32Field
                 id=id.clone()
                 field_options=field_options
@@ -233,8 +275,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::I64(value) => view! {
+        .into_any()),
+        ReactiveValue::I64(value) => Either::Right(view! {
             <CrudI64Field
                 id=id.clone()
                 field_options=field_options
@@ -243,8 +285,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::I128(value) => view! {
+        .into_any()),
+        ReactiveValue::I128(value) => Either::Right(view! {
             <CrudI128Field
                 id=id.clone()
                 field_options=field_options
@@ -253,9 +295,9 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
+        .into_any()),
 
-        ReactiveValue::OptionalI8(value) => view! {
+        ReactiveValue::OptionalI8(value) => Either::Right(view! {
             <CrudOptionalI8Field
                 id=id.clone()
                 field_options=field_options
@@ -264,8 +306,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalI16(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalI16(value) => Either::Right(view! {
             <CrudOptionalI16Field
                 id=id.clone()
                 field_options=field_options
@@ -274,8 +316,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalI32(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalI32(value) => Either::Right(view! {
             <CrudOptionalI32Field
                 id=id.clone()
                 field_options=field_options
@@ -284,8 +326,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalI64(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalI64(value) => Either::Right(view! {
             <CrudOptionalI64Field
                 id=id.clone()
                 field_options=field_options
@@ -294,8 +336,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalI128(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalI128(value) => Either::Right(view! {
             <CrudOptionalI128Field
                 id=id.clone()
                 field_options=field_options
@@ -304,9 +346,9 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
+        .into_any()),
 
-        ReactiveValue::F32(value) => view! {
+        ReactiveValue::F32(value) => Either::Right(view! {
             <CrudF32Field
                 id=id.clone()
                 field_options=field_options
@@ -315,8 +357,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::F64(value) => view! {
+        .into_any()),
+        ReactiveValue::F64(value) => Either::Right(view! {
             <CrudF64Field
                 id=id.clone()
                 field_options=field_options
@@ -325,8 +367,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalF32(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalF32(value) => Either::Right(view! {
             <CrudOptionalF32Field
                 id=id.clone()
                 field_options=field_options
@@ -335,8 +377,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalF64(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalF64(value) => Either::Right(view! {
             <CrudOptionalF64Field
                 id=id.clone()
                 field_options=field_options
@@ -345,9 +387,9 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
+        .into_any()),
 
-        ReactiveValue::String(value) => view! {
+        ReactiveValue::String(value) => Either::Right(view! {
             <CrudStringField
                 id=id.clone()
                 field_options=field_options
@@ -356,8 +398,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalString(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalString(value) => Either::Right(view! {
             <CrudOptionalStringField
                 id=id.clone()
                 field_options=field_options
@@ -366,10 +408,10 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
+        .into_any()),
 
         // Ecosystem support.
-        ReactiveValue::Json(value) => view! {
+        ReactiveValue::Json(value) => Either::Right(view! {
             <CrudJsonField
                 id=id.clone()
                 field_options=field_options
@@ -378,8 +420,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalJson(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalJson(value) => Either::Right(view! {
             <CrudOptionalJsonField
                 id=id.clone()
                 field_options=field_options
@@ -388,9 +430,9 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
+        .into_any()),
 
-        ReactiveValue::Uuid(value) => view! {
+        ReactiveValue::Uuid(value) => Either::Right(view! {
             <CrudUuidField
                 id=id.clone()
                 field_options=field_options
@@ -399,8 +441,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalUuid(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalUuid(value) => Either::Right(view! {
             <CrudOptionalUuidField
                 id=id.clone()
                 field_options=field_options
@@ -409,9 +451,9 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
+        .into_any()),
 
-        ReactiveValue::PrimitiveDateTime(value) => view! {
+        ReactiveValue::PrimitiveDateTime(value) => Either::Right(view! {
             <CrudPrimitiveDateTimeField
                 id=id.clone()
                 field_options=field_options
@@ -420,11 +462,11 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OffsetDateTime(_) => {
+        .into_any()),
+        ReactiveValue::OffsetDateTime(_) => Either::Right(
             view! { "TODO: Render ReactiveValue::OffsetDateTime" }.into_any()
-        }
-        ReactiveValue::Duration(value) => view! {
+        ),
+        ReactiveValue::Duration(value) => Either::Right(view! {
             <CrudDurationField
                 id=id.clone()
                 field_options=field_options
@@ -433,8 +475,8 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalPrimitiveDateTime(value) => view! {
+        .into_any()),
+        ReactiveValue::OptionalPrimitiveDateTime(value) => Either::Right(view! {
             <CrudOptionalPrimitiveDateTimeField
                 id=id.clone()
                 field_options=field_options
@@ -443,11 +485,11 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
-        ReactiveValue::OptionalOffsetDateTime(_) => {
+        .into_any()),
+        ReactiveValue::OptionalOffsetDateTime(_) => Either::Right(
             view! { "TODO: Render ReactiveValue::OptionalOffsetDateTime" }.into_any()
-        }
-        ReactiveValue::OptionalDuration(value) => view! {
+        ),
+        ReactiveValue::OptionalDuration(value) => Either::Right(view! {
             <CrudOptionalDurationField
                 id=id.clone()
                 field_options=field_options
@@ -456,10 +498,10 @@ pub(crate) fn default_field_renderer(
                 value_changed=value_changed
             />
         }
-        .into_any(),
+        .into_any()),
 
         // Extension support.
-        ReactiveValue::Other(field_value) => view! {
+        ReactiveValue::Other(field_value) => Either::Right(view! {
             <Alert variant=AlertVariant::Danger>
                 <AlertTitle slot>"Invalid Configuration"</AlertTitle>
                 <AlertContent slot>
@@ -475,6 +517,6 @@ pub(crate) fn default_field_renderer(
                 </AlertContent>
             </Alert>
         }
-            .into_any(),
+            .into_any()),
     }
 }

@@ -1,20 +1,23 @@
 use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
-use tracing::error;
 use utoipa::ToSchema;
 
+use crudkit_collaboration::{CollabMessage, EntityUpdated};
 use crudkit_condition::Condition;
 use crudkit_core::Saved;
-use crudkit_id::Id;
+use crudkit_id::{Id, SerializableId};
 use crudkit_validation::PartialSerializableValidations;
-use crudkit_websocket::{CkWsMessage, EntityUpdated};
 
 use crate::{
     auth::RequestContext,
     error::CrudError,
     lifetime::{CrudLifetime, UpdateRequest},
     prelude::*,
-    validation::{CrudAction, ValidationContext, ValidationTrigger, When, into_persistable},
+    validation,
+    validation::{
+        into_persistable, run_delta_validation, run_global_validation, CrudAction, ValidationContext,
+        ValidationTrigger, When,
+    },
 };
 
 #[derive(Debug, ToSchema, Deserialize)]
@@ -42,6 +45,9 @@ pub async fn update_one<R: CrudResource>(
 
     // Convert the model into an ActiveModel, allowing mutations.
     let mut active_model: R::ActiveModel = model.into();
+
+    // Keep a copy of the old state for delta validation
+    let old_active_model = active_model.clone();
 
     let update_model = body.entity;
 
@@ -71,31 +77,49 @@ pub async fn update_one<R: CrudResource>(
 
     let serializable_id = entity_id.to_serializable_id();
 
-    // Run validations ON THE NEW STATE(!) but before updating the entity in the database.
+    // Run delta validations comparing old and new state before updating the entity in the database.
+    // This allows validators to check for violations related to the specific change being made.
     let trigger = ValidationTrigger::CrudAction(ValidationContext {
         action: CrudAction::Update,
         when: When::Before,
     });
 
-    let partial_validation_results = context.validator.validate_single(&active_model, trigger);
+    let partial_validation_results = run_delta_validation::<R>(
+        &context.validators,
+        &old_active_model,
+        &active_model,
+        trigger,
+    );
 
+    // Critical violations must block the save immediately. No persist/broadcast needed
+    // since the update won't happen and the entity state hasn't changed.
+    if partial_validation_results.has_critical_violations() {
+        return Err(CrudError::CriticalValidationErrors {
+            violations: partial_validation_results.into(),
+        });
+    }
+
+    // Update the entry first, then handle validation result persistence and broadcasting.
+    let result = context
+        .repository
+        .update(active_model.clone())
+        .await
+        .map_err(|err| CrudError::Repository {
+            reason: Arc::new(err),
+        })?;
+
+    // Now that the update succeeded, handle validation result persistence and broadcasting.
+    let violations: crudkit_validation::SerializableAggregateViolations =
+        partial_validation_results.clone().into();
     let has_violations = partial_validation_results.has_violations();
 
     if has_violations {
-        let has_critical_violations =
-            partial_validation_results.has_violation_of_type(ValidationViolationType::Critical);
-
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
-        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([(
-            String::from(R::TYPE.into()),
-            partial_validation_results.clone().into(),
-        )]);
+        let partial_serializable_validations: PartialSerializableValidations =
+            HashMap::from([(String::from(R::TYPE.into()), violations.clone())]);
 
-        context
-            .ws_controller
-            .broadcast_json(CkWsMessage::PartialValidationResult(
-                partial_serializable_validations,
-            ));
+        validation::broadcast_partial_validation_result(&context, partial_serializable_validations)
+            .await;
 
         // Persist the validation results for later access/use.
         let persistable = into_persistable(partial_validation_results);
@@ -106,14 +130,8 @@ pub async fn update_one<R: CrudResource>(
             .map_err(|err| CrudError::SaveValidations {
                 reason: Arc::new(err),
             })?;
-
-        // The existence of CRITICAL violations must block a save!
-        if has_critical_violations {
-            return Err(CrudError::ValidationFailed);
-        }
     } else {
-        // We know that the entity is valid and therefor need to delete all previously stored violations for this entity.
-        // The active_model might not have an id, thou that is unlikely when doing an "update".
+        // The entity is valid, delete all previously stored violations for this entity.
         match R::CrudColumn::get_id_active(&active_model) {
             Ok(id) => {
                 context
@@ -125,31 +143,19 @@ pub async fn update_one<R: CrudResource>(
                     })?;
             }
             Err(err) => {
-                error!("Could not extract ID from active_model {active_model:?}. Error was: {err}")
+                tracing::error!(
+                    "Could not extract ID from active_model {active_model:?}. Error was: {err}"
+                )
             }
         }
 
-        // Inform the websocket listeners.
-        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([(
-            String::from(R::TYPE.into()),
-            partial_validation_results.clone().into(),
-        )]);
+        // Inform all users that the entity is now valid.
+        let partial_serializable_validations: PartialSerializableValidations =
+            HashMap::from([(String::from(R::TYPE.into()), violations.clone())]);
 
-        context
-            .ws_controller
-            .broadcast_json(CkWsMessage::PartialValidationResult(
-                partial_serializable_validations,
-            ));
+        validation::broadcast_partial_validation_result(&context, partial_serializable_validations)
+            .await;
     }
-
-    // Update the entry.
-    let result = context
-        .repository
-        .update(active_model)
-        .await
-        .map_err(|err| CrudError::Repository {
-            reason: Arc::new(err),
-        })?;
 
     let _hook_data = R::Lifetime::after_update(
         &update_model,
@@ -162,15 +168,8 @@ pub async fn update_one<R: CrudResource>(
     .await
     .map_err(CrudError::from)?;
 
-    // Inform all participants that the entity was updated.
-    // TODO: Exclude the current user!
-    context
-        .ws_controller
-        .broadcast_json(CkWsMessage::EntityUpdated(EntityUpdated {
-            aggregate_name: R::TYPE.into().to_owned(),
-            entity_id: serializable_id,
-            with_validation_errors: has_violations,
-        }));
+    // Inform all users that the entity was updated.
+    broadcast_updated_event(&context, serializable_id, has_violations).await;
 
     // We read the entity again, to get an up-to-date instance of the "ReadModel".
     /*let read = build_select_query::<R::ReadViewEntity, R::ReadViewModel, R::ReadViewActiveModel, R::ReadViewColumn, R::ReadViewCrudColumn>(
@@ -183,10 +182,33 @@ pub async fn update_one<R: CrudResource>(
     .await
     .map_err(|err| CrudError::DbError(err.to_string()))?
     .ok_or_else(|| CrudError::ReadOneFoundNone)?;*/
+
+    // Trigger global validation to check system-wide consistency.
+    // Results are broadcast via WebSocket to all connected users.
+    run_global_validation::<R>(&context).await;
+
     Ok(Saved {
         entity: result,
-        with_validation_errors: has_violations,
+        violations,
     })
+}
+
+async fn broadcast_updated_event<R: CrudResource>(
+    context: &Arc<CrudContext<R>>,
+    serializable_id: SerializableId,
+    has_violations: bool,
+) {
+    if let Err(err) = context
+        .collab_service
+        .broadcast_json(CollabMessage::EntityUpdated(EntityUpdated {
+            aggregate_name: R::TYPE.into().to_owned(),
+            entity_id: serializable_id,
+            with_validation_errors: has_violations,
+        }))
+        .await
+    {
+        tracing::error!("Failed to broadcast update event: {err:?}");
+    }
 }
 
 // TODO: update_one_and_read_back() which updates and returns a ReadModel instead of an UpdateModel.

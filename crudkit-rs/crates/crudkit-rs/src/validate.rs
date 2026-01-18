@@ -13,7 +13,7 @@ pub fn validate_required<T: Into<sea_orm::Value>>(
     if let ActiveValue::NotSet = val {
         let err = format!("Field {name} not set but required!");
         result.push(match violation_type {
-            ValidationViolationType::Major => ValidationViolation::Critical(err),
+            ValidationViolationType::Major => ValidationViolation::Major(err),
             ValidationViolationType::Critical => ValidationViolation::Critical(err),
         });
     }

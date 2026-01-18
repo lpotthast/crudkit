@@ -1,10 +1,11 @@
-use crate::ReactiveValue;
 use crate::crud_instance_config::FieldRendererRegistry;
 use crate::fields::{default_field_renderer, render_label};
+use crate::ReactiveValue;
 use crudkit_core::Value;
 use crudkit_web::prelude::*;
 use crudkit_web::view::CrudSimpleView;
 use crudkit_web::{FieldMode, FieldOptions};
+use leptos::either::Either;
 use leptos::prelude::*;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -31,7 +32,7 @@ pub fn CrudField<F: DynField>(
     let field_renderer = ViewFn::from(move || {
         match field_renderer_registry.read().reg.get(&field) {
             Some(renderer) => {
-                // TODO: Is this still reactive?
+                // TODO: Why hardcode render the label here?
                 view! {
                     { render_label(field_options.label.clone()) }
                     <div class="crud-field">
@@ -39,14 +40,24 @@ pub fn CrudField<F: DynField>(
                     </div>
                 }.into_any()
             }
-            None => default_field_renderer(
-                value,
-                id.clone(),
-                field_options.clone(),
-                field_mode,
-                value_changed,
-            )
-            .into_any(),
+            None => {
+                let either = default_field_renderer(
+                    value,
+                    id.clone(),
+                    field_options.clone(),
+                    field_mode,
+                    value_changed,
+                );
+                match either {
+                    Either::Left(renderer) => view! {
+                        { render_label(field_options.label.clone()) }
+                        <div class="crud-field">
+                            { renderer.view_cb.run((signals, field_mode, field_options.clone(), value, value_changed)) }
+                        </div>
+                    }.into_any(),
+                    Either::Right(view) => view.into_any(),
+                }
+            }
         }
     });
 

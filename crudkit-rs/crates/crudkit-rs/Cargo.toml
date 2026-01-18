@@ -12,7 +12,7 @@ crudkit-condition = { path = "../../../crudkit-condition" }
 crudkit-core = { path = "../../../crudkit-core/crates/crudkit-core" }
 crudkit-id = { path = "../../../crudkit-id/crates/crudkit-id" }
 crudkit-validation = { path = "../../../crudkit-validation" }
-crudkit-websocket = { path = "../../../crudkit-websocket" }
+crudkit-collaboration = { path = "../../../crudkit-collaboration" }
 derive-crud-columns = { path = "../derive-crud-columns" }
 derive-crud-resource-context = { path = "../derive-crud-resource-context" }
 derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }

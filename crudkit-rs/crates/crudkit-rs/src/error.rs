@@ -1,14 +1,18 @@
 use crate::repository::RepositoryError;
 use crudkit_condition::IntoAllEqualConditionError;
+use crudkit_validation::SerializableAggregateViolations;
 use snafu::Snafu;
 use std::sync::Arc;
-
-// TODO: We should ensure that the error printed and/or serialized down to any frontend does not disclose secret information!
 
 /// Error type for CRUD operations.
 ///
 /// This enum represents all possible errors that can occur during CRUD operations.
 /// Each variant maps to a specific HTTP status code for API responses.
+///
+/// # Logging vs HTTP Responses
+///
+/// - Use `{error:?}` (Debug) for logging - shows full internal details
+/// - Convert to `AxumCrudError` for HTTP responses - exposes only minimal user-safe messages
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum CrudError {
@@ -18,7 +22,7 @@ pub enum CrudError {
     /// Permission or authorization denied by lifecycle hook.
     ///
     /// Mapped to HTTP status 403 Forbidden.
-    #[snafu(display("CrudError: Forbidden. {reason}"))]
+    #[snafu(display("Forbidden: {reason}"))]
     Forbidden { reason: String },
 
     // =========================================================================
@@ -27,14 +31,16 @@ pub enum CrudError {
     /// Business logic rejection by lifecycle hook.
     ///
     /// Mapped to HTTP status 422 Unprocessable Entity.
-    #[snafu(display("CrudError: Unprocessable entity. {reason}"))]
+    #[snafu(display("Unprocessable entity: {reason}"))]
     UnprocessableEntity { reason: String },
 
     /// Critical validation errors prevent the operation.
     ///
     /// Mapped to HTTP status 422 Unprocessable Entity.
-    #[snafu(display("CrudError: Validation failed with critical errors."))]
-    ValidationFailed,
+    #[snafu(display("Validation failed with critical errors"))]
+    CriticalValidationErrors {
+        violations: SerializableAggregateViolations,
+    },
 
     // =========================================================================
     // Not Found Errors (HTTP 404)
@@ -42,7 +48,7 @@ pub enum CrudError {
     /// Entity not found.
     ///
     /// Mapped to HTTP status 404 Not Found.
-    #[snafu(display("CrudError: Entity not found."))]
+    #[snafu(display("Entity not found"))]
     NotFound,
 
     // =========================================================================
@@ -51,7 +57,7 @@ pub enum CrudError {
     /// Could not convert to condition (invalid query parameters).
     ///
     /// Mapped to HTTP status 400 Bad Request.
-    #[snafu(display("CrudError: Could not convert to condition."))]
+    #[snafu(display("Invalid query parameters: {source}"))]
     IntoCondition { source: IntoAllEqualConditionError },
 
     // =========================================================================
@@ -60,24 +66,24 @@ pub enum CrudError {
     /// Repository/database error.
     ///
     /// Mapped to HTTP status 500 Internal Server Error.
-    #[snafu(display("CrudError: Repository error.\n\nCaused by:\n{reason:?}"))]
+    #[snafu(display("Repository error: {reason:?}"))]
     Repository { reason: Arc<dyn RepositoryError> },
 
-    /// Lifecycle hook internal error.
+    /// Unexpected lifecycle hook error.
     ///
     /// Mapped to HTTP status 500 Internal Server Error.
-    #[snafu(display("CrudError: Lifecycle hook error. {reason}"))]
-    LifecycleError { reason: String },
+    #[snafu(display("Lifecycle hook error: {reason}"))]
+    LifecycleHookError { reason: String },
 
     /// Could not save validation results.
     ///
     /// Mapped to HTTP status 500 Internal Server Error.
-    #[snafu(display("CrudError: Could not save validations.\n\nCaused by:\n{reason:?}"))]
+    #[snafu(display("Could not save validations: {reason:?}"))]
     SaveValidations { reason: Arc<dyn RepositoryError> },
 
     /// Could not delete validation results.
     ///
     /// Mapped to HTTP status 500 Internal Server Error.
-    #[snafu(display("CrudError: Could not delete validations.\n\nCaused by:\n{reason:?}"))]
+    #[snafu(display("Could not delete validations: {reason:?}"))]
     DeleteValidations { reason: Arc<dyn RepositoryError> },
 }

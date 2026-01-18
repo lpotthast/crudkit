@@ -12,8 +12,8 @@ use validation::PersistableViolation;
 
 pub mod auth;
 pub mod axum_routes;
+pub mod collaboration;
 pub mod context;
-pub mod controller;
 pub mod create;
 pub mod delete;
 pub mod error;
@@ -24,7 +24,6 @@ pub mod resource;
 pub mod update;
 pub mod validate;
 pub mod validation;
-pub mod websocket;
 
 /*
 * Reexport common modules.
@@ -37,18 +36,18 @@ pub mod websocket;
 * to manually depend on other crud crates such as "crudkit_id",
 * which are required for many derive macro implementations.
 */
+pub use crudkit_collaboration;
 pub use crudkit_condition;
 pub use crudkit_core;
 pub use crudkit_id;
 pub use crudkit_validation;
-pub use crudkit_websocket;
 
 pub mod prelude {
+    pub use crudkit_collaboration;
     pub use crudkit_condition;
     pub use crudkit_core;
     pub use crudkit_id;
     pub use crudkit_validation;
-    pub use crudkit_websocket;
 
     /* Provide convenient access to all our macros. */
     pub use derive_crud_columns::CkColumns;
@@ -72,10 +71,10 @@ pub mod prelude {
     pub use super::axum_routes::AxumCrudError;
     pub use super::error::CrudError;
 
+    pub use super::collaboration::CollaborationService;
     pub use super::context::CrudContext;
     pub use super::resource::CrudResource;
     pub use super::resource::CrudResourceContext;
-    pub use super::websocket::CrudWebsocketService;
 
     // Lifetime hooks and related types
     pub use super::lifetime::CrudLifetime;
@@ -98,14 +97,16 @@ pub mod prelude {
 
     pub use super::repository::Repository;
 
-    pub use super::validation::AlwaysValidValidator;
+    pub use super::validation::AggregateValidator;
     pub use super::validation::EntityValidationsExt;
-    pub use super::validation::EntityValidatorTrait;
-    pub use super::validation::EntityValidatorsTrait;
-    pub use super::validation::ValidationResultSaverTrait;
+    pub use super::validation::EntityValidator;
+    pub use super::validation::NoAggregateValidator;
+    pub use super::validation::NoopValidationResultRepository;
+    pub use super::validation::ValidationResultSaver;
     pub use super::validation::ValidationTrigger;
     pub use super::validation::ValidationViolationType;
     pub use super::validation::ValidationViolationTypeExt;
+    pub use super::validation::run_global_validation;
 
     pub use super::validate::validate_max_length;
     pub use super::validate::validate_min_length;

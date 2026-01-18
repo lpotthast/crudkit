@@ -1,16 +1,20 @@
 use crate::{
-    GetIdFromModel,
     auth::RequestContext,
     error::CrudError,
     lifetime::CrudLifetime,
     prelude::*,
-    validation::{CrudAction, ValidationContext, ValidationTrigger, When, into_persistable},
+    validation,
+    validation::{
+        into_persistable, run_entity_validation, run_global_validation, CrudAction, ValidationContext,
+        ValidationTrigger, When,
+    },
+    GetIdFromModel,
 };
 
+use crudkit_collaboration::{CollabMessage, EntityCreated};
 use crudkit_core::Saved;
-use crudkit_id::Id;
+use crudkit_id::{Id, SerializableId};
 use crudkit_validation::PartialSerializableValidations;
-use crudkit_websocket::{CkWsMessage, EntityCreated};
 
 use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
@@ -56,22 +60,14 @@ pub async fn create_one<R: CrudResource>(
         action: CrudAction::Create,
         when: When::Before,
     });
-    let partial_validation_results = context.validator.validate_single(&active_model, trigger);
+    let partial_validation_results =
+        run_entity_validation::<R>(&context.validators, &active_model, trigger);
     if partial_validation_results.has_critical_violations() {
-        // TODO: Only notify the user that issued THIS REQUEST!!!
-        // Broadcast the PARTIAL validation result to all registered WebSocket connections.
-        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([(
-            String::from(R::TYPE.into()),
-            partial_validation_results.clone().into(),
-        )]);
-        let _ = context
-            .ws_controller
-            .broadcast_json(CkWsMessage::PartialValidationResult(
-                partial_serializable_validations,
-            ));
-
-        // NOTE: Nothing must be persisted, as the entity is not yet created!
-        return Err(CrudError::ValidationFailed);
+        // Critical validation errors are returned synchronously in the HTTP response.
+        // No websocket broadcast needed - the requesting user gets the error directly.
+        return Err(CrudError::CriticalValidationErrors {
+            violations: partial_validation_results.into(),
+        });
     }
 
     // The entity to insert has no critical violations. The entity can be inserted!
@@ -107,17 +103,15 @@ pub async fn create_one<R: CrudResource>(
     });
 
     // TODO: Validate using the model, not the active model? active_inserted_entity would then be obsolete!
-    let partial_validation_results = context
-        .validator
-        .validate_single(&active_inserted_entity, trigger);
+    let partial_validation_results =
+        run_entity_validation::<R>(&context.validators, &active_inserted_entity, trigger);
+    let violations: crudkit_validation::SerializableAggregateViolations =
+        partial_validation_results.clone().into();
     let with_validation_errors = partial_validation_results.has_violations();
     if with_validation_errors {
         // Broadcast the PARTIAL validation result to all registered WebSocket connections.
         let mut partial_serializable_validations: PartialSerializableValidations =
-            HashMap::from([(
-                String::from(R::TYPE.into()),
-                partial_validation_results.clone().into(),
-            )]);
+            HashMap::from([(String::from(R::TYPE.into()), violations.clone())]);
 
         // We successfully created the entry at this point. To delete any leftover "create" violations in the frontend, set create to Some empty vector!
         partial_serializable_validations
@@ -126,12 +120,9 @@ pub async fn create_one<R: CrudResource>(
                 s.create = Some(Vec::new());
             });
 
-        // TODO: We should not ignore the error here!
-        let _ = context
-            .ws_controller
-            .broadcast_json(CkWsMessage::PartialValidationResult(
-                partial_serializable_validations,
-            ));
+        // Broadcast non-critical validation warnings to all users.
+        validation::broadcast_partial_validation_result(&context, partial_serializable_validations)
+            .await;
 
         // Persist the validation results for later access/use.
         let persistable = into_persistable(partial_validation_results);
@@ -144,19 +135,33 @@ pub async fn create_one<R: CrudResource>(
             })?;
     }
 
-    // Inform all participants that the entity was created.
-    // TODO: Exclude the current user!
-    // TODO: We should not ignore the error here!
-    let _ = context
-        .ws_controller
-        .broadcast_json(CkWsMessage::EntityCreated(EntityCreated {
-            aggregate_name: R::TYPE.into().to_owned(),
-            entity_id: serializable_id,
-            with_validation_errors,
-        }));
+    // Inform all users that the entity was created.
+    broadcast_creation_event(&context, serializable_id, with_validation_errors).await;
+
+    // Trigger global validation to check system-wide consistency.
+    // Results are broadcast via WebSocket to all connected users.
+    run_global_validation::<R>(&context).await;
 
     Ok(Saved {
         entity: inserted_entity,
-        with_validation_errors,
+        violations,
     })
+}
+
+async fn broadcast_creation_event<R: CrudResource>(
+    context: &CrudContext<R>,
+    serializable_id: SerializableId,
+    with_validation_errors: bool,
+) {
+    if let Err(err) = context
+        .collab_service
+        .broadcast_json(CollabMessage::EntityCreated(EntityCreated {
+            aggregate_name: R::TYPE.into().to_owned(),
+            entity_id: serializable_id,
+            with_validation_errors,
+        }))
+        .await
+    {
+        tracing::warn!("Failed to broadcast entity created: {err:?}");
+    }
 }

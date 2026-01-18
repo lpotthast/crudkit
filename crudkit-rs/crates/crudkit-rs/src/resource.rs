@@ -118,14 +118,16 @@ pub trait CrudResource: Sized + Debug {
 
     type Repository: Repository<Self>;
 
-    type Validator: EntityValidatorsTrait<Self>;
-
     // The service with which validation results can be managed: read, stored, ...
-    type ValidationResultRepository: ValidationResultSaverTrait<
+    type ValidationResultRepository: ValidationResultSaver<
             <Self::CrudColumn as CrudColumns<Self::Column, Self::Model, Self::ActiveModel>>::Id,
         > + 'static;
 
-    type WebsocketService: CrudWebsocketService + 'static;
+    /// A type that can be used for collaboration purposes (sharing information with other users
+    /// of the system).
+    ///
+    /// This could be implemented using WebSockets for example.
+    type CollaborationService: CollaborationService + 'static;
 
     /// An instance of this type is made available in all lifetime operations.
     /// Use this to supply arbitrary data, like custom services.

@@ -102,6 +102,24 @@ impl<I: Id> EntityViolations<I> {
         Self { entity_violations }
     }
 
+    /// Merge another EntityViolations into this one, combining violations from both.
+    /// This is used to combine results from multiple validators.
+    pub fn merge(&mut self, other: EntityViolations<I>) {
+        for (entity_id, other_validators) in other.entity_violations {
+            let validators = self
+                .entity_violations
+                .entry(entity_id)
+                .or_insert_with(HashMap::new);
+
+            for (validator_info, other_violations) in other_validators {
+                let violations = validators
+                    .entry(validator_info)
+                    .or_insert_with(Violations::empty);
+                violations.violations.extend(other_violations.violations);
+            }
+        }
+    }
+
     pub fn number_of_violations(&self) -> usize {
         let mut estimated_size = 0;
         for (_, validators) in &self.entity_violations {
@@ -178,6 +196,17 @@ pub struct SerializableAggregateViolations {
     pub by_entity: HashMap<SerializableId, Vec<ValidationViolation>>,
 }
 
+impl SerializableAggregateViolations {
+    /// Returns true if there are no violations in any category.
+    pub fn is_empty(&self) -> bool {
+        let general_empty = self.general.as_ref().map_or(true, |v| v.is_empty());
+        let create_empty = self.create.as_ref().map_or(true, |v| v.is_empty());
+        let by_entity_empty =
+            self.by_entity.is_empty() || self.by_entity.values().all(|v| v.is_empty());
+        general_empty && create_empty && by_entity_empty
+    }
+}
+
 pub type AggregateName = String;
 
 pub type FullSerializableValidations = HashMap<String, FullSerializableAggregateViolations>;
@@ -212,4 +241,44 @@ impl<I: Id> Into<SerializableAggregateViolations> for EntityViolations<I> {
 
         aggregate_violations
     }
+}
+
+/// # Panics
+///
+/// May panic on internal assertion error. If the implementation is correct, this will not happen.
+pub fn into_serializable_validations<M: Into<ValidationViolation>>(
+    data: HashMap<StrictOwnedEntityInfo, HashMap<OwnedValidatorInfo, Vec<M>>>,
+) -> FullSerializableValidations {
+    let mut num_expected_violations = 0;
+    let mut result = HashMap::new();
+
+    for (entity_info, validators) in data {
+        let aggregate_violations: &mut FullSerializableAggregateViolations = result
+            .entry(entity_info.aggregate_name)
+            .or_insert_with(Default::default);
+
+        let entity_violations = aggregate_violations
+            .by_entity
+            .entry(entity_info.entity_id)
+            .or_default();
+
+        for (_, violations) in validators {
+            entity_violations.reserve(violations.len());
+            for violation in violations {
+                num_expected_violations += 1;
+                entity_violations.push(violation.into())
+            }
+        }
+    }
+
+    // Test that all violations were converted.
+    let mut num_violations = 0;
+    for aggregate_violations in result.values() {
+        for violations in aggregate_violations.by_entity.values() {
+            num_violations += violations.len();
+        }
+    }
+    assert_eq!(num_expected_violations, num_violations);
+
+    result
 }

@@ -1,21 +1,23 @@
 use indexmap::IndexMap;
 use serde::Deserialize;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use utoipa::ToSchema;
 
+use crudkit_collaboration::{CollabMessage, EntityDeleted};
 use crudkit_condition::{Condition, TryIntoAllEqualCondition};
 use crudkit_core::{Deleted, DeletedMany, Order};
 use crudkit_id::{Id, SerializableId};
-use crudkit_validation::PartialSerializableValidations;
-use crudkit_websocket::{CkWsMessage, EntityDeleted};
 
 use crate::{
-    GetIdFromModel,
     auth::RequestContext,
     error::CrudError,
     lifetime::{CrudLifetime, DeleteOperation, DeleteRequest, HookError},
     prelude::*,
-    validation::{CrudAction, ValidationContext, ValidationTrigger, When},
+    validation::{
+        run_entity_validation, run_global_validation, CrudAction, ValidationContext, ValidationTrigger,
+        When,
+    },
+    GetIdFromModel,
 };
 
 /// Maximum memory budget per batch (in bytes).
@@ -100,7 +102,6 @@ pub async fn delete_by_id<R: CrudResource>(
         .try_into_all_equal_condition()
         .map_err(|err| CrudError::IntoCondition { source: err })?;
 
-    // TODO: This initially fetched Model, not ReadViewModel...
     let model = context
         .repository
         .fetch_one(None, None, None, Some(&id_condition))
@@ -117,93 +118,13 @@ pub async fn delete_by_id<R: CrudResource>(
         condition: Some(id_condition),
     };
 
-    let hook_data = R::HookData::default();
+    execute_single_delete(model, &delete_request, &context, &request).await?;
 
-    let hook_data = R::Lifetime::before_delete(
-        &model,
-        &delete_request,
-        &context.res_context,
-        request.clone(),
-        hook_data,
-    )
-    .await
-    .map_err(CrudError::from)?;
-
-    let entity_id = model.get_id();
-    //.expect("Stored entity without an ID should be impossible!");
-
-    let serializable_id = entity_id.to_serializable_id();
-
-    let active_model = model.clone().into();
-
-    // Validate the entity, so that we can block its deletion if validators say so.
-    let trigger = ValidationTrigger::CrudAction(ValidationContext {
-        action: CrudAction::Delete,
-        when: When::Before,
-    });
-    let partial_validation_results = context.validator.validate_single(&active_model, trigger);
-
-    // Prevent deletion on critical errors.
-    if partial_validation_results.has_critical_violations() {
-        // TODO: Only notify the user that issued THIS REQUEST!!!
-
-        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([(
-            String::from(R::TYPE.into()),
-            partial_validation_results.clone().into(),
-        )]);
-
-        context
-            .ws_controller
-            .broadcast_json(CkWsMessage::PartialValidationResult(
-                partial_serializable_validations,
-            ));
-
-        // NOTE: Validations done before a deletion are only there to prevent it if necessary. Nothing must be persisted.
-        return Err(CrudError::ValidationFailed);
-    }
-
-    // Delete the entity in the database.
-    let deleted_model = model.clone();
-
-    let delete_result =
-        context
-            .repository
-            .delete(model)
-            .await
-            .map_err(|err| CrudError::Repository {
-                reason: Arc::new(err),
-            })?;
-
-    let _hook_data = R::Lifetime::after_delete(
-        &deleted_model,
-        &delete_request,
-        &context.res_context,
-        request,
-        hook_data,
-    )
-    .await
-    .map_err(CrudError::from)?;
-
-    // Deleting the entity could have introduced new validation errors in other parts ot the system.
-    // TODO: let validation run again...
-
-    // All previous validations regarding this entity must be deleted!
-    let _ = context
-        .validation_result_repository
-        .delete_all_for(&entity_id) // String::from(R::TYPE.into()),
-        .await;
-
-    // Inform all participants that the entity was deleted.
-    // TODO: Exclude the current user!
-    context
-        .ws_controller
-        .broadcast_json(CkWsMessage::EntityDeleted(EntityDeleted {
-            aggregate_name: R::TYPE.into().to_owned(),
-            entity_id: serializable_id,
-        }));
+    // Trigger global validation to check system-wide consistency.
+    run_global_validation::<R>(&context).await;
 
     Ok(Deleted {
-        entities_affected: delete_result.entities_affected,
+        entities_affected: 1,
     })
 }
 
@@ -234,97 +155,142 @@ pub async fn delete_one<R: CrudResource>(
         condition: body.condition,
     };
 
-    let hook_data = R::HookData::default();
+    execute_single_delete(model, &delete_request, &context, &request).await?;
 
-    let hook_data = R::Lifetime::before_delete(
-        &model,
-        &delete_request,
-        &context.res_context,
-        request.clone(),
-        hook_data,
-    )
-    .await
-    .map_err(CrudError::from)?;
-
-    let entity_id = model.get_id();
-    //.expect("Stored entity without an ID should be impossible!");
-
-    let serializable_id = entity_id.to_serializable_id();
-
-    let active_model = model.clone().into();
-
-    // Validate the entity, so that we can block its deletion if validators say so.
-    let trigger = ValidationTrigger::CrudAction(ValidationContext {
-        action: CrudAction::Delete,
-        when: When::Before,
-    });
-    let partial_validation_results = context.validator.validate_single(&active_model, trigger);
-
-    // Prevent deletion on critical errors.
-    if partial_validation_results.has_critical_violations() {
-        // TODO: Only notify the user that issued THIS REQUEST!!!
-
-        let partial_serializable_validations: PartialSerializableValidations = HashMap::from([(
-            String::from(R::TYPE.into()),
-            partial_validation_results.clone().into(),
-        )]);
-
-        context
-            .ws_controller
-            .broadcast_json(CkWsMessage::PartialValidationResult(
-                partial_serializable_validations,
-            ));
-
-        // NOTE: Validations done before a deletion are only there to prevent it if necessary. Nothing must be persisted.
-        return Err(CrudError::ValidationFailed);
-    }
-
-    // Delete the entity in the database.
-    let deleted_model = model.clone();
-
-    let delete_result =
-        context
-            .repository
-            .delete(model)
-            .await
-            .map_err(|err| CrudError::Repository {
-                reason: Arc::new(err),
-            })?;
-
-    let _hook_data = R::Lifetime::after_delete(
-        &deleted_model,
-        &delete_request,
-        &context.res_context,
-        request,
-        hook_data,
-    )
-    .await
-    .map_err(CrudError::from)?;
-
-    // All previous validations regarding this entity must be deleted!
-    // TODO: We should not ignore the error here completely!
-    let _ = context
-        .validation_result_repository
-        .delete_all_for(&entity_id) // String::from(R::TYPE.into()),
-        .await;
-
-    // Inform all participants that the entity was deleted.
-    // TODO: Exclude the current user!
-    context
-        .ws_controller
-        .broadcast_json(CkWsMessage::EntityDeleted(EntityDeleted {
-            aggregate_name: R::TYPE.into().to_owned(),
-            entity_id: serializable_id,
-        }));
+    // Trigger global validation to check system-wide consistency.
+    run_global_validation::<R>(&context).await;
 
     Ok(Deleted {
-        entities_affected: delete_result.entities_affected,
+        entities_affected: 1,
     })
 }
 
 /// Helper to convert SerializableId to JSON value for result reporting.
 fn id_to_json(id: &SerializableId) -> serde_json::Value {
-    serde_json::to_value(id).unwrap_or_else(|_| serde_json::Value::Null)
+    serde_json::to_value(id).unwrap_or(serde_json::Value::Null)
+}
+
+/// Error type for single entity deletion, used internally to distinguish failure modes.
+enum SingleDeleteError {
+    /// Lifecycle hook rejected the deletion.
+    HookRejected(CrudError),
+    /// Validation failed with critical violations.
+    ValidationFailed(CrudError),
+    /// Repository operation failed.
+    RepositoryError(CrudError),
+    /// After-delete hook failed (entity was deleted but hook errored).
+    AfterHookFailed(CrudError),
+}
+
+impl From<SingleDeleteError> for CrudError {
+    fn from(err: SingleDeleteError) -> Self {
+        match err {
+            SingleDeleteError::HookRejected(e)
+            | SingleDeleteError::ValidationFailed(e)
+            | SingleDeleteError::RepositoryError(e)
+            | SingleDeleteError::AfterHookFailed(e) => e,
+        }
+    }
+}
+
+/// Execute deletion for a single entity after it has been fetched.
+///
+/// This helper handles the common deletion flow:
+/// 1. Run before_delete hook
+/// 2. Validate the entity
+/// 3. Delete from database
+/// 4. Run after_delete hook
+/// 5. Clear validation results
+/// 6. Broadcast deletion via WebSocket
+///
+/// Returns the serializable ID on success for result reporting.
+async fn execute_single_delete<R: CrudResource>(
+    model: R::Model,
+    delete_request: &DeleteRequest<R>,
+    context: &Arc<CrudContext<R>>,
+    request: &RequestContext<R::Auth>,
+) -> Result<SerializableId, SingleDeleteError> {
+    let hook_data = R::HookData::default();
+
+    let hook_data = R::Lifetime::before_delete(
+        &model,
+        delete_request,
+        &context.res_context,
+        request.clone(),
+        hook_data,
+    )
+    .await
+    .map_err(|e| SingleDeleteError::HookRejected(CrudError::from(e)))?;
+
+    let entity_id = model.get_id();
+    let serializable_id = entity_id.to_serializable_id();
+
+    let active_model: R::ActiveModel = model.clone().into();
+
+    // Validate the entity to check if deletion should be blocked.
+    let trigger = ValidationTrigger::CrudAction(ValidationContext {
+        action: CrudAction::Delete,
+        when: When::Before,
+    });
+    let partial_validation_results =
+        run_entity_validation::<R>(&context.validators, &active_model, trigger);
+
+    if partial_validation_results.has_critical_violations() {
+        return Err(SingleDeleteError::ValidationFailed(
+            CrudError::CriticalValidationErrors {
+                violations: partial_validation_results.into(),
+            },
+        ));
+    }
+
+    // Delete the entity from the database.
+    let deleted_model = model.clone();
+    context.repository.delete(model).await.map_err(|err| {
+        SingleDeleteError::RepositoryError(CrudError::Repository {
+            reason: Arc::new(err),
+        })
+    })?;
+
+    // Run after_delete hook.
+    R::Lifetime::after_delete(
+        &deleted_model,
+        delete_request,
+        &context.res_context,
+        request.clone(),
+        hook_data,
+    )
+    .await
+    .map_err(|e| SingleDeleteError::AfterHookFailed(CrudError::from(e)))?;
+
+    // Clear validation results for this entity.
+    if let Err(e) = context
+        .validation_result_repository
+        .delete_all_for(&entity_id)
+        .await
+    {
+        tracing::warn!("Failed to delete validation results for entity {entity_id:?}: {e:?}");
+    }
+
+    // Broadcast deletion via WebSocket.
+    broadcast_deletion_event(context, serializable_id.clone()).await;
+
+    Ok(serializable_id)
+}
+
+async fn broadcast_deletion_event<R: CrudResource>(
+    context: &Arc<CrudContext<R>>,
+    serializable_id: SerializableId,
+) {
+    if let Err(e) = context
+        .collab_service
+        .broadcast_json(CollabMessage::EntityDeleted(EntityDeleted {
+            aggregate_name: R::TYPE.into().to_owned(),
+            entity_id: serializable_id,
+        }))
+        .await
+    {
+        tracing::warn!("Failed to broadcast entity deleted: {e:?}");
+    }
 }
 
 /// Delete multiple entities matching a condition.
@@ -418,23 +384,11 @@ pub async fn delete_many<R: CrudResource>(
                 when: When::Before,
             });
             let partial_validation_results =
-                context.validator.validate_single(&active_model, trigger);
+                run_entity_validation::<R>(&context.validators, &active_model, trigger);
 
             // Check for critical validation errors.
+            // Critical validation errors are returned synchronously in the response (validation_failed list).
             if partial_validation_results.has_critical_violations() {
-                // Broadcast validation errors via WebSocket.
-                let partial_serializable_validations: PartialSerializableValidations =
-                    HashMap::from([(
-                        String::from(R::TYPE.into()),
-                        partial_validation_results.clone().into(),
-                    )]);
-
-                let _ = context
-                    .ws_controller
-                    .broadcast_json(CkWsMessage::PartialValidationResult(
-                        partial_serializable_validations,
-                    ));
-
                 result.validation_failed.push(id_to_json(&serializable_id));
                 continue;
             }
@@ -454,18 +408,18 @@ pub async fn delete_many<R: CrudResource>(
                     .await;
 
                     // Clear validation results for this entity.
-                    let _ = context
+                    if let Err(e) = context
                         .validation_result_repository
                         .delete_all_for(&entity_id)
-                        .await;
+                        .await
+                    {
+                        tracing::warn!(
+                            "Failed to delete validation results for entity {entity_id:?}: {e:?}"
+                        );
+                    }
 
                     // Broadcast deletion via WebSocket.
-                    let _ = context
-                        .ws_controller
-                        .broadcast_json(CkWsMessage::EntityDeleted(EntityDeleted {
-                            aggregate_name: R::TYPE.into().to_owned(),
-                            entity_id: serializable_id.clone(),
-                        }));
+                    broadcast_deletion_event(&context, serializable_id.clone()).await;
 
                     result.deleted_count += 1;
                     result.deleted_ids.push(id_to_json(&serializable_id));
@@ -485,6 +439,10 @@ pub async fn delete_many<R: CrudResource>(
             break;
         }
     }
+
+    // Trigger global validation to check system-wide consistency.
+    // Results are broadcast via WebSocket to all connected users.
+    run_global_validation::<R>(&context).await;
 
     Ok(result)
 }
