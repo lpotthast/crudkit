@@ -8,7 +8,7 @@ crudkit-condition = { path = "../../../crudkit-condition" }
 crudkit-id = { path = "../../../crudkit-id/crates/crudkit-id" }
 crudkit-core = { path = "../../../crudkit-core/crates/crudkit-core" }
 crudkit-validation = { path = "../../../crudkit-validation" }
-crudkit-websocket = { path = "../../../crudkit-websocket" }
+crudkit-collaboration = { path = "../../../crudkit-collaboration" }
 
 derive-crud-action-payload = { path = "../derive-crud-action-payload" }
 derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }

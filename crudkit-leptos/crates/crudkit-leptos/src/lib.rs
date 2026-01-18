@@ -35,17 +35,18 @@ pub mod stores;
 * to manually depend on other crud crates such as "crudkit_id",
 * which are required for many derive macro implementations.
 */
+pub use crudkit_collaboration;
 pub use crudkit_condition;
 pub use crudkit_core;
 pub use crudkit_id;
 pub use crudkit_validation;
 pub use crudkit_web;
-pub use crudkit_websocket;
 
 use crudkit_core::{FieldValue, TimeDuration, Value};
 use leptos::prelude::*;
 
 pub mod prelude {
+    pub use crudkit_collaboration;
     pub use crudkit_condition;
     pub use crudkit_core;
     pub use crudkit_core::*;
@@ -54,22 +55,21 @@ pub mod prelude {
     pub use crudkit_validation;
     pub use crudkit_web;
     pub use crudkit_web::prelude::*;
-    pub use crudkit_websocket;
 
     pub use derive_crud_action_payload::CkActionPayload;
     pub use derive_crud_resource::CkResource;
     pub use derive_crudkit_id::CkId;
     pub use derive_field::CkField;
 
+    pub use super::IntoReactiveValue;
+    pub use super::ReactiveValue;
+    pub use super::SignalsTrait;
     pub use super::crud_action::{
         CrudAction, CrudActionAftermath, CrudEntityAction, EntityActionViewInput,
         ResourceActionViewInput,
     };
     pub use super::crud_instance::CrudInstance;
     pub use super::crud_instance_config::{CreateElements, CrudInstanceConfig, CrudParentConfig};
-    pub use super::IntoReactiveValue;
-    pub use super::ReactiveValue;
-    pub use super::SignalsTrait;
 }
 
 /// Anything that can be created from a HashMap of `ReactiveValue`s.

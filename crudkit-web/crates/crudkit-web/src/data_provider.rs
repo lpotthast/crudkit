@@ -1,11 +1,11 @@
 use crate::request_error::RequestError;
 use crate::reqwest_executor::ReqwestExecutor;
-use crate::{request, CrudDataTrait, CrudMainTrait};
-use crudkit_condition::{merge_conditions, Condition};
+use crate::{CrudDataTrait, CrudMainTrait, request};
+use crudkit_condition::{Condition, merge_conditions};
 use crudkit_core::{Deleted, Order, Saved};
 use crudkit_id::SerializableId;
 use indexmap::IndexMap;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::sync::Arc;
 use std::{fmt::Debug, marker::PhantomData};
 use typed_builder::TypedBuilder;

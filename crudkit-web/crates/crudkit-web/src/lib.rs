@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{borrow::Cow, fmt::Debug, hash::Hash};
 
 pub mod action;
@@ -30,34 +30,24 @@ use crate::request_error::RequestError;
 use crudkit_core::Value;
 
 use crate::action::CrudActionPayload;
+pub use crudkit_collaboration;
 pub use crudkit_condition;
 pub use crudkit_core;
 pub use crudkit_id;
 pub use crudkit_validation;
-pub use crudkit_websocket;
 
 pub mod prelude {
+    pub use crudkit_collaboration;
     pub use crudkit_condition;
     pub use crudkit_core;
     pub use crudkit_id;
     pub use crudkit_validation;
-    pub use crudkit_websocket;
 
     pub use derive_crud_action_payload::CkActionPayload;
     pub use derive_crud_resource::CkResource;
     pub use derive_crudkit_id::CkId;
     pub use derive_field::CkField;
 
-    pub use super::error::ErrorInfo;
-    pub use super::files::FileResource;
-    pub use super::files::ListFileError;
-    pub use super::files::ListFilesResponse;
-    pub use super::request_error::CrudOperationError;
-    pub use super::request_error::RequestError;
-    pub use super::reqwest_executor::ReqwestExecutor;
-    pub use super::view::CrudSimpleView;
-    pub use super::view::CrudView;
-    pub use super::view::SerializableCrudView;
     pub use super::CrudDataTrait;
     pub use super::CrudFieldNameTrait;
     pub use super::CrudFieldValueTrait;
@@ -71,6 +61,16 @@ pub mod prelude {
     pub use super::NoData;
     pub use super::OrderByUpdateOptions;
     pub use super::TabId;
+    pub use super::error::ErrorInfo;
+    pub use super::files::FileResource;
+    pub use super::files::ListFileError;
+    pub use super::files::ListFilesResponse;
+    pub use super::request_error::CrudOperationError;
+    pub use super::request_error::RequestError;
+    pub use super::reqwest_executor::ReqwestExecutor;
+    pub use super::view::CrudSimpleView;
+    pub use super::view::CrudView;
+    pub use super::view::SerializableCrudView;
 
     pub use super::data_provider::CreateOne;
     pub use super::data_provider::CrudRestDataProvider;

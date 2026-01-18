@@ -34,6 +34,10 @@ use uuid::Uuid;
 /// Signal setters should generally not be pub. Define custom functions providing the required functionality.
 #[derive(Debug, Clone, Copy)]
 pub struct CrudInstanceContext {
+    pub id: Uuid,
+
+    pub name: &'static str,
+
     default_config: StoredValue<CrudMutableInstanceConfig>,
     pub(crate) static_config: StoredValue<CrudStaticInstanceConfig>,
 
@@ -198,6 +202,9 @@ pub fn CrudInstance(
     #[prop(optional)] parent: Option<CrudParentConfig>,
     #[prop(optional)] on_context_created: Option<Callback<CrudInstanceContext>>,
 ) -> impl IntoView {
+    // Unique id of this instance. Volatile. Not persistent between rerenders.
+    let id = Uuid::new_v4();
+
     let (config, static_config) = config.split();
 
     let static_config = StoredValue::new(static_config);
@@ -275,6 +282,8 @@ pub fn CrudInstance(
 
     // ctx is copy. But is it efficient? Do we want to put this into a stored value instead?
     let ctx = CrudInstanceContext {
+        id,
+        name,
         default_config,
         static_config,
         view,

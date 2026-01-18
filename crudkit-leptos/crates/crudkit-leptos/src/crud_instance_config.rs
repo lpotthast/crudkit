@@ -243,7 +243,7 @@ impl ModelHandler {
             let saved: Saved<Update> = serde_json::from_value(json)?;
             Ok(Saved {
                 entity: AnyUpdateModel::from(saved.entity),
-                with_validation_errors: saved.with_validation_errors,
+                violations: saved.violations,
             })
         });
 

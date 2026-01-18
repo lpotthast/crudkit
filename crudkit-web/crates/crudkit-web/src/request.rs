@@ -1,9 +1,9 @@
 use leptos_keycloak_auth::reqwest::Method;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crate::request_error::{error_response_to_request_error, RequestError};
+use crate::request_error::{RequestError, error_response_to_request_error};
 use crate::reqwest_executor::ReqwestExecutor;
 
 /// build all kinds of http requests: post/get/delete etc.
