@@ -3,11 +3,11 @@
 
 use darling::*;
 use proc_macro::TokenStream;
+use proc_macro2::{Ident, Span};
 use proc_macro_error::{abort, proc_macro_error};
 use proc_macro_type_name::ToTypeName;
-use proc_macro2::{Ident, Span};
 use quote::quote;
-use syn::{DeriveInput, parse_macro_input, spanned::Spanned};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
 #[derive(Debug, FromField)]
 #[darling(attributes(ck_columns, ck_id))]
@@ -127,7 +127,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     let id_struct_ident = Ident::new(format!("{}Id", input.ident).as_str(), Span::call_site());
 
     quote! {
-        #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
+        #[derive(PartialEq, Eq, Hash, Clone, Debug, serde::Serialize, serde::Deserialize)]
         pub enum Col {
             #(#column_variants),*
         }
@@ -219,6 +219,7 @@ fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
             "Option<time::PrimitiveDateTime>" => "to_primitive_date_time",
             "Option<time::OffsetDateTime>" => "to_offset_date_time",
             "Option<TimeDuration>" => "to_time_duration",
+            "Option<crudkit_sea_orm::newtypes::TimeDuration>" => "to_time_duration",
             other => {
                 let message =
                     format!("derive-crud-columns: Unknown type {other:?}. Expected a known type.");

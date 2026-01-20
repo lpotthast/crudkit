@@ -1,17 +1,18 @@
 use crate::{
-    GetIdFromModel,
     auth::{AuthExtractor, CrudAuthPolicy},
     lifetime::CrudLifetime,
     prelude::*,
+    GetIdFromModel,
 };
 
 use crudkit_id::Id;
 
+use crate::repository::ValidationResultRepository;
 use sea_orm::{
     ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, FromQueryResult,
     IntoActiveModel, ModelTrait,
 };
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Serialize};
 use std::{fmt::Debug, hash::Hash};
 
 // TODO: Can this be a member of CrudContext?
@@ -114,14 +115,21 @@ pub trait CrudResource: Sized + Debug {
         + Sync
         + 'static;
 
+    /// The type representing the "primary key" or "ID" of the update model.
+    ///
+    /// We only care about this models ID, as both the create and read models are not persistable
+    /// on their own and must never be identified.
     type Id: Id + Clone;
 
     type Repository: Repository<Self>;
 
     // The service with which validation results can be managed: read, stored, ...
-    type ValidationResultRepository: ValidationResultSaver<
-            <Self::CrudColumn as CrudColumns<Self::Column, Self::Model, Self::ActiveModel>>::Id,
-        > + 'static;
+    type ValidationResultRepository: ValidationResultRepository;
+    // TODO: Remove these old generics and bounds. ValidationResultSaver is no longer generic, because we want to support the unified table approach, where one repo cannot be bound to one specific id type.
+    //  In case of individual tables, and individual repos, such a repo might be generic over the ID, but this trait no longer enforces that it is over the ID defined here.
+    // <
+    //             <Self::CrudColumn as CrudColumns<Self::Column, Self::Model, Self::ActiveModel>>::Id,
+    //         > + 'static
 
     /// A type that can be used for collaboration purposes (sharing information with other users
     /// of the system).
@@ -159,6 +167,10 @@ pub trait CrudResource: Sized + Debug {
     /// (public reads, authenticated writes).
     type AuthPolicy: CrudAuthPolicy;
 
-    type ResourceType: Debug + Into<&'static str> + Clone + Copy;
+    type ResourceType: ResourceType;
     const TYPE: Self::ResourceType;
+}
+
+pub trait ResourceType: Debug + Clone + Copy + PartialEq + Eq {
+    fn name(&self) -> &'static str;
 }

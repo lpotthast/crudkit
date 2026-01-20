@@ -1,5 +1,5 @@
 use crudkit_core::Value;
-use crudkit_id::IdValue;
+use crudkit_id::{IdValue, SerializableIdEntry};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -277,19 +277,18 @@ pub trait TryIntoAllEqualCondition {
     fn try_into_all_equal_condition(self) -> Result<Condition, Self::Error>;
 }
 
-impl<'a, V, I> TryIntoAllEqualCondition for I
+impl<'a, I> TryIntoAllEqualCondition for I
 where
-    V: TryInto<ConditionClauseValue> + Clone + 'a,
-    I: Iterator<Item = (String, V)>,
+    I: Iterator<Item = SerializableIdEntry>,
 {
     type Error = IntoAllEqualConditionError;
 
     fn try_into_all_equal_condition(self) -> Result<Condition, Self::Error> {
         let mut clauses = Vec::new();
 
-        for (name, value) in self {
+        for SerializableIdEntry { field_name, value } in self {
             let clause = ConditionElement::Clause(ConditionClause {
-                column_name: name.clone(),
+                column_name: field_name,
                 operator: Operator::Equal,
                 value: value
                     .clone()

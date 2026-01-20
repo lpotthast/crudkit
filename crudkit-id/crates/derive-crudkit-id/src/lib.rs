@@ -3,11 +3,11 @@
 
 use darling::*;
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use proc_macro_error::{abort, proc_macro_error};
 use proc_macro_type_name::ToTypeName;
-use proc_macro2::Span;
 use quote::quote;
-use syn::{DeriveInput, Ident, parse_macro_input, spanned::Spanned};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident};
 
 #[derive(Debug, FromField)]
 #[darling(attributes(ck_id))]
@@ -242,6 +242,7 @@ fn generate_id_struct(
             quote! { #id_field_enum_ident::#type_name(self.#ident.clone()) }
         })
         .collect::<Vec<_>>();
+    let num_enum_variants = create_enum_variants.len();
 
     let struct_display_format_str = format!(
         "({})",
@@ -262,6 +263,32 @@ fn generate_id_struct(
     let struct_display_write_call = quote! {
         f.write_fmt(format_args!(#struct_display_format_str, #(#struct_display_format_args),*))
     };
+
+    // Generate field extractions for from_serializable_id.
+    // Each field gets its own extraction (e.g., `let user_id = extract from id;`).
+    let from_serializable_field_extractions = field_metadata
+        .iter()
+        .map(|it| {
+            let ident = &it.ident;
+            let name = &it.name;
+            let id_value_match = to_id_value_match_extraction(&it.ty);
+            quote! {
+                let #ident = {
+                    let crudkit_id::SerializableIdEntry { field_name: _, value } = id.entries().find(|entry| entry.field_name == #name)?;
+                    #id_value_match
+                };
+            }
+        })
+        .collect::<Vec<_>>();
+
+    // Struct construction from extracted fields.
+    let from_serializable_struct_construction = field_metadata
+        .iter()
+        .map(|it| {
+            let ident = &it.ident;
+            quote! { #ident }
+        })
+        .collect::<Vec<_>>();
 
     quote! {
         #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, serde::Serialize, serde::Deserialize)]
@@ -294,12 +321,20 @@ fn generate_id_struct(
             fn to_serializable_id(&self) -> crudkit_id::SerializableId {
                 crudkit_id::SerializableId(
                     self.fields_iter()
-                        .map(|field| (
-                            crudkit_id::IdField::name(&field).to_owned(),
-                            crudkit_id::IdField::to_value(&field),
-                        ))
+                        .map(|field| crudkit_id::SerializableIdEntry {
+                            field_name: crudkit_id::IdField::name(&field).to_owned(),
+                            value: crudkit_id::IdField::to_value(&field),
+                        })
                         .collect()
                 )
+            }
+
+            fn from_serializable_id(id: &crudkit_id::SerializableId) -> Option<Self> {
+                #(#from_serializable_field_extractions)*
+
+                Some(Self {
+                    #(#from_serializable_struct_construction),*
+                })
             }
         }
     }
@@ -500,4 +535,97 @@ fn is_option_type(path: &syn::Path) -> bool {
         .last()
         .map(|seg| seg.ident == "Option")
         .unwrap_or(false)
+}
+
+/// Returns code to extract a value from `IdValue` for the field of type `ty`.
+///
+/// The generated code is a match expression that extracts the value from `value`.
+/// For example: `if let crudkit_id::IdValue::I64(x) = value { x.clone() } else { return None }`
+fn to_id_value_match_extraction(ty: &syn::Type) -> proc_macro2::TokenStream {
+    let span = ty.span();
+
+    match ty {
+        syn::Type::Path(type_path) => {
+            let path = &type_path.path;
+
+            // Match primitives (unqualified, single-segment paths).
+            if path.segments.len() == 1
+                && let Some(ident) = get_final_segment_ident(path)
+            {
+                match ident.to_string().as_str() {
+                    "i32" => {
+                        return quote! {
+                            if let crudkit_id::IdValue::I32(x) = value { x.clone() } else { return None }
+                        };
+                    }
+                    "u32" => {
+                        return quote! {
+                            if let crudkit_id::IdValue::U32(x) = value { x.clone() } else { return None }
+                        };
+                    }
+                    "i64" => {
+                        return quote! {
+                            if let crudkit_id::IdValue::I64(x) = value { x.clone() } else { return None }
+                        };
+                    }
+                    "u64" => {
+                        return quote! {
+                            if let crudkit_id::IdValue::U64(x) = value { x.clone() } else { return None }
+                        };
+                    }
+                    "i128" => {
+                        return quote! {
+                            if let crudkit_id::IdValue::I128(x) = value { x.clone() } else { return None }
+                        };
+                    }
+                    "u128" => {
+                        return quote! {
+                            if let crudkit_id::IdValue::U128(x) = value { x.clone() } else { return None }
+                        };
+                    }
+                    "bool" => {
+                        return quote! {
+                            if let crudkit_id::IdValue::Bool(x) = value { x.clone() } else { return None }
+                        };
+                    }
+                    "String" => {
+                        return quote! {
+                            if let crudkit_id::IdValue::String(x) = value { x.clone() } else { return None }
+                        };
+                    }
+                    _ => {} // Fall through to qualified type matching.
+                }
+            }
+
+            // Match qualified types (require exact paths).
+            let path_str = path_to_string(path);
+            match path_str.as_str() {
+                "uuid::Uuid" => {
+                    return quote! {
+                        if let crudkit_id::IdValue::Uuid(x) = value { x.clone() } else { return None }
+                    };
+                }
+                "time::PrimitiveDateTime" => {
+                    return quote! {
+                        if let crudkit_id::IdValue::PrimitiveDateTime(x) = value { x.clone() } else { return None }
+                    };
+                }
+                "time::OffsetDateTime" => {
+                    return quote! {
+                        if let crudkit_id::IdValue::OffsetDateTime(x) = value { x.clone() } else { return None }
+                    };
+                }
+                _ => {}
+            }
+
+            // Should not reach here if `to_id_value_variant` was called first.
+            abort!(span, "Unsupported type for from_serializable_id extraction");
+        }
+        _ => {
+            abort!(
+                span,
+                "Expected a type path for from_serializable_id extraction"
+            );
+        }
+    }
 }

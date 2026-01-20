@@ -1,20 +1,21 @@
 use crate::{
     auth::RequestContext,
+    collaboration,
     error::CrudError,
     lifetime::CrudLifetime,
     prelude::*,
-    validation,
-    validation::{
-        into_persistable, run_entity_validation, run_global_validation, CrudAction, ValidationContext,
-        ValidationTrigger, When,
-    },
+    validate::{run_entity_validation, run_global_validation},
+    validation::{CrudAction, ValidationContext, ValidationTrigger, When},
     GetIdFromModel,
 };
 
-use crudkit_collaboration::{CollabMessage, EntityCreated};
 use crudkit_core::Saved;
-use crudkit_id::{Id, SerializableId};
-use crudkit_validation::PartialSerializableValidations;
+use crudkit_id::Id;
+use crudkit_resource::ResourceName;
+use crudkit_validation::violation::Violations;
+use crudkit_validation::{
+    PartialSerializableAggregateViolations, PartialSerializableValidations, ViolationsByEntity,
+};
 
 use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
@@ -55,18 +56,20 @@ pub async fn create_one<R: CrudResource>(
     .map_err(CrudError::from)?;
 
     // Run validations before inserting the entity. If critical violations are present, prevent the creation!
-    // NOTE: All violations created here can not have an ID, as the entity was not yet saved!
     let trigger = ValidationTrigger::CrudAction(ValidationContext {
         action: CrudAction::Create,
         when: When::Before,
     });
-    let partial_validation_results =
+
+    let violations_by_validator =
         run_entity_validation::<R>(&context.validators, &active_model, trigger);
-    if partial_validation_results.has_critical_violations() {
+
+    if violations_by_validator.has_critical_violations() {
         // Critical validation errors are returned synchronously in the HTTP response.
         // No websocket broadcast needed - the requesting user gets the error directly.
         return Err(CrudError::CriticalValidationErrors {
-            violations: partial_validation_results.into(),
+            // NOTE: All violations created here do not have an ID, as the entity was not yet saved!
+            violations: PartialSerializableAggregateViolations::from(violations_by_validator, None),
         });
     }
 
@@ -103,40 +106,53 @@ pub async fn create_one<R: CrudResource>(
     });
 
     // TODO: Validate using the model, not the active model? active_inserted_entity would then be obsolete!
-    let partial_validation_results =
+    let violations_by_validator =
         run_entity_validation::<R>(&context.validators, &active_inserted_entity, trigger);
-    let violations: crudkit_validation::SerializableAggregateViolations =
-        partial_validation_results.clone().into();
-    let with_validation_errors = partial_validation_results.has_violations();
-    if with_validation_errors {
-        // Broadcast the PARTIAL validation result to all registered WebSocket connections.
-        let mut partial_serializable_validations: PartialSerializableValidations =
-            HashMap::from([(String::from(R::TYPE.into()), violations.clone())]);
 
-        // We successfully created the entry at this point. To delete any leftover "create" violations in the frontend, set create to Some empty vector!
-        partial_serializable_validations
-            .entry(R::TYPE.into().to_owned())
-            .and_modify(|s| {
-                s.create = Some(Vec::new());
-            });
+    let has_violations = violations_by_validator.has_violations();
 
-        // Broadcast non-critical validation warnings to all users.
-        validation::broadcast_partial_validation_result(&context, partial_serializable_validations)
-            .await;
-
+    if has_violations {
         // Persist the validation results for later access/use.
-        let persistable = into_persistable(partial_validation_results);
         context
             .validation_result_repository
-            .save_all(persistable)
+            .save_all(
+                R::TYPE.name(),
+                ViolationsByEntity::of_entity_violations(
+                    entity_id,
+                    violations_by_validator.clone(),
+                ),
+            )
             .await
             .map_err(|err| CrudError::SaveValidations {
                 reason: Arc::new(err),
             })?;
     }
 
+    let partial = PartialSerializableAggregateViolations::from(
+        violations_by_validator,
+        Some(serializable_id.clone()),
+    );
+
+    if has_violations {
+        // Broadcast the PARTIAL validation result to all registered WebSocket connections.
+        // Frontend is responsible to deduplicate for user who initiated this action.
+        // We successfully created the entry now.
+        // To delete any leftover "create" violations in the frontend, set create to Some empty vector!
+        let mut violations = partial.clone();
+        violations.create = Some(Violations::empty());
+
+        let partial_serializable_validations: PartialSerializableValidations =
+            HashMap::from([(ResourceName::from(R::TYPE.name()), violations)]);
+
+        collaboration::broadcast_partial_validation_result(
+            &context,
+            partial_serializable_validations,
+        )
+        .await;
+    }
+
     // Inform all users that the entity was created.
-    broadcast_creation_event(&context, serializable_id, with_validation_errors).await;
+    collaboration::broadcast_creation_event(&context, serializable_id, has_violations).await;
 
     // Trigger global validation to check system-wide consistency.
     // Results are broadcast via WebSocket to all connected users.
@@ -144,24 +160,6 @@ pub async fn create_one<R: CrudResource>(
 
     Ok(Saved {
         entity: inserted_entity,
-        violations,
+        violations: partial,
     })
-}
-
-async fn broadcast_creation_event<R: CrudResource>(
-    context: &CrudContext<R>,
-    serializable_id: SerializableId,
-    with_validation_errors: bool,
-) {
-    if let Err(err) = context
-        .collab_service
-        .broadcast_json(CollabMessage::EntityCreated(EntityCreated {
-            aggregate_name: R::TYPE.into().to_owned(),
-            entity_id: serializable_id,
-            with_validation_errors,
-        }))
-        .await
-    {
-        tracing::warn!("Failed to broadcast entity created: {err:?}");
-    }
 }

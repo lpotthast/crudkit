@@ -39,8 +39,7 @@ pub fn CrudReadView(
         let _ = instance_ctx.reload.get();
         let equals_id_condition = id
             .get()
-            .0
-            .into_iter()
+            .into_entries()
             .try_into_all_equal_condition()
             .unwrap();
         data_provider

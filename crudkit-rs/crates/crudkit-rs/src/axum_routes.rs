@@ -3,7 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use crudkit_validation::SerializableAggregateViolations;
+use crudkit_validation::PartialSerializableAggregateViolations;
 use serde_json::json;
 use utoipa::ToSchema;
 
@@ -24,7 +24,7 @@ pub enum AxumCrudError {
     CriticalValidationErrors {
         reason: String,
         #[schema(value_type = Object)]
-        violations: SerializableAggregateViolations,
+        violations: PartialSerializableAggregateViolations,
     },
 
     /// Entity not found (HTTP 404 Not Found)
@@ -252,7 +252,8 @@ macro_rules! impl_add_crud_routes {
                     root: &str,
                     mut router: Router,
                 ) -> Router {
-                    let resource: &'static str = <$resource_type as CrudResource>::TYPE.into();
+                    use crudkit_rs::resource::ResourceType;
+                    let resource: &'static str = <$resource_type as CrudResource>::TYPE.name();
 
                     let path = format!("{root}/{resource}/crud/read-count");
                     tracing::debug!("Adding route: {}", path);

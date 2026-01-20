@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::fmt::Debug;
 use time::format_description::well_known::Rfc3339;
-use utoipa::ToSchema;
 use utoipa::openapi::Type;
+use utoipa::ToSchema;
 
 #[derive(Default, PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
 pub enum Order {
@@ -484,7 +484,7 @@ pub struct Saved<T> {
     /// Non-critical validation violations (warnings) associated with this entity.
     /// Empty if no violations exist.
     #[schema(value_type = Object)]
-    pub violations: crudkit_validation::SerializableAggregateViolations,
+    pub violations: crudkit_validation::PartialSerializableAggregateViolations,
 }
 
 impl<T> Saved<T> {

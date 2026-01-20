@@ -384,10 +384,6 @@ pub enum NoopError {}
 impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
     type Error = NoopError;
 
-    // =========================================================================
-    // Read Hooks
-    // =========================================================================
-
     async fn before_read(
         _read_request: &mut ReadRequest<R>,
         _context: &R::Context,
@@ -406,11 +402,6 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
     ) -> Result<R::HookData, HookError<Self::Error>> {
         Ok(data)
     }
-
-    // =========================================================================
-    // Create Hooks
-    // =========================================================================
-
     async fn before_create(
         _create_model: &R::CreateModel,
         _active_model: &mut R::ActiveModel,
@@ -430,10 +421,6 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
     ) -> Result<R::HookData, HookError<Self::Error>> {
         Ok(data)
     }
-
-    // =========================================================================
-    // Update Hooks
-    // =========================================================================
 
     async fn before_update(
         _update_model: &R::UpdateModel,
@@ -456,10 +443,6 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
     ) -> Result<R::HookData, HookError<Self::Error>> {
         Ok(data)
     }
-
-    // =========================================================================
-    // Delete Hooks
-    // =========================================================================
 
     async fn before_delete(
         _model: &R::Model,

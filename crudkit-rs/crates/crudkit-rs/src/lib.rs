@@ -8,7 +8,6 @@ use crudkit_core::Value;
 use crudkit_id::Id;
 
 use prelude::{CrudContext, CrudResource};
-use validation::PersistableViolation;
 
 pub mod auth;
 pub mod axum_routes;
@@ -24,6 +23,7 @@ pub mod resource;
 pub mod update;
 pub mod validate;
 pub mod validation;
+pub mod validator;
 
 /*
 * Reexport common modules.
@@ -40,13 +40,16 @@ pub use crudkit_collaboration;
 pub use crudkit_condition;
 pub use crudkit_core;
 pub use crudkit_id;
+pub use crudkit_resource;
 pub use crudkit_validation;
+use crudkit_validation::violation::Violation;
 
 pub mod prelude {
     pub use crudkit_collaboration;
     pub use crudkit_condition;
     pub use crudkit_core;
     pub use crudkit_id;
+    pub use crudkit_resource;
     pub use crudkit_validation;
 
     /* Provide convenient access to all our macros. */
@@ -75,6 +78,7 @@ pub mod prelude {
     pub use super::context::CrudContext;
     pub use super::resource::CrudResource;
     pub use super::resource::CrudResourceContext;
+    pub use super::resource::ResourceType;
 
     // Lifetime hooks and related types
     pub use super::lifetime::CrudLifetime;
@@ -95,39 +99,35 @@ pub mod prelude {
     pub use super::UpdateActiveModelTrait;
     pub use super::UpdateModelTrait;
 
+    pub use super::repository::DeleteResult;
+    pub use super::repository::NoopValidationResultRepository;
     pub use super::repository::Repository;
+    pub use super::repository::RepositoryError;
+    pub use super::repository::ValidationResultRepository;
 
-    pub use super::validation::AggregateValidator;
-    pub use super::validation::EntityValidationsExt;
-    pub use super::validation::EntityValidator;
-    pub use super::validation::NoAggregateValidator;
-    pub use super::validation::NoopValidationResultRepository;
-    pub use super::validation::ValidationResultSaver;
+    pub use super::validation::CrudAction;
+    pub use super::validation::ValidationContext;
     pub use super::validation::ValidationTrigger;
-    pub use super::validation::ValidationViolationType;
-    pub use super::validation::ValidationViolationTypeExt;
-    pub use super::validation::run_global_validation;
+    pub use super::validation::When;
+    pub use super::validator::AggregateValidator;
+    pub use super::validator::EntityValidator;
 
-    pub use super::validate::validate_max_length;
-    pub use super::validate::validate_min_length;
-    pub use super::validate::validate_required;
-
-    pub use super::create::CreateOne;
     pub use super::create::create_one;
-    pub use super::delete::DeleteById;
-    pub use super::delete::DeleteMany;
-    pub use super::delete::DeleteOne;
+    pub use super::create::CreateOne;
     pub use super::delete::delete_by_id;
     pub use super::delete::delete_many;
     pub use super::delete::delete_one;
-    pub use super::read::ReadCount;
-    pub use super::read::ReadMany;
-    pub use super::read::ReadOne;
+    pub use super::delete::DeleteById;
+    pub use super::delete::DeleteMany;
+    pub use super::delete::DeleteOne;
     pub use super::read::read_count;
     pub use super::read::read_many;
     pub use super::read::read_one;
-    pub use super::update::UpdateOne;
+    pub use super::read::ReadCount;
+    pub use super::read::ReadMany;
+    pub use super::read::ReadOne;
     pub use super::update::update_one;
+    pub use super::update::UpdateOne;
 }
 
 pub trait ValidatorModel<I: Id> {
@@ -152,7 +152,7 @@ pub trait NewActiveValidationModel<I: Id> {
         entity_id: I,
         validator_name: String,
         validator_version: i32,
-        violation: PersistableViolation,
+        violation: Violation,
         now: time::OffsetDateTime,
     ) -> Self;
 }

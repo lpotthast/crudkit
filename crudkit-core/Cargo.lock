@@ -67,10 +67,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "crudkit-resource"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "crudkit-validation"
 version = "0.1.0"
 dependencies = [
  "crudkit-id",
+ "crudkit-resource",
  "serde",
 ]
 

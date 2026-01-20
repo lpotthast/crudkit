@@ -10,9 +10,9 @@ use crate::crud_instance_config::{ItemsPerPage, PageNr};
 use crate::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
 use crate::crud_list_view::CrudListView;
 use crate::crud_read_view::CrudReadView;
-use crudkit_condition::{Condition, ConditionElement};
+use crudkit_condition::{Condition, ConditionClause, ConditionElement};
 use crudkit_core::{Deleted, DeletedMany, Order};
-use crudkit_id::SerializableId;
+use crudkit_id::{SerializableId, SerializableIdEntry};
 use crudkit_web::prelude::*;
 use crudkit_web::request_error::CrudOperationError;
 use crudkit_web::request_error::RequestError;
@@ -65,10 +65,10 @@ pub struct CrudInstanceContext {
 
     /// If a parent is referenced and that parent currently provides an id,
     /// this hold a condition restraining the current resource to elements referencing the parent id.
-    pub parent_id_referencing_condition: Signal<Option<crudkit_condition::Condition>>,
+    pub parent_id_referencing_condition: Signal<Option<Condition>>,
 
     /// The base condition applicable when fetching data.
-    pub base_condition: Signal<Option<crudkit_condition::Condition>>,
+    pub base_condition: Signal<Option<Condition>>,
 
     /// Whenever the user requests to delete something, this is the place that information is stored.
     pub deletion_request: ReadSignal<Option<AnyReadOrUpdateModel>>,
@@ -240,21 +240,18 @@ pub fn CrudInstance(
             .as_ref()
             .and_then(|parent| get_parent_id(&parent, mgr).map(|id| (parent, id)))
             .map(|(parent, id)| {
-                let (_name, value) =
-                    id.0.into_iter()
-                        .find(|(id_field_name, _id_field_value)| {
-                            id_field_name == &parent.referenced_field
-                        })
-                        .expect("referenced field to be an ID field.");
-                crudkit_condition::Condition::All(vec![
-                    crudkit_condition::ConditionElement::Clause(
-                        crudkit_condition::ConditionClause {
-                            column_name: parent.referencing_field.clone(),
-                            operator: crudkit_condition::Operator::Equal,
-                            value: value.clone().try_into().unwrap(),
-                        },
-                    ),
-                ])
+                let SerializableIdEntry {
+                    field_name: _,
+                    value,
+                } = id
+                    .into_entries()
+                    .find(|entry| entry.field_name == parent.referenced_field)
+                    .expect("referenced field to be an ID field.");
+                Condition::All(vec![ConditionElement::Clause(ConditionClause {
+                    column_name: parent.referencing_field.clone(),
+                    operator: crudkit_condition::Operator::Equal,
+                    value: value.clone().try_into().unwrap(),
+                })])
             })
     });
     let base_condition = config.base_condition.clone();
@@ -409,8 +406,19 @@ pub fn CrudInstance(
                             on_list_view=move || ctx.list()
                             on_create_view=move || ctx.create()
                             on_entity_created=move |_saved| {}
-                            on_entity_creation_failed=move |_error: CrudOperationError| {
-                                // TODO: Handle the error: Display notification to the user.
+                            on_entity_creation_failed=move |error: CrudOperationError| {
+                                expect_context::<Toasts>().push(Toast {
+                                    id: Uuid::new_v4(),
+                                    created_at: OffsetDateTime::now_utc(),
+                                    variant: ToastVariant::Error,
+                                    header: ViewFn::from(|| "Fehler"),
+                                    body: ViewFn::from(move || {
+                                        format!(
+                                            "Eintrag konnte nicht erstellt werden.\n{error}",
+                                        )
+                                    }),
+                                    timeout: ToastTimeout::DefaultDelay,
+                                })
                             }
                             on_tab_selected=move |tab_id| {
                                 ctx.tab_selected(tab_id)

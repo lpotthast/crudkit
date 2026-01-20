@@ -4,7 +4,7 @@
 use darling::*;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, Ident, Type, parse_macro_input, spanned::Spanned};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident, Type};
 
 #[derive(Debug, FromField)]
 #[darling(attributes(ck_validation_model))]
@@ -128,7 +128,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                 pub validator_name: String,
                 pub validator_version: i32,
                 #[ck_columns(convert_ccv = "to_string")]
-                pub violation_severity: crudkit_rs::validation::ValidationViolationType,
+                pub violation_severity: crudkit_sea_orm::validation::PersistedViolationSeverity,
                 pub violation_message: String,
 
                 pub created_at: time::OffsetDateTime,
@@ -143,8 +143,8 @@ pub fn store(input: TokenStream) -> TokenStream {
             impl core::convert::Into<crudkit_validation::ValidationViolation> for Model {
                 fn into(self) -> crudkit_validation::ValidationViolation {
                     match self.violation_severity {
-                        crudkit_rs::validation::ValidationViolationType::Major => crudkit_validation::ValidationViolation::Major(self.violation_message),
-                        crudkit_rs::validation::ValidationViolationType::Critical => crudkit_validation::ValidationViolation::Critical(self.violation_message),
+                        crudkit_sea_orm::validation::PersistedViolationSeverity::Major => crudkit_validation::Violation::major(self.violation_message),
+                        crudkit_sea_orm::validation::PersistedViolationSeverity::Critical => crudkit_validation::Violation::critical(self.violation_message),
                     }
                 }
             }
@@ -159,8 +159,8 @@ pub fn store(input: TokenStream) -> TokenStream {
                         validator_name: sea_orm::ActiveValue::Set(validator_name.to_owned()),
                         validator_version: sea_orm::ActiveValue::Set(validator_version),
 
-                        violation_severity: sea_orm::ActiveValue::Set(violation.violation_severity),
-                        violation_message: sea_orm::ActiveValue::Set(violation.violation_message),
+                        violation_severity: sea_orm::ActiveValue::Set(violation.severity()),
+                        violation_message: sea_orm::ActiveValue::Set(violation.into_message()),
 
                         created_at: sea_orm::ActiveValue::Set(now.clone()),
                         updated_at: sea_orm::ActiveValue::Set(now.clone()),

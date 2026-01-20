@@ -3,22 +3,20 @@ use serde::Deserialize;
 use std::sync::Arc;
 use utoipa::ToSchema;
 
-use crudkit_collaboration::{CollabMessage, EntityDeleted};
-use crudkit_condition::{Condition, TryIntoAllEqualCondition};
-use crudkit_core::{Deleted, DeletedMany, Order};
-use crudkit_id::{Id, SerializableId};
-
+use crate::validate::{run_entity_validation, run_global_validation};
 use crate::{
     auth::RequestContext,
+    collaboration,
     error::CrudError,
     lifetime::{CrudLifetime, DeleteOperation, DeleteRequest, HookError},
     prelude::*,
-    validation::{
-        run_entity_validation, run_global_validation, CrudAction, ValidationContext, ValidationTrigger,
-        When,
-    },
+    validation::{CrudAction, ValidationContext, ValidationTrigger, When},
     GetIdFromModel,
 };
+use crudkit_condition::{Condition, TryIntoAllEqualCondition};
+use crudkit_core::{Deleted, DeletedMany, Order};
+use crudkit_id::{Id, SerializableId};
+use crudkit_validation::PartialSerializableAggregateViolations;
 
 /// Maximum memory budget per batch (in bytes).
 ///
@@ -96,9 +94,8 @@ pub async fn delete_by_id<R: CrudResource>(
 ) -> Result<Deleted, CrudError> {
     let id_condition = body
         .id
-        .0
-        .iter()
-        .map(|(name, value)| (name.clone(), value.clone()))
+        .clone()
+        .into_entries()
         .try_into_all_equal_condition()
         .map_err(|err| CrudError::IntoCondition { source: err })?;
 
@@ -238,7 +235,10 @@ async fn execute_single_delete<R: CrudResource>(
     if partial_validation_results.has_critical_violations() {
         return Err(SingleDeleteError::ValidationFailed(
             CrudError::CriticalValidationErrors {
-                violations: partial_validation_results.into(),
+                violations: PartialSerializableAggregateViolations::from(
+                    partial_validation_results,
+                    Some(serializable_id.clone()),
+                ),
             },
         ));
     }
@@ -265,32 +265,16 @@ async fn execute_single_delete<R: CrudResource>(
     // Clear validation results for this entity.
     if let Err(e) = context
         .validation_result_repository
-        .delete_all_for(&entity_id)
+        .delete_all_of_entity(R::TYPE.name(), &entity_id)
         .await
     {
         tracing::warn!("Failed to delete validation results for entity {entity_id:?}: {e:?}");
     }
 
     // Broadcast deletion via WebSocket.
-    broadcast_deletion_event(context, serializable_id.clone()).await;
+    collaboration::broadcast_deletion_event(context, serializable_id.clone()).await;
 
     Ok(serializable_id)
-}
-
-async fn broadcast_deletion_event<R: CrudResource>(
-    context: &Arc<CrudContext<R>>,
-    serializable_id: SerializableId,
-) {
-    if let Err(e) = context
-        .collab_service
-        .broadcast_json(CollabMessage::EntityDeleted(EntityDeleted {
-            aggregate_name: R::TYPE.into().to_owned(),
-            entity_id: serializable_id,
-        }))
-        .await
-    {
-        tracing::warn!("Failed to broadcast entity deleted: {e:?}");
-    }
 }
 
 /// Delete multiple entities matching a condition.
@@ -410,7 +394,7 @@ pub async fn delete_many<R: CrudResource>(
                     // Clear validation results for this entity.
                     if let Err(e) = context
                         .validation_result_repository
-                        .delete_all_for(&entity_id)
+                        .delete_all_of_entity(R::TYPE.name(), &entity_id)
                         .await
                     {
                         tracing::warn!(
@@ -419,7 +403,8 @@ pub async fn delete_many<R: CrudResource>(
                     }
 
                     // Broadcast deletion via WebSocket.
-                    broadcast_deletion_event(&context, serializable_id.clone()).await;
+                    collaboration::broadcast_deletion_event(&context, serializable_id.clone())
+                        .await;
 
                     result.deleted_count += 1;
                     result.deleted_ids.push(id_to_json(&serializable_id));

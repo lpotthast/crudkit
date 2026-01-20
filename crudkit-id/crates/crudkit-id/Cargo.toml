@@ -9,3 +9,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 time = { version = "0.3.44", features = ["serde", "serde-well-known"] }
 utoipa = { version = "5.4.0", features = ["time", "uuid"] }
 uuid = { version = "1.19.0", features = ["serde"] }
+
+[dev-dependencies]
+assertr = "0.4.3"
+serde_json = "1.0.149"

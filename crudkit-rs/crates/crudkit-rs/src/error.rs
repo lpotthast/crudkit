@@ -1,6 +1,6 @@
 use crate::repository::RepositoryError;
 use crudkit_condition::IntoAllEqualConditionError;
-use crudkit_validation::SerializableAggregateViolations;
+use crudkit_validation::PartialSerializableAggregateViolations;
 use snafu::Snafu;
 use std::sync::Arc;
 
@@ -39,7 +39,7 @@ pub enum CrudError {
     /// Mapped to HTTP status 422 Unprocessable Entity.
     #[snafu(display("Validation failed with critical errors"))]
     CriticalValidationErrors {
-        violations: SerializableAggregateViolations,
+        violations: PartialSerializableAggregateViolations,
     },
 
     // =========================================================================

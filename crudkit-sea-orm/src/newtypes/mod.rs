@@ -1,7 +1,7 @@
 use sea_orm::{
-    TryGetError, TryGetable,
-    entity::prelude::*,
-    sea_query::{Nullable, ValueType},
+    entity::prelude::*, sea_query::{Nullable, ValueType},
+    TryGetError,
+    TryGetable,
 };
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -44,20 +44,20 @@ impl TryGetable for TimeDuration {
 }
 
 impl ValueType for TimeDuration {
-    fn try_from(v: Value) -> Result<Self, sea_orm::sea_query::ValueTypeErr> {
-        <Self as TryFrom<Value>>::try_from(v).map_err(|_| sea_orm::sea_query::ValueTypeErr)
+    fn try_from(v: Value) -> Result<Self, sea_query::ValueTypeErr> {
+        <Self as TryFrom<Value>>::try_from(v).map_err(|_| sea_query::ValueTypeErr)
     }
 
     fn type_name() -> String {
         "TimeDuration".to_owned()
     }
 
-    fn array_type() -> sea_orm::sea_query::ArrayType {
-        sea_orm::sea_query::ArrayType::BigInt
+    fn array_type() -> sea_query::ArrayType {
+        sea_query::ArrayType::BigInt
     }
 
-    fn column_type() -> sea_orm::sea_query::ColumnType {
-        sea_orm::sea_query::ColumnType::BigInteger
+    fn column_type() -> ColumnType {
+        ColumnType::BigInteger
     }
 }
 

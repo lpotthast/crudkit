@@ -2,22 +2,22 @@ use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
 use utoipa::ToSchema;
 
-use crudkit_collaboration::{CollabMessage, EntityUpdated};
 use crudkit_condition::Condition;
 use crudkit_core::Saved;
-use crudkit_id::{Id, SerializableId};
-use crudkit_validation::PartialSerializableValidations;
+use crudkit_id::Id;
+use crudkit_resource::ResourceName;
+use crudkit_validation::{
+    PartialSerializableAggregateViolations, PartialSerializableValidations, ViolationsByEntity,
+};
 
+use crate::validate::{run_delta_validation, run_global_validation};
+use crate::validation::{CrudAction, ValidationContext, ValidationTrigger, When};
 use crate::{
     auth::RequestContext,
+    collaboration,
     error::CrudError,
     lifetime::{CrudLifetime, UpdateRequest},
     prelude::*,
-    validation,
-    validation::{
-        into_persistable, run_delta_validation, run_global_validation, CrudAction, ValidationContext,
-        ValidationTrigger, When,
-    },
 };
 
 #[derive(Debug, ToSchema, Deserialize)]
@@ -84,7 +84,7 @@ pub async fn update_one<R: CrudResource>(
         when: When::Before,
     });
 
-    let partial_validation_results = run_delta_validation::<R>(
+    let mut partial_validation_results = run_delta_validation::<R>(
         &context.validators,
         &old_active_model,
         &active_model,
@@ -95,11 +95,19 @@ pub async fn update_one<R: CrudResource>(
     // since the update won't happen and the entity state hasn't changed.
     if partial_validation_results.has_critical_violations() {
         return Err(CrudError::CriticalValidationErrors {
-            violations: partial_validation_results.into(),
+            violations: PartialSerializableAggregateViolations::from(
+                partial_validation_results,
+                Some(serializable_id.clone()),
+            ),
         });
     }
 
-    // Update the entry first, then handle validation result persistence and broadcasting.
+    // After this point, all critical violations are no longer of interest and can be dropped.
+    partial_validation_results.drop_critical();
+
+    // Update the entity using the user-provided repository impl.
+    // Note: This might have unexpected effects on the data being saved. We shall load the entity
+    //  again to make sure we do not miss any of them.
     let result = context
         .repository
         .update(active_model.clone())
@@ -108,54 +116,61 @@ pub async fn update_one<R: CrudResource>(
             reason: Arc::new(err),
         })?;
 
-    // Now that the update succeeded, handle validation result persistence and broadcasting.
-    let violations: crudkit_validation::SerializableAggregateViolations =
-        partial_validation_results.clone().into();
+    // Delete all previously stored violations for this entity.
+    // TODO: Should this be done in a transaction together with the later save, creating a safe swap?
+    match R::CrudColumn::get_id_active(&active_model) {
+        Ok(id) => {
+            context
+                .validation_result_repository
+                .delete_all_of_entity(R::TYPE.name(), &id)
+                .await
+                .map_err(|err| CrudError::DeleteValidations {
+                    reason: Arc::new(err),
+                })?;
+        }
+        Err(err) => {
+            tracing::error!(
+                "Could not extract ID from active_model {active_model:?}. Error was: {err}"
+            )
+        }
+    }
+
+    // TODO: Should we validate again after the insert, catching potential changes made in the (unknown to us) repository (or even hooked up database)?
+    // TODO: Follow up with a load op!
+
     let has_violations = partial_validation_results.has_violations();
 
     if has_violations {
-        // Broadcast the PARTIAL validation result to all registered WebSocket connections.
-        let partial_serializable_validations: PartialSerializableValidations =
-            HashMap::from([(String::from(R::TYPE.into()), violations.clone())]);
-
-        validation::broadcast_partial_validation_result(&context, partial_serializable_validations)
-            .await;
-
         // Persist the validation results for later access/use.
-        let persistable = into_persistable(partial_validation_results);
         context
             .validation_result_repository
-            .save_all(persistable)
+            .save_all(
+                R::TYPE.name(),
+                ViolationsByEntity::of_entity_violations(
+                    entity_id.clone(),
+                    partial_validation_results.clone(),
+                ),
+            )
             .await
             .map_err(|err| CrudError::SaveValidations {
                 reason: Arc::new(err),
             })?;
-    } else {
-        // The entity is valid, delete all previously stored violations for this entity.
-        match R::CrudColumn::get_id_active(&active_model) {
-            Ok(id) => {
-                context
-                    .validation_result_repository
-                    .delete_all_for(&id)
-                    .await
-                    .map_err(|err| CrudError::DeleteValidations {
-                        reason: Arc::new(err),
-                    })?;
-            }
-            Err(err) => {
-                tracing::error!(
-                    "Could not extract ID from active_model {active_model:?}. Error was: {err}"
-                )
-            }
-        }
-
-        // Inform all users that the entity is now valid.
-        let partial_serializable_validations: PartialSerializableValidations =
-            HashMap::from([(String::from(R::TYPE.into()), violations.clone())]);
-
-        validation::broadcast_partial_validation_result(&context, partial_serializable_validations)
-            .await;
     }
+
+    // Now that the update succeeded, handle validation result persistence and broadcasting.
+    let partial = PartialSerializableAggregateViolations::from(
+        partial_validation_results,
+        Some(serializable_id.clone()),
+    );
+
+    let partial_serializable_validations: PartialSerializableValidations =
+        HashMap::from([(ResourceName::from(R::TYPE.name()), partial.clone())]);
+
+    // Broadcast the PARTIAL validation result to all registered WebSocket connections.
+    // When empty: Entity known to be valid (again) by listeners.
+    // When not empty: Entity known to be invalid (again) by listeners.
+    collaboration::broadcast_partial_validation_result(&context, partial_serializable_validations)
+        .await;
 
     let _hook_data = R::Lifetime::after_update(
         &update_model,
@@ -169,7 +184,7 @@ pub async fn update_one<R: CrudResource>(
     .map_err(CrudError::from)?;
 
     // Inform all users that the entity was updated.
-    broadcast_updated_event(&context, serializable_id, has_violations).await;
+    collaboration::broadcast_updated_event(&context, serializable_id, has_violations).await;
 
     // We read the entity again, to get an up-to-date instance of the "ReadModel".
     /*let read = build_select_query::<R::ReadViewEntity, R::ReadViewModel, R::ReadViewActiveModel, R::ReadViewColumn, R::ReadViewCrudColumn>(
@@ -189,26 +204,8 @@ pub async fn update_one<R: CrudResource>(
 
     Ok(Saved {
         entity: result,
-        violations,
+        violations: partial,
     })
-}
-
-async fn broadcast_updated_event<R: CrudResource>(
-    context: &Arc<CrudContext<R>>,
-    serializable_id: SerializableId,
-    has_violations: bool,
-) {
-    if let Err(err) = context
-        .collab_service
-        .broadcast_json(CollabMessage::EntityUpdated(EntityUpdated {
-            aggregate_name: R::TYPE.into().to_owned(),
-            entity_id: serializable_id,
-            with_validation_errors: has_violations,
-        }))
-        .await
-    {
-        tracing::error!("Failed to broadcast update event: {err:?}");
-    }
 }
 
 // TODO: update_one_and_read_back() which updates and returns a ReadModel instead of an UpdateModel.

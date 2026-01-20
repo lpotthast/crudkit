@@ -1,6 +1,6 @@
 use dyn_clone::DynClone;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 use utoipa::ToSchema;
@@ -43,7 +43,7 @@ pub enum IdValue {
 /// A `Vec<DynIdField>` could represent a dynamic entity ID.
 pub trait IdField: Debug + Display + DynClone + Send + Sync {
     /// The name of this field in its type.
-    fn name(&self) -> &'static str;
+    fn name(&self) -> &str;
 
     /// The value of the field.
     fn to_value(&self) -> IdValue;
@@ -72,9 +72,16 @@ pub trait Id:
     /// Get all fields making up this ID in  a new `Vec`.
     fn fields(&self) -> Vec<Self::Field>;
 
-    /// Convert this typed ID to a type-erased ID usable in non-generic contexts or when
-    /// serialization is required.
+    /// Convert this typed ID to a type-erased `SerializableId` usable in non-generic contexts
+    /// or when serialization/deserialization is required.
     fn to_serializable_id(&self) -> SerializableId;
+
+    /// Attempt to reconstruct this ID from a type-erased `SerializableId`.
+    /// Returns `None` if the `SerializableId` doesn't match the structure expected by this type.
+    // TODO: rename to try_from_serializable_id and return error giving detailed info where the serializable id was not matching.
+    fn from_serializable_id(id: &SerializableId) -> Option<Self>
+    where
+        Self: Sized;
 }
 
 /// A type-erased entity ID. Can be serialized and deserialized for storage or transmission.
@@ -82,6 +89,103 @@ pub trait Id:
 /// The first tuple element stores a field name.
 ///
 /// The type of resource or model this ID belongs to is not encoded in this datastructure.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)] // TODO: Serde passthrough?
-#[schema(value_type = Vec<Object>)] // TODO: Move away from unnamed (String, IdValue) and towards a named key/value tuple.
-pub struct SerializableId(pub Vec<(String, IdValue)>);
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)]
+#[schema(value_type = Vec<Object>)]
+pub struct SerializableId(pub Vec<SerializableIdEntry>);
+
+impl SerializableId {
+    pub fn entries(&self) -> impl Iterator<Item = &SerializableIdEntry> {
+        self.0.iter()
+    }
+
+    pub fn into_entries(self) -> impl Iterator<Item = SerializableIdEntry> {
+        self.0.into_iter()
+    }
+}
+
+impl Display for SerializableId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{self:?}"))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)]
+#[serde(into = "(String, IdValue)", from = "(String, IdValue)")]
+pub struct SerializableIdEntry {
+    pub field_name: String,
+    pub value: IdValue,
+}
+impl From<SerializableIdEntry> for (String, IdValue) {
+    fn from(entry: SerializableIdEntry) -> Self {
+        (entry.field_name, entry.value)
+    }
+}
+
+impl From<(String, IdValue)> for SerializableIdEntry {
+    fn from((field_name, value): (String, IdValue)) -> Self {
+        Self { field_name, value }
+    }
+}
+
+impl Display for SerializableIdEntry {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{self:?}"))
+    }
+}
+
+impl IdField for SerializableIdEntry {
+    fn name(&self) -> &str {
+        self.field_name.as_str()
+    }
+
+    fn to_value(&self) -> IdValue {
+        self.value.clone()
+    }
+}
+
+impl Id for SerializableId {
+    type Field = SerializableIdEntry;
+    type FieldIter = std::vec::IntoIter<Self::Field>;
+
+    fn fields_iter(&self) -> Self::FieldIter {
+        self.0.clone().into_iter()
+    }
+
+    fn fields(&self) -> Vec<Self::Field> {
+        self.0.clone()
+    }
+
+    fn to_serializable_id(&self) -> SerializableId {
+        self.clone()
+    }
+
+    fn from_serializable_id(id: &SerializableId) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        Some(id.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{IdValue, SerializableId, SerializableIdEntry};
+    use assertr::prelude::*;
+
+    #[test]
+    fn serialize_and_deserialize_serializable_id() {
+        let entries = vec![SerializableIdEntry {
+            field_name: "foo".to_string(),
+            value: IdValue::I32(1),
+        }];
+        let serializable_id = SerializableId(entries);
+
+        let json = serde_json::to_string(&serializable_id).unwrap();
+
+        assert_that(&json).is_equal_to(r#"[["foo",{"I32":1}]]"#);
+
+        let deserialized: SerializableId = serde_json::from_str(json.as_str()).unwrap();
+
+        assert_that(deserialized).is_equal_to(serializable_id);
+    }
+}

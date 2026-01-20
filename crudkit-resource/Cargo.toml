@@ -1,11 +1,9 @@
 [package]
-name = "crudkit-validation"
+name = "crudkit-resource"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-crudkit-resource = { path = "../crudkit-resource" }
-crudkit-id = { path = "../crudkit-id/crates/crudkit-id" }
 serde = { version = "1.0.228", features = ["derive"] }
 
 [dev-dependencies]

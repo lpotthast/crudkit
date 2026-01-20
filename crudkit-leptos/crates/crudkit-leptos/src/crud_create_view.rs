@@ -4,7 +4,7 @@ use crate::crud_instance_config::{CreateElements, FieldRendererRegistry};
 use crate::crud_leave_modal::CrudLeaveModal;
 use crate::ReactiveValue;
 use crudkit_core::{Saved, Value};
-use crudkit_id::SerializableId;
+use crudkit_id::{SerializableId, SerializableIdEntry};
 use crudkit_web::prelude::*;
 use crudkit_web::request_error::{CrudOperationError, RequestError};
 use crudkit_web::{FieldMode, TabId};
@@ -31,10 +31,12 @@ fn default_create_model(ctx: &CrudInstanceContext) -> AnyCreateModel {
 
     if let Some(parent) = ctx.parent.get_value() {
         if let Some(parent_id) = ctx.parent_id.get_untracked() {
-            let (_field_name, value) = parent_id
-                .0
-                .iter()
-                .find(|(field_name, _value)| field_name == parent.referenced_field.as_str())
+            let SerializableIdEntry {
+                field_name: _,
+                value,
+            } = parent_id
+                .entries()
+                .find(|entry| entry.field_name == parent.referenced_field.as_str())
                 .expect("related parent field must be part of the parents id!");
             ctx.static_config
                 .read_value()

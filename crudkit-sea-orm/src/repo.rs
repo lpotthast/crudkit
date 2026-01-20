@@ -9,8 +9,8 @@ use crudkit_rs::{
     resource::CrudResource,
 };
 
-use crudkit_condition::Condition;
-use crudkit_core::Order;
+use crudkit_rs::crudkit_condition::Condition;
+use crudkit_rs::crudkit_core::Order;
 
 use crate::query;
 
@@ -62,7 +62,7 @@ impl<R: CrudResource> Repository<R> for SeaOrmRepo {
         limit: Option<u64>,
         skip: Option<u64>,
         order_by: Option<IndexMap<R::CrudColumn, Order>>,
-        condition: Option<&crudkit_condition::Condition>,
+        condition: Option<&Condition>,
     ) -> Result<u64, Self::Error> {
         query::build_select_query::<R::Entity, R::Model, R::ActiveModel, R::Column, R::CrudColumn>(
             limit, skip, order_by, condition,
