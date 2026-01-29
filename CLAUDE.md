@@ -274,6 +274,11 @@ ID can be a tuple of multiple fields (e.g., `(user_id, org_id)`).
 - Use comments to make implicit behavior explicit.
 - Always end comments with a period.
 
+### Refactoring
+
+- Delete unused code. Don't keep old types, functions, or aliases for backwards compatibility unless explicitly asked.
+- When consolidating duplicate code, remove the old implementations entirely.
+
 ## Working with the Codebase
 
 ### When Adding Shared Types
