@@ -1,5 +1,6 @@
 //! Implementation of the `CkField` derive macro.
 
+use crudkit_derive_core::{classify_base_type, path_to_string, strip_option_path};
 use darling::*;
 use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error::abort;
@@ -126,59 +127,53 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
     })
 }
 
+/// Converts a field type to the corresponding `ConditionClauseValue` method name.
+///
+/// Uses the shared `ValueKind` classification from `crudkit_derive_core`.
 fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
     let span = ty.span();
-    // TODO: This should dynamically check types by absolute (resolved) path!
-    let fun_name = match ty {
-        syn::Type::Path(path) => match join_path(&path.path).as_str() {
-            "bool" => "to_bool",
-            "Vec<u8>" => "to_byte_vec",
-            "u32" => "to_u32",
-            "i32" => "to_i32",
-            "i64" => "to_i64",
-            "f32" => "to_f32",
-            "OrderedFloat<f32>" => "to_f32",
-            "ordered_float::OrderedFloat<f32>" => "to_f32",
-            "f64" => "to_f64",
-            "OrderedFloat<f64>" => "to_f64",
-            "ordered_float::OrderedFloat<f64>" => "to_f64",
-            "String" => "to_string",
-            "serde_json::Value" => "to_json_value",
-            "uuid::Uuid" => "to_uuid",
-            "time::PrimitiveDateTime" => "to_primitive_date_time",
-            "time::OffsetDateTime" => "to_offset_date_time",
-            "time::Time" => "to_time",
-            "Option<u32>" => "to_u32",
-            "Option<i32>" => "to_i32",
-            "Option<i64>" => "to_i64",
-            "Option<String>" => "to_string",
-            "Option<serde_json::Value>" => "to_json_value",
-            "Option<time::PrimitiveDateTime>" => "to_primitive_date_time",
-            "Option<time::OffsetDateTime>" => "to_offset_date_time",
-            "Option<TimeDuration>" => "to_time_duration",
-            "Option<crudkit_sea_orm::newtypes::TimeDuration>" => "to_time_duration",
-            other => {
-                let message =
-                    format!("crudkit-rs-macros: Unknown type {other:?}. Expected a known type.");
-                abort!(
-                    span, message;
-                    help = "use one of the following types: [...]";
-                );
-            }
-        },
+
+    let path = match ty {
+        syn::Type::Path(type_path) => &type_path.path,
         other => {
-            let message = format!(
-                "crudkit-rs-macros: Unknown type {other:?}. Not a 'Path' type. Expected a known type."
-            );
             abort!(
-                span, message;
-                help = "use one of the following types: [...]";
+                span,
+                "crudkit-rs-macros: Unknown type {:?}. Not a 'Path' type. Expected a known type.",
+                other;
+                help = "Use a supported type path.";
             );
         }
     };
-    Ident::new(fun_name, span)
-}
 
-fn join_path(path: &syn::Path) -> String {
-    path.to_token_stream().to_string().replace(' ', "")
+    // Strip Option wrapper if present - the condition methods handle optional transparently.
+    let inner_path_str = match strip_option_path(path) {
+        Some(inner_ty) => match inner_ty {
+            syn::Type::Path(tp) => path_to_string(&tp.path),
+            other => {
+                abort!(
+                    span,
+                    "crudkit-rs-macros: Option inner type {:?} is not a path type.",
+                    other;
+                    help = "Use a supported type path inside Option.";
+                );
+            }
+        },
+        None => path_to_string(path),
+    };
+
+    // Classify the type and get the method name.
+    let kind = classify_base_type(&inner_path_str);
+
+    let method_name = kind.condition_method_name().unwrap_or_else(|| {
+        abort!(
+            span,
+            "crudkit-rs-macros: Unsupported type '{}' for condition value conversion.",
+            inner_path_str;
+            help = "Supported types: bool, u8-u128, i8-i128, f32, f64, String, \
+                    serde_json::Value, uuid::Uuid, time::PrimitiveDateTime, \
+                    time::OffsetDateTime, TimeDuration, Vec<u8>";
+        );
+    });
+
+    Ident::new(method_name, span)
 }

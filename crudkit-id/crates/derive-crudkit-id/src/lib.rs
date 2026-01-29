@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
+use crudkit_derive_core::is_option_path;
 use darling::*;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -577,15 +578,6 @@ fn path_to_string(path: &syn::Path) -> String {
         .join("::")
 }
 
-/// Check if `path` represents the `Option` type. True if the last path segment has the ident
-/// `"Option"`.
-fn is_option_type(path: &syn::Path) -> bool {
-    path.segments
-        .last()
-        .map(|seg| seg.ident == "Option")
-        .unwrap_or(false)
-}
-
 /// Classifies a type as one of the supported ID field types.
 ///
 /// Aborts with a helpful error if the type is not supported.
@@ -596,8 +588,8 @@ fn classify_id_type(ty: &syn::Type) -> IdValueKind {
         syn::Type::Path(type_path) => {
             let path = &type_path.path;
 
-            // Reject Option<T> types early.
-            if is_option_type(path) {
+            // Reject Option<T> types early using the shared utility.
+            if is_option_path(path) {
                 abort!(
                     span,
                     "Option<T> types are not supported for ID fields";

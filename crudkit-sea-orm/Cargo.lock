@@ -542,6 +542,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crudkit-derive-core"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
 name = "crudkit-id"
 version = "0.1.0"
 dependencies = [
@@ -590,6 +599,7 @@ dependencies = [
 name = "crudkit-rs-macros"
 version = "0.1.0"
 dependencies = [
+ "crudkit-derive-core",
  "crudkit-rs-macros-core",
  "darling 0.23.0",
  "proc-macro-error",
@@ -773,6 +783,7 @@ dependencies = [
 name = "derive-crudkit-id"
 version = "0.0.1"
 dependencies = [
+ "crudkit-derive-core",
  "crudkit-id",
  "darling 0.23.0",
  "indoc",
