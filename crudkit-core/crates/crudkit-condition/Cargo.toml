@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-crudkit-core = { path = "../crudkit-core/crates/crudkit-core" }
-crudkit-id = { path = "../crudkit-id/crates/crudkit-id" }
+crudkit-core = { path = "../crudkit-core" }
+crudkit-id = { path = "../crudkit-id" }
 
 dyn-clone = "1.0.20"
 serde = { version = "1.0.228", features = ["derive"] }

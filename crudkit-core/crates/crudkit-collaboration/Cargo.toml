@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-crudkit-id = { path = "../crudkit-id/crates/crudkit-id" }
+crudkit-id = { path = "../crudkit-id" }
 crudkit-validation = { path = "../crudkit-validation" }
 
 serde = { version = "1.0.228", features = ["derive"] }

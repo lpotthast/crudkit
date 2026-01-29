@@ -11,6 +11,13 @@
 //! The [`ValueKind`] enum provides a shared abstraction for classifying Rust types
 //! into their corresponding `crudkit_core::Value` variants. This is used by both
 //! frontend (`derive-field`) and backend (`crudkit-rs-macros`) derive macros.
+//!
+//! # CkId Derive Macro
+//!
+//! This crate re-exports the `CkId` derive macro from `derive-crudkit-id`.
+
+// Re-export CkId derive macro.
+pub use derive_crudkit_id::CkId;
 
 use proc_macro2::{Ident, Span};
 
@@ -18,7 +25,7 @@ use proc_macro2::{Ident, Span};
 ///
 /// # Examples
 /// ```
-/// use crudkit_derive_core::capitalize_first_letter;
+/// use crudkit_core_macros::capitalize_first_letter;
 /// assert_eq!(capitalize_first_letter("hello"), "Hello");
 /// assert_eq!(capitalize_first_letter("world"), "World");
 /// ```
@@ -34,7 +41,7 @@ pub fn capitalize_first_letter(s: &str) -> String {
 ///
 /// # Examples
 /// ```
-/// use crudkit_derive_core::to_pascal_case;
+/// use crudkit_core_macros::to_pascal_case;
 /// assert_eq!(to_pascal_case("user_id"), "UserId");
 /// assert_eq!(to_pascal_case("first_name"), "FirstName");
 /// assert_eq!(to_pascal_case("id"), "Id");
@@ -64,7 +71,7 @@ pub fn path_to_string(path: &syn::Path) -> String {
 ///
 /// # Examples
 /// ```
-/// use crudkit_derive_core::strip_quotes;
+/// use crudkit_core_macros::strip_quotes;
 /// assert_eq!(strip_quotes("\"hello\""), "hello");
 /// assert_eq!(strip_quotes("hello"), "hello");
 /// ```
@@ -384,7 +391,7 @@ pub fn strip_option_path(path: &syn::Path) -> Option<&syn::Type> {
 ///
 /// # Examples
 /// ```
-/// use crudkit_derive_core::{classify_base_type, ValueKind};
+/// use crudkit_core_macros::{classify_base_type, ValueKind};
 /// assert_eq!(classify_base_type("i32"), ValueKind::I32);
 /// assert_eq!(classify_base_type("time::PrimitiveDateTime"), ValueKind::PrimitiveDateTime);
 /// assert_eq!(classify_base_type("CustomType"), ValueKind::Other);

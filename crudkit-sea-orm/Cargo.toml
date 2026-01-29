@@ -1,39 +1,4 @@
-[package]
-name = "crudkit-sea-orm"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-# Pin regex to a version that implements std::error::Error on regex::Error (sea-orm-cli 0.12.x compat).
-regex = "1.9"
-crudkit-sea-orm-macros = { path = "../crudkit-sea-orm-macros" }
-crudkit-rs = { path = "../crudkit-rs/crates/crudkit-rs" }
-
-# Derive macros.
-crudkit-rs-macros = { path = "../crudkit-rs/crates/crudkit-rs-macros" }
-derive-crudkit-id = { path = "../crudkit-id/crates/derive-crudkit-id" }
-
-# Re-export dependencies used in generated code.
-crudkit-condition = { path = "../crudkit-condition" }
-crudkit-core = { path = "../crudkit-core/crates/crudkit-core" }
-crudkit-id = { path = "../crudkit-id/crates/crudkit-id" }
-
-async-trait = "0.1.88"
-error-stack = "0.6.0"
-indexmap = { version = "2.12.1", features = ["serde"] }
-sea-orm = { version = "0.12.15", features = [
-    "debug-print",
-    "runtime-tokio-rustls",
-    "sqlx",
-    "sqlx-postgres",
-] }
-sea-orm-migration = { version = "0.12.15" }
-sea-query = { version = "0.30.7" }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.140"
-snafu = { version = "0.8.9", features = ["backtrace"] }
-thiserror = "2.0.12"
-time = { version = "0.3.44" }
-tracing = "0.1.44"
-utoipa = { version = "5.4.0", features = ["time", "uuid"] }
-uuid = { version = "1.19.0", features = ["v4", "v7", "serde"] }
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+default-members = ["crates/crudkit-sea-orm"]

@@ -68,9 +68,9 @@ macro_rules! impl_read_view_migration {
 
 /// # Usage
 ///
-/// ```
+/// ```ignore
 /// use sea_orm_migration::prelude::*;
-/// use crate::migrations::crud_read_view::{create_read_view, drop_read_view, IdFieldDef};
+/// use crudkit_sea_orm::migrations::crud_read_view::{create_read_view, drop_read_view, IdFieldDef};
 ///
 /// #[derive(DeriveMigrationName)]
 /// pub struct Migration;

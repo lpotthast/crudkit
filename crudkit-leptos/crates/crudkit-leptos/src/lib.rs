@@ -62,7 +62,7 @@ pub mod prelude {
 
     pub use derive_crud_action_payload::CkActionPayload;
     pub use derive_crud_resource::CkResource;
-    pub use derive_crudkit_id::CkId;
+    pub use crudkit_core_macros::CkId;
     pub use derive_field::CkField;
 
     pub use super::IntoReactiveValue;

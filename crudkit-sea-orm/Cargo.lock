@@ -542,9 +542,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "crudkit-derive-core"
+name = "crudkit-core-macros"
 version = "0.1.0"
 dependencies = [
+ "derive-crudkit-id",
  "proc-macro2",
  "quote",
  "syn 2.0.114",
@@ -578,11 +579,11 @@ dependencies = [
  "crudkit-collaboration",
  "crudkit-condition",
  "crudkit-core",
+ "crudkit-core-macros",
  "crudkit-id",
  "crudkit-resource",
  "crudkit-rs-macros",
  "crudkit-validation",
- "derive-crudkit-id",
  "error-stack",
  "indexmap",
  "paste",
@@ -599,7 +600,7 @@ dependencies = [
 name = "crudkit-rs-macros"
 version = "0.1.0"
 dependencies = [
- "crudkit-derive-core",
+ "crudkit-core-macros",
  "crudkit-rs-macros-core",
  "darling 0.23.0",
  "proc-macro-error",
@@ -626,11 +627,11 @@ dependencies = [
  "async-trait",
  "crudkit-condition",
  "crudkit-core",
+ "crudkit-core-macros",
  "crudkit-id",
  "crudkit-rs",
  "crudkit-rs-macros",
  "crudkit-sea-orm-macros",
- "derive-crudkit-id",
  "error-stack",
  "indexmap",
  "regex",
@@ -783,7 +784,6 @@ dependencies = [
 name = "derive-crudkit-id"
 version = "0.0.1"
 dependencies = [
- "crudkit-derive-core",
  "crudkit-id",
  "darling 0.23.0",
  "indoc",

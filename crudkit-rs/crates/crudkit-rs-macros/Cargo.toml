@@ -7,7 +7,7 @@ edition = "2024"
 proc-macro = true
 
 [dependencies]
-crudkit-derive-core = { path = "../../../crudkit-core/crates/crudkit-derive-core" }
+crudkit-core-macros = { path = "../../../crudkit-core/crates/crudkit-core-macros" }
 crudkit-rs-macros-core = { path = "../crudkit-rs-macros-core" }
 darling = { workspace = true }
 proc-macro-error = { workspace = true }

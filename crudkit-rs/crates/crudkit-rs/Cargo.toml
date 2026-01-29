@@ -8,15 +8,15 @@ default = []
 keycloak-auth = ["dep:axum-keycloak-auth"]
 
 [dependencies]
-crudkit-resource = { path = "../../../crudkit-resource" }
-crudkit-condition = { path = "../../../crudkit-condition" }
+crudkit-resource = { path = "../../../crudkit-core/crates/crudkit-resource" }
+crudkit-condition = { path = "../../../crudkit-core/crates/crudkit-condition" }
 crudkit-core = { path = "../../../crudkit-core/crates/crudkit-core" }
-crudkit-id = { path = "../../../crudkit-id/crates/crudkit-id" }
-crudkit-validation = { path = "../../../crudkit-validation" }
-crudkit-collaboration = { path = "../../../crudkit-collaboration" }
+crudkit-id = { path = "../../../crudkit-core/crates/crudkit-id" }
+crudkit-validation = { path = "../../../crudkit-core/crates/crudkit-validation" }
+crudkit-collaboration = { path = "../../../crudkit-core/crates/crudkit-collaboration" }
 
 crudkit-rs-macros = { path = "../crudkit-rs-macros" }
-derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
+crudkit-core-macros = { path = "../../../crudkit-core/crates/crudkit-core-macros" }
 
 async-trait = "0.1.89"
 axum = "0.8.8"

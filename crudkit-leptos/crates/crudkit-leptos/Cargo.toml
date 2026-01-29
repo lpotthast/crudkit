@@ -5,15 +5,15 @@ edition = "2024"
 build = "build.rs"
 
 [dependencies]
-crudkit-condition = { path = "../../../crudkit-condition" }
+crudkit-condition = { path = "../../../crudkit-core/crates/crudkit-condition" }
 crudkit-core = { path = "../../../crudkit-core/crates/crudkit-core" }
-crudkit-id = { path = "../../../crudkit-id/crates/crudkit-id" }
-crudkit-validation = { path = "../../../crudkit-validation" }
+crudkit-id = { path = "../../../crudkit-core/crates/crudkit-id" }
+crudkit-validation = { path = "../../../crudkit-core/crates/crudkit-validation" }
 crudkit-web = { path = "../../../crudkit-web/crates/crudkit-web" }
-crudkit-collaboration = { path = "../../../crudkit-collaboration" }
+crudkit-collaboration = { path = "../../../crudkit-core/crates/crudkit-collaboration" }
 derive-crud-action-payload = { path = "../../../crudkit-web/crates/derive-crud-action-payload" }
 derive-crud-resource = { path = "../../../crudkit-web/crates/derive-crud-resource" }
-derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
+crudkit-core-macros = { path = "../../../crudkit-core/crates/crudkit-core-macros" }
 derive-field = { path = "../../../crudkit-web/crates/derive-field" }
 
 dyn-clone = "1.0.20"

@@ -13,7 +13,7 @@ pub use crudkit_sea_orm_macros::*;
 pub use crudkit_rs_macros::CkField;
 pub use crudkit_sea_orm_macros::CkValidationModel;
 pub use crudkit_sea_orm_macros::{CkSeaOrmCreateModel as CkCreateModel, CkSeaOrmUpdateModel as CkUpdateModel};
-pub use derive_crudkit_id::CkId;
+pub use crudkit_core_macros::CkId;
 
 // Re-export dependencies used in generated code.
 pub use crudkit_condition;

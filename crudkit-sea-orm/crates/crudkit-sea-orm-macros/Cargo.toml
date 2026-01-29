@@ -8,7 +8,7 @@ proc-macro = true
 
 [dependencies]
 darling = "0.23.0"
-crudkit-rs-macros-core = { path = "../crudkit-rs/crates/crudkit-rs-macros-core" }
+crudkit-rs-macros-core = { path = "../../../crudkit-rs/crates/crudkit-rs-macros-core" }
 proc-macro-error = "1.0.4"
 proc-macro-type-name = "0.1.0"
 proc-macro2 = "1.0.104"

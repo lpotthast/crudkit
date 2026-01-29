@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-crudkit-condition = { path = "../../../crudkit-condition" }
-crudkit-id = { path = "../../../crudkit-id/crates/crudkit-id" }
+crudkit-condition = { path = "../../../crudkit-core/crates/crudkit-condition" }
+crudkit-id = { path = "../../../crudkit-core/crates/crudkit-id" }
 crudkit-core = { path = "../../../crudkit-core/crates/crudkit-core" }
-crudkit-validation = { path = "../../../crudkit-validation" }
-crudkit-collaboration = { path = "../../../crudkit-collaboration" }
+crudkit-validation = { path = "../../../crudkit-core/crates/crudkit-validation" }
+crudkit-collaboration = { path = "../../../crudkit-core/crates/crudkit-collaboration" }
 
 derive-crud-action-payload = { path = "../derive-crud-action-payload" }
-derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
+crudkit-core-macros = { path = "../../../crudkit-core/crates/crudkit-core-macros" }
 derive-crud-resource = { path = "../derive-crud-resource" }
 derive-field = { path = "../derive-field" }
 

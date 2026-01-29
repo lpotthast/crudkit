@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-use crudkit_derive_core::is_option_path;
 use darling::*;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -561,6 +560,16 @@ fn to_id_value_match_extraction(ty: &syn::Type) -> proc_macro2::TokenStream {
             quote! { if let crudkit_id::IdValue::OffsetDateTime(x) = value { x.clone() } else { return None } }
         }
     }
+}
+
+/// Checks if a `syn::Path` represents `Option<T>`.
+///
+/// Returns `true` if the last path segment is "Option".
+/// This handles both `Option<T>` and `std::option::Option<T>`.
+fn is_option_path(path: &syn::Path) -> bool {
+    path.segments
+        .last()
+        .is_some_and(|seg| seg.ident == "Option")
 }
 
 /// Extract the final segment identifier from a path (e.g., "i32", "String" or "Uuid").

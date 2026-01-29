@@ -8,7 +8,6 @@ autotests = false
 proc-macro = true
 
 [dependencies]
-crudkit-derive-core = { path = "../../../crudkit-core/crates/crudkit-derive-core" }
 crudkit-id = { path = "../crudkit-id" }
 darling = { workspace = true }
 indoc = "2.0.7"

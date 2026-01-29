@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-use crudkit_derive_core::{
+use crudkit_core_macros::{
     classify_base_type, is_ordered_float, path_to_string, strip_option_path, to_pascal_case,
     ValueKind,
 };

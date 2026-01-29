@@ -150,7 +150,7 @@ struct PageOptions {
     /// be ignored or rendered using a special non-interactable symbol.
     ///
     /// Example:
-    /// ```rust
+    /// ```ignore
     /// [
     ///     Some(1),
     ///     Some(2),

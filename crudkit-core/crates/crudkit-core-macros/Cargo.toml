@@ -1,0 +1,13 @@
+[package]
+name = "crudkit-core-macros"
+version = "0.1.0"
+edition = "2024"
+description = "Shared utilities for crudkit derive macros and CkId derive macro"
+
+[dependencies]
+# Re-export CkId from proc-macro crate.
+derive-crudkit-id = { path = "../derive-crudkit-id" }
+
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }

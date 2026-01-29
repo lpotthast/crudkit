@@ -4,86 +4,70 @@
 default:
   just --list
 
-# Run `cargo sort` for every crate.
+# Run `cargo sort` for every workspace.
 sort:
-  cargo sort ./crudkit-condition -w -g
   cargo sort ./crudkit-core -w -g
-  cargo sort ./crudkit-id -w -g
-  cargo sort ./crudkit-leptos -w -g
   cargo sort ./crudkit-rs -w -g
-  cargo sort ./crudkit-validation -w -g
-  cargo sort ./crudkit-collaboration -w -g
+  cargo sort ./crudkit-sea-orm -w -g
+  cargo sort ./crudkit-web -w -g
+  cargo sort ./crudkit-leptos -w -g
 
-# Run `cargo fmt` for every crate.
+# Run `cargo fmt` for every workspace.
 fmt:
-  cargo fmt --all --manifest-path ./crudkit-condition/Cargo.toml
   cargo fmt --all --manifest-path ./crudkit-core/Cargo.toml
-  cargo fmt --all --manifest-path ./crudkit-id/Cargo.toml
-  cargo fmt --all --manifest-path ./crudkit-leptos/Cargo.toml
   cargo fmt --all --manifest-path ./crudkit-rs/Cargo.toml
-  cargo fmt --all --manifest-path ./crudkit-validation/Cargo.toml
-  cargo fmt --all --manifest-path ./crudkit-collaboration/Cargo.toml
+  cargo fmt --all --manifest-path ./crudkit-sea-orm/Cargo.toml
+  cargo fmt --all --manifest-path ./crudkit-web/Cargo.toml
+  cargo fmt --all --manifest-path ./crudkit-leptos/Cargo.toml
 
 leptosfmt:
   cargo install leptosfmt
   leptosfmt ./crudkit-leptos/crates/crudkit-leptos/*
 
-# Run `cargo update` for every crate, updating the dependencies of all crates to the latest non-breaking version. Rewrites Cargo.lock files.
+# Run `cargo update` for every workspace, updating the dependencies of all crates to the latest non-breaking version. Rewrites Cargo.lock files.
 update:
-  cargo update --manifest-path ./crudkit-condition/Cargo.toml
   cargo update --manifest-path ./crudkit-core/Cargo.toml
-  cargo update --manifest-path ./crudkit-id/Cargo.toml
-  cargo update --manifest-path ./crudkit-leptos/Cargo.toml
   cargo update --manifest-path ./crudkit-rs/Cargo.toml
-  cargo update --manifest-path ./crudkit-validation/Cargo.toml
-  cargo update --manifest-path ./crudkit-collaboration/Cargo.toml
+  cargo update --manifest-path ./crudkit-sea-orm/Cargo.toml
+  cargo update --manifest-path ./crudkit-web/Cargo.toml
+  cargo update --manifest-path ./crudkit-leptos/Cargo.toml
 
-# Run `cargo check` for every crate.
+# Run `cargo check` for every workspace.
 check:
-  cargo check --manifest-path ./crudkit-condition/Cargo.toml
   cargo check --manifest-path ./crudkit-core/Cargo.toml
-  cargo check --manifest-path ./crudkit-id/Cargo.toml
-  cargo check --manifest-path ./crudkit-leptos/Cargo.toml
   cargo check --manifest-path ./crudkit-rs/Cargo.toml
-  cargo check --manifest-path ./crudkit-validation/Cargo.toml
-  cargo check --manifest-path ./crudkit-collaboration/Cargo.toml
+  cargo check --manifest-path ./crudkit-sea-orm/Cargo.toml
+  cargo check --manifest-path ./crudkit-web/Cargo.toml
+  cargo check --manifest-path ./crudkit-leptos/Cargo.toml
 
-# Run `cargo test` for every crate.
+# Run `cargo test` for every workspace.
 test:
-  cargo test --manifest-path ./crudkit-condition/Cargo.toml
   cargo test --manifest-path ./crudkit-core/Cargo.toml
-  cargo test --manifest-path ./crudkit-id/Cargo.toml
-  cargo test --manifest-path ./crudkit-leptos/Cargo.toml
   cargo test --manifest-path ./crudkit-rs/Cargo.toml
-  cargo test --manifest-path ./crudkit-validation/Cargo.toml
-  cargo test --manifest-path ./crudkit-collaboration/Cargo.toml
+  cargo test --manifest-path ./crudkit-sea-orm/Cargo.toml
+  cargo test --manifest-path ./crudkit-web/Cargo.toml
+  cargo test --manifest-path ./crudkit-leptos/Cargo.toml
 
-# Run `cargo upgrades` for every crate, checking if new crate versions including potentially breaking changes are available.
+# Run `cargo upgrades` for every workspace, checking if new crate versions including potentially breaking changes are available.
 upgrades: # "-" prefixes allow for non-zero status codes!
-  -cargo upgrades --manifest-path ./crudkit-condition/Cargo.toml
   -cargo upgrades --manifest-path ./crudkit-core/Cargo.toml
-  -cargo upgrades --manifest-path ./crudkit-id/Cargo.toml
-  -cargo upgrades --manifest-path ./crudkit-leptos/Cargo.toml
   -cargo upgrades --manifest-path ./crudkit-rs/Cargo.toml
-  -cargo upgrades --manifest-path ./crudkit-validation/Cargo.toml
-  -cargo upgrades --manifest-path ./crudkit-collaboration/Cargo.toml
+  -cargo upgrades --manifest-path ./crudkit-sea-orm/Cargo.toml
+  -cargo upgrades --manifest-path ./crudkit-web/Cargo.toml
+  -cargo upgrades --manifest-path ./crudkit-leptos/Cargo.toml
 
-# Run `cargo upgrade` for every crate, automatically bumping all dependencies to their latest versions
+# Run `cargo upgrade` for every workspace, automatically bumping all dependencies to their latest versions
 upgrade: # "-" prefixes allow for non-zero status codes!
-  -cargo upgrade --manifest-path ./crudkit-condition/Cargo.toml
   -cargo upgrade --manifest-path ./crudkit-core/Cargo.toml
-  -cargo upgrade --manifest-path ./crudkit-id/Cargo.toml
-  -cargo upgrade --manifest-path ./crudkit-leptos/Cargo.toml
   -cargo upgrade --manifest-path ./crudkit-rs/Cargo.toml
-  -cargo upgrade --manifest-path ./crudkit-validation/Cargo.toml
-  -cargo upgrade --manifest-path ./crudkit-collaboration/Cargo.toml
+  -cargo upgrade --manifest-path ./crudkit-sea-orm/Cargo.toml
+  -cargo upgrade --manifest-path ./crudkit-web/Cargo.toml
+  -cargo upgrade --manifest-path ./crudkit-leptos/Cargo.toml
 
-# Run `cargo clippy --tests -- -Dclippy::all -Dclippy::pedantic` for every crate.
+# Run `cargo clippy --tests -- -Dclippy::all -Dclippy::pedantic` for every workspace.
 clippy: # "-" prefixes allow for non-zero status codes!
-  -cargo clippy --tests --manifest-path ./crudkit-condition/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
   -cargo clippy --tests --manifest-path ./crudkit-core/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
-  -cargo clippy --tests --manifest-path ./crudkit-id/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
-  -cargo clippy --tests --manifest-path ./crudkit-leptos/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
   -cargo clippy --tests --manifest-path ./crudkit-rs/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
-  -cargo clippy --tests --manifest-path ./crudkit-validation/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
-  -cargo clippy --tests --manifest-path ./crudkit-collaboration/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
+  -cargo clippy --tests --manifest-path ./crudkit-sea-orm/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
+  -cargo clippy --tests --manifest-path ./crudkit-web/Cargo.toml -- -Dclippy::all -Dclippy::pedantic
+  -cargo clippy --tests --manifest-path ./crudkit-leptos/Cargo.toml -- -Dclippy::all -Dclippy::pedantic

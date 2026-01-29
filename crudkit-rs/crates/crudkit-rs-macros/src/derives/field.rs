@@ -1,6 +1,6 @@
 //! Implementation of the `CkField` derive macro.
 
-use crudkit_derive_core::{classify_base_type, path_to_string, strip_option_path};
+use crudkit_core_macros::{classify_base_type, path_to_string, strip_option_path};
 use darling::*;
 use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error::abort;
@@ -129,7 +129,7 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
 
 /// Converts a field type to the corresponding `ConditionClauseValue` method name.
 ///
-/// Uses the shared `ValueKind` classification from `crudkit_derive_core`.
+/// Uses the shared `ValueKind` classification from `crudkit_core_macros`.
 fn convert_field_type_to_function_name(ty: &syn::Type) -> Ident {
     let span = ty.span();
 
