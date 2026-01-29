@@ -5,15 +5,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Crudkit is a type-safe, full-stack Rust CRUD framework featuring backend integration with SeaORM + Axum and frontend UI
-components built with Leptos 0.8. The project is organized as a multi-workspace repository with 8 independent top-level
+components built with Leptos 0.8. The project is organized as a multi-workspace repository with 7 independent top-level
 crates.
 
 ## Common Commands
 
 This project uses `just` as a command runner. Run `just` to see all available commands.
 
-Note: The Justfile currently covers most crates but excludes `crudkit-web` and `crudkit-leptos-theme`. For these, use
-cargo commands directly with `--manifest-path`.
+Note: The Justfile currently covers most crates but excludes `crudkit-web`. For this workspace, use cargo commands
+directly with `--manifest-path`.
 
 ### Building and Checking
 
@@ -96,9 +96,9 @@ The project follows a 3-layer architecture:
         - HTTP client via `CrudRestDataProvider`
         - Derive macros: `CkResource`, `CkField`, `CkActionPayload`
     - `crudkit-leptos` workspace - Leptos 0.8 UI components
-        - Views: `CrudListView`, `CrudCreateView`, `CrudEditView`, `CrudReadView`, `CrudDeleteModal`
+        - `crudkit-leptos` - Views: `CrudListView`, `CrudCreateView`, `CrudEditView`, `CrudReadView`, `CrudDeleteModal`
+        - `crudkit-leptos-theme` - CSS theme generation
         - Fine-grained reactivity via `ReactiveValue` (field-level signals)
-    - `crudkit-leptos-theme` - CSS theme generation
 
 ### The CrudResource Pattern
 
@@ -297,7 +297,7 @@ ID can be a tuple of multiple fields (e.g., `(user_id, org_id)`).
 ### When Modifying Frontend
 
 - Leptos components go in `crudkit-leptos/crates/crudkit-leptos/`
-- CSS/theming goes in `crudkit-leptos-theme/`
+- CSS/theming goes in `crudkit-leptos/crates/crudkit-leptos-theme/`
 
 ### Understanding the Data Flow
 

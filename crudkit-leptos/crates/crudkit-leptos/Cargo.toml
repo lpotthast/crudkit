@@ -35,5 +35,5 @@ uuid = { version = "1.19.0", features = ["js", "v4", "v7", "serde"] }
 [build-dependencies]
 anyhow = "1.0.100"
 cargo_toml = "0.22.3"
-crudkit-leptos-theme = { path = "../../../crudkit-leptos-theme" }
+crudkit-leptos-theme = { path = "../crudkit-leptos-theme" }
 lazy_static = "1.5.0"
