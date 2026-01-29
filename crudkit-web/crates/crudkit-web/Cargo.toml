@@ -10,10 +10,8 @@ crudkit-core = { path = "../../../crudkit-core/crates/crudkit-core" }
 crudkit-validation = { path = "../../../crudkit-core/crates/crudkit-validation" }
 crudkit-collaboration = { path = "../../../crudkit-core/crates/crudkit-collaboration" }
 
-derive-crud-action-payload = { path = "../derive-crud-action-payload" }
 crudkit-core-macros = { path = "../../../crudkit-core/crates/crudkit-core-macros" }
-derive-crud-resource = { path = "../derive-crud-resource" }
-derive-field = { path = "../derive-field" }
+crudkit-web-macros = { path = "../crudkit-web-macros" }
 
 typed-builder = "0.23.2"
 downcast-rs = "2.0.1"

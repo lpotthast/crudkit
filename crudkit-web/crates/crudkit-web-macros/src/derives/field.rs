@@ -1,17 +1,14 @@
-#![forbid(unsafe_code)]
-#![deny(clippy::unwrap_used)]
-
 use crudkit_core_macros::{
     classify_base_type, is_ordered_float, path_to_string, strip_option_path, to_pascal_case,
     ValueKind,
 };
 use darling::*;
-use proc_macro::TokenStream;
-use proc_macro2::{Ident, Span};
-use proc_macro_error::{abort, proc_macro_error};
+use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro_error::abort;
 use quote::quote;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
-use types::ModelType;
+use syn::{spanned::Spanned, DeriveInput};
+
+use super::model_type::ModelType;
 
 /// Classified type information for a field.
 ///
@@ -33,14 +30,14 @@ impl ClassifiedType {
         let span = ty.span();
 
         // Handle unit type `()` specially.
-        if let syn::Type::Tuple(syn::TypeTuple { elems, .. }) = ty {
-            if elems.is_empty() {
-                return ClassifiedType {
-                    kind: ValueKind::Void,
-                    is_optional: false,
-                    is_ordered_float: false,
-                };
-            }
+        if let syn::Type::Tuple(syn::TypeTuple { elems, .. }) = ty
+            && elems.is_empty()
+        {
+            return ClassifiedType {
+                kind: ValueKind::Void,
+                is_optional: false,
+                is_ordered_float: false,
+            };
         }
 
         // Extract path from type.
@@ -152,7 +149,7 @@ impl CkFieldInputReceiver {
 fn generate_get_value_arm(
     field: &CkFieldConfig,
     field_enum_ident: &Ident,
-) -> proc_macro2::TokenStream {
+) -> TokenStream {
     let field_ident = field.ident.as_ref().expect("Expected named field!");
     let field_name = field_ident.to_string();
     let pascal_case = to_pascal_case(&field_name);
@@ -170,7 +167,7 @@ fn generate_get_value_arm(
 }
 
 /// Generates the expression to get a field's value for wrapping in a `Value` variant.
-fn generate_get_value_expr(field_ident: &Ident, classified: ClassifiedType) -> proc_macro2::TokenStream {
+fn generate_get_value_expr(field_ident: &Ident, classified: ClassifiedType) -> TokenStream {
     use ValueKind::*;
 
     // Special cases that need wrapping.
@@ -215,7 +212,7 @@ fn generate_get_value_expr(field_ident: &Ident, classified: ClassifiedType) -> p
 fn generate_set_value_arm(
     field: &CkFieldConfig,
     field_enum_ident: &Ident,
-) -> proc_macro2::TokenStream {
+) -> TokenStream {
     let field_ident = field.ident.as_ref().expect("Expected named field!");
     let field_name = field_ident.to_string();
     let pascal_case = to_pascal_case(&field_name);
@@ -232,7 +229,7 @@ fn generate_set_value_arm(
 }
 
 /// Generates the expression to set a field's value from a `Value`.
-fn generate_set_value_expr(field_ident: &Ident, classified: ClassifiedType) -> proc_macro2::TokenStream {
+fn generate_set_value_expr(field_ident: &Ident, classified: ClassifiedType) -> TokenStream {
     use ValueKind::*;
 
     // Special cases.
@@ -270,17 +267,11 @@ fn generate_set_value_expr(field_ident: &Ident, classified: ClassifiedType) -> p
     }
 }
 
-#[proc_macro_derive(CkField, attributes(ck_field, ck_id))]
-#[proc_macro_error]
-pub fn store(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
+pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
+    let input_receiver: CkFieldInputReceiver = FromDeriveInput::from_derive_input(&input)
+        .map_err(|e| syn::Error::new_spanned(&input, e))?;
 
-    let input: CkFieldInputReceiver = match FromDeriveInput::from_derive_input(&ast) {
-        Ok(args) => args,
-        Err(err) => return Error::write_errors(err).into(),
-    };
-
-    let typified_fields = input
+    let typified_fields = input_receiver
         .fields()
         .iter()
         .map(|field| {
@@ -290,10 +281,10 @@ pub fn store(input: TokenStream) -> TokenStream {
         })
         .collect::<Vec<Ident>>();
 
-    let name = &input.ident;
+    let name = &input_receiver.ident;
     let field_name = Ident::new(format!("{name}Field").as_str(), name.span());
 
-    let direct_field_accessors = input.fields().iter().map(|field| {
+    let direct_field_accessors = input_receiver.fields().iter().map(|field| {
         let name = field.ident.as_ref().expect("Expected named field!");
         let type_name = to_pascal_case(&name.to_string());
         let type_ident = Ident::new(type_name.as_str(), Span::call_site());
@@ -301,7 +292,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         quote! { pub const #type_ident: #field_name = #field_name::#type_ident; }
     });
 
-    let match_field_name_to_str_arms = input.fields().iter().map(|field| {
+    let match_field_name_to_str_arms = input_receiver.fields().iter().map(|field| {
         let name = field.ident.as_ref().expect("Expected named field!");
         let name = name.to_string();
         let type_name = to_pascal_case(&name);
@@ -310,7 +301,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             #field_name::#type_ident => #name
         }
     });
-    let get_name_impl = match input.fields().len() {
+    let get_name_impl = match input_receiver.fields().len() {
         0 => quote! { "" },
         _ => quote! {
             match self {
@@ -319,7 +310,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         },
     };
 
-    let all_field_enum_accessors = input.fields().iter().map(|field| {
+    let all_field_enum_accessors = input_receiver.fields().iter().map(|field| {
         let name = field.ident.as_ref().expect("Expected named field!");
         let name = name.to_string();
         let type_name = to_pascal_case(&name);
@@ -329,7 +320,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
     });
 
-    let get_field_arms = input.fields().iter().map(|field| {
+    let get_field_arms = input_receiver.fields().iter().map(|field| {
         let name = field.ident.as_ref().expect("Expected named field!");
         let name = name.to_string();
         let type_name = to_pascal_case(&name);
@@ -338,7 +329,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             #name => #field_name::#type_ident
         }
     });
-    let get_field_impl = match input.fields().len() {
+    let get_field_impl = match input_receiver.fields().len() {
         0 => {
             quote! { panic!("String '{}' can not be parsed as a field name! There are zero fields!", field_name) }
         }
@@ -350,7 +341,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         },
     };
 
-    let model_type_based_model_trait_impl = match input.model {
+    let model_type_based_model_trait_impl = match input_receiver.model {
         ModelType::Create => quote! {
             #[typetag::serde]
             impl crudkit_web::model::ErasedCreateModel for #name {
@@ -368,7 +359,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         },
     };
 
-    let model_type_based_field_trait_impl = match input.model {
+    let model_type_based_field_trait_impl = match input_receiver.model {
         ModelType::Create => quote! {
             #[typetag::serde]
             impl crudkit_web::model::ErasedCreateField for #field_name {
@@ -398,14 +389,14 @@ pub fn store(input: TokenStream) -> TokenStream {
         },
     };
 
-    // Generate CrudFieldValueTrait implementation
-    let get_field_value_arms = input
+    // Generate CrudFieldValueTrait implementation.
+    let get_field_value_arms = input_receiver
         .fields()
         .iter()
         .map(|field| generate_get_value_arm(field, &field_name));
-    let get_value_impl = match input.fields().len() {
+    let get_value_impl = match input_receiver.fields().len() {
         0 => {
-            quote! { panic!("Cannot get value. Zero fields available! Should be unreachable. Source-crate: derive-field") }
+            quote! { panic!("Cannot get value. Zero fields available! Should be unreachable. Source-crate: crudkit-web-macros") }
         }
         _ => quote! {
             match self {
@@ -414,13 +405,13 @@ pub fn store(input: TokenStream) -> TokenStream {
         },
     };
 
-    let set_field_value_arms = input
+    let set_field_value_arms = input_receiver
         .fields()
         .iter()
         .map(|field| generate_set_value_arm(field, &field_name));
-    let set_value_impl = match input.fields().len() {
+    let set_value_impl = match input_receiver.fields().len() {
         0 => {
-            quote! { panic!("Cannot set value. Zero fields available! Should be unreachable. Source-crate: derive-field") }
+            quote! { panic!("Cannot set value. Zero fields available! Should be unreachable. Source-crate: crudkit-web-macros") }
         }
         _ => quote! {
             match self {
@@ -441,7 +432,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
     };
 
-    quote! {
+    Ok(quote! {
         impl #name {
             #(#direct_field_accessors)*
         }
@@ -491,6 +482,5 @@ pub fn store(input: TokenStream) -> TokenStream {
         impl crudkit_web::model::ErasedModel for #name {}
 
         #field_value_trait_impl
-    }
-        .into()
+    })
 }

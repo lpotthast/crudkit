@@ -60,10 +60,8 @@ pub mod prelude {
     // (both crudkit_core and crudkit_web export Model).
     pub use crudkit_web::Model;
 
-    pub use derive_crud_action_payload::CkActionPayload;
-    pub use derive_crud_resource::CkResource;
     pub use crudkit_core_macros::CkId;
-    pub use derive_field::CkField;
+    pub use crudkit_web_macros::{CkActionPayload, CkField, CkResource};
 
     pub use super::IntoReactiveValue;
     pub use super::ReactiveValue;

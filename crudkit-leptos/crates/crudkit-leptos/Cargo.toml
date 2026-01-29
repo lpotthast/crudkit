@@ -11,10 +11,8 @@ crudkit-id = { path = "../../../crudkit-core/crates/crudkit-id" }
 crudkit-validation = { path = "../../../crudkit-core/crates/crudkit-validation" }
 crudkit-web = { path = "../../../crudkit-web/crates/crudkit-web" }
 crudkit-collaboration = { path = "../../../crudkit-core/crates/crudkit-collaboration" }
-derive-crud-action-payload = { path = "../../../crudkit-web/crates/derive-crud-action-payload" }
-derive-crud-resource = { path = "../../../crudkit-web/crates/derive-crud-resource" }
 crudkit-core-macros = { path = "../../../crudkit-core/crates/crudkit-core-macros" }
-derive-field = { path = "../../../crudkit-web/crates/derive-field" }
+crudkit-web-macros = { path = "../../../crudkit-web/crates/crudkit-web-macros" }
 
 dyn-clone = "1.0.20"
 indexmap = { version = "2.12.1", features = ["serde"] }
