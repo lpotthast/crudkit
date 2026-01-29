@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use assertr::prelude::*;
 use derive_crudkit_id::CkId;
 
 #[derive(CkId)]
@@ -15,5 +16,5 @@ pub struct Foo {
 fn main() {
     let id_a = FooIdField::IdA(42);
 
-    assert_eq!("42", id_a.to_string());
+    assert_that(id_a.to_string()).is_equal_to("42".to_string());
 }

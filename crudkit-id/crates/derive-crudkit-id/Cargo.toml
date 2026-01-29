@@ -18,6 +18,7 @@ quote = { workspace = true }
 syn = { workspace = true }
 
 [dev-dependencies]
+assertr = "0.4.3"
 serde = "1.0.228"
 serde_json = "1.0.148"
 time = "0.3.44"

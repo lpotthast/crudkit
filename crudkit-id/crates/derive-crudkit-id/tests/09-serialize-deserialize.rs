@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use assertr::prelude::*;
 use derive_crudkit_id::CkId;
 
 #[derive(CkId)]
@@ -15,11 +16,11 @@ pub struct Foo {
 fn main() {
     let id = FooId { id_a: 1, id_b: 2 };
     let serialized = "{\"id_a\":1,\"id_b\":2}";
-    assert_eq!(serialized, serde_json::to_string(&id).unwrap().as_str());
-    assert_eq!(id, serde_json::from_str(serialized).unwrap());
+    assert_that(serde_json::to_string(&id).unwrap()).is_equal_to(serialized);
+    assert_that(serde_json::from_str::<FooId>(serialized).unwrap()).is_equal_to(id);
 
     let id_a = FooIdField::IdA(12);
     let serialized = "{\"IdA\":12}";
-    assert_eq!(serialized, serde_json::to_string(&id_a).unwrap().as_str());
-    assert_eq!(id_a, serde_json::from_str(serialized).unwrap());
+    assert_that(serde_json::to_string(&id_a).unwrap()).is_equal_to(serialized);
+    assert_that(serde_json::from_str::<FooIdField>(serialized).unwrap()).is_equal_to(id_a);
 }

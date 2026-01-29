@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use assertr::prelude::*;
 use derive_crudkit_id::CkId;
 
 #[derive(CkId)]
@@ -13,10 +14,7 @@ pub struct Foo {
 }
 
 fn main() {
-    let id = FooId {
-        id_a: 1,
-        id_b: 2,
-    };
+    let id = FooId { id_a: 1, id_b: 2 };
 
-    assert_eq!("(id_a: 1, id_b: 2)", id.to_string());
+    assert_that(id.to_string()).is_equal_to("(id_a: 1, id_b: 2)".to_string());
 }

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use assertr::prelude::*;
 use derive_crudkit_id::CkId;
 
 #[derive(CkId)]
@@ -17,10 +18,10 @@ fn main() {
     let field_b = FooIdField::IdB(1337);
 
     use crudkit_id::IdField;
-    assert_eq!("id_a", field_a.name());
-    assert_eq!("id_b", field_b.name());
+    assert_that(field_a.name()).is_equal_to("id_a");
+    assert_that(field_b.name()).is_equal_to("id_b");
 
     use crudkit_id::IdValue;
-    assert_eq!(IdValue::I32(-1337), field_a.to_value());
-    assert_eq!(IdValue::I32(1337), field_b.to_value());
+    assert_that(field_a.to_value()).is_equal_to(IdValue::I32(-1337));
+    assert_that(field_b.to_value()).is_equal_to(IdValue::I32(1337));
 }

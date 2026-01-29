@@ -9,6 +9,39 @@ use proc_macro_type_name::ToTypeName;
 use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident};
 
+const SUPPORTED_TYPES_HELP: &str = indoc::indoc! {
+    r#"
+    Supported ID field types:
+      - Integers: i32, u32, i64, u64, i128, u128
+      - Strings: String
+      - Booleans: bool
+      - UUIDs: uuid::Uuid
+      - Time: time::PrimitiveDateTime, time::OffsetDateTime
+
+    Note:
+      - Floating point types (f32, f64) are not supported (not Eq comparable)
+      - Optional types (Option<T>) are not supported for ID fields
+      - Use exact type paths as shown above
+    "#
+};
+
+/// Represents a supported ID field type.
+///
+/// Used internally to avoid duplicating type classification logic.
+enum IdValueKind {
+    I32,
+    U32,
+    I64,
+    U64,
+    I128,
+    U128,
+    Bool,
+    String,
+    Uuid,
+    PrimitiveDateTime,
+    OffsetDateTime,
+}
+
 #[derive(Debug, FromField)]
 #[darling(attributes(ck_id))]
 struct CkIdFieldConfig {
@@ -452,92 +485,59 @@ fn generate_id_field_enum(
 ///
 /// For example: `crudkit_id::IdValue::I32` when `ty` is `i32`.
 fn to_id_value_variant(ty: &syn::Type) -> proc_macro2::TokenStream {
-    const SUPPORTED_TYPES_HELP: &str = indoc::indoc! {
-        r#"
-        Supported ID field types:
-          - Integers: i32, u32, i64, u64, i128, u128
-          - Strings: String
-          - Booleans: bool
-          - UUIDs: uuid::Uuid
-          - Time: time::PrimitiveDateTime, time::OffsetDateTime
+    match classify_id_type(ty) {
+        IdValueKind::I32 => quote! { crudkit_id::IdValue::I32 },
+        IdValueKind::U32 => quote! { crudkit_id::IdValue::U32 },
+        IdValueKind::I64 => quote! { crudkit_id::IdValue::I64 },
+        IdValueKind::U64 => quote! { crudkit_id::IdValue::U64 },
+        IdValueKind::I128 => quote! { crudkit_id::IdValue::I128 },
+        IdValueKind::U128 => quote! { crudkit_id::IdValue::U128 },
+        IdValueKind::Bool => quote! { crudkit_id::IdValue::Bool },
+        IdValueKind::String => quote! { crudkit_id::IdValue::String },
+        IdValueKind::Uuid => quote! { crudkit_id::IdValue::Uuid },
+        IdValueKind::PrimitiveDateTime => quote! { crudkit_id::IdValue::PrimitiveDateTime },
+        IdValueKind::OffsetDateTime => quote! { crudkit_id::IdValue::OffsetDateTime },
+    }
+}
 
-        Note:
-          - Floating point types (f32, f64) are not supported (not Eq comparable)
-          - Optional types (Option<T>) are not supported for ID fields
-          - Use exact type paths as shown above
-        "#
-    };
-
-    let span = ty.span();
-
-    match ty {
-        syn::Type::Path(type_path) => {
-            let path = &type_path.path;
-
-            // Reject Option<T> types early.
-            if is_option_type(path) {
-                abort!(
-                    span,
-                    "Option<T> types are not supported for ID fields";
-                    help = "ID fields must have concrete, non-optional values.\n{}", SUPPORTED_TYPES_HELP;
-                );
-            }
-
-            // Match primitives (unqualified, single-segment paths).
-            if path.segments.len() == 1
-                && let Some(ident) = get_final_segment_ident(path)
-            {
-                match ident.to_string().as_str() {
-                    "i32" => return quote! { crudkit_id::IdValue::I32 },
-                    "u32" => return quote! { crudkit_id::IdValue::U32 },
-                    "i64" => return quote! { crudkit_id::IdValue::I64 },
-                    "u64" => return quote! { crudkit_id::IdValue::U64 },
-                    "i128" => return quote! { crudkit_id::IdValue::I128 },
-                    "u128" => return quote! { crudkit_id::IdValue::U128 },
-                    "bool" => return quote! { crudkit_id::IdValue::Bool },
-                    "String" => return quote! { crudkit_id::IdValue::String },
-                    "f32" => abort!(
-                        span,
-                        "f32 is not supported for ID fields (not Eq comparable)";
-                        help = SUPPORTED_TYPES_HELP;
-                    ),
-                    "f64" => abort!(
-                        span,
-                        "f64 is not supported for ID fields (not Eq comparable)";
-                        help = SUPPORTED_TYPES_HELP;
-                    ),
-                    _ => {} // Fall through to qualified type matching.
-                }
-            }
-
-            // Match qualified types (require exact paths)
-            let path_str = path_to_string(path);
-            match path_str.as_str() {
-                "uuid::Uuid" => {
-                    return quote! { crudkit_id::IdValue::Uuid };
-                }
-                "time::PrimitiveDateTime" => {
-                    return quote! { crudkit_id::IdValue::PrimitiveDateTime };
-                }
-                "time::OffsetDateTime" => {
-                    return quote! { crudkit_id::IdValue::OffsetDateTime };
-                }
-                _ => {}
-            }
-
-            // Type not recognized - generate helpful error
-            abort!(
-                span,
-                "Unsupported type '{}' for ID field", path_str;
-                help = SUPPORTED_TYPES_HELP;
-            );
+/// Returns code to extract a value from `IdValue` for the field of type `ty`.
+///
+/// The generated code is a match expression that extracts the value from `value`.
+/// For example: `if let crudkit_id::IdValue::I64(x) = value { x.clone() } else { return None }`
+fn to_id_value_match_extraction(ty: &syn::Type) -> proc_macro2::TokenStream {
+    match classify_id_type(ty) {
+        IdValueKind::I32 => {
+            quote! { if let crudkit_id::IdValue::I32(x) = value { x.clone() } else { return None } }
         }
-        _ => {
-            abort!(
-                span,
-                "Expected a type path for ID field, found {:?}", ty;
-                help = SUPPORTED_TYPES_HELP;
-            );
+        IdValueKind::U32 => {
+            quote! { if let crudkit_id::IdValue::U32(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::I64 => {
+            quote! { if let crudkit_id::IdValue::I64(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::U64 => {
+            quote! { if let crudkit_id::IdValue::U64(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::I128 => {
+            quote! { if let crudkit_id::IdValue::I128(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::U128 => {
+            quote! { if let crudkit_id::IdValue::U128(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::Bool => {
+            quote! { if let crudkit_id::IdValue::Bool(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::String => {
+            quote! { if let crudkit_id::IdValue::String(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::Uuid => {
+            quote! { if let crudkit_id::IdValue::Uuid(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::PrimitiveDateTime => {
+            quote! { if let crudkit_id::IdValue::PrimitiveDateTime(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::OffsetDateTime => {
+            quote! { if let crudkit_id::IdValue::OffsetDateTime(x) = value { x.clone() } else { return None } }
         }
     }
 }
@@ -566,95 +566,61 @@ fn is_option_type(path: &syn::Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Returns code to extract a value from `IdValue` for the field of type `ty`.
+/// Classifies a type as one of the supported ID field types.
 ///
-/// The generated code is a match expression that extracts the value from `value`.
-/// For example: `if let crudkit_id::IdValue::I64(x) = value { x.clone() } else { return None }`
-fn to_id_value_match_extraction(ty: &syn::Type) -> proc_macro2::TokenStream {
+/// Aborts with a helpful error if the type is not supported.
+fn classify_id_type(ty: &syn::Type) -> IdValueKind {
     let span = ty.span();
 
     match ty {
         syn::Type::Path(type_path) => {
             let path = &type_path.path;
 
-            // Match primitives (unqualified, single-segment paths).
+            // Reject Option<T> types early.
+            if is_option_type(path) {
+                abort!(
+                    span,
+                    "Option<T> types are not supported for ID fields";
+                    help = "ID fields must have concrete, non-optional values.\n{}", SUPPORTED_TYPES_HELP;
+                );
+            }
+
+            // Match primitives (single-segment paths).
             if path.segments.len() == 1
                 && let Some(ident) = get_final_segment_ident(path)
             {
                 match ident.to_string().as_str() {
-                    "i32" => {
-                        return quote! {
-                            if let crudkit_id::IdValue::I32(x) = value { x.clone() } else { return None }
-                        };
+                    "i32" => return IdValueKind::I32,
+                    "u32" => return IdValueKind::U32,
+                    "i64" => return IdValueKind::I64,
+                    "u64" => return IdValueKind::U64,
+                    "i128" => return IdValueKind::I128,
+                    "u128" => return IdValueKind::U128,
+                    "bool" => return IdValueKind::Bool,
+                    "String" => return IdValueKind::String,
+                    "f32" => {
+                        abort!(span, "f32 is not supported for ID fields (not Eq comparable)"; help = SUPPORTED_TYPES_HELP;)
                     }
-                    "u32" => {
-                        return quote! {
-                            if let crudkit_id::IdValue::U32(x) = value { x.clone() } else { return None }
-                        };
+                    "f64" => {
+                        abort!(span, "f64 is not supported for ID fields (not Eq comparable)"; help = SUPPORTED_TYPES_HELP;)
                     }
-                    "i64" => {
-                        return quote! {
-                            if let crudkit_id::IdValue::I64(x) = value { x.clone() } else { return None }
-                        };
-                    }
-                    "u64" => {
-                        return quote! {
-                            if let crudkit_id::IdValue::U64(x) = value { x.clone() } else { return None }
-                        };
-                    }
-                    "i128" => {
-                        return quote! {
-                            if let crudkit_id::IdValue::I128(x) = value { x.clone() } else { return None }
-                        };
-                    }
-                    "u128" => {
-                        return quote! {
-                            if let crudkit_id::IdValue::U128(x) = value { x.clone() } else { return None }
-                        };
-                    }
-                    "bool" => {
-                        return quote! {
-                            if let crudkit_id::IdValue::Bool(x) = value { x.clone() } else { return None }
-                        };
-                    }
-                    "String" => {
-                        return quote! {
-                            if let crudkit_id::IdValue::String(x) = value { x.clone() } else { return None }
-                        };
-                    }
-                    _ => {} // Fall through to qualified type matching.
+                    _ => {}
                 }
             }
 
-            // Match qualified types (require exact paths).
+            // Match qualified types.
             let path_str = path_to_string(path);
             match path_str.as_str() {
-                "uuid::Uuid" => {
-                    return quote! {
-                        if let crudkit_id::IdValue::Uuid(x) = value { x.clone() } else { return None }
-                    };
-                }
-                "time::PrimitiveDateTime" => {
-                    return quote! {
-                        if let crudkit_id::IdValue::PrimitiveDateTime(x) = value { x.clone() } else { return None }
-                    };
-                }
-                "time::OffsetDateTime" => {
-                    return quote! {
-                        if let crudkit_id::IdValue::OffsetDateTime(x) = value { x.clone() } else { return None }
-                    };
-                }
+                "uuid::Uuid" => return IdValueKind::Uuid,
+                "time::PrimitiveDateTime" => return IdValueKind::PrimitiveDateTime,
+                "time::OffsetDateTime" => return IdValueKind::OffsetDateTime,
                 _ => {}
             }
 
-            // Should not reach here if `to_id_value_variant` was called first.
-            abort!(span, "Unsupported type for from_serializable_id extraction");
+            abort!(span, "Unsupported type '{}' for ID field", path_str; help = SUPPORTED_TYPES_HELP;);
         }
         _ => {
-            abort!(
-                span,
-                "Expected a type path for from_serializable_id extraction"
-            );
+            abort!(span, "Expected a type path for ID field, found {:?}", ty; help = SUPPORTED_TYPES_HELP;);
         }
     }
 }

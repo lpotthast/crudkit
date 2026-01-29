@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use assertr::prelude::*;
 use derive_crudkit_id::CkId;
 
 #[derive(CkId)]
@@ -18,17 +19,15 @@ fn main() {
     use crudkit_id::Id;
 
     let expected = vec![FooIdField::IdA(1), FooIdField::IdB(2)];
-    assert_eq!(expected, id.fields());
-    assert_eq!(expected, id.fields_iter().collect::<Vec<_>>());
+    assert_that(id.fields()).is_equal_to(expected.clone());
+    assert_that(id.fields_iter().collect::<Vec<_>>()).is_equal_to(expected);
 
     use crudkit_id::IdField;
 
-    assert_eq!(
-        crudkit_id::SerializableId(
-            id.fields_iter()
-                .map(|field| (field.name().to_owned(), field.to_value(),))
-                .collect()
-        ),
-        id.to_serializable_id()
+    let expected = crudkit_id::SerializableId(
+        id.fields_iter()
+            .map(|field| (field.name().to_owned(), field.to_value()).into())
+            .collect(),
     );
+    assert_that(id.to_serializable_id()).is_equal_to(expected);
 }
