@@ -11,7 +11,7 @@ use crate::{
     prelude::*,
 };
 
-use crudkit_id::Id;
+use crudkit_core::id::Id;
 
 use crate::data::CreateModelTrait;
 use crate::repository::ValidationResultRepository;

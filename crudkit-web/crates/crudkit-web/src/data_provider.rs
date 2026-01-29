@@ -1,9 +1,9 @@
 use crate::request_error::RequestError;
 use crate::reqwest_executor::ReqwestExecutor;
 use crate::{request, CrudMainTrait, CrudModel};
-use crudkit_condition::{merge_conditions, Condition};
+use crudkit_core::condition::{merge_conditions, Condition};
 use crudkit_core::{Deleted, Order, Saved};
-use crudkit_id::SerializableId;
+use crudkit_core::id::SerializableId;
 use indexmap::IndexMap;
 use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;

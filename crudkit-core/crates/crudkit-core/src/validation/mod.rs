@@ -1,3 +1,7 @@
+//! Entity validation framework with severity levels.
+//!
+//! This module provides types for validation results, violations, and validators.
+
 pub mod context;
 pub mod validator;
 pub mod violation;
@@ -7,10 +11,10 @@ pub use context::{CrudAction, ValidationContext, ValidationTrigger, When};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::validator::OwnedValidatorInfo;
-use crate::violation::{Severity, Violation, Violations};
-use crudkit_id::{Id, SerializableId};
-use crudkit_resource::ResourceName;
+use crate::id::{Id, SerializableId};
+use crate::resource::ResourceName;
+use crate::validation::validator::OwnedValidatorInfo;
+use crate::validation::violation::{Severity, Violation, Violations};
 
 /// Violations for one entity.
 #[derive(Debug, Clone, Serialize)]
@@ -114,7 +118,7 @@ impl<I: Id> ViolationsByEntity<I> {
     }
 }
 
-/// Violations for one resource type.  
+/// Violations for one resource type.
 pub struct ResourceViolations<I: Id> {
     /// Violations targeting the resource as a whole. Not tied to a specific entity.
     pub general: Violations,
@@ -258,12 +262,15 @@ impl PartialSerializableAggregateViolations {
 
 #[cfg(test)]
 mod tests {
-    use crate::violation::Violations;
-    use crate::{PartialSerializableAggregateViolations, PartialSerializableValidations};
+    use super::violation::Violations;
+    use super::PartialSerializableAggregateViolations;
+    use crate::id::{IdValue, SerializableId, SerializableIdEntry};
+    use crate::resource::ResourceName;
     use assertr::prelude::*;
-    use crudkit_id::{IdValue, SerializableId, SerializableIdEntry};
-    use crudkit_resource::ResourceName;
     use std::collections::HashMap;
+
+    type PartialSerializableValidations =
+        HashMap<ResourceName, PartialSerializableAggregateViolations>;
 
     #[test]
     fn serialize_and_deserialize_serializable_id() {

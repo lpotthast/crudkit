@@ -4,7 +4,7 @@ use crate::crud_instance_config::{CreateElements, FieldRendererRegistry};
 use crate::crud_leave_modal::CrudLeaveModal;
 use crate::ReactiveValue;
 use crudkit_core::{Saved, Value};
-use crudkit_id::{SerializableId, SerializableIdEntry};
+use crudkit_core::id::{SerializableId, SerializableIdEntry};
 use crudkit_web::prelude::*;
 use crudkit_web::request_error::{CrudOperationError, RequestError};
 use crudkit_web::{FieldMode, TabId};

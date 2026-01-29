@@ -12,10 +12,10 @@ use crate::{
 };
 
 use crudkit_core::Saved;
-use crudkit_id::Id;
-use crudkit_resource::ResourceName;
-use crudkit_validation::violation::Violations;
-use crudkit_validation::{
+use crudkit_core::id::Id;
+use crudkit_core::resource::ResourceName;
+use crudkit_core::validation::violation::Violations;
+use crudkit_core::validation::{
     PartialSerializableAggregateViolations, PartialSerializableValidations, ViolationsByEntity,
 };
 

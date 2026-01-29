@@ -14,9 +14,7 @@ crudkit-rs-macros = { path = "../../../crudkit-rs/crates/crudkit-rs-macros" }
 crudkit-core-macros = { path = "../../../crudkit-core/crates/crudkit-core-macros" }
 
 # Re-export dependencies used in generated code.
-crudkit-condition = { path = "../../../crudkit-core/crates/crudkit-condition" }
 crudkit-core = { path = "../../../crudkit-core/crates/crudkit-core" }
-crudkit-id = { path = "../../../crudkit-core/crates/crudkit-id" }
 
 async-trait = "0.1.88"
 error-stack = "0.6.0"

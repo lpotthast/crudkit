@@ -18,8 +18,8 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 // Re-export from crudkit-id for backwards compatibility.
-pub use crudkit_id::DynIdentifiable;
-pub use crudkit_id::ErasedIdentifiable;
+pub use crudkit_core::id::DynIdentifiable;
+pub use crudkit_core::id::ErasedIdentifiable;
 
 #[typetag::serde]
 pub trait ErasedModel:

@@ -47,20 +47,20 @@ pub mod validation;
 pub mod validator;
 
 // Re-export common modules for convenience.
-pub use crudkit_collaboration;
-pub use crudkit_condition;
 pub use crudkit_core;
-pub use crudkit_id;
-pub use crudkit_resource;
-pub use crudkit_validation;
+pub use crudkit_core::collaboration as crudkit_collaboration;
+pub use crudkit_core::condition as crudkit_condition;
+pub use crudkit_core::id as crudkit_id;
+pub use crudkit_core::resource as crudkit_resource;
+pub use crudkit_core::validation as crudkit_validation;
 
 pub mod prelude {
-    pub use crudkit_collaboration;
-    pub use crudkit_condition;
     pub use crudkit_core;
-    pub use crudkit_id;
-    pub use crudkit_resource;
-    pub use crudkit_validation;
+    pub use crudkit_core::collaboration as crudkit_collaboration;
+    pub use crudkit_core::condition as crudkit_condition;
+    pub use crudkit_core::id as crudkit_id;
+    pub use crudkit_core::resource as crudkit_resource;
+    pub use crudkit_core::validation as crudkit_validation;
 
     // Derive macros that remain in crudkit-rs (storage-agnostic).
     pub use crudkit_rs_macros::CkResourceContext;

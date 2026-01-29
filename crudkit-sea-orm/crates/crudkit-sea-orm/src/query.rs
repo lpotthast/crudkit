@@ -6,7 +6,7 @@
 use crate::newtypes::TimeDuration;
 use crate::repo::SeaOrmRepoError;
 use crate::traits::SeaOrmResource;
-use crudkit_condition::{Condition, ConditionElement, Operator};
+use crudkit_core::condition::{Condition, ConditionElement, Operator};
 use crudkit_core::{Order, Value};
 use crudkit_rs::prelude::*;
 use indexmap::IndexMap;

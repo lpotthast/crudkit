@@ -3,7 +3,7 @@
 //! These traits define the core abstractions for models and fields without
 //! coupling to any specific storage backend (like SeaORM).
 
-use crudkit_condition::ConditionClauseValue;
+use crudkit_core::condition::ConditionClauseValue;
 use crudkit_core::Value;
 use serde::{de::DeserializeOwned, Serialize};
 use std::fmt::Debug;
@@ -57,10 +57,10 @@ pub trait ConditionValueConverter {
 }
 
 /// Re-export `HasId` from crudkit-id.
-pub use crudkit_id::HasId;
+pub use crudkit_core::id::HasId;
 
 /// Alias for backward compatibility.
-pub use crudkit_id::HasId as CrudIdTrait;
+pub use crudkit_core::id::HasId as CrudIdTrait;
 
 /// Marker trait for the model type used to create a new entity.
 ///

@@ -502,39 +502,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 
 [[package]]
-name = "crudkit-collaboration"
-version = "0.1.0"
-dependencies = [
- "crudkit-id",
- "crudkit-validation",
- "serde",
-]
-
-[[package]]
-name = "crudkit-condition"
-version = "0.1.0"
-dependencies = [
- "crudkit-core",
- "crudkit-id",
- "dyn-clone",
- "serde",
- "serde_json",
- "snafu",
- "thiserror 2.0.18",
- "time",
- "utoipa",
- "uuid",
-]
-
-[[package]]
 name = "crudkit-core"
 version = "0.1.0"
 dependencies = [
- "crudkit-id",
- "crudkit-validation",
  "dyn-clone",
+ "dyn-eq",
  "serde",
  "serde_json",
+ "thiserror 2.0.18",
  "time",
  "typetag",
  "utoipa",
@@ -552,38 +527,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "crudkit-id"
-version = "0.1.0"
-dependencies = [
- "dyn-clone",
- "dyn-eq",
- "serde",
- "time",
- "utoipa",
- "uuid",
-]
-
-[[package]]
-name = "crudkit-resource"
-version = "0.1.0"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "crudkit-rs"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "axum",
- "crudkit-collaboration",
- "crudkit-condition",
  "crudkit-core",
  "crudkit-core-macros",
- "crudkit-id",
- "crudkit-resource",
  "crudkit-rs-macros",
- "crudkit-validation",
  "error-stack",
  "indexmap",
  "paste",
@@ -625,10 +576,8 @@ name = "crudkit-sea-orm"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "crudkit-condition",
  "crudkit-core",
  "crudkit-core-macros",
- "crudkit-id",
  "crudkit-rs",
  "crudkit-rs-macros",
  "crudkit-sea-orm-macros",
@@ -650,7 +599,7 @@ dependencies = [
 
 [[package]]
 name = "crudkit-sea-orm-macros"
-version = "0.12.15"
+version = "0.1.0"
 dependencies = [
  "crudkit-rs-macros-core",
  "darling 0.23.0",
@@ -659,15 +608,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.114",
-]
-
-[[package]]
-name = "crudkit-validation"
-version = "0.1.0"
-dependencies = [
- "crudkit-id",
- "crudkit-resource",
- "serde",
 ]
 
 [[package]]
@@ -782,9 +722,9 @@ dependencies = [
 
 [[package]]
 name = "derive-crudkit-id"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
- "crudkit-id",
+ "crudkit-core",
  "darling 0.23.0",
  "indoc",
  "proc-macro-error",

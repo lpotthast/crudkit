@@ -1,7 +1,9 @@
+//! Types used for sharing data between different users via WebSocket.
+
 use serde::{Deserialize, Serialize};
 
-use crudkit_id::SerializableId;
-use crudkit_validation::{FullSerializableValidations, PartialSerializableValidations};
+use crate::id::SerializableId;
+use crate::validation::{FullSerializableValidations, PartialSerializableValidations};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CollabMessage {

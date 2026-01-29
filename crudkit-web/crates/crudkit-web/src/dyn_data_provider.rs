@@ -4,7 +4,7 @@ use crate::model::{DynCreateModel, DynUpdateModel, SerializableReadField};
 use crate::request::post_json;
 use crate::request_error::RequestError;
 use crate::reqwest_executor::ReqwestExecutor;
-use crudkit_condition::{Condition, merge_conditions};
+use crudkit_core::condition::{Condition, merge_conditions};
 use crudkit_core::{Deleted, DeletedMany, Order};
 use indexmap::IndexMap;
 use serde::Serialize;

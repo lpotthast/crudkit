@@ -4,11 +4,11 @@ use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
 use utoipa::ToSchema;
 
-use crudkit_condition::Condition;
+use crudkit_core::condition::Condition;
 use crudkit_core::Saved;
-use crudkit_id::Id;
-use crudkit_resource::ResourceName;
-use crudkit_validation::{
+use crudkit_core::id::Id;
+use crudkit_core::resource::ResourceName;
+use crudkit_core::validation::{
     PartialSerializableAggregateViolations, PartialSerializableValidations, ViolationsByEntity,
 };
 

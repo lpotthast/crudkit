@@ -14,9 +14,9 @@ use sea_orm::{
 };
 
 // Re-export dependencies used in generated code.
-pub use crudkit_condition;
 pub use crudkit_core;
-pub use crudkit_id;
+pub use crudkit_core::condition as crudkit_condition;
+pub use crudkit_core::id as crudkit_id;
 
 /// Trait that maps crudkit-rs abstract types to SeaORM types.
 ///

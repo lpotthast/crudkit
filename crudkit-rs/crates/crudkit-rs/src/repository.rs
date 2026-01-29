@@ -8,10 +8,10 @@
 
 use crate::resource::CrudResource;
 use async_trait::async_trait;
-use crudkit_condition::Condition;
+use crudkit_core::condition::Condition;
 use crudkit_core::Order;
-use crudkit_id::Id;
-use crudkit_validation::{ViolationsByEntity, ViolationsByResource};
+use crudkit_core::id::Id;
+use crudkit_core::validation::{ViolationsByEntity, ViolationsByResource};
 use indexmap::IndexMap;
 use snafu::Snafu;
 use std::future::Future;

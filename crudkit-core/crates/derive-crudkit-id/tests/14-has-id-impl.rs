@@ -2,7 +2,7 @@
 #![allow(unused_variables)]
 
 use assertr::prelude::*;
-use crudkit_id::HasId;
+use crudkit_core::id::HasId;
 use derive_crudkit_id::CkId;
 
 #[derive(CkId)]

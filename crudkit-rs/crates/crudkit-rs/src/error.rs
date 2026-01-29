@@ -1,6 +1,6 @@
 use crate::repository::RepositoryError;
-use crudkit_condition::IntoAllEqualConditionError;
-use crudkit_validation::PartialSerializableAggregateViolations;
+use crudkit_core::condition::IntoAllEqualConditionError;
+use crudkit_core::validation::PartialSerializableAggregateViolations;
 use snafu::Snafu;
 use std::sync::Arc;
 

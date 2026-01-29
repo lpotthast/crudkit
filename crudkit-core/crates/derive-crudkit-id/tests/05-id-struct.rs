@@ -16,15 +16,15 @@ pub struct Foo {
 fn main() {
     let id = FooId { id_a: 1, id_b: 2 };
 
-    use crudkit_id::Id;
+    use crudkit_core::id::Id;
 
     let expected = vec![FooIdField::IdA(1), FooIdField::IdB(2)];
     assert_that(id.fields()).is_equal_to(expected.clone());
     assert_that(id.fields_iter().collect::<Vec<_>>()).is_equal_to(expected);
 
-    use crudkit_id::IdField;
+    use crudkit_core::id::IdField;
 
-    let expected = crudkit_id::SerializableId(
+    let expected = crudkit_core::id::SerializableId(
         id.fields_iter()
             .map(|field| (field.name().to_owned(), field.to_value()).into())
             .collect(),

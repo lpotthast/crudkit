@@ -6,7 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use crudkit_validation::PartialSerializableAggregateViolations;
+use crudkit_core::validation::PartialSerializableAggregateViolations;
 use serde_json::json;
 use utoipa::ToSchema;
 
@@ -523,12 +523,12 @@ macro_rules! impl_add_crud_routes {
                         schemas(crudkit_core::Deleted),
                         schemas(crudkit_core::DeletedMany),
                         schemas(crudkit_core::Saved<Model>),
-                        schemas(crudkit_condition::Condition),
-                        schemas(crudkit_condition::ConditionElement),
-                        schemas(crudkit_condition::ConditionClause),
-                        schemas(crudkit_condition::ConditionClauseValue),
-                        schemas(crudkit_condition::Operator),
-                        schemas(crudkit_id::SerializableId),
+                        schemas(crudkit_core::condition::Condition),
+                        schemas(crudkit_core::condition::ConditionElement),
+                        schemas(crudkit_core::condition::ConditionClause),
+                        schemas(crudkit_core::condition::ConditionClauseValue),
+                        schemas(crudkit_core::condition::Operator),
+                        schemas(crudkit_core::id::SerializableId),
                         schemas(crudkit_rs::create::CreateOne<CreateModel>),
                         schemas(crudkit_rs::read::ReadCount),
                         schemas(crudkit_rs::read::ReadOne<ResourceType>),

@@ -1,8 +1,8 @@
 use crate::context::CrudContext;
 use crate::prelude::{CrudResource, ResourceType};
-use crudkit_collaboration::{CollabMessage, EntityCreated, EntityDeleted, EntityUpdated};
-use crudkit_id::SerializableId;
-use crudkit_validation::{FullSerializableValidations, PartialSerializableValidations};
+use crudkit_core::collaboration::{CollabMessage, EntityCreated, EntityDeleted, EntityUpdated};
+use crudkit_core::id::SerializableId;
+use crudkit_core::validation::{FullSerializableValidations, PartialSerializableValidations};
 use std::fmt::Debug;
 use std::sync::Arc;
 

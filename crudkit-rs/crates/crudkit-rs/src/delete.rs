@@ -20,10 +20,10 @@ use crate::{
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
 };
-use crudkit_condition::{Condition, TryIntoAllEqualCondition};
+use crudkit_core::condition::{Condition, TryIntoAllEqualCondition};
 use crudkit_core::{Deleted, DeletedMany, Order};
-use crudkit_id::{Id, SerializableId};
-use crudkit_validation::PartialSerializableAggregateViolations;
+use crudkit_core::id::{Id, SerializableId};
+use crudkit_core::validation::PartialSerializableAggregateViolations;
 
 /// Maximum memory budget per batch (in bytes).
 const BATCH_MEMORY_BUDGET: usize = 50_000_000;

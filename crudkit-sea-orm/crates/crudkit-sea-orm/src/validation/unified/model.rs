@@ -4,7 +4,7 @@
 //! which allows for both simple and composite primary keys.
 
 use crate::validation::PersistedViolationSeverity;
-use crudkit_rs::crudkit_validation::validator::ValidatorInfo;
+use crudkit_core::validation::validator::ValidatorInfo;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 

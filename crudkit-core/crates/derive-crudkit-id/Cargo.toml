@@ -1,6 +1,6 @@
 [package]
 name = "derive-crudkit-id"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
 autotests = false
 
@@ -8,7 +8,7 @@ autotests = false
 proc-macro = true
 
 [dependencies]
-crudkit-id = { path = "../crudkit-id" }
+crudkit-core = { path = "../crudkit-core" }
 darling = { workspace = true }
 indoc = "2.0.7"
 proc-macro-error = { workspace = true }

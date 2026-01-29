@@ -5,8 +5,8 @@
 use crate::context::CrudContext;
 use crate::prelude::{CrudResource, ValidationTrigger};
 use crate::validator::EntityValidator;
-use crudkit_validation::validator::ValidatorInfo;
-use crudkit_validation::ViolationsByValidator;
+use crudkit_core::validation::validator::ValidatorInfo;
+use crudkit_core::validation::ViolationsByValidator;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 

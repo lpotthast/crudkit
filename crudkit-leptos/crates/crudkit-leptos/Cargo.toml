@@ -5,13 +5,9 @@ edition = "2024"
 build = "build.rs"
 
 [dependencies]
-crudkit-condition = { path = "../../../crudkit-core/crates/crudkit-condition" }
 crudkit-core = { path = "../../../crudkit-core/crates/crudkit-core" }
-crudkit-id = { path = "../../../crudkit-core/crates/crudkit-id" }
-crudkit-validation = { path = "../../../crudkit-core/crates/crudkit-validation" }
-crudkit-web = { path = "../../../crudkit-web/crates/crudkit-web" }
-crudkit-collaboration = { path = "../../../crudkit-core/crates/crudkit-collaboration" }
 crudkit-core-macros = { path = "../../../crudkit-core/crates/crudkit-core-macros" }
+crudkit-web = { path = "../../../crudkit-web/crates/crudkit-web" }
 crudkit-web-macros = { path = "../../../crudkit-web/crates/crudkit-web-macros" }
 
 dyn-clone = "1.0.20"

@@ -1,5 +1,7 @@
-use crudkit_core::Value;
-use crudkit_id::{IdValue, SerializableIdEntry};
+//! Query filtering DSL with condition clauses and operators.
+
+use crate::id::{IdValue, SerializableIdEntry};
+use crate::Value;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -33,7 +35,7 @@ pub struct ConditionClause {
 
 /// Values which might be part of a `ConditionClause`.
 /// You can convert a `crudkit_core::Value` using `.try_into`.
-/// You can convert a `crudkit_id::IdValue` using `.try_into`.
+/// You can convert a `crudkit_core::id::IdValue` using `.try_into`.
 #[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
 pub enum ConditionClauseValue {
     Bool(bool),
@@ -281,7 +283,7 @@ pub trait TryIntoAllEqualCondition {
     fn try_into_all_equal_condition(self) -> Result<Condition, Self::Error>;
 }
 
-impl<'a, I> TryIntoAllEqualCondition for I
+impl<I> TryIntoAllEqualCondition for I
 where
     I: Iterator<Item = SerializableIdEntry>,
 {

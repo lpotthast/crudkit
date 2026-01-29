@@ -16,9 +16,9 @@ pub use crudkit_sea_orm_macros::{CkSeaOrmCreateModel as CkCreateModel, CkSeaOrmU
 pub use crudkit_core_macros::CkId;
 
 // Re-export dependencies used in generated code.
-pub use crudkit_condition;
 pub use crudkit_core;
-pub use crudkit_id;
+pub use crudkit_core::condition as crudkit_condition;
+pub use crudkit_core::id as crudkit_id;
 
 // Re-export key traits for convenience.
 pub use traits::{

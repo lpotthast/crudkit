@@ -1,7 +1,7 @@
 use crate::crud_action::{CrudAction, CrudEntityAction};
 use crate::fields::FieldRenderer;
 use crate::{IntoReactiveValue, ReactiveValue};
-use crudkit_condition::Condition;
+use crudkit_core::condition::Condition;
 use crudkit_core::{Order, Saved};
 use crudkit_web::prelude::*;
 use crudkit_web::reqwest_executor::ReqwestExecutor;

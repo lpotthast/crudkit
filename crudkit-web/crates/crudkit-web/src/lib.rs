@@ -30,18 +30,18 @@ use crate::request_error::RequestError;
 use crudkit_core::Value;
 
 use crate::action::CrudActionPayload;
-pub use crudkit_collaboration;
-pub use crudkit_condition;
+pub use crudkit_core::collaboration;
+pub use crudkit_core::condition;
 pub use crudkit_core;
-pub use crudkit_id;
-pub use crudkit_validation;
+pub use crudkit_core::id;
+pub use crudkit_core::validation;
 
 pub mod prelude {
-    pub use crudkit_collaboration;
-    pub use crudkit_condition;
+    pub use crudkit_core::collaboration;
+    pub use crudkit_core::condition;
     pub use crudkit_core;
-    pub use crudkit_id;
-    pub use crudkit_validation;
+    pub use crudkit_core::id;
+    pub use crudkit_core::validation;
 
     pub use crudkit_core_macros::CkId;
     pub use crudkit_web_macros::{CkActionPayload, CkField, CkResource};
@@ -167,10 +167,10 @@ pub trait Resource: PartialEq + Default + Debug + Clone + Serialize + Send + Syn
 
     type CreateModel: Model + Default + Send + Sync;
 
-    type ReadModelIdField: crudkit_id::IdField + Serialize + Send + Sync;
+    type ReadModelIdField: crudkit_core::id::IdField + Serialize + Send + Sync;
     type ReadModelId: Serialize
         + DeserializeOwned
-        + crudkit_id::Id<Field = Self::ReadModelIdField>
+        + crudkit_core::id::Id<Field = Self::ReadModelIdField>
         + PartialEq
         + Clone
         + Send
@@ -182,10 +182,10 @@ pub trait Resource: PartialEq + Default + Debug + Clone + Serialize + Send + Syn
         + Send
         + Sync;
 
-    type UpdateModelIdField: crudkit_id::IdField + Serialize + Send + Sync;
+    type UpdateModelIdField: crudkit_core::id::IdField + Serialize + Send + Sync;
     type UpdateModelId: Serialize
         + DeserializeOwned
-        + crudkit_id::Id<Field = Self::UpdateModelIdField>
+        + crudkit_core::id::Id<Field = Self::UpdateModelIdField>
         + PartialEq
         + Clone
         + Send
@@ -238,11 +238,11 @@ pub use Model as CrudModel;
 
 
 /// Re-export `HasId` from crudkit-id for typed ID access.
-pub use crudkit_id::HasId;
+pub use crudkit_core::id::HasId;
 
 
 /// Alias for backward compatibility.
-pub use crudkit_id::HasId as CrudIdTrait;
+pub use crudkit_core::id::HasId as CrudIdTrait;
 
 
 /// Re-export `Named` from crudkit_core for backwards compatibility and convenience.

@@ -1,6 +1,34 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
+//! Core types shared by both backend (crudkit-rs) and frontend (crudkit-web) layers.
+//!
+//! This crate provides the foundational types for the crudkit ecosystem:
+//!
+//! - **`id`**: Type-safe entity identifiers with composite primary key support
+//! - **`resource`**: Resource naming types
+//! - **`condition`**: Query filtering DSL
+//! - **`validation`**: Entity validation framework with severity levels
+//! - **`collaboration`**: Types for multi-user collaboration via WebSocket
+//!
+//! # Re-exports
+//!
+//! For convenience, commonly used types are re-exported at the crate root.
+
+pub mod collaboration;
+pub mod condition;
+pub mod id;
+pub mod resource;
+pub mod validation;
+
+// Re-export commonly used types at crate root.
+pub use id::{HasId, Id, IdField, IdValue, SerializableId, SerializableIdEntry};
+pub use resource::ResourceName;
+pub use validation::{
+    FullSerializableAggregateViolations, FullSerializableValidations,
+    PartialSerializableAggregateViolations, PartialSerializableValidations, ViolationsByValidator,
+};
+
 use dyn_clone::DynClone;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -216,24 +244,24 @@ pub enum Value {
     Other(Box<dyn FieldValue>),
 }
 
-impl From<crudkit_id::IdValue> for Value {
-    fn from(value: crudkit_id::IdValue) -> Self {
+impl From<IdValue> for Value {
+    fn from(value: IdValue) -> Self {
         match value {
-            crudkit_id::IdValue::I8(value) => Value::I8(value),
-            crudkit_id::IdValue::I16(value) => Value::I16(value),
-            crudkit_id::IdValue::I32(value) => Value::I32(value),
-            crudkit_id::IdValue::I64(value) => Value::I64(value),
-            crudkit_id::IdValue::I128(value) => Value::I128(value),
-            crudkit_id::IdValue::U8(value) => Value::U8(value),
-            crudkit_id::IdValue::U16(value) => Value::U16(value),
-            crudkit_id::IdValue::U32(value) => Value::U32(value),
-            crudkit_id::IdValue::U64(value) => Value::U64(value),
-            crudkit_id::IdValue::U128(value) => Value::U128(value),
-            crudkit_id::IdValue::Bool(value) => Value::Bool(value),
-            crudkit_id::IdValue::String(value) => Value::String(value),
-            crudkit_id::IdValue::Uuid(value) => Value::Uuid(value),
-            crudkit_id::IdValue::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
-            crudkit_id::IdValue::OffsetDateTime(value) => Value::OffsetDateTime(value),
+            IdValue::I8(value) => Value::I8(value),
+            IdValue::I16(value) => Value::I16(value),
+            IdValue::I32(value) => Value::I32(value),
+            IdValue::I64(value) => Value::I64(value),
+            IdValue::I128(value) => Value::I128(value),
+            IdValue::U8(value) => Value::U8(value),
+            IdValue::U16(value) => Value::U16(value),
+            IdValue::U32(value) => Value::U32(value),
+            IdValue::U64(value) => Value::U64(value),
+            IdValue::U128(value) => Value::U128(value),
+            IdValue::Bool(value) => Value::Bool(value),
+            IdValue::String(value) => Value::String(value),
+            IdValue::Uuid(value) => Value::Uuid(value),
+            IdValue::PrimitiveDateTime(value) => Value::PrimitiveDateTime(value),
+            IdValue::OffsetDateTime(value) => Value::OffsetDateTime(value),
         }
     }
 }
@@ -511,7 +539,7 @@ pub struct Saved<T> {
     /// Non-critical validation violations (warnings) associated with this entity.
     /// Empty if no violations exist.
     #[schema(value_type = Object)]
-    pub violations: crudkit_validation::PartialSerializableAggregateViolations,
+    pub violations: PartialSerializableAggregateViolations,
 }
 
 impl<T> Saved<T> {

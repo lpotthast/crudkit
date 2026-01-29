@@ -1,3 +1,5 @@
+//! Violation types and collections.
+
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::vec;

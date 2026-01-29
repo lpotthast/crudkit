@@ -13,11 +13,11 @@ use tracing::info;
 
 use super::model::{ActiveModel, Column, Entity, Model};
 use crate::validation::PersistedViolationSeverity;
-use crudkit_rs::crudkit_id::{Id, SerializableId};
-use crudkit_rs::crudkit_resource::ResourceName;
-use crudkit_rs::crudkit_validation::validator::ValidatorInfo;
-use crudkit_rs::crudkit_validation::violation::{Violation, Violations};
-use crudkit_rs::crudkit_validation::{
+use crudkit_core::id::{Id, SerializableId};
+use crudkit_core::resource::ResourceName;
+use crudkit_core::validation::validator::ValidatorInfo;
+use crudkit_core::validation::violation::{Violation, Violations};
+use crudkit_core::validation::{
     ResourceViolations, ViolationsByEntity, ViolationsByResource, ViolationsByValidator,
 };
 use crudkit_rs::repository::{RepositoryError, ValidationResultRepository};

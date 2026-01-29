@@ -1,3 +1,8 @@
+//! Type-safe entity identifiers with composite primary key support.
+//!
+//! This module provides traits and types for working with entity IDs in a type-safe manner.
+//! Unlike most CRUD frameworks, this supports composite primary keys via the [`Id`] trait.
+
 use dyn_clone::DynClone;
 use dyn_eq::DynEq;
 use serde::{Deserialize, Serialize};
@@ -219,7 +224,7 @@ impl Id for SerializableId {
 
 #[cfg(test)]
 mod tests {
-    use crate::{IdValue, SerializableId, SerializableIdEntry};
+    use super::*;
     use assertr::prelude::*;
 
     #[test]

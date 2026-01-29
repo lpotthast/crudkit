@@ -1,4 +1,4 @@
-use crudkit_rs::crudkit_validation::violation::Severity;
+use crudkit_core::validation::violation::Severity;
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 

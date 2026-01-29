@@ -313,7 +313,7 @@ fn generate_id_struct(
             let id_value_match = to_id_value_match_extraction(&it.ty);
             quote! {
                 let #ident = {
-                    let crudkit_id::SerializableIdEntry { field_name: _, value } = id.entries().find(|entry| entry.field_name == #name)?;
+                    let crudkit_core::id::SerializableIdEntry { field_name: _, value } = id.entries().find(|entry| entry.field_name == #name)?;
                     #id_value_match
                 };
             }
@@ -341,7 +341,7 @@ fn generate_id_struct(
             }
         }
 
-        impl crudkit_id::Id for #id_struct_ident {
+        impl crudkit_core::id::Id for #id_struct_ident {
             type Field = #id_field_enum_ident;
             type FieldIter = std::vec::IntoIter<Self::Field>;
 
@@ -357,18 +357,18 @@ fn generate_id_struct(
                 ]
             }
 
-            fn to_serializable_id(&self) -> crudkit_id::SerializableId {
-                crudkit_id::SerializableId(
+            fn to_serializable_id(&self) -> crudkit_core::id::SerializableId {
+                crudkit_core::id::SerializableId(
                     self.fields_iter()
-                        .map(|field| crudkit_id::SerializableIdEntry {
-                            field_name: crudkit_id::IdField::name(&field).to_owned(),
-                            value: crudkit_id::IdField::to_value(&field),
+                        .map(|field| crudkit_core::id::SerializableIdEntry {
+                            field_name: crudkit_core::id::IdField::name(&field).to_owned(),
+                            value: crudkit_core::id::IdField::to_value(&field),
                         })
                         .collect()
                 )
             }
 
-            fn from_serializable_id(id: &crudkit_id::SerializableId) -> Option<Self> {
+            fn from_serializable_id(id: &crudkit_core::id::SerializableId) -> Option<Self> {
                 #(#from_serializable_field_extractions)*
 
                 Some(Self {
@@ -394,7 +394,7 @@ fn generate_has_id_impl(
     });
 
     quote! {
-        impl crudkit_id::HasId for #source_struct_ident {
+        impl crudkit_core::id::HasId for #source_struct_ident {
             type Id = #id_struct_ident;
 
             fn id(&self) -> Self::Id {
@@ -469,14 +469,14 @@ fn generate_id_field_enum(
             }
         }
 
-        impl crudkit_id::IdField for #id_field_enum_ident {
+        impl crudkit_core::id::IdField for #id_field_enum_ident {
             fn name(&self) -> &'static str {
                 match self {
                     #(#self_variant_to_static_name_arms),*
                 }
             }
 
-            fn to_value(&self) -> crudkit_id::IdValue {
+            fn to_value(&self) -> crudkit_core::id::IdValue {
                 match self {
                     #(#self_variant_to_id_value_variant_arms),*
                 }
@@ -487,77 +487,77 @@ fn generate_id_field_enum(
 
 /// Returns the `IdValue` variant that must be used for the field of type `ty`.
 ///
-/// For example: `crudkit_id::IdValue::I32` when `ty` is `i32`.
+/// For example: `crudkit_core::id::IdValue::I32` when `ty` is `i32`.
 fn to_id_value_variant(ty: &syn::Type) -> proc_macro2::TokenStream {
     match classify_id_type(ty) {
-        IdValueKind::I8 => quote! { crudkit_id::IdValue::I8 },
-        IdValueKind::I16 => quote! { crudkit_id::IdValue::I16 },
-        IdValueKind::I32 => quote! { crudkit_id::IdValue::I32 },
-        IdValueKind::I64 => quote! { crudkit_id::IdValue::I64 },
-        IdValueKind::I128 => quote! { crudkit_id::IdValue::I128 },
-        IdValueKind::U8 => quote! { crudkit_id::IdValue::U8 },
-        IdValueKind::U16 => quote! { crudkit_id::IdValue::U16 },
-        IdValueKind::U32 => quote! { crudkit_id::IdValue::U32 },
-        IdValueKind::U64 => quote! { crudkit_id::IdValue::U64 },
-        IdValueKind::U128 => quote! { crudkit_id::IdValue::U128 },
-        IdValueKind::Bool => quote! { crudkit_id::IdValue::Bool },
-        IdValueKind::String => quote! { crudkit_id::IdValue::String },
-        IdValueKind::Uuid => quote! { crudkit_id::IdValue::Uuid },
-        IdValueKind::PrimitiveDateTime => quote! { crudkit_id::IdValue::PrimitiveDateTime },
-        IdValueKind::OffsetDateTime => quote! { crudkit_id::IdValue::OffsetDateTime },
+        IdValueKind::I8 => quote! { crudkit_core::id::IdValue::I8 },
+        IdValueKind::I16 => quote! { crudkit_core::id::IdValue::I16 },
+        IdValueKind::I32 => quote! { crudkit_core::id::IdValue::I32 },
+        IdValueKind::I64 => quote! { crudkit_core::id::IdValue::I64 },
+        IdValueKind::I128 => quote! { crudkit_core::id::IdValue::I128 },
+        IdValueKind::U8 => quote! { crudkit_core::id::IdValue::U8 },
+        IdValueKind::U16 => quote! { crudkit_core::id::IdValue::U16 },
+        IdValueKind::U32 => quote! { crudkit_core::id::IdValue::U32 },
+        IdValueKind::U64 => quote! { crudkit_core::id::IdValue::U64 },
+        IdValueKind::U128 => quote! { crudkit_core::id::IdValue::U128 },
+        IdValueKind::Bool => quote! { crudkit_core::id::IdValue::Bool },
+        IdValueKind::String => quote! { crudkit_core::id::IdValue::String },
+        IdValueKind::Uuid => quote! { crudkit_core::id::IdValue::Uuid },
+        IdValueKind::PrimitiveDateTime => quote! { crudkit_core::id::IdValue::PrimitiveDateTime },
+        IdValueKind::OffsetDateTime => quote! { crudkit_core::id::IdValue::OffsetDateTime },
     }
 }
 
 /// Returns code to extract a value from `IdValue` for the field of type `ty`.
 ///
 /// The generated code is a match expression that extracts the value from `value`.
-/// For example: `if let crudkit_id::IdValue::I64(x) = value { x.clone() } else { return None }`
+/// For example: `if let crudkit_core::id::IdValue::I64(x) = value { x.clone() } else { return None }`
 fn to_id_value_match_extraction(ty: &syn::Type) -> proc_macro2::TokenStream {
     match classify_id_type(ty) {
         IdValueKind::I8 => {
-            quote! { if let crudkit_id::IdValue::I8(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::I8(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::I16 => {
-            quote! { if let crudkit_id::IdValue::I16(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::I16(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::I32 => {
-            quote! { if let crudkit_id::IdValue::I32(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::I32(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::I64 => {
-            quote! { if let crudkit_id::IdValue::I64(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::I64(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::I128 => {
-            quote! { if let crudkit_id::IdValue::I128(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::I128(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::U8 => {
-            quote! { if let crudkit_id::IdValue::U8(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::U8(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::U16 => {
-            quote! { if let crudkit_id::IdValue::U16(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::U16(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::U32 => {
-            quote! { if let crudkit_id::IdValue::U32(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::U32(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::U64 => {
-            quote! { if let crudkit_id::IdValue::U64(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::U64(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::U128 => {
-            quote! { if let crudkit_id::IdValue::U128(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::U128(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::Bool => {
-            quote! { if let crudkit_id::IdValue::Bool(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::Bool(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::String => {
-            quote! { if let crudkit_id::IdValue::String(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::String(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::Uuid => {
-            quote! { if let crudkit_id::IdValue::Uuid(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::Uuid(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::PrimitiveDateTime => {
-            quote! { if let crudkit_id::IdValue::PrimitiveDateTime(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::PrimitiveDateTime(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::OffsetDateTime => {
-            quote! { if let crudkit_id::IdValue::OffsetDateTime(x) = value { x.clone() } else { return None } }
+            quote! { if let crudkit_core::id::IdValue::OffsetDateTime(x) = value { x.clone() } else { return None } }
         }
     }
 }

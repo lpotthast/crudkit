@@ -35,24 +35,20 @@ pub mod stores;
 * to manually depend on other crud crates such as "crudkit_id",
 * which are required for many derive macro implementations.
 */
-pub use crudkit_collaboration;
-pub use crudkit_condition;
 pub use crudkit_core;
-pub use crudkit_id;
-pub use crudkit_validation;
 pub use crudkit_web;
 
 use crudkit_core::{FieldValue, TimeDuration, Value};
 use leptos::prelude::*;
 
 pub mod prelude {
-    pub use crudkit_collaboration;
-    pub use crudkit_condition;
     pub use crudkit_core;
+    pub use crudkit_core::collaboration;
+    pub use crudkit_core::condition;
+    pub use crudkit_core::id;
+    pub use crudkit_core::id::*;
+    pub use crudkit_core::validation;
     pub use crudkit_core::*;
-    pub use crudkit_id;
-    pub use crudkit_id::*;
-    pub use crudkit_validation;
     pub use crudkit_web;
     pub use crudkit_web::prelude::*;
 

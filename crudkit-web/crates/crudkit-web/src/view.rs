@@ -1,12 +1,12 @@
-use crudkit_id::SerializableId;
+use crudkit_core::id::SerializableId;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CrudView<ReadId, UpdateId>
 where
-    ReadId: crudkit_id::Id + Serialize + DeserializeOwned,
-    UpdateId: crudkit_id::Id + Serialize + DeserializeOwned,
+    ReadId: crudkit_core::id::Id + Serialize + DeserializeOwned,
+    UpdateId: crudkit_core::id::Id + Serialize + DeserializeOwned,
 {
     List,
     Create,
@@ -29,8 +29,8 @@ pub enum SerializableCrudView {
 
 impl<ReadId, UpdateId> Into<SerializableCrudView> for CrudView<ReadId, UpdateId>
 where
-    ReadId: crudkit_id::Id + Serialize + DeserializeOwned,
-    UpdateId: crudkit_id::Id + Serialize + DeserializeOwned,
+    ReadId: crudkit_core::id::Id + Serialize + DeserializeOwned,
+    UpdateId: crudkit_core::id::Id + Serialize + DeserializeOwned,
 {
     fn into(self) -> SerializableCrudView {
         match self {
@@ -44,8 +44,8 @@ where
 
 impl<ReadId, UpdateId> Default for CrudView<ReadId, UpdateId>
 where
-    ReadId: crudkit_id::Id + Serialize + DeserializeOwned,
-    UpdateId: crudkit_id::Id + Serialize + DeserializeOwned,
+    ReadId: crudkit_core::id::Id + Serialize + DeserializeOwned,
+    UpdateId: crudkit_core::id::Id + Serialize + DeserializeOwned,
 {
     fn default() -> Self {
         Self::List

@@ -1,3 +1,5 @@
+//! Resource naming types.
+
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
@@ -28,7 +30,7 @@ impl std::fmt::Display for ResourceName {
 
 #[cfg(test)]
 mod tests {
-    use crate::ResourceName;
+    use super::*;
     use assertr::prelude::*;
 
     #[test]

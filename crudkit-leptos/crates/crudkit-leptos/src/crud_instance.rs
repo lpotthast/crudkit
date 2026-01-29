@@ -10,9 +10,9 @@ use crate::crud_instance_config::{ItemsPerPage, PageNr};
 use crate::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
 use crate::crud_list_view::CrudListView;
 use crate::crud_read_view::CrudReadView;
-use crudkit_condition::{Condition, ConditionClause, ConditionElement};
+use crudkit_core::condition::{Condition, ConditionClause, ConditionElement};
 use crudkit_core::{Deleted, DeletedMany, Order};
-use crudkit_id::{SerializableId, SerializableIdEntry};
+use crudkit_core::id::{SerializableId, SerializableIdEntry};
 use crudkit_web::prelude::*;
 use crudkit_web::request_error::CrudOperationError;
 use crudkit_web::request_error::RequestError;
@@ -249,14 +249,14 @@ pub fn CrudInstance(
                     .expect("referenced field to be an ID field.");
                 Condition::All(vec![ConditionElement::Clause(ConditionClause {
                     column_name: parent.referencing_field.to_string(),
-                    operator: crudkit_condition::Operator::Equal,
+                    operator: crudkit_core::condition::Operator::Equal,
                     value: value.clone().try_into().unwrap(),
                 })])
             })
     });
     let base_condition = config.base_condition.clone();
     let base_condition = Signal::derive(move || {
-        crudkit_condition::merge_conditions(
+        crudkit_core::condition::merge_conditions(
             parent_id_referencing_condition.get(),
             base_condition.clone(),
         )
@@ -562,7 +562,7 @@ fn handle_delete_result(result: Result<Deleted, RequestError>) {
 /// Build a condition from a list of entities.
 /// Each entity's ID fields are combined with AND, and all entities are combined with OR.
 fn build_condition_from_entities(entities: &[DynReadModel]) -> Condition {
-    use crudkit_condition::TryIntoAllEqualCondition;
+    use crudkit_core::condition::TryIntoAllEqualCondition;
 
     if entities.is_empty() {
         return Condition::none();
