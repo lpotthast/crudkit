@@ -9,7 +9,6 @@
 
 use crate::{CrudModel, HasId, Named};
 use crudkit_core::Value;
-use crudkit_id::SerializableId;
 use dyn_clone::DynClone;
 use dyn_eq::DynEq;
 use dyn_hash::DynHash;
@@ -18,16 +17,9 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 
-/// Anything that has an identifier in form of a `SerializableId`.
-///
-/// Trait is expected to be object safe.
-pub trait ErasedIdentifiable: Debug + DynClone + DynEq + Send + Sync {
-    fn id(&self) -> SerializableId;
-}
-dyn_eq::eq_trait_object!(ErasedIdentifiable);
-dyn_clone::clone_trait_object!(ErasedIdentifiable);
-
-pub type DynIdentifiable = Arc<dyn ErasedIdentifiable>;
+// Re-export from crudkit-id for backwards compatibility.
+pub use crudkit_id::DynIdentifiable;
+pub use crudkit_id::ErasedIdentifiable;
 
 #[typetag::serde]
 pub trait ErasedModel:

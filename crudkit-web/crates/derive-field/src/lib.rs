@@ -496,7 +496,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                impl crudkit_web::model::ErasedIdentifiable for #name {
+                impl crudkit_id::ErasedIdentifiable for #name {
                     fn id(&self) -> crudkit_id::SerializableId {
                         let typed_id = crudkit_id::HasId::id(&self);
                         crudkit_id::Id::to_serializable_id(&typed_id)

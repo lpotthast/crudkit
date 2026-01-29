@@ -1,4 +1,5 @@
 use dyn_clone::DynClone;
+use dyn_eq::DynEq;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
@@ -6,6 +7,8 @@ use std::sync::Arc;
 use utoipa::ToSchema;
 
 pub mod prelude {
+    pub use super::DynIdentifiable;
+    pub use super::ErasedIdentifiable;
     pub use super::HasId;
     pub use super::Id;
     pub use super::IdField;
@@ -32,6 +35,19 @@ impl<T: HasId> HasId for &T {
         T::id(self)
     }
 }
+
+/// Type-erased trait for anything that has an identifier in form of a `SerializableId`.
+///
+/// This trait is object-safe, allowing it to be used as `dyn ErasedIdentifiable`
+/// for runtime polymorphism over different ID types.
+pub trait ErasedIdentifiable: Debug + DynClone + DynEq + Send + Sync {
+    fn id(&self) -> SerializableId;
+}
+dyn_eq::eq_trait_object!(ErasedIdentifiable);
+dyn_clone::clone_trait_object!(ErasedIdentifiable);
+
+/// A type-erased, reference-counted identifiable value.
+pub type DynIdentifiable = Arc<dyn ErasedIdentifiable>;
 
 /// Values which might be part of an entities ID.
 ///
