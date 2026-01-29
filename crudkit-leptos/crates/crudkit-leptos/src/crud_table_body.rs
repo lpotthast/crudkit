@@ -13,9 +13,9 @@ use std::sync::Arc;
 
 #[component]
 pub fn CrudTableBody(
-    #[prop(into)] data: Signal<Result<Arc<Vec<AnyReadModel>>, NoDataAvailable>>,
+    #[prop(into)] data: Signal<Result<Arc<Vec<DynReadModel>>, NoDataAvailable>>,
     #[prop(into)] headers: Signal<Vec<Header>>,
-    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyReadField>>,
+    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<DynReadField>>,
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
@@ -23,7 +23,7 @@ pub fn CrudTableBody(
 ) -> impl IntoView {
     let ctx = expect_context::<CrudInstanceContext>();
 
-    let render_entry = move |entity: AnyReadModel| {
+    let render_entry = move |entity: DynReadModel| {
         // A signal map is required to render custom fields,
         // as each custom field may want to access values of other fields to determine its rendering output or processing!
         let signals = StoredValue::new(
@@ -35,7 +35,7 @@ pub fn CrudTableBody(
         ); // TODO: Can we get rid of this clone???
 
         // TODO: Check https://github.com/rust-lang/rfcs/issues/2407, we might be able to remove explicit clones in the future!
-        let stored_entity: ReadSignal<AnyReadModel> = RwSignal::new(entity).read_only(); // TODO: Move signal creation up
+        let stored_entity: ReadSignal<DynReadModel> = RwSignal::new(entity).read_only(); // TODO: Move signal creation up
 
         let with_actions = Signal::derive(move || {
             !additional_item_actions.get().is_empty()
@@ -59,19 +59,19 @@ pub fn CrudTableBody(
         let toggle_selected = move || list_ctx.toggle_entity_selection(stored_entity.get());
 
         // TODO: These closures are now identical...
-        let read = move |entity: AnyReadModel| instance_ctx.read(entity.get_id());
-        let edit = move |entity: AnyReadModel| instance_ctx.edit(entity.get_id());
-        let delete = move |entity: AnyReadModel| {
-            instance_ctx.request_deletion_of(AnyReadOrUpdateModel::Read(entity))
+        let read = move |entity: DynReadModel| instance_ctx.read(entity.id());
+        let edit = move |entity: DynReadModel| instance_ctx.edit(entity.id());
+        let delete = move |entity: DynReadModel| {
+            instance_ctx.request_deletion_of(DynReadOrUpdateModel::Read(entity))
         };
         // TODO: why is this Arc<Box<...>>?
         let trigger_action =
-            move |_entity: AnyReadModel, _action: Arc<Box<dyn CrudActionTrait>>| todo!();
+            move |_entity: DynReadModel, _action: Arc<Box<dyn CrudActionTrait>>| todo!();
 
         let dummy_value_changed_callback = Callback::new(move |_| {});
 
         view! {
-            <TableRow attr:class="interactable" on:click=move |_e| { instance_ctx.edit(stored_entity.get().get_id()) }>
+            <TableRow attr:class="interactable" on:click=move |_e| { instance_ctx.edit(stored_entity.get().id()) }>
                 <TableCell attr:class="select fit-content" on:click=move |e| e.stop_propagation()>
                     <Checkbox checked=is_selected set_checked=move |checked| {
                         if checked != is_selected.get_untracked() {
@@ -82,11 +82,11 @@ pub fn CrudTableBody(
 
                 <For
                     each=move || headers.get()
-                    key=|header| header.field.get_name()
+                    key=|header| header.field.name()
                     children=move |Header { field, options }| {
                         // TODO: Why is this access to stored_entity necessary?
                         let _ = stored_entity.get();
-                        let reactive_value = *signals.read_value().get(&field).unwrap_or_else(|| panic!("Expected reactive value for field '{}'", field.get_name()));
+                        let reactive_value = *signals.read_value().get(&field).unwrap_or_else(|| panic!("Expected reactive value for field '{}'", field.name()));
                         view! {
                             // TODO: Is it ok to recreate this reactive value on the fly?
                             // TODO: Optimize. Do we still need a StoredEntity?
@@ -152,9 +152,9 @@ pub fn CrudTableBody(
                                             })}
                                         <For
                                             each=move || additional_item_actions.get()
-                                            key=|entity| entity.get_name()
+                                            key=|action| action.name()
                                             children=move |action| {
-                                                let icon = action.get_icon().unwrap_or(icondata::BsQuestion);
+                                                let icon = action.icon().unwrap_or(icondata::BsQuestion);
                                                 view! {
                                                     <div
                                                         class="action-icon"
@@ -196,7 +196,7 @@ pub fn CrudTableBody(
                             view! {
                                 <For
                                     each=move || data.as_ref().clone()
-                                    key=|entity| entity.get_id()
+                                    key=|entity| entity.id()
                                     children=render_entry
                                 />
                             }.into_any()

@@ -42,21 +42,21 @@ impl PageNr {
 /// Definition of a column, shown in list view.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Header {
-    pub field: AnyReadField,
+    pub field: DynReadField,
     pub options: HeaderOptions,
 }
 
 impl Header {
-    pub fn showing(field: impl ReadField, options: HeaderOptions) -> Header {
+    pub fn showing(field: impl ErasedReadField, options: HeaderOptions) -> Header {
         Self {
-            field: AnyReadField::new(field),
+            field: DynReadField::new(field),
             options,
         }
     }
 }
 
-impl From<(AnyReadField, HeaderOptions)> for Header {
-    fn from((field, options): (AnyReadField, HeaderOptions)) -> Self {
+impl From<(DynReadField, HeaderOptions)> for Header {
+    fn from((field, options): (DynReadField, HeaderOptions)) -> Self {
         Self { field, options }
     }
 }
@@ -77,22 +77,22 @@ impl From<(AnyReadField, HeaderOptions)> for Header {
 ///
 /// This registry allows to specify (2).
 #[derive(Debug, Clone)]
-pub struct FieldRendererRegistry<F: DynField> {
+pub struct FieldRendererRegistry<F: TypeErasedField> {
     pub(crate) reg: HashMap<F, FieldRenderer<F>>,
 }
 
-impl<F: DynField> FieldRendererRegistry<F> {
+impl<F: TypeErasedField> FieldRendererRegistry<F> {
     pub fn builder() -> FieldRendererRegistryBuilder<F> {
         FieldRendererRegistryBuilder::new()
     }
 }
 
 #[derive(Debug)]
-pub struct FieldRendererRegistryBuilder<F: DynField> {
+pub struct FieldRendererRegistryBuilder<F: TypeErasedField> {
     reg: HashMap<F, FieldRenderer<F>>,
 }
 
-impl<F: DynField> FieldRendererRegistryBuilder<F> {
+impl<F: TypeErasedField> FieldRendererRegistryBuilder<F> {
     fn new() -> Self {
         Self {
             reg: HashMap::new(),
@@ -117,7 +117,7 @@ pub struct CrudInstanceConfig {
     pub list_columns: Vec<Header>,
     pub create_elements: CreateElements,
     pub elements: UpdateElements,
-    pub order_by: IndexMap<AnyReadField, Order>,
+    pub order_by: IndexMap<DynReadField, Order>,
     /// The number of items shown per page in the list view.
     pub items_per_page: ItemsPerPage,
     /// The current page to display, e.g. `Page::first()`. One-based index.
@@ -130,9 +130,9 @@ pub struct CrudInstanceConfig {
     pub model_handler: ModelHandler,
     pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction>,
-    pub read_field_renderer: FieldRendererRegistry<AnyReadField>,
-    pub create_field_renderer: FieldRendererRegistry<AnyCreateField>,
-    pub update_field_renderer: FieldRendererRegistry<AnyUpdateField>,
+    pub read_field_renderer: FieldRendererRegistry<DynReadField>,
+    pub create_field_renderer: FieldRendererRegistry<DynCreateField>,
+    pub update_field_renderer: FieldRendererRegistry<DynUpdateField>,
 }
 
 impl CrudInstanceConfig {
@@ -170,7 +170,7 @@ pub(crate) struct CrudMutableInstanceConfig {
     pub headers: Vec<Header>,
     pub create_elements: CreateElements,
     pub elements: UpdateElements,
-    pub order_by: IndexMap<AnyReadField, Order>,
+    pub order_by: IndexMap<DynReadField, Order>,
     pub items_per_page: ItemsPerPage,
     pub page: PageNr,
     pub base_condition: Option<Condition>,
@@ -184,9 +184,9 @@ pub(crate) struct CrudStaticInstanceConfig {
     pub model_handler: ModelHandler,
     pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction>,
-    pub read_field_renderer: FieldRendererRegistry<AnyReadField>,
-    pub create_field_renderer: FieldRendererRegistry<AnyCreateField>,
-    pub update_field_renderer: FieldRendererRegistry<AnyUpdateField>,
+    pub read_field_renderer: FieldRendererRegistry<DynReadField>,
+    pub create_field_renderer: FieldRendererRegistry<DynCreateField>,
+    pub update_field_renderer: FieldRendererRegistry<DynUpdateField>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -201,49 +201,49 @@ pub struct CrudParentConfig {
     pub referencing_field: Cow<'static, str>, // TODO: This should be: T::ReadModel::Field? (ClusterCertificateField::CreatedAt)
 }
 
-pub type UpdateElements = Vec<Elem<AnyUpdateField>>;
+pub type UpdateElements = Vec<Elem<DynUpdateField>>;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CreateElements {
     None,
-    Custom(Vec<Elem<AnyCreateField>>),
+    Custom(Vec<Elem<DynCreateField>>),
 }
 
 #[derive(Debug, Clone)]
 pub struct ModelHandler {
     pub deserialize_read_many_response:
-        Callback<serde_json::Value, Result<Vec<AnyReadModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<Vec<DynReadModel>, serde_json::Error>>,
     pub deserialize_read_one_response:
-        Callback<serde_json::Value, Result<Option<AnyReadModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<Option<DynReadModel>, serde_json::Error>>,
     pub deserialize_create_one_response:
-        Callback<serde_json::Value, Result<Saved<AnyUpdateModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<Saved<DynUpdateModel>, serde_json::Error>>,
     pub deserialize_update_one_response:
-        Callback<serde_json::Value, Result<Saved<AnyUpdateModel>, serde_json::Error>>,
+        Callback<serde_json::Value, Result<Saved<DynUpdateModel>, serde_json::Error>>,
 
-    pub read_model_to_update_model: Callback<AnyReadModel, AnyUpdateModel>,
+    pub read_model_to_update_model: Callback<DynReadModel, DynUpdateModel>,
     pub create_model_to_signal_map:
-        Callback<AnyCreateModel, HashMap<AnyCreateField, ReactiveValue>>,
-    pub read_model_to_signal_map: Callback<AnyReadModel, HashMap<AnyReadField, ReactiveValue>>,
+        Callback<DynCreateModel, HashMap<DynCreateField, ReactiveValue>>,
+    pub read_model_to_signal_map: Callback<DynReadModel, HashMap<DynReadField, ReactiveValue>>,
     pub update_model_to_signal_map:
-        Callback<AnyUpdateModel, HashMap<AnyUpdateField, ReactiveValue>>,
-    pub get_create_model_field: Callback<Cow<'static, str>, AnyCreateField>,
-    pub get_default_create_model: Callback<(), AnyCreateModel>,
+        Callback<DynUpdateModel, HashMap<DynUpdateField, ReactiveValue>>,
+    pub get_create_model_field: Callback<Cow<'static, str>, DynCreateField>,
+    pub get_default_create_model: Callback<(), DynCreateModel>,
 }
 
 impl ModelHandler {
     pub fn new<Create, Read, Update>() -> ModelHandler
     where
-        Create: CreateModel + CrudModel + Default,
-        Read: ReadModel + CrudModel,
-        Update: UpdateModel + CrudModel + From<Read>,
-        <Read as CrudModel>::Field: ReadField,
-        <Create as CrudModel>::Field: CreateField,
-        <Update as CrudModel>::Field: UpdateField,
+        Create: ErasedCreateModel + CrudModel + Default,
+        Read: ErasedReadModel + CrudModel,
+        Update: ErasedUpdateModel + CrudModel + From<Read>,
+        <Read as CrudModel>::Field: ErasedReadField,
+        <Create as CrudModel>::Field: ErasedCreateField,
+        <Update as CrudModel>::Field: ErasedUpdateField,
     {
         let deserialize_update_model = Callback::new(move |json| {
             let saved: Saved<Update> = serde_json::from_value(json)?;
             Ok(Saved {
-                entity: AnyUpdateModel::from(saved.entity),
+                entity: DynUpdateModel::from(saved.entity),
                 violations: saved.violations,
             })
         });
@@ -252,49 +252,49 @@ impl ModelHandler {
             deserialize_read_many_response: Callback::new(move |json| {
                 Ok(serde_json::from_value::<Vec<Read>>(json)?
                     .into_iter()
-                    .map(AnyReadModel::from)
-                    .collect::<Vec<AnyReadModel>>())
+                    .map(DynReadModel::from)
+                    .collect::<Vec<DynReadModel>>())
             }),
             deserialize_read_one_response: Callback::new(move |json| {
-                Ok(serde_json::from_value::<Option<Read>>(json)?.map(AnyReadModel::from))
+                Ok(serde_json::from_value::<Option<Read>>(json)?.map(DynReadModel::from))
             }),
             deserialize_create_one_response: deserialize_update_model,
             deserialize_update_one_response: deserialize_update_model,
-            read_model_to_update_model: Callback::new(move |read_model: AnyReadModel| {
-                AnyUpdateModel::from(Update::from(read_model.downcast::<Read>()))
+            read_model_to_update_model: Callback::new(move |read_model: DynReadModel| {
+                DynUpdateModel::from(Update::from(read_model.downcast::<Read>()))
             }),
-            create_model_to_signal_map: Callback::new(move |create_model: AnyCreateModel| {
+            create_model_to_signal_map: Callback::new(move |create_model: DynCreateModel| {
                 let create_model: &Create = create_model.downcast_ref::<Create>();
-                let mut map: HashMap<AnyCreateField, ReactiveValue> = HashMap::new();
-                for field in Create::get_all_fields() {
-                    let initial = CrudFieldValueTrait::get_value(&field, create_model);
-                    map.insert(AnyCreateField::from(field), initial.into_reactive_value());
+                let mut map: HashMap<DynCreateField, ReactiveValue> = HashMap::new();
+                for field in Create::all_fields() {
+                    let initial = CrudFieldValueTrait::value(&field, create_model);
+                    map.insert(DynCreateField::from(field), initial.into_reactive_value());
                 }
                 map
             }),
-            read_model_to_signal_map: Callback::new(move |read_model: AnyReadModel| {
+            read_model_to_signal_map: Callback::new(move |read_model: DynReadModel| {
                 let read_model: &Read = read_model.downcast_ref::<Read>();
-                let mut map: HashMap<AnyReadField, ReactiveValue> = HashMap::new();
-                for field in Read::get_all_fields() {
-                    let initial = CrudFieldValueTrait::get_value(&field, read_model);
-                    map.insert(AnyReadField::from(field), initial.into_reactive_value());
+                let mut map: HashMap<DynReadField, ReactiveValue> = HashMap::new();
+                for field in Read::all_fields() {
+                    let initial = CrudFieldValueTrait::value(&field, read_model);
+                    map.insert(DynReadField::from(field), initial.into_reactive_value());
                 }
                 map
             }),
-            update_model_to_signal_map: Callback::new(move |update_model: AnyUpdateModel| {
+            update_model_to_signal_map: Callback::new(move |update_model: DynUpdateModel| {
                 let update_model: &Update = update_model.downcast_ref::<Update>();
-                let mut map: HashMap<AnyUpdateField, ReactiveValue> = HashMap::new();
-                for field in Update::get_all_fields() {
-                    let initial = CrudFieldValueTrait::get_value(&field, update_model);
-                    map.insert(AnyUpdateField::from(field), initial.into_reactive_value());
+                let mut map: HashMap<DynUpdateField, ReactiveValue> = HashMap::new();
+                for field in Update::all_fields() {
+                    let initial = CrudFieldValueTrait::value(&field, update_model);
+                    map.insert(DynUpdateField::from(field), initial.into_reactive_value());
                 }
                 map
             }),
             get_create_model_field: Callback::new(move |field_name: Cow<'static, str>| {
-                AnyCreateField::from(Create::get_field(field_name.as_ref()))
+                DynCreateField::from(Create::field(field_name.as_ref()))
             }),
             get_default_create_model: Callback::new(move |()| {
-                AnyCreateModel::from(Create::default())
+                DynCreateModel::from(Create::default())
             }),
         }
     }

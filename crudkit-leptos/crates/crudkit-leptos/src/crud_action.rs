@@ -22,7 +22,7 @@ pub struct ResourceActionViewInput {
 #[derive(Clone, Copy)]
 pub struct EntityActionViewInput {
     pub show_when: Signal<bool>,
-    pub state: Signal<Option<AnyUpdateModel>>,
+    pub state: Signal<Option<DynUpdateModel>>,
     pub cancel: Callback<()>,
     pub execute: Callback<Option<AnyActionPayload>>,
 }
@@ -36,7 +36,7 @@ pub struct ResourceActionInput {
 pub struct EntityActionInput {
     /// The current state of this entity when the action is invoked. This includes all unsaved
     /// changes.
-    pub update_model: AnyUpdateModel,
+    pub update_model: DynUpdateModel,
 
     /// A payload for this action.
     pub payload: Option<AnyActionPayload>,
@@ -197,7 +197,7 @@ pub struct CrudActionAftermath {
 /// TODO: Should this be dyn compatible?
 /// TODO: Move methods to AnyAction!
 pub trait CrudActionTrait: Named + Debug + Send + Sync {
-    fn get_icon(&self) -> Option<icondata::Icon>;
+    fn icon(&self) -> Option<icondata::Icon>;
     fn eq(&self, other: &dyn CrudActionTrait) -> bool;
 }
 
@@ -218,18 +218,18 @@ impl Default for ShowListViewAction {
 }
 
 impl Named for ShowListViewAction {
-    fn get_name(&self) -> Cow<'static, str> {
+    fn name(&self) -> Cow<'static, str> {
         Cow::Owned(self.name.clone())
     }
 }
 
 impl CrudActionTrait for ShowListViewAction {
-    fn get_icon(&self) -> Option<icondata::Icon> {
+    fn icon(&self) -> Option<icondata::Icon> {
         self.icon
     }
 
     fn eq(&self, other: &dyn CrudActionTrait) -> bool {
-        self.get_icon() == other.get_icon() && self.get_name() == other.get_name()
+        self.icon() == other.icon() && self.name() == other.name()
     }
 }
 
@@ -250,18 +250,18 @@ impl Default for ShowReadViewAction {
 }
 
 impl Named for ShowReadViewAction {
-    fn get_name(&self) -> Cow<'static, str> {
+    fn name(&self) -> Cow<'static, str> {
         Cow::Owned(self.name.clone())
     }
 }
 
 impl CrudActionTrait for ShowReadViewAction {
-    fn get_icon(&self) -> Option<icondata::Icon> {
+    fn icon(&self) -> Option<icondata::Icon> {
         self.icon
     }
 
     fn eq(&self, other: &dyn CrudActionTrait) -> bool {
-        self.get_icon() == other.get_icon() && self.get_name() == other.get_name()
+        self.icon() == other.icon() && self.name() == other.name()
     }
 }
 
@@ -282,18 +282,18 @@ impl Default for ShowEditViewAction {
 }
 
 impl Named for ShowEditViewAction {
-    fn get_name(&self) -> Cow<'static, str> {
+    fn name(&self) -> Cow<'static, str> {
         Cow::Owned(self.name.clone())
     }
 }
 
 impl CrudActionTrait for ShowEditViewAction {
-    fn get_icon(&self) -> Option<icondata::Icon> {
+    fn icon(&self) -> Option<icondata::Icon> {
         self.icon
     }
 
     fn eq(&self, other: &dyn CrudActionTrait) -> bool {
-        self.get_icon() == other.get_icon() && self.get_name() == other.get_name()
+        self.icon() == other.icon() && self.name() == other.name()
     }
 }
 
@@ -314,18 +314,18 @@ impl Default for DeleteAction {
 }
 
 impl Named for DeleteAction {
-    fn get_name(&self) -> Cow<'static, str> {
+    fn name(&self) -> Cow<'static, str> {
         Cow::Owned(self.name.clone())
     }
 }
 
 impl CrudActionTrait for DeleteAction {
-    fn get_icon(&self) -> Option<icondata::Icon> {
+    fn icon(&self) -> Option<icondata::Icon> {
         self.icon
     }
 
     fn eq(&self, other: &dyn CrudActionTrait) -> bool {
-        self.get_icon() == other.get_icon() && self.get_name() == other.get_name()
+        self.icon() == other.icon() && self.name() == other.name()
     }
 }
 

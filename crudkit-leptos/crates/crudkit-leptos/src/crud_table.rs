@@ -5,7 +5,7 @@ use crate::crud_table_body::CrudTableBody;
 use crate::crud_table_footer::CrudTableFooter;
 use crate::crud_table_header::CrudTableHeader;
 use crudkit_core::Order;
-use crudkit_web::prelude::{AnyReadField, AnyReadModel};
+use crudkit_web::prelude::{DynReadField, DynReadModel};
 use crudkit_web::request_error::RequestError;
 use indexmap::IndexMap;
 use leptonic::components::table::{Table, TableContainer};
@@ -22,9 +22,9 @@ pub enum NoDataAvailable {
 #[component]
 pub fn CrudTable(
     #[prop(into)] headers: Signal<Vec<Header>>,
-    #[prop(into)] order_by: Signal<IndexMap<AnyReadField, Order>>,
-    #[prop(into)] data: Signal<Result<Arc<Vec<AnyReadModel>>, NoDataAvailable>>,
-    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyReadField>>,
+    #[prop(into)] order_by: Signal<IndexMap<DynReadField, Order>>,
+    #[prop(into)] data: Signal<Result<Arc<Vec<DynReadModel>>, NoDataAvailable>>,
+    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<DynReadField>>,
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,

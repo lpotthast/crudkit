@@ -474,7 +474,7 @@ pub fn store(input: TokenStream) -> TokenStream {
     let id_impl = match id_fields.len() {
         // TODO: Create an error, as every aggregate needs an id?
         0 => quote! {},
-        // Implement the `crudkit_web::CrudIdTrait` trait if there are id fields in the struct.
+        // Implement the `crudkit_id::HasId` trait if there are id fields in the struct.
         _ => {
             let id_struct_ident = Ident::new(format!("{}Id", name).as_str(), name.span());
 
@@ -484,22 +484,22 @@ pub fn store(input: TokenStream) -> TokenStream {
                 quote! { #ident: self.#ident.clone() } // TODO: Always clone here?
             });
 
-            // Implements the main 'CrudIdTrait' for our base type. Allowing the user to access the ID of the entity.
+            // Implements the main 'HasId' trait for our base type. Allowing the user to access the ID of the entity.
             quote! {
-                impl crudkit_web::CrudIdTrait for #name {
+                impl crudkit_id::HasId for #name {
                     type Id = #id_struct_ident;
 
-                    fn get_id(&self) -> Self::Id {
+                    fn id(&self) -> Self::Id {
                         Self::Id {
                             #(#init_id_struct_fields),*
                         }
                     }
                 }
 
-                impl crudkit_web::model::Identifiable for #name {
-                    fn get_id(&self) -> crudkit_id::SerializableId {
-                        let id = crudkit_web::CrudIdTrait::get_id(&self);
-                        crudkit_id::Id::to_serializable_id(&id)
+                impl crudkit_web::model::ErasedIdentifiable for #name {
+                    fn id(&self) -> crudkit_id::SerializableId {
+                        let typed_id = crudkit_id::HasId::id(&self);
+                        crudkit_id::Id::to_serializable_id(&typed_id)
                     }
                 }
             }
@@ -558,17 +558,17 @@ pub fn store(input: TokenStream) -> TokenStream {
     let model_type_based_model_trait_impl = match input.model {
         ModelType::Create => quote! {
             #[typetag::serde]
-            impl crudkit_web::model::CreateModel for #name {
+            impl crudkit_web::model::ErasedCreateModel for #name {
             }
         },
         ModelType::Read => quote! {
             #[typetag::serde]
-            impl crudkit_web::model::ReadModel for #name {
+            impl crudkit_web::model::ErasedReadModel for #name {
             }
         },
         ModelType::Update => quote! {
             #[typetag::serde]
-            impl crudkit_web::model::UpdateModel for #name {
+            impl crudkit_web::model::ErasedUpdateModel for #name {
             }
         },
     };
@@ -576,8 +576,8 @@ pub fn store(input: TokenStream) -> TokenStream {
     let model_type_based_field_trait_impl = match input.model {
         ModelType::Create => quote! {
             #[typetag::serde]
-            impl crudkit_web::model::CreateField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::model::AnyCreateModel, value: crudkit_core::Value) {
+            impl crudkit_web::model::ErasedCreateField for #field_name {
+                fn set_value(&self, model: &mut crudkit_web::model::DynCreateModel, value: crudkit_core::Value) {
                     let model = model.downcast_mut::<#name>();
                     crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
                 }
@@ -585,8 +585,8 @@ pub fn store(input: TokenStream) -> TokenStream {
         },
         ModelType::Read => quote! {
             #[typetag::serde]
-            impl crudkit_web::model::ReadField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::model::AnyReadModel, value: crudkit_core::Value) {
+            impl crudkit_web::model::ErasedReadField for #field_name {
+                fn set_value(&self, model: &mut crudkit_web::model::DynReadModel, value: crudkit_core::Value) {
                     let model = model.downcast_mut::<#name>();
                     crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
                 }
@@ -594,8 +594,8 @@ pub fn store(input: TokenStream) -> TokenStream {
         },
         ModelType::Update => quote! {
             #[typetag::serde]
-            impl crudkit_web::model::UpdateField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::model::AnyUpdateModel, value: crudkit_core::Value) {
+            impl crudkit_web::model::ErasedUpdateField for #field_name {
+                fn set_value(&self, model: &mut crudkit_web::model::DynUpdateModel, value: crudkit_core::Value) {
                     let model = model.downcast_mut::<#name>();
                     crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
                 }
@@ -636,7 +636,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
     let field_value_trait_impl = quote! {
         impl crudkit_web::CrudFieldValueTrait<#name> for #field_name {
-            fn get_value(&self, entity: &#name) -> crudkit_core::Value {
+            fn value(&self, entity: &#name) -> crudkit_core::Value {
                 #get_value_impl
             }
 
@@ -659,7 +659,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
 
         impl crudkit_core::Named for #field_name {
-            fn get_name(&self) -> std::borrow::Cow<'static, str> {
+            fn name(&self) -> std::borrow::Cow<'static, str> {
                 std::borrow::Cow::Borrowed(#get_name_impl)
             }
         }
@@ -669,18 +669,18 @@ pub fn store(input: TokenStream) -> TokenStream {
         impl crudkit_web::CrudModel for #name {
             type Field = #field_name;
 
-            fn get_all_fields() -> Vec<#field_name> {
+            fn all_fields() -> Vec<#field_name> {
                 vec![ #(#all_field_enum_accessors),* ]
             }
 
-            fn get_field(field_name: &str) -> #field_name {
+            fn field(field_name: &str) -> #field_name {
                 #get_field_impl
             }
         }
 
         #[typetag::serde]
-        impl crudkit_web::model::Field for #field_name {
-            fn set_value(&self, model: &mut crudkit_web::model::AnyModel, value: crudkit_core::Value) {
+        impl crudkit_web::model::ErasedField for #field_name {
+            fn set_value(&self, model: &mut crudkit_web::model::DynModel, value: crudkit_core::Value) {
                 let model = model.downcast_mut::<#name>();
                 crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
             }
@@ -695,7 +695,7 @@ pub fn store(input: TokenStream) -> TokenStream {
         }
 
         #[typetag::serde]
-        impl crudkit_web::model::Model for #name {}
+        impl crudkit_web::model::ErasedModel for #name {}
 
         #field_value_trait_impl
     }

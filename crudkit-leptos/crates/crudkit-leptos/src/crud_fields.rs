@@ -9,7 +9,7 @@ use leptos::prelude::*;
 use std::collections::HashMap;
 
 #[component]
-pub fn CrudFields<F: DynField>(
+pub fn CrudFields<F: TypeErasedField>(
     field_renderer_registry: Signal<FieldRendererRegistry<F>>,
     #[prop(into)] elements: Signal<Vec<Elem<F>>>,
     #[prop(into)] signals: StoredValue<HashMap<F, ReactiveValue>>,
@@ -91,7 +91,7 @@ pub fn CrudFields<F: DynField>(
                             value=signals.with_value(|map| {
                                 match map.get(&field) {
                                     Some(value) => *value,
-                                    None => panic!("Signal map to contain signal for field: {}", field.get_name()),
+                                    None => panic!("Signal map to contain signal for field: {}", field.name()),
                                 }
                             })
                             value_changed=value_changed

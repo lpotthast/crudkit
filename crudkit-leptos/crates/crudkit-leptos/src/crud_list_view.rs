@@ -15,11 +15,11 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CrudListViewContext {
-    pub data: Memo<Result<Arc<Vec<AnyReadModel>>, NoDataAvailable>>,
+    pub data: Memo<Result<Arc<Vec<DynReadModel>>, NoDataAvailable>>,
     pub has_data: Signal<bool>,
 
-    pub selected: ReadSignal<Arc<Vec<AnyReadModel>>>,
-    set_selected: WriteSignal<Arc<Vec<AnyReadModel>>>,
+    pub selected: ReadSignal<Arc<Vec<DynReadModel>>>,
+    set_selected: WriteSignal<Arc<Vec<DynReadModel>>>,
     pub all_selected: Signal<bool>,
 }
 
@@ -45,7 +45,7 @@ impl CrudListViewContext {
         }
     }
 
-    pub fn select(&self, entity: AnyReadModel, state: bool) {
+    pub fn select(&self, entity: DynReadModel, state: bool) {
         self.set_selected.update(|list| {
             let mut selected = list.as_ref().clone();
 
@@ -63,7 +63,7 @@ impl CrudListViewContext {
         });
     }
 
-    pub fn toggle_entity_selection(&self, entity: AnyReadModel) {
+    pub fn toggle_entity_selection(&self, entity: DynReadModel) {
         self.set_selected.update(|list| {
             let mut selected = list.as_ref().clone();
 
@@ -84,8 +84,8 @@ impl CrudListViewContext {
 pub fn CrudListView(
     #[prop(into)] data_provider: Signal<DynCrudRestDataProvider>,
     #[prop(into)] headers: Signal<Vec<Header>>,
-    #[prop(into)] order_by: Signal<IndexMap<AnyReadField, Order>>,
-    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyReadField>>,
+    #[prop(into)] order_by: Signal<IndexMap<DynReadField, Order>>,
+    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<DynReadField>>,
     #[prop(into)] actions: Signal<Vec<CrudAction>>,
 ) -> impl IntoView {
     let instance_ctx = expect_context::<CrudInstanceContext>();
@@ -158,7 +158,7 @@ pub fn CrudListView(
             .await
     });
 
-    let (selected, set_selected) = signal(Arc::new(Vec::<AnyReadModel>::new()));
+    let (selected, set_selected) = signal(Arc::new(Vec::<DynReadModel>::new()));
 
     let list_view_context = CrudListViewContext {
         data: page,

@@ -113,9 +113,18 @@ The central abstraction is the `CrudResource` trait (crudkit-rs/crates/crudkit-r
 
 ### Key Traits and Types
 
+**Shared Layer** (crudkit-core, crudkit-id):
+
+- `Model` (crudkit-core) - Base trait for all data models with typed field access
+- `Named` (crudkit-core) - Trait for types that have a `name()` method
+- `HasId` (crudkit-id) - Trait for models with typed ID access via `id()` method
+- `Id` (crudkit-id) - Trait for composite primary key types
+
 **Backend** (crudkit-rs):
 
 - `CrudResource` - Central trait defining all types for a CRUD resource
+- `Model` - Backend model trait (extends crudkit-core::Model with `Field: Field` bound)
+- `Field` - Trait for field enums providing typed access to model fields
 - `Repository<R>` - Data access abstraction with fetch/insert/update/delete operations
 - `CrudContext<R>` - Context providing access to:
     - `res_context: Arc<R::Context>` - Resource-specific context (custom state)
@@ -129,9 +138,19 @@ The central abstraction is the `CrudResource` trait (crudkit-rs/crates/crudkit-r
 
 **Web Layer** (crudkit-web):
 
-- `CrudMainTrait` - Defines frontend resource with CreateModel/ReadModel/UpdateModel
-- `CrudModel` - Model with typed fields accessible via Field enum
+- `Resource` - Central frontend trait defining CreateModel/ReadModel/UpdateModel (alias: `CrudMainTrait`)
+- `Model` - Frontend model trait with field enumeration and serialization (alias: `CrudModel`)
+- `FieldAccess<T>` - Trait for typed field value access with `value()`/`set_value()` (alias: `CrudFieldValueTrait`)
 - `CrudRestDataProvider<T>` - HTTP client for CRUD operations
+
+**Type-Erased Traits** (crudkit-web/model.rs) - Use `Erased*` for traits, `Dyn*` for wrapper types:
+
+- `ErasedModel`, `ErasedCreateModel`, `ErasedReadModel`, `ErasedUpdateModel` - Type-erased model traits
+- `ErasedField`, `ErasedCreateField`, `ErasedReadField`, `ErasedUpdateField` - Type-erased field traits
+- `ErasedIdentifiable` - Type-erased trait for models with `id() -> SerializableId`
+- `DynModel`, `DynCreateModel`, `DynReadModel`, `DynUpdateModel` - Boxed type-erased model wrappers
+- `DynCreateField`, `DynReadField`, `DynUpdateField` - Arc-wrapped type-erased field wrappers
+- `TypeErasedField` - Marker trait for `Dyn*Field` wrapper types
 
 **Frontend** (crudkit-leptos):
 
@@ -176,6 +195,27 @@ an error.**
   violations (non-critical warnings)
 - Delete operations return `Result<Deleted, CrudError>` where `Deleted` contains the count of affected entities
 
+### Naming Conventions
+
+The framework follows consistent naming patterns:
+
+**Trait Naming:**
+
+- **No `*Trait` suffix** for main abstractions: Use `Field`, `Model`, `HasId` - not `FieldTrait`, `ModelTrait`
+- **No `get_*` prefix** for simple accessors: Use `name()`, `id()`, `value()` - not `get_name()`, `get_id()`
+- **`Erased*` prefix** for type-erased traits: `ErasedModel`, `ErasedField`, `ErasedIdentifiable`
+- **`Dyn*` prefix** for type-erased wrapper types: `DynReadModel = Box<dyn ErasedReadModel>`, `DynCreateField = Arc<dyn ErasedCreateField>`
+
+**Derive Macro Prefix:**
+
+- All derive macros use the `Ck` prefix (short for CrudKit): `CkId`, `CkField`, `CkResource`, etc.
+- SeaORM-specific macros may use longer prefixes internally but are aliased for convenience
+
+**Backward Compatibility:**
+
+- Old trait names are available as type aliases (e.g., `CrudModel` = `Model`, `CrudMainTrait` = `Resource`)
+- These aliases are deprecated and will be removed in future versions
+
 ### Derive Macro Ecosystem
 
 The framework provides derive macros to reduce boilerplate:
@@ -204,11 +244,13 @@ ID can be a tuple of multiple fields (e.g., `(user_id, org_id)`).
 
 ### Core Trait Definitions
 
-- `crudkit-rs/crates/crudkit-rs/src/resource.rs` - CrudResource trait
-- `crudkit-rs/crates/crudkit-rs/src/repository.rs` - Repository trait
-- `crudkit-id/crates/crudkit-id/src/lib.rs` - Id trait
-- `crudkit-web/crates/crudkit-web/src/lib.rs` - CrudMainTrait, CrudModel
-- `crudkit-core/crates/crudkit-core/src/lib.rs` - Value enum, Order, shared types
+- `crudkit-core/crates/crudkit-core/src/lib.rs` - Base `Model` trait, `Named` trait, `Value` enum, `Order`, shared types
+- `crudkit-id/crates/crudkit-id/src/lib.rs` - `Id` trait, `HasId` trait
+- `crudkit-rs/crates/crudkit-rs/src/resource.rs` - `CrudResource` trait
+- `crudkit-rs/crates/crudkit-rs/src/data.rs` - Backend `Model` trait, `Field` trait
+- `crudkit-rs/crates/crudkit-rs/src/repository.rs` - `Repository` trait
+- `crudkit-web/crates/crudkit-web/src/lib.rs` - `Resource`, `Model`, `FieldAccess` traits
+- `crudkit-web/crates/crudkit-web/src/model.rs` - Type-erased `Dyn*` traits and `Any*` wrappers
 
 ### CRUD Operations
 
@@ -336,7 +378,7 @@ The validation system supports:
 
 **Key Types**:
 
-- `EntityValidator<R>` - Validates individual entities with `get_name()`, `get_version()`, `validate_single()`,
+- `EntityValidator<R>` - Validates individual entities with `name()`, `version()`, `validate_single()`,
   `validate_updated()`
 - `AggregateValidator<R>` - Validates aggregate-level constraints with `validate_all()`
 - `GlobalValidationState` - Atomic state for debouncing global validation runs

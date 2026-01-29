@@ -29,7 +29,7 @@ pub fn CrudReadView(
     #[prop(into)] data_provider: Signal<DynCrudRestDataProvider>,
     #[prop(into)] actions: Signal<Vec<CrudEntityAction>>,
     #[prop(into)] elements: Signal<UpdateElements>,
-    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyUpdateField>>,
+    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<DynUpdateField>>,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_tab_selected: Callback<TabId>,
 ) -> impl IntoView {
@@ -66,12 +66,12 @@ pub fn CrudReadView(
 
     // Stores the current state of the entity or an error, if no entity could be fetched.
     // Until the initial fetch request is completed, this is in the `Err(NoDataAvailable::NotYetLoaded` state!
-    let (entity, set_entity) = signal(Result::<ReadSignal<AnyUpdateModel>, NoDataAvailable>::Err(
+    let (entity, set_entity) = signal(Result::<ReadSignal<DynUpdateModel>, NoDataAvailable>::Err(
         NoDataAvailable::NotYetLoaded,
     ));
 
     // TODO: Read and Edit view have some things in common, like loading the current entity and creating the signals map. Can this be simplified or extracted?
-    let (signals, set_sig) = signal::<StoredValue<HashMap<AnyUpdateField, ReactiveValue>>>(
+    let (signals, set_sig) = signal::<StoredValue<HashMap<DynUpdateField, ReactiveValue>>>(
         StoredValue::new(HashMap::new()),
     );
 

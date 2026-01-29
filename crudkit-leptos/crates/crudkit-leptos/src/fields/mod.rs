@@ -38,7 +38,7 @@ pub mod uuid;
 pub mod validation_status;
 
 #[derive(Debug, Clone)]
-pub struct FieldRenderer<F: DynField> {
+pub struct FieldRenderer<F: TypeErasedField> {
     pub(crate) view_cb: ViewCallback<(
         StoredValue<HashMap<F, ReactiveValue>>,              // signals
         FieldMode,                                           // field_mode
@@ -48,7 +48,7 @@ pub struct FieldRenderer<F: DynField> {
     )>,
 }
 
-impl<F: DynField> FieldRenderer<F> {
+impl<F: TypeErasedField> FieldRenderer<F> {
     pub fn new<C: RenderHtml>(
         view_fn: impl Fn(
             StoredValue<HashMap<F, ReactiveValue>>,
@@ -736,7 +736,7 @@ pub fn render_label(label: Option<Label>) -> impl IntoView {
     view! { <CrudFieldLabelOpt label=label/> }
 }
 
-pub(crate) fn default_field_renderer<F: DynField>(value: ReactiveValue) -> FieldRenderer<F> {
+pub(crate) fn default_field_renderer<F: TypeErasedField>(value: ReactiveValue) -> FieldRenderer<F> {
     match value {
         ReactiveValue::Void(_) => FieldRenderer::for_void(),
         ReactiveValue::Bool(_) => FieldRenderer::for_bool(),

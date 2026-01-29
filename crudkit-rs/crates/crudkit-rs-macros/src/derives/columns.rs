@@ -156,7 +156,7 @@ pub fn expand_derive_columns(input: DeriveInput) -> syn::Result<TokenStream> {
             type Field = Col;
         }
 
-        impl crudkit_rs::data::CrudIdTrait for #name {
+        impl crudkit_rs::data::HasId for #name {
             type Id = #id_struct_ident;
 
             fn id(&self) -> Self::Id {

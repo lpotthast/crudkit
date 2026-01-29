@@ -12,7 +12,7 @@ use std::borrow::Cow;
 #[component]
 pub fn CrudTableHeader(
     #[prop(into)] headers: Signal<Vec<Header>>,
-    #[prop(into)] order_by: Signal<IndexMap<AnyReadField, Order>>,
+    #[prop(into)] order_by: Signal<IndexMap<DynReadField, Order>>,
     // Whether an action column should be displayed.
     #[prop(into)] with_actions: Signal<bool>,
     /// Recommended to be set to false when the table body does not actually display content.
@@ -23,7 +23,7 @@ pub fn CrudTableHeader(
     let instance_ctx = expect_context::<CrudInstanceContext>();
     let list_ctx = expect_context::<CrudListViewContext>();
 
-    let update_order_of_field = move |field: AnyReadField| {
+    let update_order_of_field = move |field: DynReadField| {
         tracing::info!("update order of {:?}", field);
         instance_ctx.oder_by(field, OrderByUpdateOptions { append: false });
     };
@@ -38,7 +38,7 @@ pub fn CrudTableHeader(
                 }}
                 <For
                     each=move || headers.get()
-                    key=|header| header.field.get_name()
+                    key=|header| header.field.name()
                     children=move |Header { field, options }| {
                         move || {
                             let field_clone = field.clone();

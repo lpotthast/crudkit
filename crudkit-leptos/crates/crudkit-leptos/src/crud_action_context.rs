@@ -111,7 +111,7 @@ impl CrudActionContext {
     pub fn trigger_entity_action(
         &self,
         action_id: ActionId,
-        update_model: AnyUpdateModel,
+        update_model: DynUpdateModel,
         action_payload: Option<AnyActionPayload>,
         action: Callback<EntityActionInput>,
         instance_ctx: CrudInstanceContext,

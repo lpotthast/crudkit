@@ -1,4 +1,4 @@
-use crudkit_web::prelude::AnyReadModel;
+use crudkit_web::prelude::DynReadModel;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
 use leptos::prelude::*;
@@ -7,9 +7,9 @@ use std::sync::Arc;
 #[component]
 pub fn CrudDeleteManyModal(
     // Modal is shown when this Signal contains a Some value with entities to delete.
-    #[prop(into)] entities: Signal<Option<Arc<Vec<AnyReadModel>>>>,
+    #[prop(into)] entities: Signal<Option<Arc<Vec<DynReadModel>>>>,
     #[prop(into)] on_cancel: Callback<()>,
-    #[prop(into)] on_accept: Callback<Arc<Vec<AnyReadModel>>>,
+    #[prop(into)] on_accept: Callback<Arc<Vec<DynReadModel>>>,
 ) -> impl IntoView {
     let show_when = Signal::derive(move || entities.get().is_some());
     let count = Signal::derive(move || entities.get().map(|e| e.len()).unwrap_or(0));

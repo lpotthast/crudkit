@@ -56,6 +56,10 @@ pub mod prelude {
     pub use crudkit_web;
     pub use crudkit_web::prelude::*;
 
+    // Explicitly re-export Model from crudkit_web to resolve ambiguity
+    // (both crudkit_core and crudkit_web export Model).
+    pub use crudkit_web::Model;
+
     pub use derive_crud_action_payload::CkActionPayload;
     pub use derive_crud_resource::CkResource;
     pub use derive_crudkit_id::CkId;

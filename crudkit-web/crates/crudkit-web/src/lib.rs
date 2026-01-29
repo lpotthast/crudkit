@@ -48,6 +48,15 @@ pub mod prelude {
     pub use derive_crudkit_id::CkId;
     pub use derive_field::CkField;
 
+    pub use super::CrudFieldValueTrait;
+    // Backward compatibility alias for FieldAccess.
+        pub use super::CrudIdTrait;
+    // Backward compatibility alias for HasId.
+    pub use super::CrudMainTrait;
+    // Backward compatibility alias for Resource.
+    pub use super::CrudModel;
+    // Backward compatibility alias for Model.
+    pub use super::CrudResourceTrait;
     pub use super::error::ErrorInfo;
     pub use super::files::FileResource;
     pub use super::files::ListFileError;
@@ -57,18 +66,18 @@ pub mod prelude {
     pub use super::reqwest_executor::ReqwestExecutor;
     pub use super::view::CrudView;
     pub use super::view::SerializableCrudView;
-    pub use super::CrudFieldValueTrait;
-    pub use super::CrudIdTrait;
-    pub use super::CrudMainTrait;
-    pub use super::CrudModel;
-    pub use super::CrudResourceTrait;
+    // Backward compatibility trait.
+    pub use super::FieldAccess;
     pub use super::FieldMode;
     pub use super::FieldOptions;
+    pub use super::HasId;
     pub use super::HeaderOptions;
     pub use super::Label;
+    pub use super::Model;
     pub use super::Named;
     pub use super::NoData;
     pub use super::OrderByUpdateOptions;
+    pub use super::Resource;
     pub use super::TabId;
 
     pub use super::data_provider::CreateOne;
@@ -91,29 +100,33 @@ pub mod prelude {
     pub use super::request::put;
     pub use super::request::request;
 
-    // Dynamic (type-erased) types
-    pub use super::model::AnyCreateField;
-    pub use super::model::AnyCreateModel;
-    pub use super::model::AnyIdentifiable;
-    pub use super::model::AnyModel;
-    pub use super::model::AnyReadField;
-    pub use super::model::AnyReadModel;
-    pub use super::model::AnyReadOrUpdateModel;
-    pub use super::model::AnyUpdateField;
-    pub use super::model::AnyUpdateModel;
-    pub use super::model::CreateField;
-    pub use super::model::CreateModel;
-    pub use super::model::DynField;
-    pub use super::model::Field;
-    pub use super::model::Identifiable;
-    pub use super::model::Model;
-    pub use super::model::ReadField;
-    pub use super::model::ReadModel;
+    // Type-erased traits (Erased* prefix).
+    pub use super::model::ErasedCreateField;
+    pub use super::model::ErasedCreateModel;
+    pub use super::model::ErasedField;
+    pub use super::model::ErasedIdentifiable;
+    pub use super::model::ErasedModel;
+    pub use super::model::ErasedReadField;
+    pub use super::model::ErasedReadModel;
+    pub use super::model::ErasedUpdateField;
+    pub use super::model::ErasedUpdateModel;
+
+    // `Box`ed/`Arc`ed trait object wrappers (Dyn* prefix).
+    pub use super::model::DynCreateField;
+    pub use super::model::DynCreateModel;
+    pub use super::model::DynIdentifiable;
+    pub use super::model::DynModel;
+    pub use super::model::DynReadField;
+    pub use super::model::DynReadModel;
+    pub use super::model::DynReadOrUpdateModel;
+    pub use super::model::DynUpdateField;
+    pub use super::model::DynUpdateModel;
+
+    // Other model types.
     pub use super::model::ReadOrUpdateModel;
     pub use super::model::SerializableReadField;
     pub use super::model::SerializeAsKey;
-    pub use super::model::UpdateField;
-    pub use super::model::UpdateModel;
+    pub use super::model::TypeErasedField;
 
     pub use super::layout::Elem;
     pub use super::layout::Enclosing;
@@ -144,11 +157,17 @@ pub enum NoData {
     UpdateReturnedNothing,
 }
 
-// TODO: impl Clone if both types are clone, same for debug, ...
-pub trait CrudMainTrait:
-    CrudResourceTrait + PartialEq + Default + Debug + Clone + Serialize + Send + Sync
-{
-    type CreateModel: CrudModel + Default + Send + Sync;
+/// The central trait defining a CRUD resource for the frontend.
+///
+/// This trait combines resource identification with model type definitions.
+/// Each resource has associated types for Create, Read, Update models and an ActionPayload type.
+pub trait Resource: PartialEq + Default + Debug + Clone + Serialize + Send + Sync {
+    /// Returns the resource name used in API URLs.
+    fn resource_name() -> &'static str
+    where
+        Self: Sized;
+
+    type CreateModel: Model + Default + Send + Sync;
 
     type ReadModelIdField: crudkit_id::IdField + Serialize + Send + Sync;
     type ReadModelId: Serialize
@@ -159,9 +178,9 @@ pub trait CrudMainTrait:
         + Send
         + Sync;
     type ReadModel: Serialize
-        + CrudModel
+        + Model
         + Into<Self::UpdateModel>
-        + CrudIdTrait<Id = Self::ReadModelId>
+        + HasId<Id = Self::ReadModelId>
         + Send
         + Sync;
 
@@ -173,18 +192,34 @@ pub trait CrudMainTrait:
         + Clone
         + Send
         + Sync;
-    type UpdateModel: Serialize + CrudModel + CrudIdTrait<Id = Self::UpdateModelId> + Send + Sync;
+    type UpdateModel: Serialize + Model + HasId<Id = Self::UpdateModelId> + Send + Sync;
 
     type ActionPayload: Serialize + CrudActionPayload + Send + Sync;
 }
 
-/// This does not have CrudIdTrait as a super trait, as not all data models
+/// Backward compatibility alias.
+pub use Resource as CrudMainTrait;
+
+
+/// Backward compatibility alias - now merged into Resource.
+pub use Resource as CrudResourceTrait;
+
+
+/// Trait for typed model access in the frontend.
+///
+/// This extends the base `Model` trait from crudkit-core with frontend-specific
+/// requirements for serialization, field enumeration, and value access.
+///
+/// Note: This does not have `HasId` as a supertrait, as not all data models
 /// (namely the CreateModel) can supply an ID!
-pub trait CrudModel:
-    PartialEq + Clone + Debug + Serialize + DeserializeOwned + Send + Sync
+///
+/// The bounds are a superset of `crudkit_core::Model`, so any type implementing
+/// this trait also satisfies the core Model trait.
+pub trait Model:
+    PartialEq + Clone + Debug + Serialize + DeserializeOwned + Send + Sync + 'static
 {
     type Field: Named
-        + CrudFieldValueTrait<Self>
+        + FieldAccess<Self>
         + PartialEq
         + Eq
         + Hash
@@ -193,42 +228,38 @@ pub trait CrudModel:
         + Serialize
         + DeserializeOwned
         + Send
-        + Sync;
+        + Sync
+        + 'static;
 
-    fn get_all_fields() -> Vec<Self::Field>;
-    fn get_field(field_name: &str) -> Self::Field;
+    fn all_fields() -> Vec<Self::Field>;
+    fn field(field_name: &str) -> Self::Field;
 }
 
-/// Allows us to access the ID of an entity.
-/// The ID type must provide more fine-grained access (for example to individual fields).
-pub trait CrudIdTrait {
-    type Id: crudkit_id::Id;
+/// Backward compatibility alias.
+pub use Model as CrudModel;
 
-    fn get_id(&self) -> Self::Id;
-}
 
-impl<T: CrudIdTrait> CrudIdTrait for &T {
-    type Id = T::Id;
+/// Re-export `HasId` from crudkit-id for typed ID access.
+pub use crudkit_id::HasId;
 
-    fn get_id(&self) -> Self::Id {
-        T::get_id(&self)
-    }
-}
 
-pub trait CrudResourceTrait {
-    fn get_resource_name() -> &'static str
-    where
-        Self: Sized;
-}
+/// Alias for backward compatibility.
+pub use crudkit_id::HasId as CrudIdTrait;
+
 
 /// Re-export `Named` from crudkit_core for backwards compatibility and convenience.
 pub use crudkit_core::Named;
 
 
-pub trait CrudFieldValueTrait<T> {
-    fn get_value(&self, entity: &T) -> Value;
+/// Trait for typed field value access.
+pub trait FieldAccess<T> {
+    fn value(&self, entity: &T) -> Value;
     fn set_value(&self, entity: &mut T, value: Value);
 }
+
+/// Backward compatibility alias.
+pub use FieldAccess as CrudFieldValueTrait;
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum FieldMode {

@@ -54,8 +54,8 @@ pub struct CrudInstanceContext {
     set_items_per_page: WriteSignal<ItemsPerPage>,
 
     /// How data should be ordered when querying data for the ist view.
-    pub order_by: ReadSignal<IndexMap<AnyReadField, Order>>,
-    set_order_by: WriteSignal<IndexMap<AnyReadField, Order>>,
+    pub order_by: ReadSignal<IndexMap<DynReadField, Order>>,
+    set_order_by: WriteSignal<IndexMap<DynReadField, Order>>,
 
     /// Configuration of a parent, if present.
     pub parent: StoredValue<Option<CrudParentConfig>>,
@@ -71,12 +71,12 @@ pub struct CrudInstanceContext {
     pub base_condition: Signal<Option<Condition>>,
 
     /// Whenever the user requests to delete something, this is the place that information is stored.
-    pub deletion_request: ReadSignal<Option<AnyReadOrUpdateModel>>,
-    set_deletion_request: WriteSignal<Option<AnyReadOrUpdateModel>>,
+    pub deletion_request: ReadSignal<Option<DynReadOrUpdateModel>>,
+    set_deletion_request: WriteSignal<Option<DynReadOrUpdateModel>>,
 
     /// Whenever the user requests to delete multiple entities, this stores the entities to delete.
-    pub mass_deletion_request: ReadSignal<Option<Arc<Vec<AnyReadModel>>>>,
-    set_mass_deletion_request: WriteSignal<Option<Arc<Vec<AnyReadModel>>>>,
+    pub mass_deletion_request: ReadSignal<Option<Arc<Vec<DynReadModel>>>>,
+    set_mass_deletion_request: WriteSignal<Option<Arc<Vec<DynReadModel>>>>,
 
     /// Whenever this signal changes, the current view should "refresh" by reloading all server provided data.
     /// It simply provides a new random ID on each invocation.
@@ -114,9 +114,9 @@ impl CrudInstanceContext {
     }
 
     // TODO: Why is this here and CrudInstanceConfig#update_order_by exists?
-    pub fn oder_by(&self, field: AnyReadField, options: OrderByUpdateOptions) {
+    pub fn oder_by(&self, field: DynReadField, options: OrderByUpdateOptions) {
         self.set_order_by
-            .update(|order_by: &mut IndexMap<AnyReadField, Order>| {
+            .update(|order_by: &mut IndexMap<DynReadField, Order>| {
                 let prev = order_by.get(&field).cloned();
                 tracing::debug!(?field, ?options, "order by");
                 if !options.append {
@@ -139,12 +139,12 @@ impl CrudInstanceContext {
         tracing::info!(?tab_id, "tab_selected");
     }
 
-    pub fn request_deletion_of(&self, entity: AnyReadOrUpdateModel) {
+    pub fn request_deletion_of(&self, entity: DynReadOrUpdateModel) {
         // TODO: Use upcasting instead of helper function when Rust 1.86 lands. (see: dyn upcasting coercion")
         self.set_deletion_request.set(Some(entity));
     }
 
-    pub fn request_mass_deletion(&self, entities: Arc<Vec<AnyReadModel>>) {
+    pub fn request_mass_deletion(&self, entities: Arc<Vec<DynReadModel>>) {
         if !entities.is_empty() {
             self.set_mass_deletion_request.set(Some(entities));
         }
@@ -264,7 +264,7 @@ pub fn CrudInstance(
     let (create_elements, _set_create_elements) = signal(config.create_elements.clone());
     let (update_elements, _set_update_elements) = signal(config.elements.clone());
     let (deletion_request, set_deletion_request) = signal(None);
-    let (mass_deletion_request, set_mass_deletion_request) = signal(None::<Arc<Vec<AnyReadModel>>>);
+    let (mass_deletion_request, set_mass_deletion_request) = signal(None::<Arc<Vec<DynReadModel>>>);
     let (reload, set_reload) = signal(Uuid::new_v4());
 
     let default_config = StoredValue::new(config);
@@ -342,10 +342,10 @@ pub fn CrudInstance(
         }
     });
 
-    let on_accept_delete = Callback::new(move |entity: AnyReadOrUpdateModel| {
+    let on_accept_delete = Callback::new(move |entity: DynReadOrUpdateModel| {
         let id = match entity {
-            AnyReadOrUpdateModel::Read(model) => model.get_id(),
-            AnyReadOrUpdateModel::Update(model) => model.get_id(),
+            DynReadOrUpdateModel::Read(model) => model.id(),
+            DynReadOrUpdateModel::Update(model) => model.id(),
         };
         delete_action.dispatch(id);
     });
@@ -355,7 +355,7 @@ pub fn CrudInstance(
         set_mass_deletion_request.set(None);
     });
 
-    let delete_many_action = Action::new_local(move |entities: &Arc<Vec<AnyReadModel>>| {
+    let delete_many_action = Action::new_local(move |entities: &Arc<Vec<DynReadModel>>| {
         let data_provider = data_provider.get();
         let entities = entities.clone();
         async move {
@@ -380,7 +380,7 @@ pub fn CrudInstance(
         }
     });
 
-    let on_accept_delete_many = Callback::new(move |entities: Arc<Vec<AnyReadModel>>| {
+    let on_accept_delete_many = Callback::new(move |entities: Arc<Vec<DynReadModel>>| {
         delete_many_action.dispatch(entities);
     });
 
@@ -561,7 +561,7 @@ fn handle_delete_result(result: Result<Deleted, RequestError>) {
 
 /// Build a condition from a list of entities.
 /// Each entity's ID fields are combined with AND, and all entities are combined with OR.
-fn build_condition_from_entities(entities: &[AnyReadModel]) -> Condition {
+fn build_condition_from_entities(entities: &[DynReadModel]) -> Condition {
     use crudkit_condition::TryIntoAllEqualCondition;
 
     if entities.is_empty() {
@@ -571,7 +571,7 @@ fn build_condition_from_entities(entities: &[AnyReadModel]) -> Condition {
     let entity_conditions: Vec<Condition> = entities
         .iter()
         .filter_map(|entity| {
-            let id = entity.get_id();
+            let id = entity.id();
             match id.0.into_iter().try_into_all_equal_condition() {
                 Ok(condition) => Some(condition),
                 Err(err) => {

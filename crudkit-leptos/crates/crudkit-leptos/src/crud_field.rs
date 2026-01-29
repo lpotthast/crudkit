@@ -8,7 +8,7 @@ use leptos::prelude::*;
 use std::collections::HashMap;
 
 #[component]
-pub fn CrudField<F: DynField>(
+pub fn CrudField<F: TypeErasedField>(
     field_renderer_registry: Signal<FieldRendererRegistry<F>>,
     field: F,
     field_options: FieldOptions,

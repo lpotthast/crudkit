@@ -12,7 +12,24 @@ use utoipa::ToSchema;
 /// A trait for types that have a name.
 pub trait Named {
     /// Returns the name of this item.
-    fn get_name(&self) -> Cow<'static, str>;
+    fn name(&self) -> Cow<'static, str>;
+}
+
+/// Base trait for data models in the CRUD framework.
+///
+/// This is the minimal shared definition used by both backend (crudkit-rs)
+/// and frontend (crudkit-web) layers. Each layer extends this with additional
+/// bounds and methods appropriate for their context:
+///
+/// - **Backend (`crudkit-rs`)**: Uses this directly with `Field: crudkit_rs::Field`
+/// - **Frontend (`crudkit-web`)**: Adds `Serialize`, `DeserializeOwned`, `PartialEq`,
+///   field accessor methods, and more extensive `Field` bounds
+pub trait Model: Clone + Debug + Send + Sync + 'static {
+    /// The field enum type for this model.
+    ///
+    /// Each model has an associated field enum that provides typed access
+    /// to individual fields.
+    type Field: Clone + Debug + Send + Sync + 'static;
 }
 
 #[derive(Default, PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]

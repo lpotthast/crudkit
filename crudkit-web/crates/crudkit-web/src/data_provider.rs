@@ -72,7 +72,7 @@ impl<T: CrudMainTrait> CrudRestDataProvider<T> {
             api_base_url,
             executor,
             base_condition: None,
-            resource_name: T::get_resource_name(),
+            resource_name: T::resource_name(),
             phantom_data: PhantomData {},
         }
     }

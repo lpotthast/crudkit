@@ -1,4 +1,4 @@
-use crate::model::{AnyCreateField, AnyUpdateField, CreateField, UpdateField};
+use crate::model::{DynCreateField, DynUpdateField, ErasedCreateField, ErasedUpdateField};
 use crate::{FieldOptions, Label, TabId};
 use serde::{Deserialize, Serialize};
 
@@ -23,14 +23,14 @@ pub enum Elem<F> {
     Separator,
 }
 
-impl Elem<AnyCreateField> {
-    pub fn create_field(field: impl CreateField, options: FieldOptions) -> Self {
+impl Elem<DynCreateField> {
+    pub fn create_field(field: impl ErasedCreateField, options: FieldOptions) -> Self {
         Self::Field((field.into(), options))
     }
 }
 
-impl Elem<AnyUpdateField> {
-    pub fn field(field: impl UpdateField, options: FieldOptions) -> Self {
+impl Elem<DynUpdateField> {
+    pub fn field(field: impl ErasedUpdateField, options: FieldOptions) -> Self {
         Self::Field((field.into(), options))
     }
 }

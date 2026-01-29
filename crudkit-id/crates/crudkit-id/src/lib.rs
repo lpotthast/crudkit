@@ -6,10 +6,31 @@ use std::sync::Arc;
 use utoipa::ToSchema;
 
 pub mod prelude {
+    pub use super::HasId;
     pub use super::Id;
     pub use super::IdField;
     pub use super::IdValue;
     pub use super::SerializableId;
+}
+
+/// Trait for models that have an identifier.
+///
+/// Not all models have an ID - CreateModel typically doesn't since the ID
+/// is generated during insertion. ReadModel and UpdateModel should implement this.
+pub trait HasId {
+    /// The ID type for this model.
+    type Id: Id + Clone + Send + Sync + 'static;
+
+    /// Extract the ID from this model instance.
+    fn id(&self) -> Self::Id;
+}
+
+impl<T: HasId> HasId for &T {
+    type Id = T::Id;
+
+    fn id(&self) -> Self::Id {
+        T::id(self)
+    }
 }
 
 /// Values which might be part of an entities ID.

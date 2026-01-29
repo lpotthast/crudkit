@@ -105,13 +105,11 @@ pub fn store(input: TokenStream) -> TokenStream {
         #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
         pub struct #resource_ident {}
 
-        impl crudkit_web::CrudResourceTrait for #resource_ident {
-            fn get_resource_name() -> &'static str {
+        impl crudkit_web::CrudMainTrait for #resource_ident {
+            fn resource_name() -> &'static str {
                 #resource_name
             }
-        }
 
-        impl crudkit_web::CrudMainTrait for #resource_ident {
             type CreateModel = #create_model_ident;
 
             type ReadModelIdField = #read_model_id_field_ident;

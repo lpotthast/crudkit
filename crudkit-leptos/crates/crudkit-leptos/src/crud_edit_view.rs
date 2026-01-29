@@ -41,12 +41,12 @@ pub fn CrudEditView(
     #[prop(into)] data_provider: Signal<DynCrudRestDataProvider>,
     #[prop(into)] actions: Signal<Vec<CrudEntityAction>>,
     #[prop(into)] elements: Signal<UpdateElements>,
-    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyUpdateField>>,
+    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<DynUpdateField>>,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
     /// Called when the entity is successfully updated.
     #[prop(into)]
-    on_entity_updated: Callback<Saved<AnyUpdateModel>>,
+    on_entity_updated: Callback<Saved<DynUpdateModel>>,
     /// Called when entity update fails for any reason (permission denied, validation errors, server error, etc.).
     /// Use pattern matching on `CrudOperationError` to handle different failure types.
     #[prop(into)]
@@ -59,7 +59,7 @@ pub fn CrudEditView(
     // then this signal becomes a copy of the current (loaded) entity state.
     // We cannot use a `Default` value. The UpdateModel type may contain fields for which no default is available.
     // All modifications made through the UI are stored in this signal.
-    let (input, set_input) = signal(Option::<AnyUpdateModel>::None);
+    let (input, set_input) = signal(Option::<DynUpdateModel>::None);
 
     // TODO: Do not use LocalResouce, allow loading on server.
     let entity_resource = LocalResource::new(move || async move {
@@ -93,11 +93,11 @@ pub fn CrudEditView(
 
     // Stores the current state of the entity or an error, if no entity could be fetched.
     // Until the initial fetch request is completed, this is in the `Err(NoDataAvailable::NotYetLoaded` state!
-    let (entity, set_entity) = signal(Result::<AnyUpdateModel, NoDataAvailable>::Err(
+    let (entity, set_entity) = signal(Result::<DynUpdateModel, NoDataAvailable>::Err(
         NoDataAvailable::NotYetLoaded,
     ));
 
-    let (signals, set_sig) = signal(StoredValue::<HashMap<AnyUpdateField, ReactiveValue>>::new(
+    let (signals, set_sig) = signal(StoredValue::<HashMap<DynUpdateField, ReactiveValue>>::new(
         HashMap::new(),
     ));
 
@@ -147,7 +147,7 @@ pub fn CrudEditView(
     });
 
     // The state of the `input` signal should be considered to be erroneous if at least one field is contained in this error list.
-    let (_input_errors, set_input_errors) = signal(HashMap::<AnyUpdateField, String>::new());
+    let (_input_errors, set_input_errors) = signal(HashMap::<DynUpdateField, String>::new());
 
     let (user_wants_to_leave, set_user_wants_to_leave) = signal(false);
     let (show_leave_modal, set_show_leave_modal) = signal(false);
@@ -163,8 +163,8 @@ pub fn CrudEditView(
         },
     );
 
-    let save_action = Action::new_local(move |(entity, and_then): &(AnyUpdateModel, Then)| {
-        let entity: AnyUpdateModel = entity.clone();
+    let save_action = Action::new_local(move |(entity, and_then): &(DynUpdateModel, Then)| {
+        let entity: DynUpdateModel = entity.clone();
         let and_then = and_then.clone();
         async move {
             (
@@ -237,7 +237,7 @@ pub fn CrudEditView(
         move || save_action.dispatch((input.get().unwrap(), Then::OpenCreateView));
 
     let trigger_delete = move || {
-        instance_ctx.request_deletion_of(AnyReadOrUpdateModel::Update(
+        instance_ctx.request_deletion_of(DynReadOrUpdateModel::Update(
             input.get().expect("Entity to be already loaded"),
         ));
     };
@@ -245,7 +245,7 @@ pub fn CrudEditView(
     let action_ctx = CrudActionContext::new();
 
     let value_changed =
-        Callback::<(AnyUpdateField, Result<Value, String>)>::new(move |(field, result)| {
+        Callback::<(DynUpdateField, Result<Value, String>)>::new(move |(field, result)| {
             //tracing::debug!(?field, ?result, "value changed");
             match result {
                 Ok(value) => {

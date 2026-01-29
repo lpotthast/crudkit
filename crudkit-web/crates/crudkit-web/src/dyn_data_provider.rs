@@ -1,6 +1,6 @@
 //! Type-erased data provider for runtime polymorphic CRUD operations.
 
-use crate::model::{AnyCreateModel, AnyUpdateModel, SerializableReadField};
+use crate::model::{DynCreateModel, DynUpdateModel, SerializableReadField};
 use crate::request::post_json;
 use crate::request_error::RequestError;
 use crate::reqwest_executor::ReqwestExecutor;
@@ -32,13 +32,13 @@ pub struct DynReadOne {
 /// Not `Serialize`, as we perform custom serialization of the model on use.
 #[derive(Debug)]
 pub struct DynCreateOne {
-    pub entity: AnyCreateModel,
+    pub entity: DynCreateModel,
 }
 
 /// Not `Serialize`, as we perform custom serialization of the model on use.
 #[derive(Debug)]
 pub struct DynUpdateOne {
-    pub entity: AnyUpdateModel,
+    pub entity: DynUpdateModel,
     pub condition: Option<Condition>,
 }
 

@@ -4,7 +4,7 @@
 //! Consolidated derive macros for crudkit-rs.
 //!
 //! This crate provides storage-agnostic derive macros:
-//! - `CkColumns` - Generates a `Col` enum and implements `CrudModel`, `CrudIdTrait`, etc.
+//! - `CkColumns` - Generates a `Col` enum and implements `CrudModel`, `HasId`, etc.
 //! - `CkResourceContext` - Implements `CrudResourceContext` marker trait
 //! - `CkCreateModel` - Generates a `CreateModel` struct with trait implementations
 //! - `CkUpdateModel` - Generates an `UpdateModel` struct with trait implementations
@@ -24,7 +24,7 @@ mod derives;
 /// - `impl FieldLookup for Col` - Reverse lookup from name to field
 /// - `impl ConditionValueConverter for Col` - Convert condition values to typed values
 /// - `impl CrudModel for T` - Associates the model with its `Col` type
-/// - `impl CrudIdTrait for T` - Extracts the entity ID
+/// - `impl HasId for T` - Extracts the entity ID
 ///
 /// # Attributes
 ///

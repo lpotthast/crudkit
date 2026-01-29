@@ -2,8 +2,12 @@
 //!
 //! These types allow crudkit-leptos components to work with any resource type
 //! without knowing concrete types at compile time.
+//!
+//! Naming conventions:
+//! - `Erased*` prefix: Traits for type-erased behavior (e.g., `ErasedModel`)
+//! - `Dyn*` prefix: Boxed trait object wrappers (e.g., `DynModel = Box<dyn ErasedModel>`)
 
-use crate::{CrudIdTrait, CrudModel, Named};
+use crate::{CrudModel, HasId, Named};
 use crudkit_core::Value;
 use crudkit_id::SerializableId;
 use dyn_clone::DynClone;
@@ -17,57 +21,58 @@ use std::sync::Arc;
 /// Anything that has an identifier in form of a `SerializableId`.
 ///
 /// Trait is expected to be object safe.
-pub trait Identifiable: Debug + DynClone + DynEq + Send + Sync {
-    fn get_id(&self) -> SerializableId;
+pub trait ErasedIdentifiable: Debug + DynClone + DynEq + Send + Sync {
+    fn id(&self) -> SerializableId;
 }
-dyn_eq::eq_trait_object!(Identifiable);
-dyn_clone::clone_trait_object!(Identifiable);
+dyn_eq::eq_trait_object!(ErasedIdentifiable);
+dyn_clone::clone_trait_object!(ErasedIdentifiable);
 
-pub type AnyIdentifiable = Arc<dyn Identifiable>;
+pub type DynIdentifiable = Arc<dyn ErasedIdentifiable>;
 
 #[typetag::serde]
-pub trait Model:
-    Identifiable + Debug + DynClone + DynEq + downcast_rs::Downcast + Send + Sync
+pub trait ErasedModel:
+    ErasedIdentifiable + Debug + DynClone + DynEq + downcast_rs::Downcast + Send + Sync
 {
 }
-dyn_eq::eq_trait_object!(Model);
-dyn_clone::clone_trait_object!(Model);
-downcast_rs::impl_downcast!(Model);
+dyn_eq::eq_trait_object!(ErasedModel);
+dyn_clone::clone_trait_object!(ErasedModel);
+downcast_rs::impl_downcast!(ErasedModel);
 
-// Note: Every CreateModel needs to be `Default`, but that would introduce a `Sized` bound,
+// Note: Every ErasedCreateModel needs to be `Default`, but that would introduce a `Sized` bound,
 // rendering this trait dyn-incompatible.
 #[typetag::serde]
-pub trait CreateModel: Model {}
-dyn_eq::eq_trait_object!(CreateModel);
-dyn_clone::clone_trait_object!(CreateModel);
-downcast_rs::impl_downcast!(CreateModel);
+pub trait ErasedCreateModel: ErasedModel {}
+dyn_eq::eq_trait_object!(ErasedCreateModel);
+dyn_clone::clone_trait_object!(ErasedCreateModel);
+downcast_rs::impl_downcast!(ErasedCreateModel);
 
 #[typetag::serde]
-pub trait UpdateModel: Model {}
-dyn_eq::eq_trait_object!(UpdateModel);
-dyn_clone::clone_trait_object!(UpdateModel);
-downcast_rs::impl_downcast!(UpdateModel);
+pub trait ErasedUpdateModel: ErasedModel {}
+dyn_eq::eq_trait_object!(ErasedUpdateModel);
+dyn_clone::clone_trait_object!(ErasedUpdateModel);
+downcast_rs::impl_downcast!(ErasedUpdateModel);
 
 #[typetag::serde]
-pub trait ReadModel: Model {}
-dyn_eq::eq_trait_object!(ReadModel);
-dyn_clone::clone_trait_object!(ReadModel);
-downcast_rs::impl_downcast!(ReadModel);
+pub trait ErasedReadModel: ErasedModel {}
+dyn_eq::eq_trait_object!(ErasedReadModel);
+dyn_clone::clone_trait_object!(ErasedReadModel);
+downcast_rs::impl_downcast!(ErasedReadModel);
 
-macro_rules! impl_any_model {
-    ($any_ty:tt, $concrete_ty:tt) => {
+macro_rules! impl_dyn_model {
+    ($dyn_ty:tt, $erased_ty:tt) => {
+        /// Any type-erased (boxed) model.
         #[derive(Debug, Clone, Eq)]
-        pub struct $any_ty {
-            pub(crate) inner: Box<dyn $concrete_ty>,
+        pub struct $dyn_ty {
+            pub(crate) inner: Box<dyn $erased_ty>,
         }
 
-        impl PartialEq for $any_ty {
+        impl PartialEq for $dyn_ty {
             fn eq(&self, other: &Self) -> bool {
                 self.inner.dyn_eq(DynEq::as_any(&other.inner))
             }
         }
 
-        impl<T: $concrete_ty> From<T> for $any_ty {
+        impl<T: $erased_ty> From<T> for $dyn_ty {
             fn from(value: T) -> Self {
                 Self {
                     inner: Box::new(value),
@@ -75,28 +80,28 @@ macro_rules! impl_any_model {
             }
         }
 
-        impl $any_ty {
-            pub fn new<Concrete: $concrete_ty>(concrete: Concrete) -> Self {
+        impl $dyn_ty {
+            pub fn new<Concrete: $erased_ty>(concrete: Concrete) -> Self {
                 Self {
                     inner: Box::new(concrete),
                 }
             }
 
-            pub fn downcast<Concrete: $concrete_ty>(self) -> Concrete {
+            pub fn downcast<Concrete: $erased_ty>(self) -> Concrete {
                 *self.inner.downcast::<Concrete>().expect("correct")
             }
 
-            pub fn downcast_ref<Concrete: $concrete_ty>(&self) -> &Concrete {
+            pub fn downcast_ref<Concrete: $erased_ty>(&self) -> &Concrete {
                 self.inner.downcast_ref::<Concrete>().expect("correct")
             }
 
-            pub fn downcast_mut<Concrete: $concrete_ty>(&mut self) -> &mut Concrete {
+            pub fn downcast_mut<Concrete: $erased_ty>(&mut self) -> &mut Concrete {
                 self.inner.downcast_mut::<Concrete>().expect("correct")
             }
         }
 
-        impl std::ops::Deref for $any_ty {
-            type Target = dyn $concrete_ty;
+        impl std::ops::Deref for $dyn_ty {
+            type Target = dyn $erased_ty;
 
             fn deref(&self) -> &Self::Target {
                 self.inner.as_ref()
@@ -105,89 +110,85 @@ macro_rules! impl_any_model {
     };
 }
 
-impl_any_model!(AnyModel, Model);
-impl_any_model!(AnyCreateModel, CreateModel);
-impl_any_model!(AnyReadModel, ReadModel);
-impl_any_model!(AnyUpdateModel, UpdateModel);
+impl_dyn_model!(DynModel, ErasedModel);
+impl_dyn_model!(DynCreateModel, ErasedCreateModel);
+impl_dyn_model!(DynReadModel, ErasedReadModel);
+impl_dyn_model!(DynUpdateModel, ErasedUpdateModel);
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ReadOrUpdateModel<ReadModel: CrudModel + CrudIdTrait, UpdateModel: CrudModel + CrudIdTrait>
-{
+pub enum ReadOrUpdateModel<ReadModel: CrudModel + HasId, UpdateModel: CrudModel + HasId> {
     Read(ReadModel),
     Update(UpdateModel),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AnyReadOrUpdateModel {
-    Read(AnyReadModel),
-    Update(AnyUpdateModel),
+pub enum DynReadOrUpdateModel {
+    Read(DynReadModel),
+    Update(DynUpdateModel),
 }
 
 /// This trait is implemented for each derived type (enum) describing a models fields.
 #[typetag::serde]
-pub trait Field: Debug + Named + DynClone + DynEq + DynHash + SerializeAsKey + Send + Sync {
-    fn set_value(&self, model: &mut AnyModel, value: Value);
+pub trait ErasedField:
+    Debug + Named + DynClone + DynEq + DynHash + SerializeAsKey + Send + Sync
+{
+    fn set_value(&self, model: &mut DynModel, value: Value);
 }
-dyn_eq::eq_trait_object!(Field);
-dyn_clone::clone_trait_object!(Field);
-dyn_hash::hash_trait_object!(Field);
+dyn_eq::eq_trait_object!(ErasedField);
+dyn_clone::clone_trait_object!(ErasedField);
+dyn_hash::hash_trait_object!(ErasedField);
 
-/// A field known to be part of a `create` model. The type erased version is `AnyCreateField`.
+/// A field known to be part of a `create` model. The type erased version is `DynCreateField`.
 #[typetag::serde]
-pub trait CreateField: Field {
-    fn set_value(&self, model: &mut AnyCreateModel, value: Value);
+pub trait ErasedCreateField: ErasedField {
+    fn set_value(&self, model: &mut DynCreateModel, value: Value);
 }
-dyn_eq::eq_trait_object!(CreateField);
-dyn_clone::clone_trait_object!(CreateField);
-dyn_hash::hash_trait_object!(CreateField);
+dyn_eq::eq_trait_object!(ErasedCreateField);
+dyn_clone::clone_trait_object!(ErasedCreateField);
+dyn_hash::hash_trait_object!(ErasedCreateField);
 
-/// A field known to be part of a `read` model. The type erased version is `AnyReadField`.
+/// A field known to be part of a `read` model. The type erased version is `DynReadField`.
 #[typetag::serde]
-pub trait ReadField: Field {
-    fn set_value(&self, model: &mut AnyReadModel, value: Value);
+pub trait ErasedReadField: ErasedField {
+    fn set_value(&self, model: &mut DynReadModel, value: Value);
 }
-dyn_eq::eq_trait_object!(ReadField);
-dyn_clone::clone_trait_object!(ReadField);
-dyn_hash::hash_trait_object!(ReadField);
+dyn_eq::eq_trait_object!(ErasedReadField);
+dyn_clone::clone_trait_object!(ErasedReadField);
+dyn_hash::hash_trait_object!(ErasedReadField);
 
-/// A field known to be part of an `update` model. The type erased version is `AnyUpdateField`.
+/// A field known to be part of an `update` model. The type erased version is `DynUpdateField`.
 #[typetag::serde]
-pub trait UpdateField: Field {
-    fn set_value(&self, model: &mut AnyUpdateModel, value: Value);
+pub trait ErasedUpdateField: ErasedField {
+    fn set_value(&self, model: &mut DynUpdateModel, value: Value);
 }
-dyn_eq::eq_trait_object!(UpdateField);
-dyn_clone::clone_trait_object!(UpdateField);
-dyn_hash::hash_trait_object!(UpdateField);
+dyn_eq::eq_trait_object!(ErasedUpdateField);
+dyn_clone::clone_trait_object!(ErasedUpdateField);
+dyn_hash::hash_trait_object!(ErasedUpdateField);
 
-/// Any field as a trait object. Implemented for `AnyCreateField`, `AnyReadField` and
-/// `AnyUpdateField`.
+/// Marker trait for type-erased field wrappers (`DynCreateField`, `DynReadField`, `DynUpdateField`).
 ///
-/// For a model type `Person`, `PersonField` would be the generated enum stating all fields.
-/// In this scenario, `PersonField` would implement `Field` and `UpdateField` (the latter, as the
-/// model is the update model and neither the read nor create model of the person resource).
-///
-/// A `PersonField` instance (a variant) can be type-erased as `AnyUpdateField`, as PersonField
-/// declares the fields of an update model.
-///
-/// In a context where type-erased fields of any model (create, read or update) should be accepted,
-/// `DynField` can be used.
-pub trait DynField: Named + Debug + Clone + PartialEq + Eq + Hash + Send + Sync + 'static {}
+/// This trait is implemented for the `Dyn*Field` wrapper types to provide a common
+/// abstraction over all type-erased fields regardless of their model type.
+pub trait TypeErasedField:
+    Named + Debug + Clone + PartialEq + Eq + Hash + Send + Sync + 'static
+{
+}
 
-macro_rules! impl_any_field {
-    ($any_ty:tt, $concrete_ty:tt, $any_model_ty:tt) => {
+macro_rules! impl_dyn_field {
+    ($dyn_ty:tt, $erased_ty:tt, $dyn_model_ty:tt) => {
         /// Any field. Usable in collections.
         #[derive(Debug, Clone, Eq, Hash, serde::Serialize, serde::Deserialize)]
-        pub struct $any_ty {
-            inner: Arc<dyn $concrete_ty>,
+        pub struct $dyn_ty {
+            inner: Arc<dyn $erased_ty>,
         }
 
-        impl PartialEq for $any_ty {
+        impl PartialEq for $dyn_ty {
             fn eq(&self, other: &Self) -> bool {
                 self.inner.dyn_eq(DynEq::as_any(&other.inner))
             }
         }
 
-        impl<T: $concrete_ty> From<T> for $any_ty {
+        impl<T: $erased_ty> From<T> for $dyn_ty {
             fn from(value: T) -> Self {
                 Self {
                     inner: Arc::new(value),
@@ -195,50 +196,50 @@ macro_rules! impl_any_field {
             }
         }
 
-        impl $any_ty {
-            pub fn new<Concrete: $concrete_ty>(concrete: Concrete) -> Self {
+        impl $dyn_ty {
+            pub fn new<Concrete: $erased_ty>(concrete: Concrete) -> Self {
                 Self {
                     inner: Arc::new(concrete),
                 }
             }
 
-            pub fn set_value(&self, model: &mut $any_model_ty, value: Value) {
+            pub fn set_value(&self, model: &mut $dyn_model_ty, value: Value) {
                 use std::ops::Deref;
-                $concrete_ty::set_value(self.inner.deref(), model, value);
+                $erased_ty::set_value(self.inner.deref(), model, value);
             }
         }
 
-        impl std::ops::Deref for $any_ty {
-            type Target = dyn $concrete_ty;
+        impl std::ops::Deref for $dyn_ty {
+            type Target = dyn $erased_ty;
 
             fn deref(&self) -> &Self::Target {
                 self.inner.as_ref()
             }
         }
 
-        impl Named for $any_ty {
-            fn get_name(&self) -> std::borrow::Cow<'static, str> {
-                self.inner.get_name()
+        impl Named for $dyn_ty {
+            fn name(&self) -> std::borrow::Cow<'static, str> {
+                self.inner.name()
             }
         }
 
-        impl DynField for $any_ty {}
+        impl TypeErasedField for $dyn_ty {}
     };
 }
 
-impl_any_field!(AnyCreateField, CreateField, AnyCreateModel);
-impl_any_field!(AnyReadField, ReadField, AnyReadModel);
-impl_any_field!(AnyUpdateField, UpdateField, AnyUpdateModel);
+impl_dyn_field!(DynCreateField, ErasedCreateField, DynCreateModel);
+impl_dyn_field!(DynReadField, ErasedReadField, DynReadModel);
+impl_dyn_field!(DynUpdateField, ErasedUpdateField, DynUpdateModel);
 
-/// Configuration trait for field serialization
+/// Configuration trait for field serialization.
 pub trait SerializeAsKey: Send + Sync {
     fn serialize_as_key(&self) -> String;
 }
 
-// TODO: This only exists for AnyReadField. Why? Should we abstract?
+// TODO: This only exists for DynReadField. Why? Should we abstract?
 #[derive(Debug, Eq, Hash)]
 pub struct SerializableReadField {
-    field: AnyReadField,
+    field: DynReadField,
 }
 
 impl PartialEq for SerializableReadField {
@@ -248,7 +249,7 @@ impl PartialEq for SerializableReadField {
 }
 
 impl SerializableReadField {
-    pub fn into_inner(self) -> AnyReadField {
+    pub fn into_inner(self) -> DynReadField {
         self.field
     }
 }
@@ -259,14 +260,14 @@ impl Serialize for SerializableReadField {
     }
 }
 
-impl From<AnyReadField> for SerializableReadField {
-    fn from(field: AnyReadField) -> Self {
+impl From<DynReadField> for SerializableReadField {
+    fn from(field: DynReadField) -> Self {
         SerializableReadField { field }
     }
 }
 
-impl AsRef<AnyReadField> for SerializableReadField {
-    fn as_ref(&self) -> &AnyReadField {
+impl AsRef<DynReadField> for SerializableReadField {
+    fn as_ref(&self) -> &DynReadField {
         &self.field
     }
 }

@@ -19,7 +19,7 @@ pub fn run_entity_validation<R: CrudResource>(
     let mut violations_by_validator = ViolationsByValidator::new();
     for validator in validators {
         violations_by_validator.extend(
-            ValidatorInfo::new(validator.get_name(), validator.get_version()),
+            ValidatorInfo::new(validator.name(), validator.version()),
             validator.validate_create(create_model, trigger),
         );
     }
@@ -35,7 +35,7 @@ pub fn run_model_validation<R: CrudResource>(
     let mut violations_by_validator = ViolationsByValidator::new();
     for validator in validators {
         violations_by_validator.extend(
-            ValidatorInfo::new(validator.get_name(), validator.get_version()),
+            ValidatorInfo::new(validator.name(), validator.version()),
             validator.validate_model(model, trigger),
         );
     }
@@ -53,7 +53,7 @@ pub fn run_delta_validation<R: CrudResource>(
     let mut violations_by_validator = ViolationsByValidator::new();
     for validator in validators {
         violations_by_validator.extend(
-            ValidatorInfo::new(validator.get_name(), validator.get_version()),
+            ValidatorInfo::new(validator.name(), validator.version()),
             validator.validate_updated(old_model, update_model, trigger),
         );
     }

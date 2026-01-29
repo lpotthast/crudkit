@@ -27,13 +27,13 @@ use std::borrow::Cow;
 /// struct ArticleTitleValidator;
 ///
 /// impl Named for ArticleTitleValidator {
-///     fn get_name(&self) -> Cow<'static, str> {
+///     fn name(&self) -> Cow<'static, str> {
 ///         Cow::Borrowed("article_title")
 ///     }
 /// }
 ///
 /// impl EntityValidator<Article> for ArticleTitleValidator {
-///     fn get_version(&self) -> u32 {
+///     fn version(&self) -> u32 {
 ///         1
 ///     }
 ///
@@ -51,14 +51,12 @@ use std::borrow::Cow;
 /// }
 /// ```
 pub trait EntityValidator<R: CrudResource>: Send + Sync {
-    // TODO: Should get_name and get_version be combined into one function?
-
     /// Returns the unique name of this validator.
-    fn get_name(&self) -> Cow<'static, str>;
+    fn name(&self) -> Cow<'static, str>;
 
     /// Returns the version of this validator.
     /// Increment when the validation logic changes to invalidate old results.
-    fn get_version(&self) -> u32;
+    fn version(&self) -> u32;
 
     /// Validate a CreateModel before insertion.
     ///
@@ -108,10 +106,10 @@ pub trait EntityValidator<R: CrudResource>: Send + Sync {
 #[async_trait]
 pub trait AggregateValidator<R: CrudResource>: Send + Sync {
     /// Returns the unique name of this validator.
-    fn get_name(&self) -> &'static str;
+    fn name(&self) -> &'static str;
 
     /// Returns the version of this validator.
-    fn get_version(&self) -> u32;
+    fn version(&self) -> u32;
 
     /// Validate all entities of this resource type.
     /// Returns violations organized by entity ID.

@@ -21,7 +21,7 @@ pub enum Then {
 }
 
 // TODO: Make this a signal? How would we act upon changes?
-fn default_create_model(ctx: &CrudInstanceContext) -> AnyCreateModel {
+fn default_create_model(ctx: &CrudInstanceContext) -> DynCreateModel {
     let mut entity = ctx
         .static_config
         .read_value()
@@ -64,13 +64,13 @@ fn default_create_model(ctx: &CrudInstanceContext) -> AnyCreateModel {
 pub fn CrudCreateView(
     #[prop(into)] data_provider: Signal<DynCrudRestDataProvider>,
     #[prop(into)] create_elements: Signal<CreateElements>,
-    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<AnyCreateField>>,
+    #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<DynCreateField>>,
     #[prop(into)] on_edit_view: Callback<SerializableId>, // UpdateModel id
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
     /// Called when the entity is successfully created.
     #[prop(into)]
-    on_entity_created: Callback<Saved<AnyUpdateModel>>,
+    on_entity_created: Callback<Saved<DynUpdateModel>>,
     /// Called when entity creation fails for any reason (permission denied, validation errors, server error, etc.).
     /// Use pattern matching on `CrudOperationError` to handle different failure types.
     #[prop(into)]
@@ -81,7 +81,7 @@ pub fn CrudCreateView(
 
     let default_create_model = default_create_model(&ctx);
 
-    let signals: StoredValue<HashMap<AnyCreateField, ReactiveValue>> = // CrateModel field
+    let signals: StoredValue<HashMap<DynCreateField, ReactiveValue>> = // CrateModel field
         StoredValue::new(
             ctx.static_config
                 .read_value()
@@ -98,7 +98,7 @@ pub fn CrudCreateView(
     let input_changed = Signal::derive(move || input.get() != default_create_model);
 
     // The state of the `input` signal should be considered to be erroneous if at least one field is contained in this error list.
-    let (_input_errors, set_input_errors) = signal(HashMap::<AnyCreateField, String>::new());
+    let (_input_errors, set_input_errors) = signal(HashMap::<DynCreateField, String>::new());
 
     let (user_wants_to_leave, set_user_wants_to_leave) = signal(false);
     let (show_leave_modal, set_show_leave_modal) = signal(false);
@@ -116,7 +116,7 @@ pub fn CrudCreateView(
 
     // TODO: Can we get rid of new_local?
     let save_action =
-        Action::new_local(move |(create_model, and_then): &(AnyCreateModel, Then)| {
+        Action::new_local(move |(create_model, and_then): &(DynCreateModel, Then)| {
             let create_model = create_model.clone();
             let and_then = and_then.clone();
             let data_provider = data_provider.get(); // TODO: This does not track!!
@@ -149,7 +149,7 @@ pub fn CrudCreateView(
         if let Some((result, and_then)) = save_action_value.get() {
             match result {
                 Ok(saved) => {
-                    let id = saved.entity.get_id();
+                    let id = saved.entity.id();
                     on_entity_created.run(saved);
                     match and_then {
                         Then::OpenEditView => on_edit_view.run(id),
@@ -174,7 +174,7 @@ pub fn CrudCreateView(
 
     // TODO: Refactor this code. Much of it is shared with the edit_view!
     let value_changed =
-        Callback::<(AnyCreateField, Result<Value, String>)>::new(move |(field, result)| {
+        Callback::<(DynCreateField, Result<Value, String>)>::new(move |(field, result)| {
             tracing::info!(?field, ?result, "value changed");
             match result {
                 Ok(value) => {
