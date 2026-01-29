@@ -46,6 +46,15 @@ pub trait ErasedIdentifiable: Debug + DynClone + DynEq + Send + Sync {
 dyn_eq::eq_trait_object!(ErasedIdentifiable);
 dyn_clone::clone_trait_object!(ErasedIdentifiable);
 
+impl<T> ErasedIdentifiable for T
+where
+    T: HasId + Debug + Clone + Eq + Send + Sync + 'static,
+{
+    fn id(&self) -> SerializableId {
+        HasId::id(self).to_serializable_id()
+    }
+}
+
 /// A type-erased, reference-counted identifiable value.
 pub type DynIdentifiable = Arc<dyn ErasedIdentifiable>;
 

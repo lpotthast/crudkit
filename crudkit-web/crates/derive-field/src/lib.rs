@@ -4,11 +4,11 @@
 use crudkit_derive_core::to_pascal_case;
 use darling::*;
 use proc_macro::TokenStream;
-use proc_macro_error::{abort, proc_macro_error};
 use proc_macro2::{Ident, Span};
+use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
 use serde::Deserialize;
-use syn::{DeriveInput, parse_macro_input, spanned::Spanned};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 use types::ModelType;
 
 // Helper to parse explicit type hints from the `ty` attribute.
@@ -493,13 +493,6 @@ pub fn store(input: TokenStream) -> TokenStream {
                         Self::Id {
                             #(#init_id_struct_fields),*
                         }
-                    }
-                }
-
-                impl crudkit_id::ErasedIdentifiable for #name {
-                    fn id(&self) -> crudkit_id::SerializableId {
-                        let typed_id = crudkit_id::HasId::id(&self);
-                        crudkit_id::Id::to_serializable_id(&typed_id)
                     }
                 }
             }
