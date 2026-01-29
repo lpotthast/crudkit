@@ -1,38 +1,24 @@
 //! Implementation of the `CkColumns` derive macro.
 
 use darling::*;
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, TokenStream};
 use proc_macro_error::abort;
 use proc_macro_type_name::ToTypeName;
 use quote::quote;
 use syn::{spanned::Spanned, DeriveInput};
 
 #[derive(Debug, FromField)]
-#[darling(attributes(ck_columns, ck_id))]
+#[darling(attributes(ck_columns))]
 struct MyFieldReceiver {
     ident: Option<syn::Ident>,
 
     ty: syn::Type,
 
-    /// Whether or not this field is part of the entities primary key.
-    id: Option<bool>,
-
     convert_ccv: Option<String>,
 }
 
-impl MyFieldReceiver {
-    pub fn is_id(&self) -> bool {
-        match (self.id, &self.ident) {
-            (None, None) => false,
-            (None, Some(ident)) => ident == "id",
-            (Some(id), None) => id,
-            (Some(id), Some(ident)) => id || ident == "id",
-        }
-    }
-}
-
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(ck_columns, ck_id), supports(struct_any))]
+#[darling(attributes(ck_columns), supports(struct_any))]
 struct MyInputReceiver {
     ident: syn::Ident,
 
@@ -55,12 +41,6 @@ pub fn expand_derive_columns(input: DeriveInput) -> syn::Result<TokenStream> {
 
     let fields = input.fields().iter().collect::<Vec<_>>();
 
-    let id_fields = input
-        .fields()
-        .iter()
-        .filter(|field| field.is_id())
-        .collect::<Vec<_>>();
-
     let column_variants = fields
         .iter()
         .map(|field| {
@@ -69,19 +49,6 @@ pub fn expand_derive_columns(input: DeriveInput) -> syn::Result<TokenStream> {
             ident.to_type_ident(span)
         })
         .collect::<Vec<Ident>>();
-
-    let init_id_struct_fields_self: Vec<_> = id_fields
-        .iter()
-        .map(|field| {
-            let ident = field.ident.as_ref().expect("Ident to be present").clone();
-            // Example: id: self.id.clone()
-            quote! { #ident: self.#ident.clone() }
-            // TODO: Always clone here?
-        })
-        .collect();
-
-    // TODO: Use given id ident or fall back to expectable default...
-    let id_struct_ident = Ident::new(format!("{}Id", input.ident).as_str(), Span::call_site());
 
     // Generate match arms for FieldTrait::name() and FieldLookup::from_name().
     let field_trait_name_arms =
@@ -154,16 +121,6 @@ pub fn expand_derive_columns(input: DeriveInput) -> syn::Result<TokenStream> {
 
         impl crudkit_rs::data::CrudModel for #name {
             type Field = Col;
-        }
-
-        impl crudkit_rs::data::HasId for #name {
-            type Id = #id_struct_ident;
-
-            fn id(&self) -> Self::Id {
-                #id_struct_ident {
-                    #(#init_id_struct_fields_self),*
-                }
-            }
         }
     })
 }

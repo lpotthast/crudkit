@@ -205,10 +205,12 @@ pub fn derive_ck_id(input: TokenStream) -> TokenStream {
 
     let id_struct = generate_id_struct(&id_struct_ident, &id_field_enum_ident, &field_metadata);
     let id_field_enum = generate_id_field_enum(&id_field_enum_ident, &field_metadata);
+    let has_id_impl = generate_has_id_impl(source_struct_name, &id_struct_ident, &field_metadata);
 
     quote! {
         #id_struct
         #id_field_enum
+        #has_id_impl
     }
     .into()
 }
@@ -335,6 +337,33 @@ fn generate_id_struct(
                 Some(Self {
                     #(#from_serializable_struct_construction),*
                 })
+            }
+        }
+    }
+}
+
+/// Generates the `HasId` implementation for the source struct.
+///
+/// This allows accessing the composite ID from an instance of the source struct.
+fn generate_has_id_impl(
+    source_struct_ident: &Ident,
+    id_struct_ident: &Ident,
+    field_metadata: &[IdFieldMetadata],
+) -> proc_macro2::TokenStream {
+    // Generate field initializers: `field_name: self.field_name.clone()`.
+    let init_id_struct_fields = field_metadata.iter().map(|it| {
+        let ident = &it.ident;
+        quote! { #ident: self.#ident.clone() }
+    });
+
+    quote! {
+        impl crudkit_id::HasId for #source_struct_ident {
+            type Id = #id_struct_ident;
+
+            fn id(&self) -> Self::Id {
+                Self::Id {
+                    #(#init_id_struct_fields),*
+                }
             }
         }
     }

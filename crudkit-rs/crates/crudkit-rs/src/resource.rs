@@ -63,7 +63,7 @@ pub trait CrudResource: Sized + Debug {
     /// This might be backed by a SQL view rather than a direct table.
     /// Must be identifiable and serializable for API responses.
     type ReadModel: CrudModel<Field = Self::ReadModelField>
-        + CrudIdTrait<Id = Self::ReadModelId>
+        + HasId<Id = Self::ReadModelId>
         + Serialize
         + Clone
         + Send

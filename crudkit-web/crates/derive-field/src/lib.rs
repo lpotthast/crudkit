@@ -20,7 +20,7 @@ fn parse_value_type(string: Option<String>) -> Option<ValueType> {
 }
 
 #[derive(Debug, FromField)]
-#[darling(attributes(ck_field, ck_id))]
+#[darling(attributes(ck_field))]
 struct CkFieldConfig {
     ident: Option<Ident>,
 
@@ -31,28 +31,16 @@ struct CkFieldConfig {
     #[darling(rename = "ty")]
     #[darling(map = "parse_value_type")]
     value_type: Option<ValueType>,
-
-    /// Determines whether this field is part of the aggregate id.
-    id: Option<bool>,
 }
 
 impl CkFieldConfig {
-    pub fn is_id(&self) -> bool {
-        match (self.id, &self.ident) {
-            (None, None) => false,
-            (None, Some(ident)) => ident == "id",
-            (Some(id), None) => id,
-            (Some(id), Some(ident)) => id || ident == "id",
-        }
-    }
-
     pub fn value_type(&self) -> ValueType {
         self.value_type.unwrap_or_else(|| (&self.ty).into())
     }
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(ck_field, ck_id), supports(struct_any))]
+#[darling(attributes(ck_field), supports(struct_any))]
 struct CkFieldInputReceiver {
     ident: Ident,
 
@@ -464,41 +452,6 @@ pub fn store(input: TokenStream) -> TokenStream {
         quote! { pub const #type_ident: #field_name = #field_name::#type_ident; }
     });
 
-    let id_fields = input
-        .fields()
-        .iter()
-        .filter(|field| field.is_id())
-        .collect::<Vec<_>>();
-
-    // TODO: Make this a separate derive macro?
-    let id_impl = match id_fields.len() {
-        // TODO: Create an error, as every aggregate needs an id?
-        0 => quote! {},
-        // Implement the `crudkit_id::HasId` trait if there are id fields in the struct.
-        _ => {
-            let id_struct_ident = Ident::new(format!("{}Id", name).as_str(), name.span());
-
-            let init_id_struct_fields = id_fields.iter().map(|field| {
-                let ident = field.ident.as_ref().expect("Ident to be present").clone();
-                // Example: id: self.id.clone()
-                quote! { #ident: self.#ident.clone() } // TODO: Always clone here?
-            });
-
-            // Implements the main 'HasId' trait for our base type. Allowing the user to access the ID of the entity.
-            quote! {
-                impl crudkit_id::HasId for #name {
-                    type Id = #id_struct_ident;
-
-                    fn id(&self) -> Self::Id {
-                        Self::Id {
-                            #(#init_id_struct_fields),*
-                        }
-                    }
-                }
-            }
-        }
-    };
-
     let match_field_name_to_str_arms = input.fields().iter().map(|field| {
         let name = field.ident.as_ref().expect("Expected named field!");
         let name = name.to_string();
@@ -656,8 +609,6 @@ pub fn store(input: TokenStream) -> TokenStream {
                 std::borrow::Cow::Borrowed(#get_name_impl)
             }
         }
-
-        #id_impl
 
         impl crudkit_web::CrudModel for #name {
             type Field = #field_name;

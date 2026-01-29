@@ -15,4 +15,5 @@ fn tests() {
     t.compile_fail("tests/11-error-optional.rs");
     t.compile_fail("tests/12-error-f32.rs");
     t.compile_fail("tests/13-error-unknown-type.rs");
+    t.pass("tests/14-has-id-impl.rs");
 }
