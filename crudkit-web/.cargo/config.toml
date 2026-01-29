@@ -1,3 +1,0 @@
-[build]
-# At last for now, we only support wasm-compiled frontends.
-target = "wasm32-unknown-unknown"

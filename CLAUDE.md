@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Crudkit is a type-safe, full-stack Rust CRUD framework featuring backend integration with SeaORM + Axum and frontend UI
-components built with Leptos 0.8. The project is organized as a multi-workspace repository with 5 workspaces.
+components built with Leptos 0.8. The project is organized as a single workspace with 12 crates.
 
 ## Common Commands
 
@@ -36,17 +36,17 @@ just leptosfmt
 
 ### Single Crate Operations
 
-To work with a single crate, use the `--manifest-path` flag:
+To work with a single crate, use the `-p` flag:
 
 ```bash
-# Check a single workspace
-cargo check --manifest-path ./crudkit-rs/Cargo.toml
+# Check a single crate
+cargo check -p crudkit-rs
 
-# Run tests for a single workspace
-cargo test --manifest-path ./crudkit-leptos/Cargo.toml
+# Run tests for a single crate
+cargo test -p crudkit-leptos
 
 # Run a specific test
-cargo test --manifest-path ./crudkit-core/Cargo.toml test_name
+cargo test -p crudkit-core test_name
 ```
 
 ### Dependency Management
@@ -68,75 +68,59 @@ Automatically add newly created files to version control.
 
 ## Architecture
 
-### Workspace Organization
+### Crate Organization
 
-The project is organized into 5 workspaces following a 3-layer architecture:
+The project is organized as a single workspace with 12 crates following a 3-layer architecture:
 
 ```
 crudkit/
-├── crudkit-core/           # Shared layer workspace (8 crates)
-│   └── crates/
-│       ├── crudkit-core/        # Shared types (Value, Order, Saved, Deleted)
-│       ├── crudkit-core-macros/ # CkId derive macro (proc-macro crate)
-│       ├── crudkit-core-macro-util/ # Shared utilities for derive macros
-│       ├── crudkit-id/          # Type-safe entity identifiers
-│       ├── crudkit-condition/   # Query filtering and conditions
-│       ├── crudkit-validation/  # Validation framework
-│       ├── crudkit-collaboration/ # Multi-user collaboration types
-│       └── crudkit-resource/    # Resource naming trait
-├── crudkit-rs/             # Backend framework workspace (3 crates)
-│   └── crates/
-│       ├── crudkit-rs/          # Core backend framework
-│       ├── crudkit-rs-macros/   # Backend derive macros
-│       └── crudkit-rs-macros-core/ # Shared macro utilities
-├── crudkit-sea-orm/        # SeaORM integration workspace (2 crates)
-│   └── crates/
-│       ├── crudkit-sea-orm/     # SeaORM repository implementation
-│       └── crudkit-sea-orm-macros/ # SeaORM-specific derive macros
-├── crudkit-web/            # Web abstractions workspace (5 crates)
-│   └── crates/
-│       ├── crudkit-web/         # Platform-agnostic web abstractions
-│       ├── derive-crud-resource/# CkResource derive macro
-│       ├── derive-field/        # CkField derive macro
-│       ├── derive-crud-action-payload/ # CkActionPayload derive macro
-│       └── types/               # Shared types for derive macros
-└── crudkit-leptos/         # Leptos UI workspace (2 crates)
-    └── crates/
-        ├── crudkit-leptos/      # Leptos UI components
-        └── crudkit-leptos-theme/ # CSS theme generation
+├── Cargo.toml               # Root workspace
+├── Cargo.lock               # Single lockfile
+├── crudkit-core/            # Shared types (Value, Order, Saved, Deleted)
+├── crudkit-core-macros/     # CkId derive macro (proc-macro crate)
+├── crudkit-core-macro-util/ # Shared utilities for derive macros
+├── crudkit-rs/              # Core backend framework
+├── crudkit-rs-macros/       # Backend derive macros
+├── crudkit-rs-macros-core/  # Shared macro utilities
+├── crudkit-sea-orm/         # SeaORM repository implementation
+├── crudkit-sea-orm-macros/  # SeaORM-specific derive macros
+├── crudkit-web/             # Platform-agnostic web abstractions
+├── crudkit-web-macros/      # Web layer derive macros
+├── crudkit-leptos/          # Leptos UI components
+└── crudkit-leptos-theme/    # CSS theme generation
 ```
 
 ### Layer Overview
 
-1. **Shared Layer** (`crudkit-core` workspace) - Core types used by both frontend and backend:
-    - `crudkit-id` - Type-safe entity identifiers with composite primary key support
-    - `crudkit-condition` - Query filtering and condition building
+1. **Shared Layer** - Core types used by both frontend and backend:
     - `crudkit-core` - Shared types (Value enum, Order, Saved, Deleted, etc.)
-    - `crudkit-validation` - Entity validation framework with severity levels
-    - `crudkit-collaboration` - Types used for sharing data between different users
     - `crudkit-core-macros` - CkId derive macro for type-safe entity identifiers
     - `crudkit-core-macro-util` - Shared utilities for derive macros (ValueKind, string helpers)
 
-2. **Backend Layer** (`crudkit-rs` + `crudkit-sea-orm` workspaces):
+2. **Backend Layer**:
     - `crudkit-rs` - Storage-agnostic CRUD framework
+    - `crudkit-rs-macros` - Backend derive macros
+    - `crudkit-rs-macros-core` - Shared macro utilities
     - `crudkit-sea-orm` - SeaORM repository implementation
+    - `crudkit-sea-orm-macros` - SeaORM-specific derive macros
     - Derive macros: `CkCreateModel`, `CkUpdateModel`, `CkField`, `CkValidationModel`, `CkResourceContext`
     - Axum REST API generation via `impl_add_crud_routes!` macro
     - Lifecycle hooks (before/after create/update/delete)
     - Keycloak authentication support
 
-3. **Frontend Layer** (`crudkit-web` + `crudkit-leptos` workspaces):
+3. **Frontend Layer**:
     - `crudkit-web` - Platform-agnostic web abstractions (no Leptos dependency)
         - HTTP client via `CrudRestDataProvider`
         - Derive macros: `CkResource`, `CkField`, `CkActionPayload`
+    - `crudkit-web-macros` - Web layer derive macros
     - `crudkit-leptos` - Leptos 0.8 UI components
         - Views: `CrudListView`, `CrudCreateView`, `CrudEditView`, `CrudReadView`, `CrudDeleteModal`
-        - CSS theme generation via `crudkit-leptos-theme`
         - Fine-grained reactivity via `ReactiveValue` (field-level signals)
+    - `crudkit-leptos-theme` - CSS theme generation
 
 ### The CrudResource Pattern
 
-The central abstraction is the `CrudResource` trait (crudkit-rs/crates/crudkit-rs/src/resource.rs), which defines:
+The central abstraction is the `CrudResource` trait (crudkit-rs/src/resource.rs), which defines:
 
 - Entity types (database models vs read-only views)
 - Create/Update DTOs
@@ -147,12 +131,10 @@ The central abstraction is the `CrudResource` trait (crudkit-rs/crates/crudkit-r
 
 ### Key Traits and Types
 
-**Shared Layer** (crudkit-core, crudkit-id):
+**Shared Layer** (crudkit-core):
 
 - `Model` (crudkit-core) - Base trait for all data models with typed field access
 - `Named` (crudkit-core) - Trait for types that have a `name()` method
-- `HasId` (crudkit-id) - Trait for models with typed ID access via `id()` method
-- `Id` (crudkit-id) - Trait for composite primary key types
 
 **Backend** (crudkit-rs):
 
@@ -264,7 +246,7 @@ The framework provides derive macros to reduce boilerplate:
 
 ### Composite Primary Keys
 
-Unlike most CRUD frameworks, Crudkit fully supports composite primary keys via the `Id` trait in crudkit-id. An entity's
+Unlike most CRUD frameworks, Crudkit fully supports composite primary keys via the `Id` trait. An entity's
 ID can be a tuple of multiple fields (e.g., `(user_id, org_id)`).
 
 ### Framework Integrations
@@ -280,28 +262,27 @@ ID can be a tuple of multiple fields (e.g., `(user_id, org_id)`).
 
 ### Core Trait Definitions
 
-- `crudkit-core/crates/crudkit-core/src/lib.rs` - Base `Model` trait, `Named` trait, `Value` enum, `Order`, shared types
-- `crudkit-core/crates/crudkit-id/src/lib.rs` - `Id` trait, `HasId` trait
-- `crudkit-rs/crates/crudkit-rs/src/resource.rs` - `CrudResource` trait
-- `crudkit-rs/crates/crudkit-rs/src/data.rs` - Backend `Model` trait, `Field` trait
-- `crudkit-rs/crates/crudkit-rs/src/repository.rs` - `Repository` trait
-- `crudkit-web/crates/crudkit-web/src/lib.rs` - `Resource`, `Model`, `FieldAccess` traits
-- `crudkit-web/crates/crudkit-web/src/model.rs` - Type-erased `Dyn*` traits and `Any*` wrappers
+- `crudkit-core/src/lib.rs` - Base `Model` trait, `Named` trait, `Value` enum, `Order`, shared types
+- `crudkit-rs/src/resource.rs` - `CrudResource` trait
+- `crudkit-rs/src/data.rs` - Backend `Model` trait, `Field` trait
+- `crudkit-rs/src/repository.rs` - `Repository` trait
+- `crudkit-web/src/lib.rs` - `Resource`, `Model`, `FieldAccess` traits
+- `crudkit-web/src/model.rs` - Type-erased `Dyn*` traits and `Any*` wrappers
 
 ### CRUD Operations
 
-- `crudkit-rs/crates/crudkit-rs/src/create.rs` - Create operations with validation
-- `crudkit-rs/crates/crudkit-rs/src/read.rs` - Read operations with filtering
-- `crudkit-rs/crates/crudkit-rs/src/update.rs` - Update operations with lifecycle hooks
-- `crudkit-rs/crates/crudkit-rs/src/delete.rs` - Delete operations with lifecycle hooks
+- `crudkit-rs/src/create.rs` - Create operations with validation
+- `crudkit-rs/src/read.rs` - Read operations with filtering
+- `crudkit-rs/src/update.rs` - Update operations with lifecycle hooks
+- `crudkit-rs/src/delete.rs` - Delete operations with lifecycle hooks
 
 ### Derive Macro Implementations
 
-- `crudkit-core/crates/crudkit-core-macros/src/lib.rs` - CkId derive macro
-- `crudkit-core/crates/crudkit-core-macro-util/src/lib.rs` - Shared derive macro utilities
-- `crudkit-rs/crates/crudkit-rs-macros/src/lib.rs` - Backend derive macros
-- `crudkit-sea-orm/crates/crudkit-sea-orm-macros/src/lib.rs` - SeaORM derive macros
-- `crudkit-web/crates/crudkit-web-macros/src/lib.rs` - Web layer derive macros
+- `crudkit-core-macros/src/lib.rs` - CkId derive macro
+- `crudkit-core-macro-util/src/lib.rs` - Shared derive macro utilities
+- `crudkit-rs-macros/src/lib.rs` - Backend derive macros
+- `crudkit-sea-orm-macros/src/lib.rs` - SeaORM derive macros
+- `crudkit-web-macros/src/lib.rs` - Web layer derive macros
 
 ## Code Style
 
@@ -320,26 +301,23 @@ ID can be a tuple of multiple fields (e.g., `(user_id, org_id)`).
 
 ### When Adding Shared Types
 
-- Put types used by both frontend and backend in `crudkit-core/crates/crudkit-core/`
-- ID-related types go in `crudkit-core/crates/crudkit-id/`
-- Filter/condition types go in `crudkit-core/crates/crudkit-condition/`
-- Validation types go in `crudkit-core/crates/crudkit-validation/`
+- Put types used by both frontend and backend in `crudkit-core/`
 
 ### When Modifying Backend Logic
 
-- Core framework changes go in `crudkit-rs/crates/crudkit-rs/`
-- SeaORM-specific code goes in `crudkit-sea-orm/crates/crudkit-sea-orm/`
-- Backend derive macros are in `crudkit-rs/crates/crudkit-rs-macros/`
+- Core framework changes go in `crudkit-rs/`
+- SeaORM-specific code goes in `crudkit-sea-orm/`
+- Backend derive macros are in `crudkit-rs-macros/`
 
 ### When Modifying Web Layer
 
-- Platform-agnostic abstractions go in `crudkit-web/crates/crudkit-web/`
-- Web derive macros are in `crudkit-web/crates/derive-*/`
+- Platform-agnostic abstractions go in `crudkit-web/`
+- Web derive macros are in `crudkit-web-macros/`
 
 ### When Modifying Frontend
 
-- Leptos components go in `crudkit-leptos/crates/crudkit-leptos/`
-- CSS/theming goes in `crudkit-leptos/crates/crudkit-leptos-theme/`
+- Leptos components go in `crudkit-leptos/`
+- CSS/theming goes in `crudkit-leptos-theme/`
 
 ### Understanding the Data Flow
 

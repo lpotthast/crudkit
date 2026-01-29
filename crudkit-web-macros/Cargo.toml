@@ -12,7 +12,7 @@ name = "tests"
 path = "tests/progress.rs"
 
 [dependencies]
-crudkit-core-macro-util = { path = "../../../crudkit-core/crates/crudkit-core-macro-util" }
+crudkit-core-macro-util = { path = "../crudkit-core-macro-util" }
 
 darling = { workspace = true }
 proc-macro-error = { workspace = true }

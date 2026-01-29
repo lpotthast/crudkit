@@ -1,12 +1,27 @@
-[workspace]
-resolver = "2"
-members = ["crates/*"]
-default-members = ["crates/crudkit-rs"]
+[package]
+name = "crudkit-rs"
+version = "0.1.0"
+edition = "2024"
 
-[workspace.dependencies]
-darling = "0.23.0"
-proc-macro-error = "1.0.4"
-proc-macro-type-name = "0.1.0"
-proc-macro2 = "1.0.104"
-quote = "1.0.42"
-syn = { version = "2.0.112", features = ["extra-traits"] }
+[features]
+default = []
+keycloak-auth = ["dep:axum-keycloak-auth"]
+
+[dependencies]
+crudkit-core = { path = "../crudkit-core" }
+crudkit-core-macros = { path = "../crudkit-core-macros" }
+crudkit-rs-macros = { path = "../crudkit-rs-macros" }
+
+async-trait = "0.1.89"
+axum = "0.8.8"
+axum-keycloak-auth = { version = "0.8.3", optional = true }
+error-stack = "0.6.0"
+indexmap = { version = "2.12.1", features = ["serde"] }
+paste = "1.0.15"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.148"
+snafu = { version = "0.8.9", features = ["backtrace"] }
+time = { version = "0.3.44", features = ["serde", "serde-well-known"] }
+tracing = "0.1.44"
+utoipa = { version = "5.4.0", features = ["time", "uuid"] }
+uuid = { version = "1.19.0", features = ["v4", "v7", "serde"] }

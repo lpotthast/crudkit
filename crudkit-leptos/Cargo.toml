@@ -1,11 +1,33 @@
-[workspace]
-resolver = "2"
-members = ["crates/*"]
-default-members = ["crates/crudkit-leptos"]
+[package]
+name = "crudkit-leptos"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
 
-[workspace.dependencies]
-darling = "0.23.0"
-proc-macro-error = "1.0.4"
-proc-macro2 = "1.0.104"
-quote = "1.0.42"
-syn = { version = "2.0.112", features = ["extra-traits"] }
+[dependencies]
+crudkit-core = { path = "../crudkit-core" }
+crudkit-core-macros = { path = "../crudkit-core-macros" }
+crudkit-web = { path = "../crudkit-web" }
+crudkit-web-macros = { path = "../crudkit-web-macros" }
+
+dyn-clone = "1.0.20"
+indexmap = { version = "2.12.1", features = ["serde"] }
+#leptonic = { path = "../../../../leptonic/leptonic", features = ["tiptap"] }
+leptonic = { version = "0.5.0", git = "https://github.com/lpotthast/leptonic", branch = "migrate-to-leptos-0.8", features = ["tiptap"] }
+leptos = "0.8.15"
+serde = { version = "1.0.228", features = ["derive"] }
+# TODO: Only required to handle TipTap content. Can we get rid of this?
+serde_json = { version = "1.0.148", features = ["raw_value"] }
+time = { version = "0.3.44", features = [
+    "macros",
+    "local-offset", # TODO: Describe why this feature is required.
+    "wasm-bindgen",
+] }
+tracing = "0.1.44"
+uuid = { version = "1.19.0", features = ["js", "v4", "v7", "serde"] }
+
+[build-dependencies]
+anyhow = "1.0.100"
+cargo_toml = "0.22.3"
+crudkit-leptos-theme = { path = "../crudkit-leptos-theme" }
+lazy_static = "1.5.0"
