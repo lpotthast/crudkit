@@ -2,15 +2,15 @@
 #![allow(unused_variables)]
 
 use assertr::prelude::*;
-use derive_crudkit_id::CkId;
+use crudkit_core_macros::CkId;
 
 #[derive(CkId)]
 pub struct Foo {
     #[ck_id(id)]
-    id_a: i32,
+    id_a: i64,
 
     #[ck_id(id)]
-    id_b: i32,
+    id_b: i64,
 }
 
 fn main() {
@@ -22,6 +22,6 @@ fn main() {
     assert_that(field_b.name()).is_equal_to("id_b");
 
     use crudkit_core::id::IdValue;
-    assert_that(field_a.to_value()).is_equal_to(IdValue::I32(-1337));
-    assert_that(field_b.to_value()).is_equal_to(IdValue::I32(1337));
+    assert_that(field_a.to_value()).is_equal_to(IdValue::I64(-1337));
+    assert_that(field_b.to_value()).is_equal_to(IdValue::I64(1337));
 }

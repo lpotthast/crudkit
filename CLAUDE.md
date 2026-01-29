@@ -77,13 +77,13 @@ crudkit/
 ├── crudkit-core/           # Shared layer workspace (8 crates)
 │   └── crates/
 │       ├── crudkit-core/        # Shared types (Value, Order, Saved, Deleted)
-│       ├── crudkit-core-macros/ # Shared derive utilities + CkId re-export
+│       ├── crudkit-core-macros/ # CkId derive macro (proc-macro crate)
+│       ├── crudkit-core-macro-util/ # Shared utilities for derive macros
 │       ├── crudkit-id/          # Type-safe entity identifiers
 │       ├── crudkit-condition/   # Query filtering and conditions
 │       ├── crudkit-validation/  # Validation framework
 │       ├── crudkit-collaboration/ # Multi-user collaboration types
-│       ├── crudkit-resource/    # Resource naming trait
-│       └── derive-crudkit-id/   # CkId derive macro (proc-macro crate)
+│       └── crudkit-resource/    # Resource naming trait
 ├── crudkit-rs/             # Backend framework workspace (3 crates)
 │   └── crates/
 │       ├── crudkit-rs/          # Core backend framework
@@ -114,7 +114,8 @@ crudkit/
     - `crudkit-core` - Shared types (Value enum, Order, Saved, Deleted, etc.)
     - `crudkit-validation` - Entity validation framework with severity levels
     - `crudkit-collaboration` - Types used for sharing data between different users
-    - `crudkit-core-macros` - Shared derive macro utilities and `CkId` re-export
+    - `crudkit-core-macros` - CkId derive macro for type-safe entity identifiers
+    - `crudkit-core-macro-util` - Shared utilities for derive macros (ValueKind, string helpers)
 
 2. **Backend Layer** (`crudkit-rs` + `crudkit-sea-orm` workspaces):
     - `crudkit-rs` - Storage-agnostic CRUD framework
@@ -296,11 +297,11 @@ ID can be a tuple of multiple fields (e.g., `(user_id, org_id)`).
 
 ### Derive Macro Implementations
 
-- `crudkit-core/crates/derive-crudkit-id/src/lib.rs` - CkId macro
-- `crudkit-core/crates/crudkit-core-macros/src/lib.rs` - Shared derive macro utilities
+- `crudkit-core/crates/crudkit-core-macros/src/lib.rs` - CkId derive macro
+- `crudkit-core/crates/crudkit-core-macro-util/src/lib.rs` - Shared derive macro utilities
 - `crudkit-rs/crates/crudkit-rs-macros/src/lib.rs` - Backend derive macros
 - `crudkit-sea-orm/crates/crudkit-sea-orm-macros/src/lib.rs` - SeaORM derive macros
-- `crudkit-web/crates/derive-*/src/lib.rs` - Web layer derive macros
+- `crudkit-web/crates/crudkit-web-macros/src/lib.rs` - Web layer derive macros
 
 ## Code Style
 

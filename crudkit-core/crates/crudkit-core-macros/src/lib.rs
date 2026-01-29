@@ -1,336 +1,563 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-//! Shared utilities for crudkit derive macros.
-//!
-//! This crate provides common helper functions used across multiple proc-macro crates
-//! in the crudkit ecosystem to reduce code duplication.
-//!
-//! # Value Kind Classification
-//!
-//! The [`ValueKind`] enum provides a shared abstraction for classifying Rust types
-//! into their corresponding `crudkit_core::Value` variants. This is used by both
-//! frontend (`derive-field`) and backend (`crudkit-rs-macros`) derive macros.
-//!
-//! # CkId Derive Macro
-//!
-//! This crate re-exports the `CkId` derive macro from `derive-crudkit-id`.
+use darling::*;
+use proc_macro::TokenStream;
+use proc_macro2::Span;
+use proc_macro_error::{abort, proc_macro_error};
+use proc_macro_type_name::ToTypeName;
+use quote::quote;
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident};
 
-// Re-export CkId derive macro.
-pub use derive_crudkit_id::CkId;
+const SUPPORTED_TYPES_HELP: &str = indoc::indoc! {
+    r#"
+    Supported ID field types:
+      - Integers: i8, i16, i32, i64, i128, u8, u16, u32, u64, u128
+      - Strings: String
+      - Booleans: bool
+      - UUIDs: uuid::Uuid
+      - Time: time::PrimitiveDateTime, time::OffsetDateTime
 
-use proc_macro2::{Ident, Span};
+    Note:
+      - Floating point types (f32, f64) are not supported (not Eq comparable)
+      - Optional types (Option<T>) are not supported for ID fields
+      - Use exact type paths as shown above
+    "#
+};
 
-/// Capitalizes the first letter of a string.
+/// Represents a supported ID field type.
 ///
-/// # Examples
-/// ```
-/// use crudkit_core_macros::capitalize_first_letter;
-/// assert_eq!(capitalize_first_letter("hello"), "Hello");
-/// assert_eq!(capitalize_first_letter("world"), "World");
-/// ```
-#[must_use]
-pub fn capitalize_first_letter(s: &str) -> String {
-    if s.is_empty() {
-        return String::new();
-    }
-    s[0..1].to_uppercase() + &s[1..]
-}
-
-/// Converts a `snake_case` field name to a `PascalCase` type name.
-///
-/// # Examples
-/// ```
-/// use crudkit_core_macros::to_pascal_case;
-/// assert_eq!(to_pascal_case("user_id"), "UserId");
-/// assert_eq!(to_pascal_case("first_name"), "FirstName");
-/// assert_eq!(to_pascal_case("id"), "Id");
-/// ```
-#[must_use]
-pub fn to_pascal_case(name: &str) -> String {
-    name.split('_').map(capitalize_first_letter).collect()
-}
-
-/// Converts a `snake_case` field name to a `PascalCase` identifier.
-///
-/// This is a convenience function that combines `to_pascal_case` with `Ident::new`.
-#[must_use]
-pub fn field_name_to_pascal_ident(name: &str) -> Ident {
-    Ident::new(&to_pascal_case(name), Span::call_site())
-}
-
-/// Converts a `syn::Path` to a normalized string representation.
-///
-/// Removes spaces that may appear in the path representation.
-#[must_use]
-pub fn path_to_string(path: &syn::Path) -> String {
-    quote::quote!(#path).to_string().replace(' ', "")
-}
-
-/// Removes surrounding quotes from a string.
-///
-/// # Examples
-/// ```
-/// use crudkit_core_macros::strip_quotes;
-/// assert_eq!(strip_quotes("\"hello\""), "hello");
-/// assert_eq!(strip_quotes("hello"), "hello");
-/// ```
-#[must_use]
-pub fn strip_quotes(s: &str) -> String {
-    s.trim_matches('"').to_string()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_capitalize_first_letter() {
-        assert_eq!(capitalize_first_letter("hello"), "Hello");
-        assert_eq!(capitalize_first_letter("World"), "World");
-        assert_eq!(capitalize_first_letter(""), "");
-        assert_eq!(capitalize_first_letter("a"), "A");
-    }
-
-    #[test]
-    fn test_to_pascal_case() {
-        assert_eq!(to_pascal_case("user_id"), "UserId");
-        assert_eq!(to_pascal_case("first_name"), "FirstName");
-        assert_eq!(to_pascal_case("id"), "Id");
-        assert_eq!(to_pascal_case("some_long_field_name"), "SomeLongFieldName");
-    }
-
-    #[test]
-    fn test_strip_quotes() {
-        assert_eq!(strip_quotes("\"hello\""), "hello");
-        assert_eq!(strip_quotes("hello"), "hello");
-        assert_eq!(strip_quotes("\"\""), "");
-    }
-}
-
-// =============================================================================
-// Value Kind Classification
-// =============================================================================
-
-/// Represents the base variant families of `crudkit_core::Value`.
-///
-/// Each variant corresponds to a non-optional `Value` variant.
-/// Optionality is tracked separately by callers using [`is_option_path`].
-///
-/// # Usage
-///
-/// Use [`classify_base_type`] to convert a type path string into a `ValueKind`.
-/// Then use the various methods to get variant names and method names for code generation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ValueKind {
-    Void,
-    Bool,
-    U8,
-    U16,
-    U32,
-    U64,
-    U128,
+/// Used internally to avoid duplicating type classification logic.
+enum IdValueKind {
     I8,
     I16,
     I32,
     I64,
     I128,
-    F32,
-    F64,
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    Bool,
     String,
-    Json,
     Uuid,
     PrimitiveDateTime,
     OffsetDateTime,
-    Duration,
-    // Vec types (no optional variants in Value).
-    U8Vec,
-    I32Vec,
-    I64Vec,
-    // Fallback (no optional variant in Value).
-    Other,
 }
 
-impl ValueKind {
-    /// Returns the `Value` variant name (e.g., "I32" for `I32`).
-    #[must_use]
-    pub fn value_variant_name(&self) -> &'static str {
-        match self {
-            ValueKind::Void => "Void",
-            ValueKind::Bool => "Bool",
-            ValueKind::U8 => "U8",
-            ValueKind::U16 => "U16",
-            ValueKind::U32 => "U32",
-            ValueKind::U64 => "U64",
-            ValueKind::U128 => "U128",
-            ValueKind::I8 => "I8",
-            ValueKind::I16 => "I16",
-            ValueKind::I32 => "I32",
-            ValueKind::I64 => "I64",
-            ValueKind::I128 => "I128",
-            ValueKind::F32 => "F32",
-            ValueKind::F64 => "F64",
-            ValueKind::String => "String",
-            ValueKind::Json => "Json",
-            ValueKind::Uuid => "Uuid",
-            ValueKind::PrimitiveDateTime => "PrimitiveDateTime",
-            ValueKind::OffsetDateTime => "OffsetDateTime",
-            ValueKind::Duration => "Duration",
-            ValueKind::U8Vec => "U8Vec",
-            ValueKind::I32Vec => "I32Vec",
-            ValueKind::I64Vec => "I64Vec",
-            ValueKind::Other => "Other",
-        }
-    }
+#[derive(Debug, FromField)]
+#[darling(attributes(ck_id))]
+struct CkIdFieldConfig {
+    ident: Option<Ident>,
 
-    /// Returns the optional variant name (e.g., `OptionalI32` for `I32`).
+    ty: syn::Type,
+
+    /// Whether this field is part of the entities primary key.
     ///
-    /// Returns `None` for kinds without optional variants: `Void`, `U8Vec`, `I32Vec`, `I64Vec`, `Other`.
-    #[must_use]
-    pub fn optional_variant_name(&self) -> Option<&'static str> {
-        match self {
-            ValueKind::Bool => Some("OptionalBool"),
-            ValueKind::U8 => Some("OptionalU8"),
-            ValueKind::U16 => Some("OptionalU16"),
-            ValueKind::U32 => Some("OptionalU32"),
-            ValueKind::U64 => Some("OptionalU64"),
-            ValueKind::U128 => Some("OptionalU128"),
-            ValueKind::I8 => Some("OptionalI8"),
-            ValueKind::I16 => Some("OptionalI16"),
-            ValueKind::I32 => Some("OptionalI32"),
-            ValueKind::I64 => Some("OptionalI64"),
-            ValueKind::I128 => Some("OptionalI128"),
-            ValueKind::F32 => Some("OptionalF32"),
-            ValueKind::F64 => Some("OptionalF64"),
-            ValueKind::String => Some("OptionalString"),
-            ValueKind::Json => Some("OptionalJson"),
-            ValueKind::Uuid => Some("OptionalUuid"),
-            ValueKind::PrimitiveDateTime => Some("OptionalPrimitiveDateTime"),
-            ValueKind::OffsetDateTime => Some("OptionalOffsetDateTime"),
-            ValueKind::Duration => Some("OptionalDuration"),
-            ValueKind::Void
-            | ValueKind::U8Vec
-            | ValueKind::I32Vec
-            | ValueKind::I64Vec
-            | ValueKind::Other => None,
-        }
-    }
+    /// This can be set by specifying `#[ck_id(id)]` on a field. Only required for fields not
+    /// named `id`.
+    id: Option<bool>,
+}
 
-    /// Whether `crudkit_core::Value` has an `Optional*` variant for this kind.
-    ///
-    /// Returns `false` for: `Void`, `U8Vec`, `I32Vec`, `I64Vec`, `Other`.
-    #[must_use]
-    pub fn has_optional_variant(&self) -> bool {
-        self.optional_variant_name().is_some()
-    }
-
-    /// Returns the method name on `ConditionClauseValue` for this kind.
-    ///
-    /// Returns `None` for types without a conversion method (`Void`, `Other`, `I32Vec`, `I64Vec`).
-    #[must_use]
-    pub fn condition_method_name(&self) -> Option<&'static str> {
-        match self {
-            ValueKind::Bool => Some("to_bool"),
-            ValueKind::U8 => Some("to_u8"),
-            ValueKind::U16 => Some("to_u16"),
-            ValueKind::U32 => Some("to_u32"),
-            ValueKind::U64 => Some("to_u64"),
-            ValueKind::U128 => Some("to_u128"),
-            ValueKind::I8 => Some("to_i8"),
-            ValueKind::I16 => Some("to_i16"),
-            ValueKind::I32 => Some("to_i32"),
-            ValueKind::I64 => Some("to_i64"),
-            ValueKind::I128 => Some("to_i128"),
-            ValueKind::F32 => Some("to_f32"),
-            ValueKind::F64 => Some("to_f64"),
-            ValueKind::String => Some("to_string"),
-            ValueKind::Json => Some("to_json_value"),
-            ValueKind::Uuid => Some("to_uuid"),
-            ValueKind::PrimitiveDateTime => Some("to_primitive_date_time"),
-            ValueKind::OffsetDateTime => Some("to_offset_date_time"),
-            ValueKind::Duration => Some("to_time_duration"),
-            ValueKind::U8Vec => Some("to_byte_vec"),
-            ValueKind::Void | ValueKind::I32Vec | ValueKind::I64Vec | ValueKind::Other => None,
-        }
-    }
-
-    /// Returns the `Value::take_*` method name for extracting a value of this kind.
-    ///
-    /// The `is_optional` parameter determines whether to return the optional variant
-    /// (e.g., `take_optional_i32` vs `take_i32`).
-    ///
-    /// Returns `None` for types without a take method (`Void`, `Json`, `Uuid`, `Other`).
-    /// These types require special handling in code generation.
-    #[must_use]
-    pub fn take_method_name(&self, is_optional: bool) -> Option<&'static str> {
-        match (self, is_optional) {
-            (ValueKind::Bool, false) => Some("take_bool"),
-            (ValueKind::Bool, true) => Some("take_optional_bool"),
-
-            (ValueKind::U8, false) => Some("take_u8"),
-            (ValueKind::U8, true) => Some("take_optional_u8"),
-            (ValueKind::U16, false) => Some("take_u16"),
-            (ValueKind::U16, true) => Some("take_optional_u16"),
-            (ValueKind::U32, false) => Some("take_u32"),
-            (ValueKind::U32, true) => Some("take_optional_u32"),
-            (ValueKind::U64, false) => Some("take_u64"),
-            (ValueKind::U64, true) => Some("take_optional_u64"),
-            (ValueKind::U128, false) => Some("take_u128"),
-            (ValueKind::U128, true) => Some("take_optional_u128"),
-
-            (ValueKind::I8, false) => Some("take_i8"),
-            (ValueKind::I8, true) => Some("take_optional_i8"),
-            (ValueKind::I16, false) => Some("take_i16"),
-            (ValueKind::I16, true) => Some("take_optional_i16"),
-            (ValueKind::I32, false) => Some("take_i32"),
-            (ValueKind::I32, true) => Some("take_optional_i32"),
-            (ValueKind::I64, false) => Some("take_i64"),
-            (ValueKind::I64, true) => Some("take_optional_i64"),
-            (ValueKind::I128, false) => Some("take_i128"),
-            (ValueKind::I128, true) => Some("take_optional_i128"),
-
-            (ValueKind::F32, false) => Some("take_f32"),
-            (ValueKind::F32, true) => Some("take_optional_f32"),
-            (ValueKind::F64, false) => Some("take_f64"),
-            (ValueKind::F64, true) => Some("take_optional_f64"),
-
-            (ValueKind::String, false) => Some("take_string"),
-            (ValueKind::String, true) => Some("take_optional_string"),
-
-            (ValueKind::PrimitiveDateTime, false) => Some("take_primitive_date_time"),
-            (ValueKind::PrimitiveDateTime, true) => Some("take_optional_primitive_date_time"),
-            (ValueKind::OffsetDateTime, false) => Some("take_offset_date_time"),
-            (ValueKind::OffsetDateTime, true) => Some("take_optional_offset_date_time"),
-            (ValueKind::Duration, false) => Some("take_duration"),
-            (ValueKind::Duration, true) => Some("take_optional_duration"),
-
-            // Vec types don't have optional variants.
-            (ValueKind::U8Vec, _) => Some("take_u8_vec"),
-            (ValueKind::I32Vec, _) => Some("take_i32_vec"),
-            (ValueKind::I64Vec, _) => Some("take_i64_vec"),
-
-            // These require special handling - return None.
-            (ValueKind::Void | ValueKind::Json | ValueKind::Uuid | ValueKind::Other, _) => None,
-        }
-    }
-
-    /// Creates an `Ident` for the `Value` variant name.
-    #[must_use]
-    pub fn value_variant_ident(&self) -> Ident {
-        Ident::new(self.value_variant_name(), Span::call_site())
-    }
-
-    /// Creates an `Ident` for the optional `Value` variant name.
+impl CkIdFieldConfig {
+    /// Returns the field identifier.
     ///
     /// # Panics
-    /// Panics if this kind has no optional variant.
-    #[must_use]
-    pub fn optional_variant_ident(&self) -> Ident {
-        Ident::new(
-            self.optional_variant_name()
-                .expect("ValueKind has no optional variant"),
+    /// When called on an unnamed fields.
+    pub fn get_ident(&self) -> &syn::Ident {
+        self.ident
+            .as_ref()
+            .expect("Field ident missing - tuple structs are not supported")
+    }
+
+    /// Returns the field's type.
+    pub fn get_type(&self) -> &syn::Type {
+        &self.ty
+    }
+
+    /// Checks if this field is part of the entity's set of ID fields.
+    ///
+    /// A field is an ID field if:
+    /// - It has the `#[ck_id(id = true)]` annotation, OR
+    /// - It's named "id" (and not explicitly marked `#[ck_id(id = false)]`)
+    pub fn is_id(&self) -> bool {
+        match (self.id, &self.ident) {
+            (None, None) => false,
+            (None, Some(ident)) => ident == "id",
+            (Some(id), None) => id,
+            (Some(id), Some(ident)) => id || ident == "id",
+        }
+    }
+}
+
+#[derive(Debug, FromDeriveInput)]
+#[darling(attributes(ck_id), supports(struct_any))]
+struct CkIdInputConfig {
+    ident: Ident,
+
+    data: ast::Data<(), CkIdFieldConfig>,
+}
+
+impl CkIdInputConfig {
+    pub fn fields(&self) -> &ast::Fields<CkIdFieldConfig> {
+        match &self.data {
+            ast::Data::Enum(_) => {
+                unreachable!("darling #[supports(struct_any)] should prevent enums")
+            }
+            ast::Data::Struct(fields) => fields,
+        }
+    }
+}
+
+/// Metadata for a single ID field, used during code generation.
+///
+/// This struct holds all the TokenStreams and identifiers needed to generate
+/// the code for one field in both the ID struct and the ID field enum.
+struct IdFieldMetadata {
+    /// Original field identifier (e.g., `user_id`)
+    ident: Ident,
+
+    /// Field name as string (e.g., "user_id")
+    name: String,
+
+    /// Field name in pascal case (e.g. `UserId`). Usable as a type (or enum variant) name.
+    type_name: Ident,
+
+    /// The original field type (e.g., `i32`).
+    ty: syn::Type,
+}
+
+impl IdFieldMetadata {
+    fn from(field: &CkIdFieldConfig) -> Self {
+        let ident = field.get_ident().clone();
+        let name = ident.to_string();
+        let type_name = (&ident).to_type_ident(ident.span());
+        let ty = field.get_type();
+
+        IdFieldMetadata {
+            ident,
+            name,
+            type_name,
+            ty: ty.clone(),
+        }
+    }
+}
+
+/// Derives ID-related types for the annotated struct.
+///
+/// A field is an ID field if:
+/// - It is named `"id"`, OR
+/// - It is annotated with `#[ck_id(id)]`
+///
+/// At least one ID field must exist, or compilation will fail.
+///
+/// # Generated Types
+///
+/// This macro generates two types from a struct `Foo`:
+///
+/// 1. **`FooId` struct**: Contains only the ID fields of the original struct.
+/// 2. **`FooIdField` enum**: One variant per ID field. Each variant carries the fields value.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use crudkit_core_macros::CkId;
+///
+/// #[derive(CkId)]
+/// struct User {
+///     #[ck_id(id)]
+///     user_id: i32,
+///     #[ck_id(id)]
+///     org_id: i32,
+///
+///     name: String,
+///     email: String,
+/// }
+///
+/// // Generated:
+/// //
+/// // struct UserId {
+/// //     pub user_id: i32,
+/// //     pub org_id: i32,
+/// // }
+/// //
+/// // impl Display for UserId { ... }
+/// // impl crudkit_id::Id for UserId { ... }
+/// //
+/// // enum UserIdField {
+/// //     UserId(i32),
+/// //     OrgId(i32),
+/// // }
+/// //
+/// // impl Display for UserIdField { ... }
+/// // impl crudkit_id::IdField for UserIdField { ... }
+/// ```
+///
+/// # Supported ID Field Types
+///
+/// - Integers: `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, `u128`
+/// - Strings: `String`
+/// - Booleans: `bool`
+/// - UUIDs: `uuid::Uuid`
+/// - Time: `time::PrimitiveDateTime`, `time::OffsetDateTime`
+///
+/// Note:
+/// - Floating point types (`f32`, `f64`) are not supported (not `Eq` comparable).
+/// - Optional types (`Option<T>`) are not supported for ID fields.
+/// - Use exact type paths as shown above.
+#[proc_macro_derive(CkId, attributes(ck_id))]
+#[proc_macro_error]
+pub fn derive_ck_id(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let input: CkIdInputConfig = match FromDeriveInput::from_derive_input(&ast) {
+        Ok(args) => args,
+        Err(err) => return Error::write_errors(err).into(),
+    };
+
+    let id_fields = input
+        .fields()
+        .iter()
+        .filter(|field| field.is_id())
+        .collect::<Vec<_>>();
+
+    if id_fields.is_empty() {
+        abort!(
             Span::call_site(),
-        )
+            "To derive CkId, at least one id field must exist.";
+            help = "A field is an id field if it is (a) named \"id\" or (b) annotated with `#[ck_id(id)]`, both marking the field as part of the entities id. Specify id fields or remove the derive, if no id fields can be defined for this entity.";
+        );
+    }
+
+    let source_struct_name = &input.ident;
+    let id_struct_ident = Ident::new(&format!("{}Id", source_struct_name), Span::call_site());
+    let id_field_enum_ident =
+        Ident::new(&format!("{}IdField", source_struct_name), Span::call_site());
+
+    let field_metadata = id_fields
+        .into_iter()
+        .map(IdFieldMetadata::from)
+        .collect::<Vec<_>>();
+
+    let id_struct = generate_id_struct(&id_struct_ident, &id_field_enum_ident, &field_metadata);
+    let id_field_enum = generate_id_field_enum(&id_field_enum_ident, &field_metadata);
+    let has_id_impl = generate_has_id_impl(source_struct_name, &id_struct_ident, &field_metadata);
+
+    quote! {
+        #id_struct
+        #id_field_enum
+        #has_id_impl
+    }
+    .into()
+}
+
+/// Generates the `*Id` struct with its `Display` and `crudkit_id::Id` implementations.
+///
+/// The struct contains only the ID fields of the original struct.
+fn generate_id_struct(
+    id_struct_ident: &Ident,
+    id_field_enum_ident: &Ident,
+    field_metadata: &[IdFieldMetadata],
+) -> proc_macro2::TokenStream {
+    // Struct field definitions (e.g., `pub user_id: i32,`).
+    let struct_fields = field_metadata
+        .iter()
+        .map(|it| {
+            let ident = &it.ident;
+            let ty = &it.ty;
+            quote! { pub #ident: #ty }
+        })
+        .collect::<Vec<_>>();
+
+    // Expressions to create enum variant from `self`
+    // (e.g., `FooIdField::UserId(self.user_id.clone())`).
+    // Note: Clone is required, as `fields()` returns Vec<Field> with owned data.
+    let create_enum_variants = field_metadata
+        .iter()
+        .map(|it| {
+            let type_name = &it.type_name;
+            let ident = &it.ident;
+            quote! { #id_field_enum_ident::#type_name(self.#ident.clone()) }
+        })
+        .collect::<Vec<_>>();
+
+    let struct_display_format_str = format!(
+        "({})",
+        field_metadata
+            .iter()
+            .map(|it| format!("{}: {{}}", it.name))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    let struct_display_format_args = field_metadata
+        .iter()
+        .map(|it| {
+            let ident = &it.ident;
+            quote! { self.#ident }
+        })
+        .collect::<Vec<_>>();
+
+    let struct_display_write_call = quote! {
+        f.write_fmt(format_args!(#struct_display_format_str, #(#struct_display_format_args),*))
+    };
+
+    // Generate field extractions for from_serializable_id.
+    // Each field gets its own extraction (e.g., `let user_id = extract from id;`).
+    let from_serializable_field_extractions = field_metadata
+        .iter()
+        .map(|it| {
+            let ident = &it.ident;
+            let name = &it.name;
+            let id_value_match = to_id_value_match_extraction(&it.ty);
+            quote! {
+                let #ident = {
+                    let crudkit_core::id::SerializableIdEntry { field_name: _, value } = id.entries().find(|entry| entry.field_name == #name)?;
+                    #id_value_match
+                };
+            }
+        })
+        .collect::<Vec<_>>();
+
+    // Struct construction from extracted fields.
+    let from_serializable_struct_construction = field_metadata
+        .iter()
+        .map(|it| {
+            let ident = &it.ident;
+            quote! { #ident }
+        })
+        .collect::<Vec<_>>();
+
+    quote! {
+        #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, serde::Serialize, serde::Deserialize)]
+        pub struct #id_struct_ident {
+            #(#struct_fields),*
+        }
+
+        impl std::fmt::Display for #id_struct_ident {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                #struct_display_write_call
+            }
+        }
+
+        impl crudkit_core::id::Id for #id_struct_ident {
+            type Field = #id_field_enum_ident;
+            type FieldIter = std::vec::IntoIter<Self::Field>;
+
+            fn fields_iter(&self) -> Self::FieldIter {
+                vec![
+                    #(#create_enum_variants),*
+                ].into_iter()
+            }
+
+            fn fields(&self) -> Vec<Self::Field> {
+                vec![
+                    #(#create_enum_variants),*
+                ]
+            }
+
+            fn to_serializable_id(&self) -> crudkit_core::id::SerializableId {
+                crudkit_core::id::SerializableId(
+                    self.fields_iter()
+                        .map(|field| crudkit_core::id::SerializableIdEntry {
+                            field_name: crudkit_core::id::IdField::name(&field).to_owned(),
+                            value: crudkit_core::id::IdField::to_value(&field),
+                        })
+                        .collect()
+                )
+            }
+
+            fn from_serializable_id(id: &crudkit_core::id::SerializableId) -> Option<Self> {
+                #(#from_serializable_field_extractions)*
+
+                Some(Self {
+                    #(#from_serializable_struct_construction),*
+                })
+            }
+        }
+    }
+}
+
+/// Generates the `HasId` implementation for the source struct.
+///
+/// This allows accessing the composite ID from an instance of the source struct.
+fn generate_has_id_impl(
+    source_struct_ident: &Ident,
+    id_struct_ident: &Ident,
+    field_metadata: &[IdFieldMetadata],
+) -> proc_macro2::TokenStream {
+    // Generate field initializers: `field_name: self.field_name.clone()`.
+    let init_id_struct_fields = field_metadata.iter().map(|it| {
+        let ident = &it.ident;
+        quote! { #ident: self.#ident.clone() }
+    });
+
+    quote! {
+        impl crudkit_core::id::HasId for #source_struct_ident {
+            type Id = #id_struct_ident;
+
+            fn id(&self) -> Self::Id {
+                Self::Id {
+                    #(#init_id_struct_fields),*
+                }
+            }
+        }
+    }
+}
+
+/// Generates the `*IdField` enum with its `Display` and `crudkit_id::IdField` implementations.
+///
+/// The enum contains one variant per ID field of the original struct and member of the new `*Id`
+/// struct type.
+fn generate_id_field_enum(
+    id_field_enum_ident: &Ident,
+    field_metadata: &[IdFieldMetadata],
+) -> proc_macro2::TokenStream {
+    // Enum variants with single type (e.g., `UserId(i32)`).
+    let variants = field_metadata
+        .iter()
+        .map(|it| {
+            let type_name = &it.type_name;
+            let ty = &it.ty;
+            quote! { #type_name(#ty) }
+        })
+        .collect::<Vec<_>>();
+
+    // Match arms mapping variant to name, ignoring values (e.g., `Self::UserId(_) => "user_id"`).
+    let self_variant_to_static_name_arms = field_metadata
+        .iter()
+        .map(|it| {
+            let type_name = &it.type_name;
+            let name = &it.name;
+            quote! { Self::#type_name(_) => #name }
+        })
+        .collect::<Vec<_>>();
+
+    // Match arms mapping variants to `IdValue` variant
+    // (e.g., `Self::UserId(value) => IdValue::I32(value.clone())`).
+    // Note: Clone is required, as `to_value()` returns owned IdValue.
+    let self_variant_to_id_value_variant_arms = field_metadata
+        .iter()
+        .map(|it| {
+            let type_name = &it.type_name;
+            let id_value_variant = to_id_value_variant(&it.ty);
+            quote! { Self::#type_name(value) => #id_value_variant(value.clone()) }
+        })
+        .collect::<Vec<_>>();
+
+    // Match arms converting to `Display` write impl (e.g., `Self::UserId(value) => write!(f, "{}", value)`).
+    let self_variant_to_write_arms = field_metadata
+        .iter()
+        .map(|it| {
+            let type_name = &it.type_name;
+            quote! { Self::#type_name(value) => f.write_fmt(format_args!("{}", value)) }
+        })
+        .collect::<Vec<_>>();
+
+    quote! {
+        #[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
+        pub enum #id_field_enum_ident {
+            #(#variants),*
+        }
+
+        impl std::fmt::Display for #id_field_enum_ident {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    #(#self_variant_to_write_arms),*
+                }
+            }
+        }
+
+        impl crudkit_core::id::IdField for #id_field_enum_ident {
+            fn name(&self) -> &'static str {
+                match self {
+                    #(#self_variant_to_static_name_arms),*
+                }
+            }
+
+            fn to_value(&self) -> crudkit_core::id::IdValue {
+                match self {
+                    #(#self_variant_to_id_value_variant_arms),*
+                }
+            }
+        }
+    }
+}
+
+/// Returns the `IdValue` variant that must be used for the field of type `ty`.
+///
+/// For example: `crudkit_core::id::IdValue::I32` when `ty` is `i32`.
+fn to_id_value_variant(ty: &syn::Type) -> proc_macro2::TokenStream {
+    match classify_id_type(ty) {
+        IdValueKind::I8 => quote! { crudkit_core::id::IdValue::I8 },
+        IdValueKind::I16 => quote! { crudkit_core::id::IdValue::I16 },
+        IdValueKind::I32 => quote! { crudkit_core::id::IdValue::I32 },
+        IdValueKind::I64 => quote! { crudkit_core::id::IdValue::I64 },
+        IdValueKind::I128 => quote! { crudkit_core::id::IdValue::I128 },
+        IdValueKind::U8 => quote! { crudkit_core::id::IdValue::U8 },
+        IdValueKind::U16 => quote! { crudkit_core::id::IdValue::U16 },
+        IdValueKind::U32 => quote! { crudkit_core::id::IdValue::U32 },
+        IdValueKind::U64 => quote! { crudkit_core::id::IdValue::U64 },
+        IdValueKind::U128 => quote! { crudkit_core::id::IdValue::U128 },
+        IdValueKind::Bool => quote! { crudkit_core::id::IdValue::Bool },
+        IdValueKind::String => quote! { crudkit_core::id::IdValue::String },
+        IdValueKind::Uuid => quote! { crudkit_core::id::IdValue::Uuid },
+        IdValueKind::PrimitiveDateTime => quote! { crudkit_core::id::IdValue::PrimitiveDateTime },
+        IdValueKind::OffsetDateTime => quote! { crudkit_core::id::IdValue::OffsetDateTime },
+    }
+}
+
+/// Returns code to extract a value from `IdValue` for the field of type `ty`.
+///
+/// The generated code is a match expression that extracts the value from `value`.
+/// For example: `if let crudkit_core::id::IdValue::I64(x) = value { x.clone() } else { return None }`
+fn to_id_value_match_extraction(ty: &syn::Type) -> proc_macro2::TokenStream {
+    match classify_id_type(ty) {
+        IdValueKind::I8 => {
+            quote! { if let crudkit_core::id::IdValue::I8(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::I16 => {
+            quote! { if let crudkit_core::id::IdValue::I16(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::I32 => {
+            quote! { if let crudkit_core::id::IdValue::I32(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::I64 => {
+            quote! { if let crudkit_core::id::IdValue::I64(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::I128 => {
+            quote! { if let crudkit_core::id::IdValue::I128(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::U8 => {
+            quote! { if let crudkit_core::id::IdValue::U8(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::U16 => {
+            quote! { if let crudkit_core::id::IdValue::U16(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::U32 => {
+            quote! { if let crudkit_core::id::IdValue::U32(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::U64 => {
+            quote! { if let crudkit_core::id::IdValue::U64(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::U128 => {
+            quote! { if let crudkit_core::id::IdValue::U128(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::Bool => {
+            quote! { if let crudkit_core::id::IdValue::Bool(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::String => {
+            quote! { if let crudkit_core::id::IdValue::String(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::Uuid => {
+            quote! { if let crudkit_core::id::IdValue::Uuid(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::PrimitiveDateTime => {
+            quote! { if let crudkit_core::id::IdValue::PrimitiveDateTime(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::OffsetDateTime => {
+            quote! { if let crudkit_core::id::IdValue::OffsetDateTime(x) = value { x.clone() } else { return None } }
+        }
     }
 }
 
@@ -338,280 +565,86 @@ impl ValueKind {
 ///
 /// Returns `true` if the last path segment is "Option".
 /// This handles both `Option<T>` and `std::option::Option<T>`.
-#[must_use]
-pub fn is_option_path(path: &syn::Path) -> bool {
+fn is_option_path(path: &syn::Path) -> bool {
     path.segments
         .last()
         .is_some_and(|seg| seg.ident == "Option")
 }
 
-/// Extracts the inner type from `Option<T>` if the path represents an Option.
-///
-/// Returns `Some(&syn::Type)` containing the inner type if the path is `Option<T>`,
-/// or `None` if it's not an Option type.
-///
-/// This handles both `Option<T>` and `std::option::Option<T>`.
-#[must_use]
-pub fn strip_option_path(path: &syn::Path) -> Option<&syn::Type> {
-    let last_segment = path.segments.last()?;
+/// Extract the final segment identifier from a path (e.g., "i32", "String" or "Uuid").
+fn get_final_segment_ident(path: &syn::Path) -> Option<&syn::Ident> {
+    path.segments.last().map(|seg| &seg.ident)
+}
 
-    if last_segment.ident != "Option" {
-        return None;
-    }
+/// Convert a `syn::Path` to a `String`, matching how the type would be written in standard code
+/// (e.g., `"some_crate::module::Type"`).
+fn path_to_string(path: &syn::Path) -> String {
+    path.segments
+        .iter()
+        .map(|seg| seg.ident.to_string())
+        .collect::<Vec<_>>()
+        .join("::")
+}
 
-    // Extract the generic argument from Option<T>.
-    match &last_segment.arguments {
-        syn::PathArguments::AngleBracketed(args) => {
-            // Option has exactly one type argument.
-            if args.args.len() == 1 {
-                if let syn::GenericArgument::Type(inner_ty) = args.args.first()? {
-                    return Some(inner_ty);
+/// Classifies a type as one of the supported ID field types.
+///
+/// Aborts with a helpful error if the type is not supported.
+fn classify_id_type(ty: &syn::Type) -> IdValueKind {
+    let span = ty.span();
+
+    match ty {
+        syn::Type::Path(type_path) => {
+            let path = &type_path.path;
+
+            // Reject Option<T> types early using the shared utility.
+            if is_option_path(path) {
+                abort!(
+                    span,
+                    "Option<T> types are not supported for ID fields";
+                    help = "ID fields must have concrete, non-optional values.\n{}", SUPPORTED_TYPES_HELP;
+                );
+            }
+
+            // Match primitives (single-segment paths).
+            if path.segments.len() == 1
+                && let Some(ident) = get_final_segment_ident(path)
+            {
+                match ident.to_string().as_str() {
+                    "i8" => return IdValueKind::I8,
+                    "i16" => return IdValueKind::I16,
+                    "i32" => return IdValueKind::I32,
+                    "i64" => return IdValueKind::I64,
+                    "i128" => return IdValueKind::I128,
+                    "u8" => return IdValueKind::U8,
+                    "u16" => return IdValueKind::U16,
+                    "u32" => return IdValueKind::U32,
+                    "u64" => return IdValueKind::U64,
+                    "u128" => return IdValueKind::U128,
+                    "bool" => return IdValueKind::Bool,
+                    "String" => return IdValueKind::String,
+                    "f32" => {
+                        abort!(span, "f32 is not supported for ID fields (not Eq comparable)"; help = SUPPORTED_TYPES_HELP;)
+                    }
+                    "f64" => {
+                        abort!(span, "f64 is not supported for ID fields (not Eq comparable)"; help = SUPPORTED_TYPES_HELP;)
+                    }
+                    _ => {}
                 }
             }
-            None
+
+            // Match qualified types.
+            let path_str = path_to_string(path);
+            match path_str.as_str() {
+                "uuid::Uuid" => return IdValueKind::Uuid,
+                "time::PrimitiveDateTime" => return IdValueKind::PrimitiveDateTime,
+                "time::OffsetDateTime" => return IdValueKind::OffsetDateTime,
+                _ => {}
+            }
+
+            abort!(span, "Unsupported type '{}' for ID field", path_str; help = SUPPORTED_TYPES_HELP;);
         }
-        _ => None,
-    }
-}
-
-/// Classifies a normalized type path string into a `ValueKind`.
-///
-/// Expects the inner type for `Option<T>` (caller strips `Option` wrapper using [`strip_option_path`]).
-/// Returns `ValueKind::Other` for unrecognized types.
-///
-/// # Type Recognition
-///
-/// The following types are recognized:
-/// - Primitives: `bool`, `u8`..`u128`, `i8`..`i128`, `f32`, `f64`, `String`
-/// - Time types: `time::PrimitiveDateTime`, `time::OffsetDateTime`, `TimeDuration`
-/// - UUID: `uuid::Uuid`, `Uuid`
-/// - JSON: `serde_json::Value`
-/// - Ordered floats: `OrderedFloat<f32>`, `OrderedFloat<f64>` (mapped to `F32`, `F64`)
-/// - Vec types: `Vec<u8>`, `Vec<i32>`, `Vec<i64>`
-///
-/// # Examples
-/// ```
-/// use crudkit_core_macros::{classify_base_type, ValueKind};
-/// assert_eq!(classify_base_type("i32"), ValueKind::I32);
-/// assert_eq!(classify_base_type("time::PrimitiveDateTime"), ValueKind::PrimitiveDateTime);
-/// assert_eq!(classify_base_type("CustomType"), ValueKind::Other);
-/// ```
-#[must_use]
-pub fn classify_base_type(path_str: &str) -> ValueKind {
-    match path_str {
-        "()" => ValueKind::Void,
-
-        "bool" => ValueKind::Bool,
-
-        "u8" => ValueKind::U8,
-        "u16" => ValueKind::U16,
-        "u32" => ValueKind::U32,
-        "u64" => ValueKind::U64,
-        "u128" => ValueKind::U128,
-
-        "i8" => ValueKind::I8,
-        "i16" => ValueKind::I16,
-        "i32" => ValueKind::I32,
-        "i64" => ValueKind::I64,
-        "i128" => ValueKind::I128,
-
-        "f32" | "OrderedFloat<f32>" | "ordered_float::OrderedFloat<f32>" => ValueKind::F32,
-        "f64" | "OrderedFloat<f64>" | "ordered_float::OrderedFloat<f64>" => ValueKind::F64,
-
-        "String" => ValueKind::String,
-
-        "serde_json::Value" => ValueKind::Json,
-
-        "Uuid" | "uuid::Uuid" => ValueKind::Uuid,
-
-        "time::PrimitiveDateTime" => ValueKind::PrimitiveDateTime,
-        "time::OffsetDateTime" => ValueKind::OffsetDateTime,
-        "TimeDuration" | "crudkit_sea_orm::newtypes::TimeDuration" => ValueKind::Duration,
-
-        "Vec<u8>" => ValueKind::U8Vec,
-        "Vec<i32>" => ValueKind::I32Vec,
-        "Vec<i64>" => ValueKind::I64Vec,
-
-        _ => ValueKind::Other,
-    }
-}
-
-/// Checks if a type path represents an `OrderedFloat` wrapper.
-///
-/// Returns `true` for `OrderedFloat<f32>`, `OrderedFloat<f64>`, and their fully qualified forms.
-#[must_use]
-pub fn is_ordered_float(path_str: &str) -> bool {
-    matches!(
-        path_str,
-        "OrderedFloat<f32>"
-            | "ordered_float::OrderedFloat<f32>"
-            | "OrderedFloat<f64>"
-            | "ordered_float::OrderedFloat<f64>"
-    )
-}
-
-#[cfg(test)]
-mod value_kind_tests {
-    use super::*;
-
-    #[test]
-    fn test_classify_base_type_primitives() {
-        assert_eq!(classify_base_type("bool"), ValueKind::Bool);
-        assert_eq!(classify_base_type("u8"), ValueKind::U8);
-        assert_eq!(classify_base_type("u16"), ValueKind::U16);
-        assert_eq!(classify_base_type("u32"), ValueKind::U32);
-        assert_eq!(classify_base_type("u64"), ValueKind::U64);
-        assert_eq!(classify_base_type("u128"), ValueKind::U128);
-        assert_eq!(classify_base_type("i8"), ValueKind::I8);
-        assert_eq!(classify_base_type("i16"), ValueKind::I16);
-        assert_eq!(classify_base_type("i32"), ValueKind::I32);
-        assert_eq!(classify_base_type("i64"), ValueKind::I64);
-        assert_eq!(classify_base_type("i128"), ValueKind::I128);
-        assert_eq!(classify_base_type("f32"), ValueKind::F32);
-        assert_eq!(classify_base_type("f64"), ValueKind::F64);
-        assert_eq!(classify_base_type("String"), ValueKind::String);
-    }
-
-    #[test]
-    fn test_classify_base_type_special() {
-        assert_eq!(classify_base_type("()"), ValueKind::Void);
-        assert_eq!(classify_base_type("serde_json::Value"), ValueKind::Json);
-        assert_eq!(classify_base_type("Uuid"), ValueKind::Uuid);
-        assert_eq!(classify_base_type("uuid::Uuid"), ValueKind::Uuid);
-        assert_eq!(
-            classify_base_type("time::PrimitiveDateTime"),
-            ValueKind::PrimitiveDateTime
-        );
-        assert_eq!(
-            classify_base_type("time::OffsetDateTime"),
-            ValueKind::OffsetDateTime
-        );
-        assert_eq!(classify_base_type("TimeDuration"), ValueKind::Duration);
-    }
-
-    #[test]
-    fn test_classify_base_type_ordered_float() {
-        assert_eq!(classify_base_type("OrderedFloat<f32>"), ValueKind::F32);
-        assert_eq!(
-            classify_base_type("ordered_float::OrderedFloat<f32>"),
-            ValueKind::F32
-        );
-        assert_eq!(classify_base_type("OrderedFloat<f64>"), ValueKind::F64);
-        assert_eq!(
-            classify_base_type("ordered_float::OrderedFloat<f64>"),
-            ValueKind::F64
-        );
-    }
-
-    #[test]
-    fn test_classify_base_type_vec() {
-        assert_eq!(classify_base_type("Vec<u8>"), ValueKind::U8Vec);
-        assert_eq!(classify_base_type("Vec<i32>"), ValueKind::I32Vec);
-        assert_eq!(classify_base_type("Vec<i64>"), ValueKind::I64Vec);
-    }
-
-    #[test]
-    fn test_classify_base_type_unknown() {
-        assert_eq!(classify_base_type("CustomType"), ValueKind::Other);
-        assert_eq!(classify_base_type("my_crate::MyType"), ValueKind::Other);
-    }
-
-    #[test]
-    fn test_value_variant_name() {
-        assert_eq!(ValueKind::I32.value_variant_name(), "I32");
-        assert_eq!(ValueKind::String.value_variant_name(), "String");
-        assert_eq!(ValueKind::Void.value_variant_name(), "Void");
-    }
-
-    #[test]
-    fn test_optional_variant_name() {
-        assert_eq!(ValueKind::I32.optional_variant_name(), Some("OptionalI32"));
-        assert_eq!(
-            ValueKind::String.optional_variant_name(),
-            Some("OptionalString")
-        );
-        assert_eq!(ValueKind::Void.optional_variant_name(), None);
-        assert_eq!(ValueKind::U8Vec.optional_variant_name(), None);
-        assert_eq!(ValueKind::Other.optional_variant_name(), None);
-    }
-
-    #[test]
-    fn test_has_optional_variant() {
-        assert!(ValueKind::I32.has_optional_variant());
-        assert!(ValueKind::String.has_optional_variant());
-        assert!(!ValueKind::Void.has_optional_variant());
-        assert!(!ValueKind::U8Vec.has_optional_variant());
-        assert!(!ValueKind::Other.has_optional_variant());
-    }
-
-    #[test]
-    fn test_condition_method_name() {
-        assert_eq!(ValueKind::Bool.condition_method_name(), Some("to_bool"));
-        assert_eq!(ValueKind::I32.condition_method_name(), Some("to_i32"));
-        assert_eq!(ValueKind::String.condition_method_name(), Some("to_string"));
-        assert_eq!(
-            ValueKind::Json.condition_method_name(),
-            Some("to_json_value")
-        );
-        assert_eq!(
-            ValueKind::U8Vec.condition_method_name(),
-            Some("to_byte_vec")
-        );
-        assert_eq!(ValueKind::Void.condition_method_name(), None);
-        assert_eq!(ValueKind::Other.condition_method_name(), None);
-        assert_eq!(ValueKind::I32Vec.condition_method_name(), None);
-    }
-
-    #[test]
-    fn test_take_method_name() {
-        // Non-optional
-        assert_eq!(ValueKind::Bool.take_method_name(false), Some("take_bool"));
-        assert_eq!(ValueKind::I32.take_method_name(false), Some("take_i32"));
-        assert_eq!(
-            ValueKind::String.take_method_name(false),
-            Some("take_string")
-        );
-        assert_eq!(
-            ValueKind::PrimitiveDateTime.take_method_name(false),
-            Some("take_primitive_date_time")
-        );
-
-        // Optional
-        assert_eq!(
-            ValueKind::Bool.take_method_name(true),
-            Some("take_optional_bool")
-        );
-        assert_eq!(
-            ValueKind::I32.take_method_name(true),
-            Some("take_optional_i32")
-        );
-        assert_eq!(
-            ValueKind::String.take_method_name(true),
-            Some("take_optional_string")
-        );
-
-        // Vec types (no optional variants)
-        assert_eq!(
-            ValueKind::U8Vec.take_method_name(false),
-            Some("take_u8_vec")
-        );
-        assert_eq!(ValueKind::U8Vec.take_method_name(true), Some("take_u8_vec"));
-
-        // Special types return None
-        assert_eq!(ValueKind::Void.take_method_name(false), None);
-        assert_eq!(ValueKind::Json.take_method_name(false), None);
-        assert_eq!(ValueKind::Uuid.take_method_name(false), None);
-        assert_eq!(ValueKind::Other.take_method_name(false), None);
-    }
-
-    #[test]
-    fn test_is_ordered_float() {
-        assert!(is_ordered_float("OrderedFloat<f32>"));
-        assert!(is_ordered_float("ordered_float::OrderedFloat<f32>"));
-        assert!(is_ordered_float("OrderedFloat<f64>"));
-        assert!(is_ordered_float("ordered_float::OrderedFloat<f64>"));
-        assert!(!is_ordered_float("f32"));
-        assert!(!is_ordered_float("f64"));
-        assert!(!is_ordered_float("i32"));
+        _ => {
+            abort!(span, "Expected a type path for ID field, found {:?}", ty; help = SUPPORTED_TYPES_HELP;);
+        }
     }
 }

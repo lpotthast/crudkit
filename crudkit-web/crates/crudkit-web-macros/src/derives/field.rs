@@ -1,4 +1,4 @@
-use crudkit_core_macros::{
+use crudkit_core_macro_util::{
     classify_base_type, is_ordered_float, path_to_string, strip_option_path, to_pascal_case,
     ValueKind,
 };

@@ -3,7 +3,7 @@
 
 use assertr::prelude::*;
 use crudkit_core::id::HasId;
-use derive_crudkit_id::CkId;
+use crudkit_core_macros::CkId;
 
 #[derive(CkId)]
 pub struct User {

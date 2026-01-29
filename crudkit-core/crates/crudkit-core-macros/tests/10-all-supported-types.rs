@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use derive_crudkit_id::CkId;
+use crudkit_core_macros::CkId;
 
 #[derive(CkId)]
 pub struct Foo {
