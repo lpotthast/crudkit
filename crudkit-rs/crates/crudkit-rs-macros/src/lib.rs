@@ -8,7 +8,6 @@
 //! - `CkResourceContext` - Implements `CrudResourceContext` marker trait
 //! - `CkCreateModel` - Generates a `CreateModel` struct with trait implementations
 //! - `CkUpdateModel` - Generates an `UpdateModel` struct with trait implementations
-//! - `CkValidationModel` - Generates a validation model module for storing validation results
 
 use proc_macro::TokenStream;
 use proc_macro_error::proc_macro_error;
@@ -93,29 +92,6 @@ pub fn derive_create_model(input: TokenStream) -> TokenStream {
 pub fn derive_update_model(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     derives::expand_derive_update_model(input)
-        .unwrap_or_else(Error::into_compile_error)
-        .into()
-}
-
-/// Derives a validation model module for persisting validation results.
-///
-/// This macro generates a `validation_model` module containing:
-/// - A SeaORM entity for storing validation violations
-/// - Implementation of `NewActiveValidationModel` for creating new records
-/// - Implementation of `ValidatorModel` for accessing validation data
-/// - Implementation of `ValidationColumns` for column accessors
-///
-/// # Required Attributes
-///
-/// - `#[ck_validation_model(table_name = "...")]` - Database table name for validation results
-///
-/// # Field Attributes
-///
-/// - `#[ck_validation_model(id)]` - Mark field as part of the parent entity's primary key
-#[proc_macro_derive(CkValidationModel, attributes(ck_validation_model))]
-pub fn derive_validation_model(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_validation_model(input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
 }
