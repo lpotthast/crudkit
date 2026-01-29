@@ -2,7 +2,7 @@ error: Option<T> types are not supported for ID fields
 
          = help: ID fields must have concrete, non-optional values.
        Supported ID field types:
-         - Integers: i32, u32, i64, u64, i128, u128
+         - Integers: i8, i16, i32, i64, i128, u8, u16, u32, u64, u128
          - Strings: String
          - Booleans: bool
          - UUIDs: uuid::Uuid

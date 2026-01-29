@@ -12,7 +12,7 @@ use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident};
 const SUPPORTED_TYPES_HELP: &str = indoc::indoc! {
     r#"
     Supported ID field types:
-      - Integers: i32, u32, i64, u64, i128, u128
+      - Integers: i8, i16, i32, i64, i128, u8, u16, u32, u64, u128
       - Strings: String
       - Booleans: bool
       - UUIDs: uuid::Uuid
@@ -29,11 +29,15 @@ const SUPPORTED_TYPES_HELP: &str = indoc::indoc! {
 ///
 /// Used internally to avoid duplicating type classification logic.
 enum IdValueKind {
+    I8,
+    I16,
     I32,
-    U32,
     I64,
-    U64,
     I128,
+    U8,
+    U16,
+    U32,
+    U64,
     U128,
     Bool,
     String,
@@ -192,7 +196,7 @@ impl IdFieldMetadata {
 ///
 /// # Supported ID Field Types
 ///
-/// - Integers: `i32`, `u32`, `i64`, `u64`, `i128`, `u128`
+/// - Integers: `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, `u128`
 /// - Strings: `String`
 /// - Booleans: `bool`
 /// - UUIDs: `uuid::Uuid`
@@ -486,11 +490,15 @@ fn generate_id_field_enum(
 /// For example: `crudkit_id::IdValue::I32` when `ty` is `i32`.
 fn to_id_value_variant(ty: &syn::Type) -> proc_macro2::TokenStream {
     match classify_id_type(ty) {
+        IdValueKind::I8 => quote! { crudkit_id::IdValue::I8 },
+        IdValueKind::I16 => quote! { crudkit_id::IdValue::I16 },
         IdValueKind::I32 => quote! { crudkit_id::IdValue::I32 },
-        IdValueKind::U32 => quote! { crudkit_id::IdValue::U32 },
         IdValueKind::I64 => quote! { crudkit_id::IdValue::I64 },
-        IdValueKind::U64 => quote! { crudkit_id::IdValue::U64 },
         IdValueKind::I128 => quote! { crudkit_id::IdValue::I128 },
+        IdValueKind::U8 => quote! { crudkit_id::IdValue::U8 },
+        IdValueKind::U16 => quote! { crudkit_id::IdValue::U16 },
+        IdValueKind::U32 => quote! { crudkit_id::IdValue::U32 },
+        IdValueKind::U64 => quote! { crudkit_id::IdValue::U64 },
         IdValueKind::U128 => quote! { crudkit_id::IdValue::U128 },
         IdValueKind::Bool => quote! { crudkit_id::IdValue::Bool },
         IdValueKind::String => quote! { crudkit_id::IdValue::String },
@@ -506,20 +514,32 @@ fn to_id_value_variant(ty: &syn::Type) -> proc_macro2::TokenStream {
 /// For example: `if let crudkit_id::IdValue::I64(x) = value { x.clone() } else { return None }`
 fn to_id_value_match_extraction(ty: &syn::Type) -> proc_macro2::TokenStream {
     match classify_id_type(ty) {
+        IdValueKind::I8 => {
+            quote! { if let crudkit_id::IdValue::I8(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::I16 => {
+            quote! { if let crudkit_id::IdValue::I16(x) = value { x.clone() } else { return None } }
+        }
         IdValueKind::I32 => {
             quote! { if let crudkit_id::IdValue::I32(x) = value { x.clone() } else { return None } }
-        }
-        IdValueKind::U32 => {
-            quote! { if let crudkit_id::IdValue::U32(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::I64 => {
             quote! { if let crudkit_id::IdValue::I64(x) = value { x.clone() } else { return None } }
         }
-        IdValueKind::U64 => {
-            quote! { if let crudkit_id::IdValue::U64(x) = value { x.clone() } else { return None } }
-        }
         IdValueKind::I128 => {
             quote! { if let crudkit_id::IdValue::I128(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::U8 => {
+            quote! { if let crudkit_id::IdValue::U8(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::U16 => {
+            quote! { if let crudkit_id::IdValue::U16(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::U32 => {
+            quote! { if let crudkit_id::IdValue::U32(x) = value { x.clone() } else { return None } }
+        }
+        IdValueKind::U64 => {
+            quote! { if let crudkit_id::IdValue::U64(x) = value { x.clone() } else { return None } }
         }
         IdValueKind::U128 => {
             quote! { if let crudkit_id::IdValue::U128(x) = value { x.clone() } else { return None } }
@@ -590,11 +610,15 @@ fn classify_id_type(ty: &syn::Type) -> IdValueKind {
                 && let Some(ident) = get_final_segment_ident(path)
             {
                 match ident.to_string().as_str() {
+                    "i8" => return IdValueKind::I8,
+                    "i16" => return IdValueKind::I16,
                     "i32" => return IdValueKind::I32,
-                    "u32" => return IdValueKind::U32,
                     "i64" => return IdValueKind::I64,
-                    "u64" => return IdValueKind::U64,
                     "i128" => return IdValueKind::I128,
+                    "u8" => return IdValueKind::U8,
+                    "u16" => return IdValueKind::U16,
+                    "u32" => return IdValueKind::U32,
+                    "u64" => return IdValueKind::U64,
                     "u128" => return IdValueKind::U128,
                     "bool" => return IdValueKind::Bool,
                     "String" => return IdValueKind::String,

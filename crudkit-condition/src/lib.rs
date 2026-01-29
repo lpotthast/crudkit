@@ -147,11 +147,15 @@ impl TryFrom<IdValue> for ConditionClauseValue {
 
     fn try_from(value: IdValue) -> Result<Self, Self::Error> {
         match value {
+            IdValue::I8(value) => Ok(Self::I8(value)),
+            IdValue::I16(value) => Ok(Self::I16(value)),
             IdValue::I32(value) => Ok(Self::I32(value)),
-            IdValue::U32(value) => Ok(Self::U32(value)),
             IdValue::I64(value) => Ok(Self::I64(value)),
-            IdValue::U64(value) => Ok(Self::U64(value)),
             IdValue::I128(value) => Ok(Self::I128(value)),
+            IdValue::U8(value) => Ok(Self::U8(value)),
+            IdValue::U16(value) => Ok(Self::U16(value)),
+            IdValue::U32(value) => Ok(Self::U32(value)),
+            IdValue::U64(value) => Ok(Self::U64(value)),
             IdValue::U128(value) => Ok(Self::U128(value)),
             IdValue::Bool(value) => Ok(Self::Bool(value)),
             IdValue::String(value) => Ok(Self::String(value)),

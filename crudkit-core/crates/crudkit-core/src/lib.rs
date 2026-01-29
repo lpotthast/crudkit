@@ -219,11 +219,15 @@ pub enum Value {
 impl From<crudkit_id::IdValue> for Value {
     fn from(value: crudkit_id::IdValue) -> Self {
         match value {
+            crudkit_id::IdValue::I8(value) => Value::I8(value),
+            crudkit_id::IdValue::I16(value) => Value::I16(value),
             crudkit_id::IdValue::I32(value) => Value::I32(value),
-            crudkit_id::IdValue::U32(value) => Value::U32(value),
             crudkit_id::IdValue::I64(value) => Value::I64(value),
-            crudkit_id::IdValue::U64(value) => Value::U64(value),
             crudkit_id::IdValue::I128(value) => Value::I128(value),
+            crudkit_id::IdValue::U8(value) => Value::U8(value),
+            crudkit_id::IdValue::U16(value) => Value::U16(value),
+            crudkit_id::IdValue::U32(value) => Value::U32(value),
+            crudkit_id::IdValue::U64(value) => Value::U64(value),
             crudkit_id::IdValue::U128(value) => Value::U128(value),
             crudkit_id::IdValue::Bool(value) => Value::Bool(value),
             crudkit_id::IdValue::String(value) => Value::String(value),

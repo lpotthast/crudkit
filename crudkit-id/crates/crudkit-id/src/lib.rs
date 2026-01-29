@@ -65,11 +65,15 @@ pub type DynIdentifiable = Arc<dyn ErasedIdentifiable>;
 /// We might use the `ordered-float` create in the future to relax this constraint.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)]
 pub enum IdValue {
+    I8(i8),
+    I16(i16),
     I32(i32),
-    U32(u32),
     I64(i64),
-    U64(u64),
     I128(i128),
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
     U128(u128),
     Bool(bool),
     String(String),

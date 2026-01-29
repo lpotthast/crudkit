@@ -1,7 +1,7 @@
 error: f32 is not supported for ID fields (not Eq comparable)
 
          = help: Supported ID field types:
-         - Integers: i32, u32, i64, u64, i128, u128
+         - Integers: i8, i16, i32, i64, i128, u8, u16, u32, u64, u128
          - Strings: String
          - Booleans: bool
          - UUIDs: uuid::Uuid
