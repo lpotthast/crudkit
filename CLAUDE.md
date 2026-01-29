@@ -86,7 +86,7 @@ The project follows a 3-layer architecture:
 2. **Backend Layer** (`crudkit-rs` workspace):
     - `crudkit-rs/crates/crudkit-rs/` - Core backend framework
     - `crudkit-rs/crates/crudkit-sea-orm/` - SeaORM repository implementation
-    - Derive macros: `CkCreateModel`, `CkUpdateModel`, `CkColumns`, `CkValidationModel`, `CkResourceContext`
+    - Derive macros: `CkCreateModel`, `CkUpdateModel`, `CkField`, `CkValidationModel`, `CkResourceContext`
     - Axum REST API generation via `impl_add_crud_routes!` macro
     - Lifecycle hooks (before/after create/update/delete)
     - Keycloak authentication support
@@ -222,7 +222,7 @@ The framework provides derive macros to reduce boilerplate:
 
 **Shared**: `CkId` (crudkit-id)
 
-**Backend** (crudkit-rs): `CkCreateModel`, `CkUpdateModel`, `CkColumns`, `CkValidationModel`, `CkResourceContext`
+**Backend** (crudkit-rs): `CkCreateModel`, `CkUpdateModel`, `CkField`, `CkValidationModel`, `CkResourceContext`
 
 **Web Layer** (crudkit-web): `CkResource`, `CkField`, `CkActionPayload`
 

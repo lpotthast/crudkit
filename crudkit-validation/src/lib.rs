@@ -1,5 +1,8 @@
+pub mod context;
 pub mod validator;
 pub mod violation;
+
+pub use context::{CrudAction, ValidationContext, ValidationTrigger, When};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

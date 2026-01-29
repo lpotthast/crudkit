@@ -2,7 +2,7 @@
 
 use darling::*;
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{spanned::Spanned, DeriveInput, Ident, Type};
 
 #[derive(Debug, FromField)]
@@ -30,6 +30,8 @@ impl MyFieldReceiver {
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(ck_validation_model), supports(struct_any))]
 struct MyInputReceiver {
+    ident: Ident,
+
     table_name: String,
 
     data: ast::Data<(), MyFieldReceiver>,
@@ -48,6 +50,7 @@ pub fn expand_derive_validation_model(input: DeriveInput) -> syn::Result<TokenSt
     let input: MyInputReceiver = FromDeriveInput::from_derive_input(&input)?;
 
     let table_name = &input.table_name;
+    let parent_field_enum = format_ident!("{}Field", input.ident);
 
     let pk_fields = input
         .fields()
@@ -96,7 +99,7 @@ pub fn expand_derive_validation_model(input: DeriveInput) -> syn::Result<TokenSt
             use sea_orm::entity::prelude::*;
             use serde::{Deserialize, Serialize};
 
-            type ParentId = <super::Col as CrudColumns<super::Column, super::Model, super::ActiveModel>>::Id;
+            type ParentId = <super::#parent_field_enum as CrudColumns<super::Column, super::Model, super::ActiveModel>>::Id;
 
             #[derive(
                 Clone,
@@ -104,7 +107,7 @@ pub fn expand_derive_validation_model(input: DeriveInput) -> syn::Result<TokenSt
                 PartialEq,
                 Eq,
                 crudkit_sea_orm::crudkit_id::CkId,
-                crudkit_sea_orm::CkColumns,
+                crudkit_sea_orm::CkField,
                 sea_orm::DeriveEntityModel,
                 serde::Serialize,
                 serde::Deserialize
@@ -120,7 +123,7 @@ pub fn expand_derive_validation_model(input: DeriveInput) -> syn::Result<TokenSt
 
                 pub validator_name: String,
                 pub validator_version: i32,
-                #[ck_columns(convert_ccv = "to_string")]
+                #[ck_field(convert_ccv = "to_string")]
                 pub violation_severity: crudkit_sea_orm::validation::PersistedViolationSeverity,
                 pub violation_message: String,
 

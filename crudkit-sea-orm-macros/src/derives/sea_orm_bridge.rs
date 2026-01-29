@@ -1,19 +1,20 @@
 use darling::{ast, FromDeriveInput, FromField};
 use proc_macro2::TokenStream;
 use proc_macro_type_name::ToTypeName;
-use quote::quote;
+use quote::{format_ident, quote};
 
 /// Field configuration for CkSeaOrmBridge.
 #[derive(Debug, Clone, FromField)]
-#[darling(attributes(ck_columns, ck_id))]
+#[darling(attributes(ck_field, ck_id))]
 #[darling(forward_attrs)]
 struct Field {
     ident: Option<syn::Ident>,
 }
 
 #[derive(Debug, FromDeriveInput)]
-#[darling(attributes(ck_columns, ck_id), supports(struct_any))]
+#[darling(attributes(ck_field, ck_id), supports(struct_any))]
 struct DeriveCkSeaOrmBridge {
+    ident: syn::Ident,
     data: ast::Data<(), Field>,
 }
 
@@ -29,17 +30,18 @@ impl DeriveCkSeaOrmBridge {
 impl DeriveCkSeaOrmBridge {
     fn expand(&self) -> TokenStream {
         let fields: Vec<Field> = self.fields().iter().map(|f| f.to_owned()).collect();
+        let field_enum_name = format_ident!("{}Field", self.ident);
 
-        // Generate Col::Variant => Column::Variant match arms.
+        // Generate {StructName}Field::Variant => Column::Variant match arms.
         let col_to_column_match_arms = fields.iter().map(|field| {
             let ident = field.ident.as_ref().expect("Expected named field!");
             let span = ident.span();
             let variant = ident.to_type_ident(span);
-            quote! { Col::#variant => Column::#variant }
+            quote! { #field_enum_name::#variant => Column::#variant }
         });
 
         quote!(
-            impl crudkit_sea_orm::CrudColumns<Column> for Col {
+            impl crudkit_sea_orm::CrudColumns<Column> for #field_enum_name {
                 fn to_sea_orm_column(&self) -> Column {
                     match self {
                         #(#col_to_column_match_arms),*

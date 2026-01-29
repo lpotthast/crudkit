@@ -4,7 +4,7 @@
 //! Consolidated derive macros for crudkit-rs.
 //!
 //! This crate provides storage-agnostic derive macros:
-//! - `CkColumns` - Generates a `Col` enum and implements `CrudModel`, `HasId`, etc.
+//! - `CkField` - Generates a `{StructName}Field` enum and implements `CrudModel`, `HasId`, etc.
 //! - `CkResourceContext` - Implements `CrudResourceContext` marker trait
 //! - `CkCreateModel` - Generates a `CreateModel` struct with trait implementations
 //! - `CkUpdateModel` - Generates an `UpdateModel` struct with trait implementations
@@ -15,26 +15,26 @@ use syn::{parse_macro_input, DeriveInput, Error};
 
 mod derives;
 
-/// Derives a `Col` enum and implements storage-agnostic traits.
+/// Derives a `{StructName}Field` enum and implements storage-agnostic traits.
 ///
 /// # Generated Code
 ///
-/// - `Col` enum with variants for each field
-/// - `impl FieldTrait for Col` - Field name lookup
-/// - `impl FieldLookup for Col` - Reverse lookup from name to field
-/// - `impl ConditionValueConverter for Col` - Convert condition values to typed values
-/// - `impl CrudModel for T` - Associates the model with its `Col` type
+/// - `{StructName}Field` enum with variants for each field (e.g., `Model` → `ModelField`)
+/// - `impl FieldTrait for {StructName}Field` - Field name lookup
+/// - `impl FieldLookup for {StructName}Field` - Reverse lookup from name to field
+/// - `impl ConditionValueConverter for {StructName}Field` - Convert condition values to typed values
+/// - `impl CrudModel for T` - Associates the model with its `{StructName}Field` type
 /// - `impl HasId for T` - Extracts the entity ID
 ///
 /// # Attributes
 ///
-/// - `#[ck_id(id)]` or `#[ck_columns(id)]` - Mark field as part of primary key
-/// - `#[ck_columns(convert_ccv = "fn_name")]` - Custom condition value converter function
-#[proc_macro_derive(CkColumns, attributes(ck_columns, ck_id))]
+/// - `#[ck_id(id)]` - Mark field as part of primary key
+/// - `#[ck_field(convert_ccv = "fn_name")]` - Custom condition value converter function
+#[proc_macro_derive(CkField, attributes(ck_field, ck_id))]
 #[proc_macro_error]
-pub fn derive_columns(input: TokenStream) -> TokenStream {
+pub fn derive_field(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_columns(input)
+    derives::expand_derive_field(input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
 }

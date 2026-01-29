@@ -9,7 +9,7 @@
 
 use darling::*;
 use proc_macro2::{Ident, TokenStream};
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::DeriveInput;
 
 // ============== Field Configuration ==============
@@ -213,6 +213,7 @@ pub fn generate_create_model(input: &DeriveInput) -> darling::Result<CreateModel
 
     let name = &parsed.ident;
     let create_model_name = Ident::new(&format!("Create{}", name), name.span());
+    let field_enum_name = format_ident!("{}Field", name);
 
     let struct_def = quote! {
         #[derive(Debug, Clone, PartialEq, utoipa::ToSchema, serde::Deserialize)]
@@ -223,7 +224,7 @@ pub fn generate_create_model(input: &DeriveInput) -> darling::Result<CreateModel
 
     let trait_impls = quote! {
         impl crudkit_rs::data::CrudModel for #create_model_name {
-            type Field = Col;
+            type Field = #field_enum_name;
         }
 
         impl crudkit_rs::data::CreateModelTrait for #create_model_name {}
@@ -252,6 +253,7 @@ pub fn generate_update_model(input: &DeriveInput) -> darling::Result<UpdateModel
 
     let name = &parsed.ident;
     let update_model_name = Ident::new(&format!("Update{}", name), name.span());
+    let field_enum_name = format_ident!("{}Field", name);
 
     let struct_def = quote! {
         #[derive(Debug, Clone, PartialEq, utoipa::ToSchema, serde::Deserialize)]
@@ -262,7 +264,7 @@ pub fn generate_update_model(input: &DeriveInput) -> darling::Result<UpdateModel
 
     let trait_impls = quote! {
         impl crudkit_rs::data::CrudModel for #update_model_name {
-            type Field = Col;
+            type Field = #field_enum_name;
         }
     };
 
