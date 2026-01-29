@@ -1,3 +1,7 @@
+//! Lifecycle hooks for CRUD operations.
+//!
+//! Hooks allow custom logic to run before and after create, read, update, and delete operations.
+
 use crudkit_condition::Condition;
 use crudkit_core::Order;
 use indexmap::IndexMap;
@@ -13,7 +17,6 @@ use crate::{auth::RequestContext, error::CrudError, resource::CrudResource};
 /// Error type for lifecycle hooks.
 ///
 /// Hooks return `Result<R::HookData, HookError<Self::Error>>` to signal success or failure.
-/// This replaces the previous `Abort` enum, providing clearer HTTP semantics.
 ///
 /// # Variants
 ///
@@ -107,7 +110,7 @@ pub enum ReadOperation {
 ///
 /// Passed to [`CrudLifetime::before_read`] (mutable) and [`CrudLifetime::after_read`] (immutable).
 ///
-/// Uses `R::ReadViewCrudColumn` for ordering - the column enum for the read view entity.
+/// Uses `R::ReadModelField` for ordering - the field enum for the read model.
 ///
 /// # Example: Row-Level Security
 ///
@@ -138,7 +141,7 @@ pub struct ReadRequest<R: CrudResource> {
     /// Number of entities to skip before returning results.
     pub skip: Option<u64>,
     /// Ordering specification for results.
-    pub order_by: Option<IndexMap<R::ReadViewCrudColumn, Order>>,
+    pub order_by: Option<IndexMap<R::ReadModelField, Order>>,
     /// Filter condition for the query.
     ///
     /// In `before_read`, this can be modified to implement row-level security
@@ -148,7 +151,7 @@ pub struct ReadRequest<R: CrudResource> {
 
 /// Result passed to [`CrudLifetime::after_read`].
 ///
-/// Uses `R::ReadViewModel` - the model returned from read operations.
+/// Uses `R::ReadModel` - the model returned from read operations.
 ///
 /// The result is mutable to allow field masking or result filtering in `after_read`.
 #[derive(Debug)]
@@ -156,9 +159,9 @@ pub enum ReadResult<R: CrudResource> {
     /// Result of a count operation.
     Count(u64),
     /// Result of a read_one operation.
-    One(R::ReadViewModel),
+    One(R::ReadModel),
     /// Result of a read_many operation.
-    Many(Vec<R::ReadViewModel>),
+    Many(Vec<R::ReadModel>),
 }
 
 // =============================================================================
@@ -180,7 +183,7 @@ pub enum DeleteOperation {
 ///
 /// Passed to [`CrudLifetime::before_delete`] and [`CrudLifetime::after_delete`].
 ///
-/// Uses `R::CrudColumn` for ordering - the column enum for the main entity.
+/// Uses `R::ModelField` for ordering - the field enum for the main entity.
 #[derive(Debug, Clone)]
 pub struct DeleteRequest<R: CrudResource> {
     /// The type of delete operation being performed.
@@ -188,7 +191,7 @@ pub struct DeleteRequest<R: CrudResource> {
     /// Number of entities to skip (for delete_one).
     pub skip: Option<u64>,
     /// Ordering specification (for delete_one).
-    pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
+    pub order_by: Option<IndexMap<R::ModelField, Order>>,
     /// Filter condition used to select the entity.
     /// For delete_by_id, this is the condition derived from the ID.
     pub condition: Option<Condition>,
@@ -210,8 +213,7 @@ pub struct UpdateRequest {
 /// Lifecycle hooks for CRUD operations.
 ///
 /// Implement this trait to add custom logic before and after create, read, update, and delete
-/// operations. These hooks are called within the transaction, so any failure will roll back
-/// the operation.
+/// operations. Hooks operate on storage-agnostic DTOs (CreateModel, UpdateModel, Model).
 ///
 /// # Error Handling
 ///
@@ -265,12 +267,6 @@ pub trait CrudLifetime<R: CrudResource> {
     /// - **Row-level security**: Modify `read_request.condition` to add tenant/user filters
     /// - **Audit logging**: Log read attempts with request context
     /// - **Access control**: Return error to deny reads based on auth context
-    ///
-    /// # Mutation Pattern
-    /// The `read_request` is passed by mutable reference, allowing modification of:
-    /// - `condition`: Add security filters (AND with existing conditions)
-    /// - `limit`: Enforce maximum page sizes
-    /// - `skip`: Adjust pagination
     fn before_read(
         read_request: &mut ReadRequest<R>,
         context: &R::Context,
@@ -283,11 +279,6 @@ pub trait CrudLifetime<R: CrudResource> {
     /// # Use Cases
     /// - **Audit logging**: Log successful reads with result metadata
     /// - **Result filtering**: Remove sensitive fields from results (field masking)
-    /// - **Metrics**: Track read patterns
-    ///
-    /// # Note on Result Modification
-    /// The `read_result` is passed by mutable reference to allow field masking
-    /// or result modification.
     fn after_read(
         read_request: &ReadRequest<R>,
         read_result: &mut ReadResult<R>,
@@ -302,10 +293,11 @@ pub trait CrudLifetime<R: CrudResource> {
 
     /// Called before creating an entity.
     ///
-    /// The `active_model` can be modified to change fields before insertion.
+    /// Called before any validation is run.
+    ///
+    /// The `create_model` can be modified to change fields before insertion.
     fn before_create(
-        create_model: &R::CreateModel,
-        active_model: &mut R::ActiveModel,
+        create_model: &mut R::CreateModel,
         context: &R::Context,
         request: RequestContext<R::Auth>,
         data: R::HookData,
@@ -326,10 +318,11 @@ pub trait CrudLifetime<R: CrudResource> {
 
     /// Called before updating an entity.
     ///
-    /// The `active_model` can be modified to change fields before the update occurs.
+    /// Receives the existing model and the update data. The `update_model` can
+    /// be modified to change fields before the update occurs.
     fn before_update(
-        update_model: &R::UpdateModel,
-        active_model: &mut R::ActiveModel,
+        existing: &R::Model,
+        update_model: &mut R::UpdateModel,
         update_request: &UpdateRequest,
         context: &R::Context,
         request: RequestContext<R::Auth>,
@@ -402,9 +395,9 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
     ) -> Result<R::HookData, HookError<Self::Error>> {
         Ok(data)
     }
+
     async fn before_create(
-        _create_model: &R::CreateModel,
-        _active_model: &mut R::ActiveModel,
+        _create_model: &mut R::CreateModel,
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
@@ -423,8 +416,8 @@ impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
     }
 
     async fn before_update(
-        _update_model: &R::UpdateModel,
-        _active_model: &mut R::ActiveModel,
+        _existing: &R::Model,
+        _update_model: &mut R::UpdateModel,
         _update_request: &UpdateRequest,
         _context: &R::Context,
         _request: RequestContext<R::Auth>,

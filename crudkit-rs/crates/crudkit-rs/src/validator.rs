@@ -1,3 +1,9 @@
+//! Entity and aggregate validators for CRUD resources.
+//!
+//! Validators check entities for business rule violations. There are two types:
+//! - `EntityValidator`: Validates individual entities or entity changes
+//! - `AggregateValidator`: Validates aggregate-level constraints across all entities
+
 use crate::prelude::{CrudResource, ValidationTrigger};
 use async_trait::async_trait;
 use crudkit_validation::violation::Violations;
@@ -5,11 +11,48 @@ use crudkit_validation::ViolationsByEntity;
 use std::borrow::Cow;
 
 /// Trait for validators that check a single entity or entity change.
-/// Used for adhoc validation during CRUD operations.
 ///
-/// Each validator must provide a name and version for tracking validation results.
-/// This allows the system to detect obsolete results when validators are updated.
+/// Used for validation during CRUD operations. Each validator must provide
+/// a name and version for tracking validation results.
+///
+/// # Validation Methods
+///
+/// - `validate_create`: Validates a CreateModel before insertion
+/// - `validate_model`: Validates a Model (after insert, or existing entity)
+/// - `validate_updated`: Validates an update by comparing old Model with new UpdateModel
+///
+/// # Example
+///
+/// ```ignore
+/// struct ArticleTitleValidator;
+///
+/// impl Named for ArticleTitleValidator {
+///     fn get_name(&self) -> Cow<'static, str> {
+///         Cow::Borrowed("article_title")
+///     }
+/// }
+///
+/// impl EntityValidator<Article> for ArticleTitleValidator {
+///     fn get_version(&self) -> u32 {
+///         1
+///     }
+///
+///     fn validate_create(
+///         &self,
+///         create_model: &ArticleCreateModel,
+///         trigger: ValidationTrigger,
+///     ) -> Violations {
+///         let mut violations = Violations::empty();
+///         if create_model.title.is_empty() {
+///             violations.push(Violation::critical("Title cannot be empty"));
+///         }
+///         violations
+///     }
+/// }
+/// ```
 pub trait EntityValidator<R: CrudResource>: Send + Sync {
+    // TODO: Should get_name and get_version be combined into one function?
+
     /// Returns the unique name of this validator.
     fn get_name(&self) -> Cow<'static, str>;
 
@@ -17,29 +60,51 @@ pub trait EntityValidator<R: CrudResource>: Send + Sync {
     /// Increment when the validation logic changes to invalidate old results.
     fn get_version(&self) -> u32;
 
-    /// Each validation attempt may report multiple errors.
-    /// Between each validation attempt, previously reported violations are forgotten.
-    fn validate_single(&self, entity: &R::ActiveModel, trigger: ValidationTrigger) -> Violations;
+    /// Validate a CreateModel before insertion.
+    ///
+    /// Called during create operations before the entity is persisted.
+    fn validate_create(
+        &self,
+        _create_model: &R::CreateModel,
+        _trigger: ValidationTrigger,
+    ) -> Violations {
+        Violations::empty()
+    }
 
-    /// Defaults to validation of the new state using `validate_single`. Override this if you
-    /// need to look at the diff of a change to drive the validation.
+    /// Validate an existing Model.
+    ///
+    /// Called after insert, or during delete operations.
+    fn validate_model(&self, _model: &R::Model, _trigger: ValidationTrigger) -> Violations {
+        Violations::empty()
+    }
+
+    /// Validate an update by comparing the old Model with the UpdateModel.
+    ///
+    /// Override this to implement delta validation that considers the change being made.
+    /// By default, this returns no violations.
+    ///
+    // TODO: Is it ok to take UpdateModel? Previously, we would have defaulted to only validating the new state (using validate_model).
+    //  But as we dont get the updated model, but only the update dto, this is no longer possible. Should we change this?
     fn validate_updated(
         &self,
-        _old: &R::ActiveModel,
-        new: &R::ActiveModel,
-        trigger: ValidationTrigger,
+        _old: &R::Model,
+        _update: &R::UpdateModel,
+        _trigger: ValidationTrigger,
     ) -> Violations {
-        self.validate_single(new, trigger)
+        Violations::empty()
     }
 }
 
-/// Trait for additional validators that validate an entire resource type.
+/// Trait for validators that check aggregate-level constraints.
 ///
-/// Used in addition to `EntityValidator`s in global validation
-/// (which runs asynchronously after CRUD operations).
+/// Used in global validation (which runs asynchronously after CRUD operations)
+/// to validate constraints that span multiple entities.
 ///
-/// Each validator must provide a name and version for tracking validation results.
-// TODO: Add a (good) example when this would be useful: For example "number of people" must be equal. (probably a weak example though...)
+/// # Example Use Cases
+///
+/// - Ensuring unique constraints across entities
+/// - Validating referential integrity
+/// - Checking aggregate totals or counts
 #[async_trait]
 pub trait AggregateValidator<R: CrudResource>: Send + Sync {
     /// Returns the unique name of this validator.

@@ -2,6 +2,7 @@ use crate::prelude::*;
 use crudkit_web::prelude::*;
 use leptonic::prelude::icondata;
 use leptos::prelude::*;
+use std::borrow::Cow;
 use std::{fmt::Debug, rc::Rc};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -195,8 +196,7 @@ pub struct CrudActionAftermath {
 ///
 /// TODO: Should this be dyn compatible?
 /// TODO: Move methods to AnyAction!
-pub trait CrudActionTrait: Debug + Send + Sync {
-    fn get_name(&self) -> String;
+pub trait CrudActionTrait: Named + Debug + Send + Sync {
     fn get_icon(&self) -> Option<icondata::Icon>;
     fn eq(&self, other: &dyn CrudActionTrait) -> bool;
 }
@@ -217,11 +217,13 @@ impl Default for ShowListViewAction {
     }
 }
 
-impl CrudActionTrait for ShowListViewAction {
-    fn get_name(&self) -> String {
-        self.name.clone()
+impl Named for ShowListViewAction {
+    fn get_name(&self) -> Cow<'static, str> {
+        Cow::Owned(self.name.clone())
     }
+}
 
+impl CrudActionTrait for ShowListViewAction {
     fn get_icon(&self) -> Option<icondata::Icon> {
         self.icon
     }
@@ -247,11 +249,13 @@ impl Default for ShowReadViewAction {
     }
 }
 
-impl CrudActionTrait for ShowReadViewAction {
-    fn get_name(&self) -> String {
-        self.name.clone()
+impl Named for ShowReadViewAction {
+    fn get_name(&self) -> Cow<'static, str> {
+        Cow::Owned(self.name.clone())
     }
+}
 
+impl CrudActionTrait for ShowReadViewAction {
     fn get_icon(&self) -> Option<icondata::Icon> {
         self.icon
     }
@@ -277,11 +281,13 @@ impl Default for ShowEditViewAction {
     }
 }
 
-impl CrudActionTrait for ShowEditViewAction {
-    fn get_name(&self) -> String {
-        self.name.clone()
+impl Named for ShowEditViewAction {
+    fn get_name(&self) -> Cow<'static, str> {
+        Cow::Owned(self.name.clone())
     }
+}
 
+impl CrudActionTrait for ShowEditViewAction {
     fn get_icon(&self) -> Option<icondata::Icon> {
         self.icon
     }
@@ -307,11 +313,13 @@ impl Default for DeleteAction {
     }
 }
 
-impl CrudActionTrait for DeleteAction {
-    fn get_name(&self) -> String {
-        self.name.clone()
+impl Named for DeleteAction {
+    fn get_name(&self) -> Cow<'static, str> {
+        Cow::Owned(self.name.clone())
     }
+}
 
+impl CrudActionTrait for DeleteAction {
     fn get_icon(&self) -> Option<icondata::Icon> {
         self.icon
     }

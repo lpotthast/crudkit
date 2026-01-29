@@ -9,6 +9,12 @@ use time::format_description::well_known::Rfc3339;
 use utoipa::openapi::Type;
 use utoipa::ToSchema;
 
+/// A trait for types that have a name.
+pub trait Named {
+    /// Returns the name of this item.
+    fn get_name(&self) -> Cow<'static, str>;
+}
+
 #[derive(Default, PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
 pub enum Order {
     #[default]

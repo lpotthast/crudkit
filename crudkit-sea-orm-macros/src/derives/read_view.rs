@@ -65,9 +65,13 @@ impl DeriveReadView {
         // TODO: new attrs or forward original attrs?
         quote!(
             pub mod read_view {
-                use super::*; // This statement allows arbitrary types being used in original fields without leading to `unknown type` errors.
+                use super::*; // We are inside a new module! This statement allows arbitrary types to be used in the original fields without leading to `unknown type` errors ni the model created here. This just brings in all the types the original fields might need.
 
-                use crudkit_rs::prelude::*;
+                // Re-export parent's ModelId so that CkColumns references the same type.
+                pub use super::ModelId;
+                pub use super::ModelIdField;
+
+                use crudkit_sea_orm::CkColumns;
                 use sea_orm::DerivePrimaryKey;
                 use sea_orm::EntityTrait;
                 use sea_orm::EnumIter;
@@ -79,8 +83,8 @@ impl DeriveReadView {
                     PartialEq,
                     Eq,
                     sea_orm::DeriveEntityModel,
-                    CkId,
                     CkColumns,
+                    crudkit_sea_orm::CkSeaOrmBridge,
                     utoipa::ToSchema,
                     serde::Deserialize,
                     serde::Serialize,

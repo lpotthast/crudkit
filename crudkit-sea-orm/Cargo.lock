@@ -571,15 +571,11 @@ dependencies = [
  "crudkit-id",
  "crudkit-resource",
  "crudkit-validation",
- "derive-crud-columns",
  "derive-crud-resource-context",
  "derive-crudkit-id",
- "derive-model",
- "derive-validation-model",
  "error-stack",
  "indexmap",
  "paste",
- "sea-orm",
  "serde",
  "serde_json",
  "snafu",
@@ -594,10 +590,18 @@ name = "crudkit-sea-orm"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "crudkit-condition",
+ "crudkit-core",
+ "crudkit-id",
  "crudkit-rs",
  "crudkit-sea-orm-macros",
+ "derive-crud-columns",
+ "derive-crudkit-id",
+ "derive-model",
+ "derive-validation-model",
  "error-stack",
  "indexmap",
+ "regex",
  "sea-orm",
  "sea-orm-migration",
  "sea-query",
@@ -616,6 +620,7 @@ name = "crudkit-sea-orm-macros"
 version = "0.12.15"
 dependencies = [
  "darling 0.23.0",
+ "derive-model-core",
  "proc-macro-error",
  "proc-macro-type-name",
  "proc-macro2",
@@ -784,7 +789,18 @@ name = "derive-model"
 version = "0.0.1"
 dependencies = [
  "darling 0.23.0",
+ "derive-model-core",
  "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
+name = "derive-model-core"
+version = "0.0.1"
+dependencies = [
+ "darling 0.23.0",
  "proc-macro2",
  "quote",
  "syn 2.0.114",
@@ -1968,6 +1984,8 @@ version = "1.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "843bc0191f75f3e22651ae5f1e72939ab2f72a4bc30fa80a066bd66edefc24d4"
 dependencies = [
+ "aho-corasick",
+ "memchr",
  "regex-automata",
  "regex-syntax",
 ]

@@ -1,50 +1,40 @@
+//! Query building functions for SeaORM.
+//!
+//! These functions build SeaORM queries using the storage-agnostic `CrudResource`
+//! trait combined with the `SeaOrmResource` trait for SeaORM-specific mappings.
+
 use crate::newtypes::TimeDuration;
 use crate::repo::SeaOrmRepoError;
+use crate::traits::SeaOrmResource;
 use crudkit_condition::{Condition, ConditionElement, Operator};
 use crudkit_core::{Order, Value};
 use crudkit_rs::prelude::*;
 use indexmap::IndexMap;
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DeleteMany, EntityTrait, FromQueryResult, Insert, ModelTrait,
-    QueryFilter, QueryOrder, QuerySelect, Select,
-};
-use serde::de::DeserializeOwned;
+use sea_orm::{ColumnTrait, EntityTrait, Insert, QueryFilter, QueryOrder, QuerySelect, Select};
 use snafu::{Backtrace, GenerateImplicitData};
-use std::hash::Hash;
 
-pub fn build_insert_query<R: CrudResource>(
+/// Build an insert query using the SeaOrmResource trait.
+pub fn build_insert_query<R>(
     active_entity: R::ActiveModel,
-) -> Result<Insert<R::ActiveModel>, SeaOrmRepoError> {
-    // Building the "insert" query.
+) -> Result<Insert<R::ActiveModel>, SeaOrmRepoError>
+where
+    R: CrudResource + SeaOrmResource,
+{
     let insert = R::Entity::insert(active_entity);
     Ok(insert)
 }
 
-pub fn build_delete_many_query<T: EntityTrait + MaybeColumnTrait>(
-    condition: &Option<Condition>,
-) -> Result<DeleteMany<T>, SeaOrmRepoError> {
-    let mut delete_many = T::delete_many();
-
-    if let Some(condition) = condition {
-        delete_many = delete_many.filter(build_condition_tree::<T>(condition)?);
-    }
-
-    Ok(delete_many)
-}
-
-pub fn build_select_query<
-    E: EntityTrait<Model = M, Column = C> + MaybeColumnTrait + 'static,
-    M: ModelTrait + FromQueryResult + Sized + Send + Sync + 'static,
-    A: ActiveModelTrait + 'static,
-    C: ColumnTrait + 'static,
-    CC: CrudColumns<C, M, A> + Eq + Hash + DeserializeOwned + 'static,
->(
+/// Build a select query for the main entity using the SeaOrmResource trait.
+pub fn build_select_query<R>(
     limit: Option<u64>,
     skip: Option<u64>,
-    order_by: Option<IndexMap<CC, Order>>,
+    order_by: Option<IndexMap<R::ModelField, Order>>,
     condition: Option<&Condition>,
-) -> Result<Select<E>, SeaOrmRepoError> {
-    let mut select = E::find();
+) -> Result<Select<R::Entity>, SeaOrmRepoError>
+where
+    R: CrudResource + SeaOrmResource,
+{
+    let mut select = R::Entity::find();
 
     if let Some(limit) = limit {
         select = select.limit(limit);
@@ -55,64 +45,82 @@ pub fn build_select_query<
     }
 
     if let Some(map) = order_by {
-        select = apply_order_by::<E, M, A, C, CC>(select, map)?;
+        for (field, order) in map {
+            let column = R::model_field_to_column(&field);
+            select = select.order_by(
+                column,
+                match order {
+                    Order::Asc => sea_orm::Order::Asc,
+                    Order::Desc => sea_orm::Order::Desc,
+                },
+            );
+        }
     }
 
     if let Some(condition) = condition {
-        select = select.filter(build_condition_tree::<E>(condition)?);
+        select = select.filter(build_condition_tree::<R::ModelField, R::Column>(
+            condition,
+            R::model_field_to_column,
+        )?);
     }
 
     Ok(select)
 }
 
-// TODO: finalize
-//fn build_update_many_query<T: EntityTrait + MaybeColumnTrait>(
-//    condition: Option<Vec<ConditionElement>>,
-//) -> Result<UpdateMany<T>, CrudError> {
-//    let mut update = T::update_many();
-//
-//    //update.col_expr(T::Column::CakeId, Expr::value(Value::Null));
-//
-//    if let Some(elements) = condition {
-//        update = update.filter(build_condition_tree::<T>(elements)?);
-//    }
-//
-//    Ok(update)
-//}
+/// Build a select query for the read view using the SeaOrmResource trait.
+pub fn build_read_view_query<R>(
+    limit: Option<u64>,
+    skip: Option<u64>,
+    order_by: Option<IndexMap<R::ReadModelField, Order>>,
+    condition: Option<&Condition>,
+) -> Result<Select<R::ReadViewEntity>, SeaOrmRepoError>
+where
+    R: CrudResource + SeaOrmResource,
+{
+    let mut select = R::ReadViewEntity::find();
 
-fn apply_order_by<
-    E: EntityTrait<Column = C> + MaybeColumnTrait + 'static,
-    M: ModelTrait + 'static,
-    A: ActiveModelTrait + 'static,
-    C: ColumnTrait + 'static,
-    CC: CrudColumns<C, M, A> + Eq + Hash + DeserializeOwned + 'static,
->(
-    mut select: Select<E>,
-    order_by: IndexMap<CC, Order>,
-) -> Result<Select<E>, SeaOrmRepoError> {
-    for (crud_column, order) in order_by {
-        let column = crud_column.to_sea_orm_column();
-        select = select.order_by(
-            column,
-            match order {
-                Order::Asc => sea_orm::Order::Asc,
-                Order::Desc => sea_orm::Order::Desc,
-            },
+    if let Some(limit) = limit {
+        select = select.limit(limit);
+    }
+
+    if let Some(skip) = skip {
+        select = select.offset(skip);
+    }
+
+    if let Some(map) = order_by {
+        for (field, order) in map {
+            let column = R::read_model_field_to_column(&field);
+            select = select.order_by(
+                column,
+                match order {
+                    Order::Asc => sea_orm::Order::Asc,
+                    Order::Desc => sea_orm::Order::Desc,
+                },
+            );
+        }
+    }
+
+    if let Some(condition) = condition {
+        select = select.filter(
+            build_condition_tree::<R::ReadModelField, R::ReadViewColumn>(
+                condition,
+                R::read_model_field_to_column,
+            )?,
         );
     }
+
     Ok(select)
 }
 
-// TODO: Implement this in crud-shared-types with sea-orm feature flag.
-//impl From<Condition> for Result<sea_orm::sea_query::Condition, CrudError> {
-//    fn from(condition: Condition) -> Self {
-//        todo!()
-//    }
-//}
-
-pub fn build_condition_tree<T: MaybeColumnTrait>(
+/// Build a condition tree using the field-based approach.
+fn build_condition_tree<F, C>(
     condition: &Condition,
-) -> Result<sea_query::Condition, SeaOrmRepoError> {
+    field_to_column: fn(&F) -> C,
+) -> Result<sea_query::Condition, SeaOrmRepoError>
+where
+    F: FieldTrait + FieldLookup + ConditionValueConverter,
+    C: ColumnTrait,
+{
     let mut tree = match &condition {
         Condition::All(_) => sea_query::Condition::all(),
         Condition::Any(_) => sea_query::Condition::any(),
@@ -122,117 +130,101 @@ pub fn build_condition_tree<T: MaybeColumnTrait>(
         Condition::All(elements) | Condition::Any(elements) => {
             for element in elements {
                 match element {
-                    ConditionElement::Clause(clause) => match T::get_col(&clause.column_name) {
-                        Some(col) => {
-                            match col.as_col_type(clause.value.clone()).map_err(|err| {
-                                SeaOrmRepoError::UnableToParseValueAsColType {
-                                    column_name: clause.column_name.clone(),
-                                    reason: err,
-                                    backtrace: Backtrace::generate(),
-                                }
-                            })? {
-                                Value::String(val) => {
-                                    tree = add_condition(tree, col, clause.operator, val)
-                                }
-                                Value::Json(val) => {
-                                    tree = add_condition(tree, col, clause.operator, val)
-                                }
-                                Value::Uuid(val) => {
-                                    tree = add_condition(tree, col, clause.operator, val)
-                                }
-                                Value::I32(val) => {
-                                    tree = add_condition(tree, col, clause.operator, val)
-                                }
-                                Value::U8Vec(values) => {
-                                    tree =
-                                        add_condition_iterable(tree, col, clause.operator, values)
-                                }
-                                Value::I32Vec(values) => {
-                                    tree =
-                                        add_condition_iterable(tree, col, clause.operator, values)
-                                }
-                                Value::I64(val) => {
-                                    tree = add_condition(tree, col, clause.operator, val)
-                                }
-                                Value::I64Vec(values) => {
-                                    tree =
-                                        add_condition_iterable(tree, col, clause.operator, values)
-                                }
-                                Value::U32(val) => {
-                                    tree = add_condition(tree, col, clause.operator, val)
-                                }
-                                Value::U64(val) => {
-                                    tree = add_condition(tree, col, clause.operator, val)
-                                }
-                                Value::F32(val) => {
-                                    tree = add_condition(tree, col, clause.operator, val)
-                                }
-                                Value::F64(val) => {
-                                    tree = add_condition(tree, col, clause.operator, val)
-                                }
-                                Value::Bool(val) => {
-                                    tree = add_condition(tree, col, clause.operator, val)
-                                }
-                                Value::PrimitiveDateTime(val) => {
-                                    tree = add_condition(tree, col, clause.operator, val)
-                                }
-                                Value::OffsetDateTime(val) => {
-                                    tree = add_condition(tree, col, clause.operator, val)
-                                }
-                                Value::Duration(val) => {
-                                    tree = add_condition(
-                                        tree,
-                                        col,
-                                        clause.operator,
-                                        // Convert to our sea-orm enabled TimeDuration type.
-                                        TimeDuration(val.0),
-                                    )
-                                }
-                                // TODO: Implement missing variants
-                                Value::Void(_) => unimplemented!(),
-                                Value::OptionalBool(_) => unimplemented!(),
-                                Value::U8(_) => unimplemented!(),
-                                Value::U16(_) => unimplemented!(),
-                                Value::U128(_) => unimplemented!(),
-                                Value::OptionalU8(_) => unimplemented!(),
-                                Value::OptionalU16(_) => unimplemented!(),
-                                Value::OptionalU32(_) => unimplemented!(),
-                                Value::OptionalU64(_) => unimplemented!(),
-                                Value::OptionalU128(_) => unimplemented!(),
-                                Value::I8(_) => unimplemented!(),
-                                Value::I16(_) => unimplemented!(),
-                                Value::I128(_) => unimplemented!(),
-                                Value::OptionalI8(_) => unimplemented!(),
-                                Value::OptionalI16(_) => unimplemented!(),
-                                Value::OptionalI32(_) => unimplemented!(),
-                                Value::OptionalI64(_) => unimplemented!(),
-                                Value::OptionalI128(_) => unimplemented!(),
-                                Value::OptionalF32(_) => unimplemented!(),
-                                Value::OptionalF64(_) => unimplemented!(),
-                                Value::OptionalString(_) => unimplemented!(),
-                                Value::OptionalJson(_) => unimplemented!(),
-                                Value::OptionalUuid(_) => unimplemented!(),
-                                Value::OptionalPrimitiveDateTime(_) => unimplemented!(),
-                                Value::OptionalOffsetDateTime(_) => unimplemented!(),
-                                Value::OptionalDuration(_) => unimplemented!(),
-                                Value::Other(_) => unimplemented!(),
-                            }
-                        }
-                        None => {
-                            return Err(SeaOrmRepoError::UnknownColumnSpecified {
+                    ConditionElement::Clause(clause) => {
+                        // Look up the field by name.
+                        let field = F::from_name(&clause.column_name).ok_or_else(|| {
+                            SeaOrmRepoError::UnknownColumnSpecified {
                                 column_name: clause.column_name.clone(),
                                 backtrace: Backtrace::generate(),
-                            });
-                        }
-                    },
+                            }
+                        })?;
+
+                        // Convert the condition value to a typed Value.
+                        let value = field
+                            .convert_condition_value(clause.value.clone())
+                            .map_err(|err| SeaOrmRepoError::UnableToParseValueAsColType {
+                                column_name: clause.column_name.clone(),
+                                reason: err,
+                                backtrace: Backtrace::generate(),
+                            })?;
+
+                        // Get the SeaORM column.
+                        let col = field_to_column(&field);
+
+                        // Add the condition based on value type.
+                        tree = add_condition_from_value(tree, col, clause.operator, value)?;
+                    }
                     ConditionElement::Condition(nested_condition) => {
-                        tree = tree.add(build_condition_tree::<T>(nested_condition)?);
+                        tree = tree.add(build_condition_tree::<F, C>(
+                            nested_condition,
+                            field_to_column,
+                        )?);
                     }
                 }
             }
         }
     }
 
+    Ok(tree)
+}
+
+/// Add a condition to the tree based on the Value type.
+fn add_condition_from_value<C: ColumnTrait>(
+    tree: sea_query::Condition,
+    col: C,
+    operator: Operator,
+    value: Value,
+) -> Result<sea_query::Condition, SeaOrmRepoError> {
+    let tree = match value {
+        Value::String(val) => add_condition(tree, col, operator, val),
+        Value::Json(val) => add_condition(tree, col, operator, val),
+        Value::Uuid(val) => add_condition(tree, col, operator, val),
+        Value::I32(val) => add_condition(tree, col, operator, val),
+        Value::U8Vec(values) => add_condition_iterable(tree, col, operator, values),
+        Value::I32Vec(values) => add_condition_iterable(tree, col, operator, values),
+        Value::I64(val) => add_condition(tree, col, operator, val),
+        Value::I64Vec(values) => add_condition_iterable(tree, col, operator, values),
+        Value::U32(val) => add_condition(tree, col, operator, val),
+        Value::U64(val) => add_condition(tree, col, operator, val),
+        Value::F32(val) => add_condition(tree, col, operator, val),
+        Value::F64(val) => add_condition(tree, col, operator, val),
+        Value::Bool(val) => add_condition(tree, col, operator, val),
+        Value::PrimitiveDateTime(val) => add_condition(tree, col, operator, val),
+        Value::OffsetDateTime(val) => add_condition(tree, col, operator, val),
+        Value::Duration(val) => add_condition(tree, col, operator, TimeDuration(val.0)),
+        // TODO: Implement missing variants.
+        Value::Void(_) => unimplemented!("Void value in condition"),
+        Value::OptionalBool(_) => unimplemented!("OptionalBool value in condition"),
+        Value::U8(_) => unimplemented!("U8 value in condition"),
+        Value::U16(_) => unimplemented!("U16 value in condition"),
+        Value::U128(_) => unimplemented!("U128 value in condition"),
+        Value::OptionalU8(_) => unimplemented!("OptionalU8 value in condition"),
+        Value::OptionalU16(_) => unimplemented!("OptionalU16 value in condition"),
+        Value::OptionalU32(_) => unimplemented!("OptionalU32 value in condition"),
+        Value::OptionalU64(_) => unimplemented!("OptionalU64 value in condition"),
+        Value::OptionalU128(_) => unimplemented!("OptionalU128 value in condition"),
+        Value::I8(_) => unimplemented!("I8 value in condition"),
+        Value::I16(_) => unimplemented!("I16 value in condition"),
+        Value::I128(_) => unimplemented!("I128 value in condition"),
+        Value::OptionalI8(_) => unimplemented!("OptionalI8 value in condition"),
+        Value::OptionalI16(_) => unimplemented!("OptionalI16 value in condition"),
+        Value::OptionalI32(_) => unimplemented!("OptionalI32 value in condition"),
+        Value::OptionalI64(_) => unimplemented!("OptionalI64 value in condition"),
+        Value::OptionalI128(_) => unimplemented!("OptionalI128 value in condition"),
+        Value::OptionalF32(_) => unimplemented!("OptionalF32 value in condition"),
+        Value::OptionalF64(_) => unimplemented!("OptionalF64 value in condition"),
+        Value::OptionalString(_) => unimplemented!("OptionalString value in condition"),
+        Value::OptionalJson(_) => unimplemented!("OptionalJson value in condition"),
+        Value::OptionalUuid(_) => unimplemented!("OptionalUuid value in condition"),
+        Value::OptionalPrimitiveDateTime(_) => {
+            unimplemented!("OptionalPrimitiveDateTime value in condition")
+        }
+        Value::OptionalOffsetDateTime(_) => {
+            unimplemented!("OptionalOffsetDateTime value in condition")
+        }
+        Value::OptionalDuration(_) => unimplemented!("OptionalDuration value in condition"),
+        Value::Other(_) => unimplemented!("Other value in condition"),
+    };
     Ok(tree)
 }
 

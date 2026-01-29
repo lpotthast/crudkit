@@ -6,10 +6,11 @@ use crudkit_core::{Order, Saved};
 use crudkit_web::prelude::*;
 use crudkit_web::reqwest_executor::ReqwestExecutor;
 use crudkit_web::view::SerializableCrudView;
-use crudkit_web::{CrudDataTrait, CrudFieldValueTrait, HeaderOptions};
+use crudkit_web::{CrudFieldValueTrait, CrudModel, HeaderOptions};
 use indexmap::IndexMap;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -194,10 +195,10 @@ pub struct CrudParentConfig {
     pub name: &'static str,
 
     /// The field of the parent instance from which the referenced id should be loaded. For example: "id".
-    pub referenced_field: String,
+    pub referenced_field: Cow<'static, str>,
 
     /// The `own` field in which the reference is stored. For example: "user_id", when referencing a User entity.
-    pub referencing_field: String, // TODO: This should be: T::ReadModel::Field? (ClusterCertificateField::CreatedAt)
+    pub referencing_field: Cow<'static, str>, // TODO: This should be: T::ReadModel::Field? (ClusterCertificateField::CreatedAt)
 }
 
 pub type UpdateElements = Vec<Elem<AnyUpdateField>>;
@@ -225,19 +226,19 @@ pub struct ModelHandler {
     pub read_model_to_signal_map: Callback<AnyReadModel, HashMap<AnyReadField, ReactiveValue>>,
     pub update_model_to_signal_map:
         Callback<AnyUpdateModel, HashMap<AnyUpdateField, ReactiveValue>>,
-    pub get_create_model_field: Callback<String, AnyCreateField>,
+    pub get_create_model_field: Callback<Cow<'static, str>, AnyCreateField>,
     pub get_default_create_model: Callback<(), AnyCreateModel>,
 }
 
 impl ModelHandler {
     pub fn new<Create, Read, Update>() -> ModelHandler
     where
-        Create: CreateModel + CrudDataTrait + Default,
-        Read: ReadModel + CrudDataTrait,
-        Update: UpdateModel + CrudDataTrait + From<Read>,
-        <Read as CrudDataTrait>::Field: ReadField,
-        <Create as CrudDataTrait>::Field: CreateField,
-        <Update as CrudDataTrait>::Field: UpdateField,
+        Create: CreateModel + CrudModel + Default,
+        Read: ReadModel + CrudModel,
+        Update: UpdateModel + CrudModel + From<Read>,
+        <Read as CrudModel>::Field: ReadField,
+        <Create as CrudModel>::Field: CreateField,
+        <Update as CrudModel>::Field: UpdateField,
     {
         let deserialize_update_model = Callback::new(move |json| {
             let saved: Saved<Update> = serde_json::from_value(json)?;
@@ -289,8 +290,8 @@ impl ModelHandler {
                 }
                 map
             }),
-            get_create_model_field: Callback::new(move |field_name: String| {
-                AnyCreateField::from(Create::get_field(&field_name))
+            get_create_model_field: Callback::new(move |field_name: Cow<'static, str>| {
+                AnyCreateField::from(Create::get_field(field_name.as_ref()))
             }),
             get_default_create_model: Callback::new(move |()| {
                 AnyCreateModel::from(Create::default())

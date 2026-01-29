@@ -1,3 +1,5 @@
+//! Update operation for CRUD resources.
+
 use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
 use utoipa::ToSchema;
@@ -10,6 +12,7 @@ use crudkit_validation::{
     PartialSerializableAggregateViolations, PartialSerializableValidations, ViolationsByEntity,
 };
 
+use crate::data::CrudIdTrait;
 use crate::validate::{run_delta_validation, run_global_validation};
 use crate::validation::{CrudAction, ValidationContext, ValidationTrigger, When};
 use crate::{
@@ -20,21 +23,38 @@ use crate::{
     prelude::*,
 };
 
+/// Request body for updating a single entity.
 #[derive(Debug, ToSchema, Deserialize)]
 pub struct UpdateOne<T> {
+    /// Condition to identify the entity to update.
     pub condition: Option<Condition>,
+    /// The update data.
     pub entity: T,
 }
 
-// TODO(stretch): UpdateMany? Supporting this would require a huge change for our leptos frontend. It would also require a `PartialUpdateModel`, allowing for unobserved / unchanged fields. This could(?) also be helpful as another UpdateOne variant, (more geared towards programmatic updates which dont want to read in the entity before).
-
+/// Update a single entity.
+///
+/// # Flow
+///
+/// 1. Fetch the existing entity matching the condition
+/// 2. Run `before_update` hook (can modify the update model)
+/// 3. Run delta validation (comparing old and new state)
+/// 4. If critical violations exist, return error
+/// 5. Update entity via repository (repository applies changes internally)
+/// 6. Delete old validation results
+/// 7. Persist any new violations
+/// 8. Broadcast validation results
+/// 9. Run `after_update` hook
+/// 10. Broadcast update event
+/// 11. Trigger global validation
 #[tracing::instrument(level = "info", skip(context, request))]
 pub async fn update_one<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
     body: UpdateOne<R::UpdateModel>,
 ) -> Result<Saved<R::Model>, CrudError> {
-    let model = context
+    // Fetch the existing entity.
+    let existing_model = context
         .repository
         .fetch_one(None, None, None, body.condition.as_ref())
         .await
@@ -43,13 +63,10 @@ pub async fn update_one<R: CrudResource>(
         })?
         .ok_or(CrudError::NotFound)?;
 
-    // Convert the model into an ActiveModel, allowing mutations.
-    let mut active_model: R::ActiveModel = model.into();
+    // Keep a copy of the old state for delta validation.
+    let old_model = existing_model.clone();
 
-    // Keep a copy of the old state for delta validation
-    let old_active_model = active_model.clone();
-
-    let update_model = body.entity;
+    let mut update_model = body.entity;
 
     let update_request = UpdateRequest {
         condition: body.condition,
@@ -57,9 +74,10 @@ pub async fn update_one<R: CrudResource>(
 
     let hook_data = R::HookData::default();
 
+    // Run before_update hook - can modify the update_model.
     let hook_data = R::Lifetime::before_update(
-        &update_model,
-        &mut active_model,
+        &existing_model,
+        &mut update_model,
         &update_request,
         &context.res_context,
         request.clone(),
@@ -68,31 +86,20 @@ pub async fn update_one<R: CrudResource>(
     .await
     .map_err(CrudError::from)?;
 
-    // Update the persisted active_model!
-    active_model.update_with(update_model.clone()); // Clone required because we later reference the update_model in after_update. Could be optimized away when using NoopLifetimeHooks.
-
-    // TODO: Just like model.get_id(), provide an active_model.get_id() implementation...?
-    let entity_id = R::CrudColumn::get_id_active(&active_model)
-        .expect("Updatable entities must be stored and therefor have an ID!");
-
+    // Get the entity ID before we move models.
+    let entity_id = existing_model.id();
     let serializable_id = entity_id.to_serializable_id();
 
-    // Run delta validations comparing old and new state before updating the entity in the database.
-    // This allows validators to check for violations related to the specific change being made.
+    // Run delta validations comparing old and new state before updating.
     let trigger = ValidationTrigger::CrudAction(ValidationContext {
         action: CrudAction::Update,
         when: When::Before,
     });
 
-    let mut partial_validation_results = run_delta_validation::<R>(
-        &context.validators,
-        &old_active_model,
-        &active_model,
-        trigger,
-    );
+    let mut partial_validation_results =
+        run_delta_validation::<R>(&context.validators, &old_model, &update_model, trigger);
 
-    // Critical violations must block the save immediately. No persist/broadcast needed
-    // since the update won't happen and the entity state hasn't changed.
+    // Critical violations must block the save immediately.
     if partial_validation_results.has_critical_violations() {
         return Err(CrudError::CriticalValidationErrors {
             violations: PartialSerializableAggregateViolations::from(
@@ -102,41 +109,27 @@ pub async fn update_one<R: CrudResource>(
         });
     }
 
-    // After this point, all critical violations are no longer of interest and can be dropped.
+    // After this point, all critical violations are no longer of interest.
     partial_validation_results.drop_critical();
 
-    // Update the entity using the user-provided repository impl.
-    // Note: This might have unexpected effects on the data being saved. We shall load the entity
-    //  again to make sure we do not miss any of them.
+    // Update the entity via the repository.
+    // The repository handles applying the UpdateModel to the existing Model internally.
     let result = context
         .repository
-        .update(active_model.clone())
+        .update(existing_model, update_model.clone())
         .await
         .map_err(|err| CrudError::Repository {
             reason: Arc::new(err),
         })?;
 
     // Delete all previously stored violations for this entity.
-    // TODO: Should this be done in a transaction together with the later save, creating a safe swap?
-    match R::CrudColumn::get_id_active(&active_model) {
-        Ok(id) => {
-            context
-                .validation_result_repository
-                .delete_all_of_entity(R::TYPE.name(), &id)
-                .await
-                .map_err(|err| CrudError::DeleteValidations {
-                    reason: Arc::new(err),
-                })?;
-        }
-        Err(err) => {
-            tracing::error!(
-                "Could not extract ID from active_model {active_model:?}. Error was: {err}"
-            )
-        }
-    }
-
-    // TODO: Should we validate again after the insert, catching potential changes made in the (unknown to us) repository (or even hooked up database)?
-    // TODO: Follow up with a load op!
+    context
+        .validation_result_repository
+        .delete_all_of_entity(R::TYPE.name(), &entity_id)
+        .await
+        .map_err(|err| CrudError::DeleteValidations {
+            reason: Arc::new(err),
+        })?;
 
     let has_violations = partial_validation_results.has_violations();
 
@@ -157,7 +150,7 @@ pub async fn update_one<R: CrudResource>(
             })?;
     }
 
-    // Now that the update succeeded, handle validation result persistence and broadcasting.
+    // Build the partial validation result for response and broadcast.
     let partial = PartialSerializableAggregateViolations::from(
         partial_validation_results,
         Some(serializable_id.clone()),
@@ -172,6 +165,7 @@ pub async fn update_one<R: CrudResource>(
     collaboration::broadcast_partial_validation_result(&context, partial_serializable_validations)
         .await;
 
+    // Run after_update hook.
     let _hook_data = R::Lifetime::after_update(
         &update_model,
         &result,
@@ -186,20 +180,7 @@ pub async fn update_one<R: CrudResource>(
     // Inform all users that the entity was updated.
     collaboration::broadcast_updated_event(&context, serializable_id, has_violations).await;
 
-    // We read the entity again, to get an up-to-date instance of the "ReadModel".
-    /*let read = build_select_query::<R::ReadViewEntity, R::ReadViewModel, R::ReadViewActiveModel, R::ReadViewColumn, R::ReadViewCrudColumn>(
-        None,
-        None,
-        None,
-        &body.condition,
-    )?
-    .one(controller.get_database_connection())
-    .await
-    .map_err(|err| CrudError::DbError(err.to_string()))?
-    .ok_or_else(|| CrudError::ReadOneFoundNone)?;*/
-
     // Trigger global validation to check system-wide consistency.
-    // Results are broadcast via WebSocket to all connected users.
     run_global_validation::<R>(&context).await;
 
     Ok(Saved {
@@ -207,5 +188,3 @@ pub async fn update_one<R: CrudResource>(
         violations: partial,
     })
 }
-
-// TODO: update_one_and_read_back() which updates and returns a ReadModel instead of an UpdateModel.

@@ -658,15 +658,15 @@ pub fn store(input: TokenStream) -> TokenStream {
             #(#typified_fields),*
         }
 
-        impl crudkit_web::CrudFieldNameTrait for #field_name {
-            fn get_name(&self) -> &'static str {
-                #get_name_impl
+        impl crudkit_core::Named for #field_name {
+            fn get_name(&self) -> std::borrow::Cow<'static, str> {
+                std::borrow::Cow::Borrowed(#get_name_impl)
             }
         }
 
         #id_impl
 
-        impl crudkit_web::CrudDataTrait for #name {
+        impl crudkit_web::CrudModel for #name {
             type Field = #field_name;
 
             fn get_all_fields() -> Vec<#field_name> {
@@ -691,12 +691,6 @@ pub fn store(input: TokenStream) -> TokenStream {
         impl crudkit_web::model::SerializeAsKey for #field_name {
             fn serialize_as_key(&self) -> String {
                 serde_json::to_string(self).unwrap()
-            }
-        }
-
-        impl crudkit_web::model::NamedProperty for #field_name {
-            fn get_name(&self) -> String {
-                crudkit_web::CrudFieldNameTrait::get_name(self).to_string()
             }
         }
 

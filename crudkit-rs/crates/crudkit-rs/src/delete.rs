@@ -1,9 +1,17 @@
+//! Delete operations for CRUD resources.
+//!
+//! Supports three modes:
+//! - `delete_by_id`: Delete a single entity by its ID.
+//! - `delete_one`: Delete a single entity matching a condition (first match).
+//! - `delete_many`: Delete multiple entities matching a condition (all matches).
+
 use indexmap::IndexMap;
 use serde::Deserialize;
 use std::sync::Arc;
 use utoipa::ToSchema;
 
-use crate::validate::{run_entity_validation, run_global_validation};
+use crate::data::CrudIdTrait;
+use crate::validate::{run_global_validation, run_model_validation};
 use crate::{
     auth::RequestContext,
     collaboration,
@@ -11,7 +19,6 @@ use crate::{
     lifetime::{CrudLifetime, DeleteOperation, DeleteRequest, HookError},
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
-    GetIdFromModel,
 };
 use crudkit_condition::{Condition, TryIntoAllEqualCondition};
 use crudkit_core::{Deleted, DeletedMany, Order};
@@ -19,28 +26,9 @@ use crudkit_id::{Id, SerializableId};
 use crudkit_validation::PartialSerializableAggregateViolations;
 
 /// Maximum memory budget per batch (in bytes).
-///
-/// This limits how much memory a single batch of entities can consume.
-/// Default: 50 MB. Adjust based on available system memory.
 const BATCH_MEMORY_BUDGET: usize = 50_000_000;
 
 /// Multiplier to estimate total memory including heap allocations.
-///
-/// **Important:** `std::mem::size_of::<T>()` returns the *stack* size of a type,
-/// which is NOT the same as total memory usage! Heap-allocated data is not included.
-///
-/// Example: `String` always reports 24 bytes (pointer + len + capacity), but a
-/// 1000-ASCII-character string actually uses ~1024 bytes (24 stack + 1000 heap).
-///
-/// This multiplier compensates for heap allocations in fields like:
-/// - `String`, `Vec<T>`, `Box<T>`
-/// - `serde_json::Value`
-/// - `Option<T>` containing heap types
-///
-/// Tuning guide:
-/// - Set to 1 if models contain mostly primitive fields (i32, bool, Uuid, etc.)
-/// - Set to 2-3 if models have several String/Vec fields
-/// - Set to 4+ if models contain large JSON blobs or binary data
 const HEAP_OVERHEAD_MULTIPLIER: usize = 3;
 
 /// Minimum batch size to ensure progress even for large models.
@@ -57,35 +45,42 @@ const fn calculate_batch_size<M>() -> u64 {
         return MAX_BATCH_SIZE;
     }
     let batch_size = (BATCH_MEMORY_BUDGET / estimated_combined_usage) as u64;
-    // Note: clamp() is not const, so use manual bounds checking
-    if (batch_size) < MIN_BATCH_SIZE {
+    if batch_size < MIN_BATCH_SIZE {
         MIN_BATCH_SIZE
-    } else if (batch_size) > MAX_BATCH_SIZE {
+    } else if batch_size > MAX_BATCH_SIZE {
         MAX_BATCH_SIZE
     } else {
         batch_size
     }
 }
 
+/// Request body for deleting by ID.
 #[derive(Debug, ToSchema, Deserialize)]
 pub struct DeleteById {
+    /// The serializable ID of the entity to delete.
     pub id: SerializableId,
 }
 
+/// Request body for deleting one entity by condition.
 #[derive(Debug, ToSchema, Deserialize)]
 pub struct DeleteOne<R: CrudResource> {
+    /// Number of entities to skip.
     pub skip: Option<u64>,
+    /// Ordering specification.
     #[schema(value_type = Option<Object>, example = json!({"id": Order::Asc}))]
-    // TODO: Better type definition including Column and Order types? Example not showing in UI...
-    pub order_by: Option<IndexMap<R::CrudColumn, Order>>,
+    pub order_by: Option<IndexMap<R::ModelField, Order>>,
+    /// Filter condition.
     pub condition: Option<Condition>,
 }
 
+/// Request body for deleting many entities.
 #[derive(Debug, ToSchema, Deserialize)]
 pub struct DeleteMany {
+    /// Filter condition.
     pub condition: Option<Condition>,
 }
 
+/// Delete a single entity by its ID.
 #[tracing::instrument(level = "info", skip(context, request))]
 pub async fn delete_by_id<R: CrudResource>(
     request: RequestContext<R::Auth>,
@@ -117,7 +112,6 @@ pub async fn delete_by_id<R: CrudResource>(
 
     execute_single_delete(model, &delete_request, &context, &request).await?;
 
-    // Trigger global validation to check system-wide consistency.
     run_global_validation::<R>(&context).await;
 
     Ok(Deleted {
@@ -125,6 +119,7 @@ pub async fn delete_by_id<R: CrudResource>(
     })
 }
 
+/// Delete a single entity matching a condition.
 #[tracing::instrument(level = "info", skip(context, request))]
 pub async fn delete_one<R: CrudResource>(
     request: RequestContext<R::Auth>,
@@ -154,7 +149,6 @@ pub async fn delete_one<R: CrudResource>(
 
     execute_single_delete(model, &delete_request, &context, &request).await?;
 
-    // Trigger global validation to check system-wide consistency.
     run_global_validation::<R>(&context).await;
 
     Ok(Deleted {
@@ -169,13 +163,9 @@ fn id_to_json(id: &SerializableId) -> serde_json::Value {
 
 /// Error type for single entity deletion, used internally to distinguish failure modes.
 enum SingleDeleteError {
-    /// Lifecycle hook rejected the deletion.
     HookRejected(CrudError),
-    /// Validation failed with critical violations.
     ValidationFailed(CrudError),
-    /// Repository operation failed.
     RepositoryError(CrudError),
-    /// After-delete hook failed (entity was deleted but hook errored).
     AfterHookFailed(CrudError),
 }
 
@@ -190,17 +180,7 @@ impl From<SingleDeleteError> for CrudError {
     }
 }
 
-/// Execute deletion for a single entity after it has been fetched.
-///
-/// This helper handles the common deletion flow:
-/// 1. Run before_delete hook
-/// 2. Validate the entity
-/// 3. Delete from database
-/// 4. Run after_delete hook
-/// 5. Clear validation results
-/// 6. Broadcast deletion via WebSocket
-///
-/// Returns the serializable ID on success for result reporting.
+/// Execute deletion for a single entity.
 async fn execute_single_delete<R: CrudResource>(
     model: R::Model,
     delete_request: &DeleteRequest<R>,
@@ -219,10 +199,8 @@ async fn execute_single_delete<R: CrudResource>(
     .await
     .map_err(|e| SingleDeleteError::HookRejected(CrudError::from(e)))?;
 
-    let entity_id = model.get_id();
+    let entity_id = model.id();
     let serializable_id = entity_id.to_serializable_id();
-
-    let active_model: R::ActiveModel = model.clone().into();
 
     // Validate the entity to check if deletion should be blocked.
     let trigger = ValidationTrigger::CrudAction(ValidationContext {
@@ -230,7 +208,7 @@ async fn execute_single_delete<R: CrudResource>(
         when: When::Before,
     });
     let partial_validation_results =
-        run_entity_validation::<R>(&context.validators, &active_model, trigger);
+        run_model_validation::<R>(&context.validators, &model, trigger);
 
     if partial_validation_results.has_critical_violations() {
         return Err(SingleDeleteError::ValidationFailed(
@@ -278,16 +256,6 @@ async fn execute_single_delete<R: CrudResource>(
 }
 
 /// Delete multiple entities matching a condition.
-///
-/// This function fetches entities in batches to prevent OOM when deleting large numbers of entities.
-/// Each entity is processed individually, running lifecycle hooks and validation.
-/// Partial success is supported - if some entities fail to delete, others will still be processed.
-///
-/// # Parameters
-///
-/// * `keycloak_token` - The authentication token. Authorization checks are typically performed
-///   at the route/middleware level before this function is called. The token is available here
-///   for use in lifecycle hooks via the resource context if needed for entity-level permission checks.
 #[tracing::instrument(level = "info", skip(context, request))]
 pub async fn delete_many<R: CrudResource>(
     request: RequestContext<R::Auth>,
@@ -312,8 +280,6 @@ pub async fn delete_many<R: CrudResource>(
     };
 
     // Process entities in batches to prevent OOM issues.
-    // We always fetch from offset 0 because deleted entities no longer match the condition.
-    // If no deletions occur in a batch (all blocked by hooks/validation), we stop.
     loop {
         let models = context
             .repository
@@ -323,16 +289,14 @@ pub async fn delete_many<R: CrudResource>(
                 reason: Arc::new(err),
             })?;
 
-        // No more entities to process.
         if models.is_empty() {
             break;
         }
 
         let already_deleted = result.deleted_count;
 
-        // Process each entity in the batch.
         for model in models {
-            let entity_id = model.get_id();
+            let entity_id = model.id();
             let serializable_id = entity_id.to_serializable_id();
 
             // Run before_delete hook.
@@ -362,16 +326,13 @@ pub async fn delete_many<R: CrudResource>(
             };
 
             // Validate the entity.
-            let active_model = model.clone().into();
             let trigger = ValidationTrigger::CrudAction(ValidationContext {
                 action: CrudAction::Delete,
                 when: When::Before,
             });
             let partial_validation_results =
-                run_entity_validation::<R>(&context.validators, &active_model, trigger);
+                run_model_validation::<R>(&context.validators, &model, trigger);
 
-            // Check for critical validation errors.
-            // Critical validation errors are returned synchronously in the response (validation_failed list).
             if partial_validation_results.has_critical_violations() {
                 result.validation_failed.push(id_to_json(&serializable_id));
                 continue;
@@ -381,7 +342,6 @@ pub async fn delete_many<R: CrudResource>(
             let deleted_model = model.clone();
             match context.repository.delete(model).await {
                 Ok(_delete_result) => {
-                    // Run after_delete hook (ignore errors for batch operations).
                     let _ = R::Lifetime::after_delete(
                         &deleted_model,
                         &delete_request,
@@ -391,7 +351,6 @@ pub async fn delete_many<R: CrudResource>(
                     )
                     .await;
 
-                    // Clear validation results for this entity.
                     if let Err(e) = context
                         .validation_result_repository
                         .delete_all_of_entity(R::TYPE.name(), &entity_id)
@@ -402,7 +361,6 @@ pub async fn delete_many<R: CrudResource>(
                         );
                     }
 
-                    // Broadcast deletion via WebSocket.
                     collaboration::broadcast_deletion_event(&context, serializable_id.clone())
                         .await;
 
@@ -418,15 +376,12 @@ pub async fn delete_many<R: CrudResource>(
             }
         }
 
-        // If no entities were deleted in this batch, all remaining entities are blocked
-        // (aborted, validation failed, or errored). Stop to avoid infinite loop.
+        // If no entities were deleted in this batch, stop to avoid infinite loop.
         if result.deleted_count == already_deleted {
             break;
         }
     }
 
-    // Trigger global validation to check system-wide consistency.
-    // Results are broadcast via WebSocket to all connected users.
     run_global_validation::<R>(&context).await;
 
     Ok(result)

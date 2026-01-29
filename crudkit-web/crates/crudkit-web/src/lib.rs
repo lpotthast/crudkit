@@ -57,16 +57,16 @@ pub mod prelude {
     pub use super::reqwest_executor::ReqwestExecutor;
     pub use super::view::CrudView;
     pub use super::view::SerializableCrudView;
-    pub use super::CrudDataTrait;
-    pub use super::CrudFieldNameTrait;
     pub use super::CrudFieldValueTrait;
     pub use super::CrudIdTrait;
     pub use super::CrudMainTrait;
+    pub use super::CrudModel;
     pub use super::CrudResourceTrait;
     pub use super::FieldMode;
     pub use super::FieldOptions;
     pub use super::HeaderOptions;
     pub use super::Label;
+    pub use super::Named;
     pub use super::NoData;
     pub use super::OrderByUpdateOptions;
     pub use super::TabId;
@@ -107,7 +107,6 @@ pub mod prelude {
     pub use super::model::Field;
     pub use super::model::Identifiable;
     pub use super::model::Model;
-    pub use super::model::NamedProperty;
     pub use super::model::ReadField;
     pub use super::model::ReadModel;
     pub use super::model::ReadOrUpdateModel;
@@ -149,7 +148,7 @@ pub enum NoData {
 pub trait CrudMainTrait:
     CrudResourceTrait + PartialEq + Default + Debug + Clone + Serialize + Send + Sync
 {
-    type CreateModel: CrudDataTrait + Default + Send + Sync;
+    type CreateModel: CrudModel + Default + Send + Sync;
 
     type ReadModelIdField: crudkit_id::IdField + Serialize + Send + Sync;
     type ReadModelId: Serialize
@@ -160,7 +159,7 @@ pub trait CrudMainTrait:
         + Send
         + Sync;
     type ReadModel: Serialize
-        + CrudDataTrait
+        + CrudModel
         + Into<Self::UpdateModel>
         + CrudIdTrait<Id = Self::ReadModelId>
         + Send
@@ -174,21 +173,17 @@ pub trait CrudMainTrait:
         + Clone
         + Send
         + Sync;
-    type UpdateModel: Serialize
-        + CrudDataTrait
-        + CrudIdTrait<Id = Self::UpdateModelId>
-        + Send
-        + Sync;
+    type UpdateModel: Serialize + CrudModel + CrudIdTrait<Id = Self::UpdateModelId> + Send + Sync;
 
     type ActionPayload: Serialize + CrudActionPayload + Send + Sync;
 }
 
 /// This does not have CrudIdTrait as a super trait, as not all data models
 /// (namely the CreateModel) can supply an ID!
-pub trait CrudDataTrait:
+pub trait CrudModel:
     PartialEq + Clone + Debug + Serialize + DeserializeOwned + Send + Sync
 {
-    type Field: CrudFieldNameTrait
+    type Field: Named
         + CrudFieldValueTrait<Self>
         + PartialEq
         + Eq
@@ -226,9 +221,9 @@ pub trait CrudResourceTrait {
         Self: Sized;
 }
 
-pub trait CrudFieldNameTrait {
-    fn get_name(&self) -> &'static str;
-}
+/// Re-export `Named` from crudkit_core for backwards compatibility and convenience.
+pub use crudkit_core::Named;
+
 
 pub trait CrudFieldValueTrait<T> {
     fn get_value(&self, entity: &T) -> Value;

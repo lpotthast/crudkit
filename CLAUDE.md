@@ -130,7 +130,7 @@ The central abstraction is the `CrudResource` trait (crudkit-rs/crates/crudkit-r
 **Web Layer** (crudkit-web):
 
 - `CrudMainTrait` - Defines frontend resource with CreateModel/ReadModel/UpdateModel
-- `CrudDataTrait` - Model with typed fields accessible via Field enum
+- `CrudModel` - Model with typed fields accessible via Field enum
 - `CrudRestDataProvider<T>` - HTTP client for CRUD operations
 
 **Frontend** (crudkit-leptos):
@@ -207,7 +207,7 @@ ID can be a tuple of multiple fields (e.g., `(user_id, org_id)`).
 - `crudkit-rs/crates/crudkit-rs/src/resource.rs` - CrudResource trait
 - `crudkit-rs/crates/crudkit-rs/src/repository.rs` - Repository trait
 - `crudkit-id/crates/crudkit-id/src/lib.rs` - Id trait
-- `crudkit-web/crates/crudkit-web/src/lib.rs` - CrudMainTrait, CrudDataTrait
+- `crudkit-web/crates/crudkit-web/src/lib.rs` - CrudMainTrait, CrudModel
 - `crudkit-core/crates/crudkit-core/src/lib.rs` - Value enum, Order, shared types
 
 ### CRUD Operations

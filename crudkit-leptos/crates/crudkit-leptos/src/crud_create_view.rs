@@ -36,13 +36,13 @@ fn default_create_model(ctx: &CrudInstanceContext) -> AnyCreateModel {
                 value,
             } = parent_id
                 .entries()
-                .find(|entry| entry.field_name == parent.referenced_field.as_str())
+                .find(|entry| entry.field_name.as_str() == parent.referenced_field.as_ref())
                 .expect("related parent field must be part of the parents id!");
             ctx.static_config
                 .read_value()
                 .model_handler
                 .get_create_model_field
-                .run(parent.referencing_field.clone())
+                .run(parent.referencing_field)
                 .set_value(&mut entity, value.clone().into());
             tracing::info!("successfully set parent id to reference field");
         } else {

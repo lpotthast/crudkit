@@ -1,11 +1,11 @@
 use crate::request_error::RequestError;
 use crate::reqwest_executor::ReqwestExecutor;
-use crate::{CrudDataTrait, CrudMainTrait, request};
-use crudkit_condition::{Condition, merge_conditions};
+use crate::{request, CrudMainTrait, CrudModel};
+use crudkit_condition::{merge_conditions, Condition};
 use crudkit_core::{Deleted, Order, Saved};
 use crudkit_id::SerializableId;
 use indexmap::IndexMap;
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
 use std::{fmt::Debug, marker::PhantomData};
 use typed_builder::TypedBuilder;
@@ -16,14 +16,14 @@ pub struct ReadCount {
 }
 
 #[derive(Debug, TypedBuilder, Serialize)]
-pub struct ReadMany<T: CrudDataTrait> {
+pub struct ReadMany<T: CrudModel> {
     pub limit: Option<u64>,
     pub skip: Option<u64>,
     pub order_by: Option<IndexMap<T::Field, Order>>,
     pub condition: Option<Condition>,
 }
 
-impl<T: CrudDataTrait> ReadMany<T> {
+impl<T: CrudModel> ReadMany<T> {
     pub fn paged(
         page: u64,
         items_per_page: u64,
@@ -35,7 +35,7 @@ impl<T: CrudDataTrait> ReadMany<T> {
 }
 
 #[derive(Debug, Serialize)]
-pub struct ReadOne<T: CrudDataTrait> {
+pub struct ReadOne<T: CrudModel> {
     pub skip: Option<u64>,
     pub order_by: Option<IndexMap<T::Field, Order>>,
     pub condition: Option<Condition>,

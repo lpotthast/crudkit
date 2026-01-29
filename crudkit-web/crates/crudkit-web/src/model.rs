@@ -3,7 +3,7 @@
 //! These types allow crudkit-leptos components to work with any resource type
 //! without knowing concrete types at compile time.
 
-use crate::{CrudDataTrait, CrudFieldNameTrait, CrudIdTrait};
+use crate::{CrudIdTrait, CrudModel, Named};
 use crudkit_core::Value;
 use crudkit_id::SerializableId;
 use dyn_clone::DynClone;
@@ -13,11 +13,6 @@ use erased_serde::__private::serde::Serialize;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
-
-// TODO: Drop this trait? Rename CrudFieldNameTrait to NamedProperty.
-pub trait NamedProperty: Send + Sync {
-    fn get_name(&self) -> String;
-}
 
 /// Anything that has an identifier in form of a `SerializableId`.
 ///
@@ -116,10 +111,8 @@ impl_any_model!(AnyReadModel, ReadModel);
 impl_any_model!(AnyUpdateModel, UpdateModel);
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ReadOrUpdateModel<
-    ReadModel: CrudDataTrait + CrudIdTrait,
-    UpdateModel: CrudDataTrait + CrudIdTrait,
-> {
+pub enum ReadOrUpdateModel<ReadModel: CrudModel + CrudIdTrait, UpdateModel: CrudModel + CrudIdTrait>
+{
     Read(ReadModel),
     Update(UpdateModel),
 }
@@ -130,11 +123,9 @@ pub enum AnyReadOrUpdateModel {
     Update(AnyUpdateModel),
 }
 
-/// This trait is implemented for each derived enum describing a models fields.
+/// This trait is implemented for each derived type (enum) describing a models fields.
 #[typetag::serde]
-pub trait Field:
-    Debug + CrudFieldNameTrait + DynClone + DynEq + DynHash + SerializeAsKey + Send + Sync
-{
+pub trait Field: Debug + Named + DynClone + DynEq + DynHash + SerializeAsKey + Send + Sync {
     fn set_value(&self, model: &mut AnyModel, value: Value);
 }
 dyn_eq::eq_trait_object!(Field);
@@ -180,9 +171,7 @@ dyn_hash::hash_trait_object!(UpdateField);
 ///
 /// In a context where type-erased fields of any model (create, read or update) should be accepted,
 /// `DynField` can be used.
-pub trait DynField: Debug + Clone + PartialEq + Eq + Hash + Send + Sync + 'static {
-    fn get_name(&self) -> &'static str;
-}
+pub trait DynField: Named + Debug + Clone + PartialEq + Eq + Hash + Send + Sync + 'static {}
 
 macro_rules! impl_any_field {
     ($any_ty:tt, $concrete_ty:tt, $any_model_ty:tt) => {
@@ -227,11 +216,13 @@ macro_rules! impl_any_field {
             }
         }
 
-        impl DynField for $any_ty {
-            fn get_name(&self) -> &'static str {
+        impl Named for $any_ty {
+            fn get_name(&self) -> std::borrow::Cow<'static, str> {
                 self.inner.get_name()
             }
         }
+
+        impl DynField for $any_ty {}
     };
 }
 

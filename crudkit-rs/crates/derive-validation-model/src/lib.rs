@@ -99,7 +99,7 @@ pub fn store(input: TokenStream) -> TokenStream {
 
     quote! {
         pub mod validation_model {
-            use crudkit_rs::prelude::*;
+            use crudkit_sea_orm::CrudColumns;
             use sea_orm::entity::prelude::*;
             use serde::{Deserialize, Serialize};
 
@@ -110,8 +110,8 @@ pub fn store(input: TokenStream) -> TokenStream {
                 Debug,
                 PartialEq,
                 Eq,
-                crudkit_rs::prelude::CkId,
-                crudkit_rs::prelude::CkColumns,
+                crudkit_sea_orm::crudkit_id::CkId,
+                crudkit_sea_orm::CkColumns,
                 sea_orm::DeriveEntityModel,
                 serde::Serialize,
                 serde::Deserialize
@@ -149,8 +149,8 @@ pub fn store(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl crudkit_rs::NewActiveValidationModel<ParentId> for ActiveModel {
-                fn new(entity_id: ParentId, validator_name: String, validator_version: i32, violation: crudkit_rs::validation::PersistableViolation, now: time::OffsetDateTime) -> Self {
+            impl crudkit_sea_orm::NewActiveValidationModel<ParentId> for ActiveModel {
+                fn new(entity_id: ParentId, validator_name: String, validator_version: i32, violation: crudkit_sea_orm::PersistableViolation, now: time::OffsetDateTime) -> Self {
                     Self {
                         id: sea_orm::ActiveValue::NotSet,
 
@@ -168,7 +168,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl crudkit_rs::ValidatorModel<ParentId> for Model {
+            impl crudkit_sea_orm::ValidatorModel<ParentId> for Model {
                 fn get_id(&self) -> ParentId {
                     ParentId {
                         #(#super_id_field_init)*
@@ -184,7 +184,7 @@ pub fn store(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl crudkit_rs::ValidationColumns for Column {
+            impl crudkit_sea_orm::ValidationColumns for Column {
                 fn get_validator_name_column() -> Self {
                     Self::ValidatorName
                 }
@@ -199,8 +199,8 @@ pub fn store(input: TokenStream) -> TokenStream {
             }
 
             // Note: This impl returns the ID columns of this validation model (statically known from above), not the parent model!
-            // For that ID, see the `impl crudkit_rs::ValidatorModel<ParentId> for Model` implementation.
-            impl crudkit_rs::IdColumns for Column {
+            // For that ID, see the `impl crudkit_sea_orm::ValidatorModel<ParentId> for Model` implementation.
+            impl crudkit_sea_orm::IdColumns for Column {
                 fn get_id_columns() -> Vec<Column> {
                     let mut vec = Vec::with_capacity(1);
                     vec.push(Column::Id);

@@ -1,3 +1,6 @@
+//! Axum route generation and error types.
+//! TODO: Extract to own crate.
+
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -14,47 +17,45 @@ use crate::error::CrudError;
 /// Maps `CrudError` variants to appropriate HTTP status codes.
 #[derive(Debug, ToSchema)]
 pub enum AxumCrudError {
-    /// Permission denied (HTTP 403 Forbidden)
+    /// Permission denied (HTTP 403 Forbidden).
     Forbidden { reason: String },
 
-    /// Business logic/validation rejection (HTTP 422 Unprocessable Entity)
+    /// Business logic/validation rejection (HTTP 422 Unprocessable Entity).
     UnprocessableEntity { reason: String },
 
-    /// Critical validation errors prevent the operation (HTTP 422 Unprocessable Entity)
+    /// Critical validation errors prevent the operation (HTTP 422 Unprocessable Entity).
     CriticalValidationErrors {
         reason: String,
         #[schema(value_type = Object)]
         violations: PartialSerializableAggregateViolations,
     },
 
-    /// Entity not found (HTTP 404 Not Found)
+    /// Entity not found (HTTP 404 Not Found).
     NotFound { reason: String },
 
-    /// Invalid query parameters (HTTP 400 Bad Request)
+    /// Invalid query parameters (HTTP 400 Bad Request).
     BadRequest { reason: String },
 
-    /// Authentication required (HTTP 401 Unauthorized)
+    /// Authentication required (HTTP 401 Unauthorized).
     Unauthorized { reason: String },
 
-    /// Repository/database error (HTTP 500 Internal Server Error)
+    /// Repository/database error (HTTP 500 Internal Server Error).
     Repository { reason: String },
 
-    /// Lifecycle hook internal error (HTTP 500 Internal Server Error)
+    /// Lifecycle hook internal error (HTTP 500 Internal Server Error).
     LifecycleError { reason: String },
 
-    /// Could not save validations (HTTP 500 Internal Server Error)
+    /// Could not save validations (HTTP 500 Internal Server Error).
     SaveValidations { reason: String },
 
-    /// Could not delete validations (HTTP 500 Internal Server Error)
+    /// Could not delete validations (HTTP 500 Internal Server Error).
     DeleteValidations { reason: String },
 }
 
 impl From<CrudError> for AxumCrudError {
     fn from(value: CrudError) -> Self {
         match value {
-            /*
-            User-facing errors: pass through the reason as-is.
-            */
+            // User-facing errors: pass through the reason as-is.
             CrudError::Forbidden { reason } => Self::Forbidden { reason },
             CrudError::UnprocessableEntity { reason } => Self::UnprocessableEntity { reason },
             CrudError::CriticalValidationErrors { violations } => Self::CriticalValidationErrors {
@@ -68,10 +69,7 @@ impl From<CrudError> for AxumCrudError {
                 reason: "Invalid query parameters".into(),
             },
 
-            /*
-            Server errors: use minimal generic messages. Full details are in the original
-            CrudError and should be logged via `Debug` format before conversion.
-            */
+            // Server errors: use minimal generic messages.
             CrudError::Repository { .. } => Self::Repository {
                 reason: "Repository error.".into(),
             },
@@ -88,11 +86,9 @@ impl From<CrudError> for AxumCrudError {
     }
 }
 
-// TODO: Use reporting mechanism (https://docs.rs/snafu/latest/snafu/attr.report.html)
 impl IntoResponse for AxumCrudError {
     fn into_response(self) -> Response {
         match self {
-            // ValidationFailed includes violations in the response body
             Self::CriticalValidationErrors { reason, violations } => {
                 let body = Json(json!({
                     "error": reason,
@@ -101,7 +97,7 @@ impl IntoResponse for AxumCrudError {
                 (StatusCode::UNPROCESSABLE_ENTITY, body).into_response()
             }
 
-            // Client errors
+            // Client errors.
             Self::Forbidden { reason } => {
                 (StatusCode::FORBIDDEN, Json(json!({"error": reason}))).into_response()
             }
@@ -120,7 +116,7 @@ impl IntoResponse for AxumCrudError {
                 (StatusCode::UNAUTHORIZED, Json(json!({"error": reason}))).into_response()
             }
 
-            // Server errors
+            // Server errors.
             Self::Repository { reason } => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({"error": reason})),
@@ -144,8 +140,6 @@ impl IntoResponse for AxumCrudError {
         }
     }
 }
-
-// TODO: On error, e REPORT must be generated, containing all error sources!
 
 /// Macro to generate Axum CRUD routes for a resource.
 ///
@@ -205,14 +199,13 @@ macro_rules! impl_add_crud_routes {
                     routing::post,
                     Extension, Json, Router,
                 };
-                use sea_orm::JsonValue;
 
                 // We define this 'ResourceType' use statement, as `$resource_type` can not be used
                 // in the `utoipa` block below...
                 use $resource_type as ResourceType;
                 type Auth = <$resource_type as CrudResource>::Auth;
                 type Policy = <$resource_type as CrudResource>::AuthPolicy;
-                type ReadViewModel = <$resource_type as CrudResource>::ReadViewModel;
+                type ReadModel = <$resource_type as CrudResource>::ReadModel;
                 type CreateModel = <$resource_type as CrudResource>::CreateModel;
                 type Model = <$resource_type as CrudResource>::Model;
                 type UpdateModel = <$resource_type as CrudResource>::UpdateModel;
@@ -291,16 +284,10 @@ macro_rules! impl_add_crud_routes {
                 }
 
                 /// Retrieve the amount of entities available.
-                ///
-                /// Counts the number of entities based on the provided condition.
                 #[utoipa::path(
                     post,
                     path = "/" $name "/crud/read-count",
                     request_body = ReadCount,
-                    //responses(
-                    //    (status = 200, description = "count was successfully calculated", body = u64),
-                    //    (status = 500, description = "count could not be calculated", body = String),
-                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_count(
@@ -325,16 +312,10 @@ macro_rules! impl_add_crud_routes {
                 }
 
                 /// Retrieve one entity.
-                ///
-                /// Retrieve one entity based on the given [crate::read::ReadOne] body.
                 #[utoipa::path(
                     post,
                     path = "/" $name "/crud/read-one",
                     request_body = ReadOne<$resource_type>,
-                    //responses(
-                    //    (status = 200, description = "one entity was read", body = ReadViewModel),
-                    //    (status = 500, description = "entity could not be read", body = AxumCrudError),
-                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_one(
@@ -346,11 +327,11 @@ macro_rules! impl_add_crud_routes {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
-                    let result: Result<ReadViewModel, AxumCrudError> = crudkit_rs::read::read_one::<$resource_type>(request_context, context.clone(), body)
+                    let result: Result<ReadModel, AxumCrudError> = crudkit_rs::read::read_one::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
-                        Ok(date) => (StatusCode::OK, Json(date)).into_response(),
+                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
                         Err(err) => {
                             tracing::error!(?err, "Could not perform CRUD operation: read one.");
                             err.into_response()
@@ -359,16 +340,10 @@ macro_rules! impl_add_crud_routes {
                 }
 
                 /// Retrieve many entities.
-                ///
-                /// Retrieve many entities based on the given [crate::read::ReadMany] body.
                 #[utoipa::path(
                     post,
                     path = "/" $name "/crud/read-many",
                     request_body = ReadMany<$resource_type>,
-                    //responses(
-                    //    (status = 200, description = "entities were read", body = Vec<ReadViewModel>),
-                    //    (status = 500, description = "entities could not be read", body = AxumCrudError),
-                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_many(
@@ -380,11 +355,11 @@ macro_rules! impl_add_crud_routes {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
-                    let result: Result<Vec<ReadViewModel>, AxumCrudError> = crudkit_rs::read::read_many::<$resource_type>(request_context, context.clone(), body)
+                    let result: Result<Vec<ReadModel>, AxumCrudError> = crudkit_rs::read::read_many::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
-                        Ok(date) => (StatusCode::OK, Json(date)).into_response(),
+                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
                         Err(err) => {
                             tracing::error!(?err, "Could not perform CRUD operation: read many.");
                             err.into_response()
@@ -393,17 +368,10 @@ macro_rules! impl_add_crud_routes {
                 }
 
                 /// Create one entity.
-                ///
-                /// Create one entity based on the given [crate::create::CreateOne] body.
                 #[utoipa::path(
                     post,
                     path = "/" $name "/crud/create-one",
                     request_body = CreateOne<CreateModel>,
-                    //responses(
-                    //    (status = 200, description = "entity was created", body = Saved<Model>),
-                    //    (status = 422, description = "validation failed or business logic rejection", body = AxumCrudError),
-                    //    (status = 500, description = "entity could not be created", body = AxumCrudError),
-                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn create_one(
@@ -428,17 +396,10 @@ macro_rules! impl_add_crud_routes {
                 }
 
                 /// Update one entity.
-                ///
-                /// Update one entity based on the given [crate::create::UpdateOne] body.
                 #[utoipa::path(
                     post,
                     path = "/" $name "/crud/update-one",
                     request_body = UpdateOne<UpdateModel>,
-                    //responses(
-                    //    (status = 200, description = "entity was updated", body = Saved<Model>),
-                    //    (status = 422, description = "validation failed or business logic rejection", body = AxumCrudError),
-                    //    (status = 500, description = "entity could not be updated", body = String),
-                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn update_one(
@@ -463,17 +424,10 @@ macro_rules! impl_add_crud_routes {
                 }
 
                 /// Delete one entity by id.
-                ///
-                /// Delete one entity based on the given [crate::delete::DeleteById] body.
                 #[utoipa::path(
                     post,
                     path = "/" $name "/crud/delete-by-id",
                     request_body = DeleteById,
-                    //responses(
-                    //    (status = 200, description = "entity was deleted", body = Deleted),
-                    //    (status = 422, description = "validation failed or business logic rejection", body = AxumCrudError),
-                    //    (status = 500, description = "entity could not be deleted", body = String),
-                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_by_id(
@@ -498,17 +452,10 @@ macro_rules! impl_add_crud_routes {
                 }
 
                 /// Delete one entity using a standard filter query.
-                ///
-                /// Delete one entity based on the given [crate::delete::DeleteOne] body.
                 #[utoipa::path(
                     post,
                     path = "/" $name "/crud/delete-one",
                     request_body = DeleteOne<$resource_type>,
-                    //responses(
-                    //    (status = 200, description = "entity was deleted", body = Deleted),
-                    //    (status = 422, description = "validation failed or business logic rejection", body = AxumCrudError),
-                    //    (status = 500, description = "entity could not be deleted", body = String),
-                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_one(
@@ -533,19 +480,10 @@ macro_rules! impl_add_crud_routes {
                 }
 
                 /// Delete many entities using a standard filter query.
-                ///
-                /// Delete many entities based on the given [crate::delete::DeleteMany] body.
-                /// Returns detailed results including which entities were deleted successfully
-                /// and which failed for various reasons.
                 #[utoipa::path(
                     post,
                     path = "/" $name "/crud/delete-many",
                     request_body = DeleteMany,
-                    //responses(
-                    //    (status = 200, description = "Deletion results (may include partial failures)", body = DeletedMany),
-                    //    (status = 422, description = "validation failed or business logic rejection", body = AxumCrudError),
-                    //    (status = 500, description = "entities could not be deleted", body = String),
-                    //),
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_many(
@@ -595,13 +533,13 @@ macro_rules! impl_add_crud_routes {
                         schemas(crudkit_rs::read::ReadCount),
                         schemas(crudkit_rs::read::ReadOne<ResourceType>),
                         schemas(crudkit_rs::read::ReadMany<ResourceType>),
-                        schemas(crudkit_rs::update::UpdateOne<ResourceType>),
+                        schemas(crudkit_rs::update::UpdateOne<UpdateModel>),
                         schemas(crudkit_rs::delete::DeleteById),
                         schemas(crudkit_rs::delete::DeleteOne<ResourceType>),
                         schemas(crudkit_rs::delete::DeleteMany),
                     ),
                 )]
-                pub struct ApiDoc; // We just use `ApiDoc` instead of `[< $name _ApiDoc >]` as we are already in a named module.
+                pub struct ApiDoc;
             }
         }
     };

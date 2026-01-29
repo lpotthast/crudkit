@@ -1,176 +1,209 @@
+//! Core resource trait defining the shape of CRUD resources.
+//!
+//! This module is storage-agnostic - it defines resources in terms of
+//! ReadModel, CreateModel, and UpdateModel without coupling to any
+//! specific storage backend like SeaORM.
+
 use crate::{
     auth::{AuthExtractor, CrudAuthPolicy},
+    data::{ConditionValueConverter, CrudIdTrait, CrudModel, FieldLookup, FieldTrait},
     lifetime::CrudLifetime,
     prelude::*,
-    GetIdFromModel,
 };
 
 use crudkit_id::Id;
 
+use crate::data::CreateModelTrait;
 use crate::repository::ValidationResultRepository;
-use sea_orm::{
-    ActiveModelBehavior, ActiveModelTrait, ColumnTrait, EntityTrait, FromQueryResult,
-    IntoActiveModel, ModelTrait,
-};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{fmt::Debug, hash::Hash};
+use std::fmt::Debug;
+use std::hash::Hash;
 
-// TODO: Can this be a member of CrudContext?
-/// Every crud resource needs its own resource context in which any data imaginable can be presented.
-/// This context is used in some operations specific to this contexts resource.
+/// Marker trait for resource-specific context types.
+///
+/// The `CrudContext` (to be instantiated by you once for each resource you define), stores a value
+/// of this type. It is later passed to operations specific to this resource, e.g. lifecycle hooks,
+/// allowing you to access custom application state during their execution.
+///
+/// # Example
+///
+/// When no custom data must be captured, just define a unit struct.
+/// You can always derive the `CrudResourceContext` impl using the `CkResourceContext` derive macro.
+///
+/// ```
+/// use crudkit_rs::prelude::*;
+///
+/// #[derive(Debug, CkResourceContext)]
+/// pub struct ArticleResourceContext;
+/// ```
 pub trait CrudResourceContext {}
 
+/// Central trait defining a CRUD resource.
+///
+/// This trait is storage-agnostic and defines resources in terms of:
+/// - **ReadModel**: The model returned from read queries (may come from a SQL view)
+/// - **CreateModel**: The DTO used to create new entities
+/// - **UpdateModel**: The DTO used to update existing entities
+///
+/// Each model has an associated Field type for typed field access.
+///
+/// # Design Philosophy
+///
+/// This design aligns with `CrudMainTrait` from crudkit-web, where resources
+/// are defined in terms of models and fields rather than ORM-specific types.
+/// The storage adapter (e.g., crudkit-sea-orm) handles the conversion between
+/// these abstract models and the underlying storage mechanism.
 pub trait CrudResource: Sized + Debug {
-    // The 'real' entity used when reading / querying entities. Might as well be a SQL view instead of a real table ;)
-    type ReadViewEntity: EntityTrait<Model = Self::ReadViewModel, Column = Self::ReadViewColumn>
-        + MaybeColumnTrait
-        + Clone
-        + Send
-        + Sync
-        + 'static;
+    // =========================================================================
+    // Read Model (for querying entities).
+    // =========================================================================
 
-    // The model of the read / queried data.
-    type ReadViewModel: ModelTrait<Entity = Self::ReadViewEntity>
-        // TODO: + GetIdFromModel<Id = ReadViewId>
-        + IntoActiveModel<Self::ReadViewActiveModel>
-        + FromQueryResult
-        + Serialize
-        + Clone
-        + Send
-        + Sync
-        + 'static;
-
-    // The active model of the read / queried data.
-    type ReadViewActiveModel: ActiveModelTrait<Entity = Self::ReadViewEntity>
-        + ActiveModelBehavior
-        + From<Self::ReadViewModel>
-        // Does not need ExcludingColumnsOnInsert<Self::ReadViewColumn>
-        // Does not need UpdateActiveModelTrait<Self::ReadViewCreateModel>
-        + Clone
-        + Send
-        + Sync
-        + 'static;
-
-    // The 'real' column type (an enum) of the read / queried data.
-    type ReadViewColumn: ColumnTrait + Clone + Send + Sync + 'static;
-
-    type ReadViewCrudColumn: CrudColumns<Self::ReadViewColumn, Self::ReadViewModel, Self::ReadViewActiveModel>
-        + Debug
-        + Eq
-        + Hash
-        + DeserializeOwned
-        + Clone
-        + Send
-        + Sync
-        + 'static;
-
-    // The 'real' entity (sea-orm).
-    type Entity: EntityTrait<Model = Self::Model, Column = Self::Column>
-        + MaybeColumnTrait
-        + Clone
-        + Send
-        + Sync
-        + 'static;
-
-    // Used to create en entity
-    type CreateModel: CreateModelTrait<Self::ActiveModel>
-        + DeserializeOwned
-        + Debug
-        + Clone
-        + Send
-        + Sync
-        + 'static;
-
-    // Used to update an entity
-    type UpdateModel: UpdateModelTrait + DeserializeOwned + Debug + Clone + Send + Sync + 'static;
-
-    type Model: ModelTrait<Entity = Self::Entity>
-        + IntoActiveModel<Self::ActiveModel>
-        + GetIdFromModel<Id = Self::Id>
-        + FromQueryResult
-        + Serialize
-        + Clone
-        + Send
-        + Sync
-        + 'static;
-
-    type ActiveModel: ActiveModelTrait<Entity = Self::Entity>
-        + ActiveModelBehavior
-        + From<Self::Model>
-        + UpdateActiveModelTrait<Self::UpdateModel>
-        + Clone
-        + Send
-        + Sync
-        + 'static;
-
-    type Column: ColumnTrait + Debug + Clone + Send + Sync + 'static;
-
-    type CrudColumn: CrudColumns<Self::Column, Self::Model, Self::ActiveModel, Id = Self::Id>
-        + Debug
-        + Eq
-        + Hash
-        + DeserializeOwned
-        + Clone
-        + Send
-        + Sync
-        + 'static;
-
-    /// The type representing the "primary key" or "ID" of the update model.
+    /// The model returned from read operations.
     ///
-    /// We only care about this models ID, as both the create and read models are not persistable
-    /// on their own and must never be identified.
-    type Id: Id + Clone;
+    /// This might be backed by a SQL view rather than a direct table.
+    /// Must be identifiable and serializable for API responses.
+    type ReadModel: CrudModel<Field = Self::ReadModelField>
+        + CrudIdTrait<Id = Self::ReadModelId>
+        + Serialize
+        + Clone
+        + Send
+        + Sync
+        + 'static;
 
+    /// The ID type for read models.
+    type ReadModelId: Id + Clone + Send + Sync + 'static;
+
+    /// The field enum for read models, used for ordering and filtering.
+    type ReadModelField: FieldTrait
+        + FieldLookup
+        + ConditionValueConverter
+        + DeserializeOwned
+        + Eq
+        + Hash
+        + Clone
+        + Send
+        + Sync
+        + 'static;
+
+    // =========================================================================
+    // Create Model (for creating new entities).
+    // =========================================================================
+
+    /// The DTO used to create new entities.
+    ///
+    /// Typically doesn't have an ID if the ID is generated during insertion.
+    type CreateModel: CrudModel<Field = Self::CreateModelField>
+        + CreateModelTrait
+        + DeserializeOwned
+        + Debug
+        + Clone
+        + Send
+        + Sync
+        + 'static;
+
+    /// Type representing individual fields of the `CreateModel`.
+    type CreateModelField: FieldTrait + Clone + Send + Sync + 'static;
+
+    // =========================================================================
+    // Update Model (for updating existing entities).
+    // =========================================================================
+
+    /// The DTO used to update existing entities.
+    ///
+    /// Contains the data to update. The entity to update is identified
+    /// via a condition in the request.
+    type UpdateModel: CrudModel<Field = Self::UpdateModelField>
+        + DeserializeOwned
+        + Debug
+        + Clone
+        + Send
+        + Sync
+        + 'static;
+
+    /// Type representing individual fields of the `UpdateModel`.
+    type UpdateModelField: FieldTrait + Clone + Send + Sync + 'static;
+
+    // =========================================================================
+    // Entity Model - the actual persisted entity
+    // =========================================================================
+
+    /// The model representing the actual persisted entity.
+    ///
+    /// This is the "real" entity that gets stored. It's used in lifecycle hooks
+    /// for validation and in the repository for fetch/delete operations.
+    /// Unlike ReadModel (which may be a view), this represents the actual table.
+    type Model: CrudModel<Field = Self::ModelField>
+        + CrudIdTrait<Id = Self::Id>
+        + Serialize
+        + Clone
+        + Send
+        + Sync
+        + 'static;
+
+    /// The ID type for the persisted entity.
+    type Id: Id + Clone + Send + Sync + 'static;
+
+    /// The field enum for the persisted entity model.
+    type ModelField: FieldTrait
+        + FieldLookup
+        + ConditionValueConverter
+        + DeserializeOwned
+        + Eq
+        + Hash
+        + Clone
+        + Send
+        + Sync
+        + 'static;
+
+    // =========================================================================
+    // Infrastructure types.
+    // =========================================================================
+
+    /// The repository implementation for this resource.
     type Repository: Repository<Self>;
 
-    // The service with which validation results can be managed: read, stored, ...
+    /// The service for persisting and retrieving validation results.
     type ValidationResultRepository: ValidationResultRepository;
-    // TODO: Remove these old generics and bounds. ValidationResultSaver is no longer generic, because we want to support the unified table approach, where one repo cannot be bound to one specific id type.
-    //  In case of individual tables, and individual repos, such a repo might be generic over the ID, but this trait no longer enforces that it is over the ID defined here.
-    // <
-    //             <Self::CrudColumn as CrudColumns<Self::Column, Self::Model, Self::ActiveModel>>::Id,
-    //         > + 'static
 
-    /// A type that can be used for collaboration purposes (sharing information with other users
-    /// of the system).
-    ///
-    /// This could be implemented using WebSockets for example.
+    /// Service for collaboration (e.g., WebSocket broadcasting).
     type CollaborationService: CollaborationService + 'static;
 
-    /// An instance of this type is made available in all lifetime operations.
-    /// Use this to supply arbitrary data, like custom services.
+    /// Resource-specific context made available in lifecycle operations.
     type Context: CrudResourceContext + Send + Sync + 'static;
 
-    /// This type is `Default` created at the start of any operation (create, read, update, delete)
-    /// and passed mutably to all lifecycle hooks called in that operation. For example, when
-    /// creating an entity, the same instance of this type is passed to `before_create` and
-    /// `after_create`.
+    /// Data passed through lifecycle hooks within a single operation.
     ///
-    /// In case that an operation triggers multiple lifecycle hooks (like create), this type can
-    /// allow you to hold onto some data across these hooks for later reference.
+    /// `Default` created at the start of any operation (create, read, update, delete)
+    /// and passed mutably to all lifecycle hooks in that operation.
     ///
-    /// Simply set this to `()` if not required.
+    /// Set to `()` if not needed.
     type HookData: Default + Send + Sync + 'static;
 
+    /// Lifecycle hooks implementation for this resource.
     type Lifetime: CrudLifetime<Self>;
 
     /// Authentication type for this resource.
     ///
-    /// Must implement [`AuthExtractor`](AuthExtractor) for Axum route generation.
-    /// Use [`NoAuth`](NoAuth) for public resources.
+    /// Must implement [`AuthExtractor`] for Axum route generation.
+    /// Use `NoAuth` for public resources.
     type Auth: AuthExtractor;
 
     /// Per-operation authorization policy.
     ///
     /// Defines which operations require authentication.
-    /// Use [`DefaultAuthPolicy`](DefaultAuthPolicy) for standard behavior
-    /// (public reads, authenticated writes).
     type AuthPolicy: CrudAuthPolicy;
 
+    /// The resource type identifier.
     type ResourceType: ResourceType;
+
+    /// The constant identifying this resource type.
     const TYPE: Self::ResourceType;
 }
 
+/// Trait for resource type identifiers.
+///
+/// Resource types provide a static name used for routing, validation storage, etc.
 pub trait ResourceType: Debug + Clone + Copy + PartialEq + Eq {
+    /// Returns the resource name as a static string.
     fn name(&self) -> &'static str;
 }

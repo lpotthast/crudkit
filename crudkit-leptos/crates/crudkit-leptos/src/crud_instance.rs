@@ -248,7 +248,7 @@ pub fn CrudInstance(
                     .find(|entry| entry.field_name == parent.referenced_field)
                     .expect("referenced field to be an ID field.");
                 Condition::All(vec![ConditionElement::Clause(ConditionClause {
-                    column_name: parent.referencing_field.clone(),
+                    column_name: parent.referencing_field.to_string(),
                     operator: crudkit_condition::Operator::Equal,
                     value: value.clone().try_into().unwrap(),
                 })])

@@ -4,8 +4,21 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# Pin regex to a version that implements std::error::Error on regex::Error (sea-orm-cli 0.12.x compat).
+regex = "1.9"
 crudkit-sea-orm-macros = { path = "../crudkit-sea-orm-macros" }
 crudkit-rs = { path = "../crudkit-rs/crates/crudkit-rs" }
+
+# SeaORM-specific derive macros.
+derive-crud-columns = { path = "../crudkit-rs/crates/derive-crud-columns" }
+derive-crudkit-id = { path = "../crudkit-id/crates/derive-crudkit-id" }
+derive-model = { path = "../crudkit-rs/crates/derive-model" }
+derive-validation-model = { path = "../crudkit-rs/crates/derive-validation-model" }
+
+# Re-export dependencies used in generated code.
+crudkit-condition = { path = "../crudkit-condition" }
+crudkit-core = { path = "../crudkit-core/crates/crudkit-core" }
+crudkit-id = { path = "../crudkit-id/crates/crudkit-id" }
 
 async-trait = "0.1.88"
 error-stack = "0.6.0"
