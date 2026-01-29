@@ -23,7 +23,7 @@ pub mod crud_table_body;
 pub mod crud_table_footer;
 pub mod crud_table_header;
 pub mod fields;
-pub mod stores;
+
 /*
 * Reexport common modules.
 * This allows the user to only
@@ -59,15 +59,15 @@ pub mod prelude {
     pub use crudkit_core_macros::CkId;
     pub use crudkit_web_macros::{CkActionPayload, CkField, CkResource};
 
-    pub use super::IntoReactiveValue;
-    pub use super::ReactiveValue;
-    pub use super::SignalsTrait;
     pub use super::crud_action::{
         CrudAction, CrudActionAftermath, CrudEntityAction, EntityActionViewInput,
         ResourceActionViewInput,
     };
     pub use super::crud_instance::CrudInstance;
     pub use super::crud_instance_config::{CreateElements, CrudInstanceConfig, CrudParentConfig};
+    pub use super::IntoReactiveValue;
+    pub use super::ReactiveValue;
+    pub use super::SignalsTrait;
 }
 
 /// Anything that can be created from a HashMap of `ReactiveValue`s.
