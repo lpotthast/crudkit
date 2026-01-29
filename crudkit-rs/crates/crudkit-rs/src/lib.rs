@@ -63,7 +63,7 @@ pub mod prelude {
     pub use crudkit_validation;
 
     // Derive macros that remain in crudkit-rs (storage-agnostic).
-    pub use derive_crud_resource_context::CkResourceContext;
+    pub use crudkit_rs_macros::CkResourceContext;
     pub use derive_crudkit_id::CkId;
 
     // Authentication and authorization.

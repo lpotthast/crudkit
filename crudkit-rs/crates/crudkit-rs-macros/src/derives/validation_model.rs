@@ -1,10 +1,9 @@
-#![forbid(unsafe_code)]
-#![deny(clippy::unwrap_used)]
+//! Implementation of the `CkValidationModel` derive macro.
 
 use darling::*;
-use proc_macro::TokenStream;
+use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Ident, Type};
+use syn::{spanned::Spanned, DeriveInput, Ident, Type};
 
 #[derive(Debug, FromField)]
 #[darling(attributes(ck_validation_model))]
@@ -45,14 +44,8 @@ impl MyInputReceiver {
     }
 }
 
-#[proc_macro_derive(CkValidationModel, attributes(ck_validation_model))]
-pub fn store(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
-
-    let input: MyInputReceiver = match FromDeriveInput::from_derive_input(&ast) {
-        Ok(args) => args,
-        Err(err) => return darling::Error::write_errors(err).into(),
-    };
+pub fn expand_derive_validation_model(input: DeriveInput) -> syn::Result<TokenStream> {
+    let input: MyInputReceiver = FromDeriveInput::from_derive_input(&input)?;
 
     let table_name = &input.table_name;
 
@@ -97,7 +90,7 @@ pub fn store(input: TokenStream) -> TokenStream {
             quote! { #original_ident: self.#ident.clone(), }
         });
 
-    quote! {
+    Ok(quote! {
         pub mod validation_model {
             use crudkit_sea_orm::CrudColumns;
             use sea_orm::entity::prelude::*;
@@ -208,6 +201,5 @@ pub fn store(input: TokenStream) -> TokenStream {
                 }
             }
         }
-    }
-    .into()
+    })
 }

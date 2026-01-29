@@ -9,11 +9,9 @@ regex = "1.9"
 crudkit-sea-orm-macros = { path = "../crudkit-sea-orm-macros" }
 crudkit-rs = { path = "../crudkit-rs/crates/crudkit-rs" }
 
-# SeaORM-specific derive macros.
-derive-crud-columns = { path = "../crudkit-rs/crates/derive-crud-columns" }
+# Derive macros.
+crudkit-rs-macros = { path = "../crudkit-rs/crates/crudkit-rs-macros" }
 derive-crudkit-id = { path = "../crudkit-id/crates/derive-crudkit-id" }
-derive-model = { path = "../crudkit-rs/crates/derive-model" }
-derive-validation-model = { path = "../crudkit-rs/crates/derive-validation-model" }
 
 # Re-export dependencies used in generated code.
 crudkit-condition = { path = "../crudkit-condition" }

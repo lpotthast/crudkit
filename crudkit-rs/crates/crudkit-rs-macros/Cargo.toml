@@ -1,6 +1,6 @@
 [package]
-name = "derive-model"
-version = "0.0.1"
+name = "crudkit-rs-macros"
+version = "0.1.0"
 edition = "2024"
 
 [lib]
@@ -8,8 +8,9 @@ proc-macro = true
 
 [dependencies]
 darling = { workspace = true }
-derive-model-core = { path = "../derive-model-core" }
+crudkit-rs-macros-core = { path = "../crudkit-rs-macros-core" }
 proc-macro-error = { workspace = true }
+proc-macro-type-name = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }

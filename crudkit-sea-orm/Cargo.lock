@@ -570,8 +570,8 @@ dependencies = [
  "crudkit-core",
  "crudkit-id",
  "crudkit-resource",
+ "crudkit-rs-macros",
  "crudkit-validation",
- "derive-crud-resource-context",
  "derive-crudkit-id",
  "error-stack",
  "indexmap",
@@ -586,6 +586,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "crudkit-rs-macros"
+version = "0.1.0"
+dependencies = [
+ "crudkit-rs-macros-core",
+ "darling 0.23.0",
+ "proc-macro-error",
+ "proc-macro-type-name",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
+name = "crudkit-rs-macros-core"
+version = "0.1.0"
+dependencies = [
+ "darling 0.23.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
 name = "crudkit-sea-orm"
 version = "0.1.0"
 dependencies = [
@@ -594,11 +617,9 @@ dependencies = [
  "crudkit-core",
  "crudkit-id",
  "crudkit-rs",
+ "crudkit-rs-macros",
  "crudkit-sea-orm-macros",
- "derive-crud-columns",
  "derive-crudkit-id",
- "derive-model",
- "derive-validation-model",
  "error-stack",
  "indexmap",
  "regex",
@@ -619,8 +640,8 @@ dependencies = [
 name = "crudkit-sea-orm-macros"
 version = "0.12.15"
 dependencies = [
+ "crudkit-rs-macros-core",
  "darling 0.23.0",
- "derive-model-core",
  "proc-macro-error",
  "proc-macro-type-name",
  "proc-macro2",
@@ -748,29 +769,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "derive-crud-columns"
-version = "0.0.1"
-dependencies = [
- "darling 0.23.0",
- "proc-macro-error",
- "proc-macro-type-name",
- "proc-macro2",
- "quote",
- "syn 2.0.114",
-]
-
-[[package]]
-name = "derive-crud-resource-context"
-version = "0.0.1"
-dependencies = [
- "darling 0.23.0",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 2.0.114",
-]
-
-[[package]]
 name = "derive-crudkit-id"
 version = "0.0.1"
 dependencies = [
@@ -779,39 +777,6 @@ dependencies = [
  "indoc",
  "proc-macro-error",
  "proc-macro-type-name",
- "proc-macro2",
- "quote",
- "syn 2.0.114",
-]
-
-[[package]]
-name = "derive-model"
-version = "0.0.1"
-dependencies = [
- "darling 0.23.0",
- "derive-model-core",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 2.0.114",
-]
-
-[[package]]
-name = "derive-model-core"
-version = "0.0.1"
-dependencies = [
- "darling 0.23.0",
- "proc-macro2",
- "quote",
- "syn 2.0.114",
-]
-
-[[package]]
-name = "derive-validation-model"
-version = "0.0.1"
-dependencies = [
- "darling 0.23.0",
- "proc-macro-error",
  "proc-macro2",
  "quote",
  "syn 2.0.114",

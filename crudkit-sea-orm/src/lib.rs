@@ -7,13 +7,12 @@ pub mod validation;
 
 pub use crudkit_sea_orm_macros::*;
 
-// Re-export SeaORM-specific derive macros.
+// Re-export derive macros.
 // CkCreateModel and CkUpdateModel are aliased from the SeaORM-specific versions
 // for backward compatibility - users continue using the same import paths.
+pub use crudkit_rs_macros::{CkColumns, CkValidationModel};
 pub use crudkit_sea_orm_macros::{CkSeaOrmCreateModel as CkCreateModel, CkSeaOrmUpdateModel as CkUpdateModel};
-pub use derive_crud_columns::CkColumns;
 pub use derive_crudkit_id::CkId;
-pub use derive_validation_model::CkValidationModel;
 
 // Re-export dependencies used in generated code.
 pub use crudkit_condition;

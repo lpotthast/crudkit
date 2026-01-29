@@ -15,7 +15,7 @@ crudkit-id = { path = "../../../crudkit-id/crates/crudkit-id" }
 crudkit-validation = { path = "../../../crudkit-validation" }
 crudkit-collaboration = { path = "../../../crudkit-collaboration" }
 
-derive-crud-resource-context = { path = "../derive-crud-resource-context" }
+crudkit-rs-macros = { path = "../crudkit-rs-macros" }
 derive-crudkit-id = { path = "../../../crudkit-id/crates/derive-crudkit-id" }
 
 async-trait = "0.1.89"
