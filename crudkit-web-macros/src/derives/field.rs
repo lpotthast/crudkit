@@ -1,6 +1,6 @@
 use crudkit_core_macro_util::{
     classify_base_type, is_ordered_float, path_to_string, strip_option_path, to_pascal_case,
-    ValueKind,
+    ValueKind, ValueKindExt,
 };
 use darling::*;
 use proc_macro2::{Ident, Span, TokenStream};
@@ -74,15 +74,6 @@ impl ClassifiedType {
         let kind = classify_base_type(&inner_path_str);
         let is_ordered_float = is_ordered_float(&inner_path_str);
 
-        // Validate: if optional, the kind must support optional variants.
-        if is_optional && !kind.has_optional_variant() {
-            abort!(
-                span,
-                "Option<{}> is not supported - no optional variant exists in crudkit_core::Value",
-                kind.value_variant_name()
-            );
-        }
-
         ClassifiedType {
             kind,
             is_optional,
@@ -91,14 +82,9 @@ impl ClassifiedType {
     }
 
     /// Returns the appropriate `Value` variant name for this type.
+    /// Always returns the base variant name (optionality is handled via Null).
     fn value_variant_name(self) -> &'static str {
-        if self.is_optional {
-            self.kind
-                .optional_variant_name()
-                .expect("ClassifiedType was validated to have optional variant")
-        } else {
-            self.kind.value_variant_name()
-        }
+        self.kind.value_variant_name()
     }
 
     /// Creates an `Ident` for the `Value` variant.
@@ -146,73 +132,110 @@ impl CkFieldInputReceiver {
 }
 
 /// Generates the `get_value` match arms for `CrudFieldValueTrait`.
-fn generate_get_value_arm(
-    field: &CkFieldConfig,
-    field_enum_ident: &Ident,
-) -> TokenStream {
+fn generate_get_value_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> TokenStream {
     let field_ident = field.ident.as_ref().expect("Expected named field!");
     let field_name = field_ident.to_string();
     let pascal_case = to_pascal_case(&field_name);
     let field_name_as_type_ident = Ident::new(pascal_case.as_str(), Span::call_site());
 
     let classified = field.classified_type();
-    let value_variant_ident = classified.value_variant_ident();
 
-    // Generate the value access expression based on the type.
+    // Generate the full value expression including the Value:: wrapper.
     let value_expr = generate_get_value_expr(field_ident, classified);
 
     quote! {
-        #field_enum_ident::#field_name_as_type_ident => crudkit_core::Value::#value_variant_ident(#value_expr)
+        #field_enum_ident::#field_name_as_type_ident => #value_expr
     }
 }
 
-/// Generates the expression to get a field's value for wrapping in a `Value` variant.
+/// Generates the full expression to get a field's value as a `Value`.
+/// Includes the `Value::` wrapper and handles optional fields with `Value::Null`.
 fn generate_get_value_expr(field_ident: &Ident, classified: ClassifiedType) -> TokenStream {
     use ValueKind::*;
 
-    // Special cases that need wrapping.
+    let value_variant_ident = classified.value_variant_ident();
+
+    // Special cases that need special handling.
     match (classified.kind, classified.is_optional) {
         // Void and Other: always returns unit.
-        (Void | Other, _) => return quote! { () },
+        (Void, _) => return quote! { crudkit_core::Value::Void(()) },
+        (Other, _) => return quote! { crudkit_core::Value::Void(()) },
 
         // Json needs JsonValue wrapper.
-        (Json, false) => return quote! { crudkit_web::JsonValue::new(entity.#field_ident.clone()) },
+        (Json, false) => {
+            return quote! {
+                crudkit_core::Value::Json(crudkit_web::JsonValue::new(entity.#field_ident.clone()))
+            };
+        }
         (Json, true) => {
-            return quote! { entity.#field_ident.clone().map(|it| crudkit_web::JsonValue::new(it)) }
+            return quote! {
+                match &entity.#field_ident {
+                    Some(v) => crudkit_core::Value::Json(crudkit_web::JsonValue::new(v.clone())),
+                    None => crudkit_core::Value::Null,
+                }
+            };
         }
 
         _ => {}
     }
 
-    // OrderedFloat needs `.into()` conversion.
-    if classified.is_ordered_float {
-        return quote! { entity.#field_ident.into() };
+    // Handle optional fields.
+    if classified.is_optional {
+        // OrderedFloat needs `.into()` conversion.
+        if classified.is_ordered_float {
+            return quote! {
+                match entity.#field_ident {
+                    Some(v) => crudkit_core::Value::#value_variant_ident(v.into()),
+                    None => crudkit_core::Value::Null,
+                }
+            };
+        }
+
+        // Types that need cloning.
+        let needs_clone = match classified.kind {
+            String | PrimitiveDateTime | OffsetDateTime | Duration | Uuid => true,
+            _ => false,
+        };
+
+        return if needs_clone {
+            quote! {
+                match &entity.#field_ident {
+                    Some(v) => crudkit_core::Value::#value_variant_ident(v.clone()),
+                    None => crudkit_core::Value::Null,
+                }
+            }
+        } else {
+            quote! {
+                match entity.#field_ident {
+                    Some(v) => crudkit_core::Value::#value_variant_ident(v),
+                    None => crudkit_core::Value::Null,
+                }
+            }
+        };
     }
 
-    // Types that need cloning (non-Copy types or optional types).
+    // Non-optional fields.
+
+    // OrderedFloat needs `.into()` conversion.
+    if classified.is_ordered_float {
+        return quote! { crudkit_core::Value::#value_variant_ident(entity.#field_ident.into()) };
+    }
+
+    // Types that need cloning (non-Copy types).
     let needs_clone = match classified.kind {
-        String | PrimitiveDateTime | OffsetDateTime | Duration | Uuid | U8Vec | I32Vec | I64Vec => true,
-        // Optional primitives also need clone due to Option wrapper.
-        U8 | U16 | U32 | U64 | U128 | I8 | I16 | I32 | I64 | I128 | Bool | F32 | F64
-            if classified.is_optional =>
-        {
-            true
-        }
+        String | PrimitiveDateTime | OffsetDateTime | Duration | Uuid => true,
         _ => false,
     };
 
     if needs_clone {
-        quote! { entity.#field_ident.clone() }
+        quote! { crudkit_core::Value::#value_variant_ident(entity.#field_ident.clone()) }
     } else {
-        quote! { entity.#field_ident }
+        quote! { crudkit_core::Value::#value_variant_ident(entity.#field_ident) }
     }
 }
 
 /// Generates the `set_value` match arms for `CrudFieldValueTrait`.
-fn generate_set_value_arm(
-    field: &CkFieldConfig,
-    field_enum_ident: &Ident,
-) -> TokenStream {
+fn generate_set_value_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> TokenStream {
     let field_ident = field.ident.as_ref().expect("Expected named field!");
     let field_name = field_ident.to_string();
     let pascal_case = to_pascal_case(&field_name);
@@ -228,42 +251,95 @@ fn generate_set_value_arm(
     }
 }
 
+/// Generates the `value_kind` match arm for a field.
+fn generate_value_kind_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> TokenStream {
+    let field_ident = field.ident.as_ref().expect("Expected named field!");
+    let field_name = field_ident.to_string();
+    let pascal_case = to_pascal_case(&field_name);
+    let field_name_as_type_ident = Ident::new(pascal_case.as_str(), Span::call_site());
+
+    let classified = field.classified_type();
+    let kind_variant = classified.kind.value_variant_ident();
+
+    quote! { #field_enum_ident::#field_name_as_type_ident => crudkit_core::ValueKind::#kind_variant }
+}
+
+/// Generates the `is_optional` match arm for a field.
+fn generate_is_optional_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> TokenStream {
+    let field_ident = field.ident.as_ref().expect("Expected named field!");
+    let field_name = field_ident.to_string();
+    let pascal_case = to_pascal_case(&field_name);
+    let field_name_as_type_ident = Ident::new(pascal_case.as_str(), Span::call_site());
+
+    let is_optional = field.classified_type().is_optional;
+    quote! { #field_enum_ident::#field_name_as_type_ident => #is_optional }
+}
+
 /// Generates the expression to set a field's value from a `Value`.
 fn generate_set_value_expr(field_ident: &Ident, classified: ClassifiedType) -> TokenStream {
     use ValueKind::*;
 
-    // Special cases.
+    // Special cases that need special handling.
     match (classified.kind, classified.is_optional) {
         // Void and Other: setting not allowed.
         (Void | Other, _) => {
-            return quote! { ::tracing::warn!("Setting a custom field is not allowed") }
+            return quote! { ::tracing::warn!("Setting a custom field is not allowed") };
         }
 
-        // Json uses special methods.
-        (Json, false) => return quote! { entity.#field_ident = value.take_inner_json_value() },
-        (Json, true) => {
-            return quote! { entity.#field_ident = std::option::Option::Some(value.take_inner_json_value()) }
+        // Array: not yet supported for setting.
+        (Array, _) => {
+            return quote! { ::tracing::warn!("Setting an array field is not yet supported") };
         }
 
-        // Uuid uses to_uuid/to_optional_uuid methods.
-        (Uuid, false) => return quote! { entity.#field_ident = value.to_uuid() },
-        (Uuid, true) => return quote! { entity.#field_ident = value.to_optional_uuid() },
+        // Null: should never be a field kind.
+        (Null, _) => return quote! { ::tracing::warn!("Null cannot be a field kind") },
 
         _ => {}
     }
 
-    // Get the method name based on kind and optionality.
-    let method_name = classified
-        .kind
-        .take_method_name(classified.is_optional)
-        .expect("take_method_name returned None for non-special type");
-    let method_ident = Ident::new(method_name, Span::call_site());
+    // Types that need take_* (consume Value) because as_* returns borrowed reference.
+    let uses_take_method = matches!(classified.kind, String | Json | Duration);
 
-    // OrderedFloat needs `.into()` conversion after taking.
-    if classified.is_ordered_float {
-        quote! { entity.#field_ident = value.#method_ident().into() }
+    if uses_take_method {
+        // Generate take_* method usage.
+        let method_name = match classified.kind {
+            String => "take_string",
+            Json => "take_json",
+            Duration => "take_duration",
+            _ => unreachable!(),
+        };
+        let method_ident = Ident::new(method_name, Span::call_site());
+
+        if classified.is_optional {
+            quote! { entity.#field_ident = value.#method_ident() }
+        } else {
+            let type_name = classified.kind.value_variant_name();
+            quote! { entity.#field_ident = value.#method_ident().expect(concat!("Value is not ", #type_name)) }
+        }
     } else {
-        quote! { entity.#field_ident = value.#method_ident() }
+        // Use as_* accessor methods (return Option<T> for Copy types).
+        let method_name = classified
+            .kind
+            .accessor_method_name()
+            .expect("accessor_method_name returned None for non-special type");
+        let method_ident = Ident::new(method_name, Span::call_site());
+
+        if classified.is_optional {
+            // OrderedFloat needs `.into()` conversion.
+            if classified.is_ordered_float {
+                quote! { entity.#field_ident = value.#method_ident().map(|v| v.into()) }
+            } else {
+                quote! { entity.#field_ident = value.#method_ident() }
+            }
+        } else {
+            // Non-optional fields - unwrap the Option.
+            let type_name = classified.kind.value_variant_name();
+            if classified.is_ordered_float {
+                quote! { entity.#field_ident = value.#method_ident().expect(concat!("Value is not ", #type_name)).into() }
+            } else {
+                quote! { entity.#field_ident = value.#method_ident().expect(concat!("Value is not ", #type_name)) }
+            }
+        }
     }
 }
 
@@ -341,53 +417,9 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
         },
     };
 
-    let model_type_based_model_trait_impl = match input_receiver.model {
-        ModelType::Create => quote! {
-            #[typetag::serde]
-            impl crudkit_web::model::ErasedCreateModel for #name {
-            }
-        },
-        ModelType::Read => quote! {
-            #[typetag::serde]
-            impl crudkit_web::model::ErasedReadModel for #name {
-            }
-        },
-        ModelType::Update => quote! {
-            #[typetag::serde]
-            impl crudkit_web::model::ErasedUpdateModel for #name {
-            }
-        },
-    };
-
-    let model_type_based_field_trait_impl = match input_receiver.model {
-        ModelType::Create => quote! {
-            #[typetag::serde]
-            impl crudkit_web::model::ErasedCreateField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::model::DynCreateModel, value: crudkit_core::Value) {
-                    let model = model.downcast_mut::<#name>();
-                    crudkit_web::FieldAccess::set_value(self, model, value);
-                }
-            }
-        },
-        ModelType::Read => quote! {
-            #[typetag::serde]
-            impl crudkit_web::model::ErasedReadField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::model::DynReadModel, value: crudkit_core::Value) {
-                    let model = model.downcast_mut::<#name>();
-                    crudkit_web::FieldAccess::set_value(self, model, value);
-                }
-            }
-        },
-        ModelType::Update => quote! {
-            #[typetag::serde]
-            impl crudkit_web::model::ErasedUpdateField for #field_name {
-                fn set_value(&self, model: &mut crudkit_web::model::DynUpdateModel, value: crudkit_core::Value) {
-                    let model = model.downcast_mut::<#name>();
-                    crudkit_web::FieldAccess::set_value(self, model, value);
-                }
-            }
-        },
-    };
+    let model_type_based_model_trait_impl = input_receiver.model.gen_erased_model_impl(&name);
+    let model_type_based_field_trait_impl =
+        input_receiver.model.gen_erased_field_impl(&field_name, &name);
 
     // Generate CrudFieldValueTrait implementation.
     let get_field_value_arms = input_receiver
@@ -420,6 +452,33 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
         },
     };
 
+    // Generate value_kind and is_optional match arms.
+    let value_kind_arms = input_receiver
+        .fields()
+        .iter()
+        .map(|field| generate_value_kind_arm(field, &field_name));
+    let value_kind_impl = match input_receiver.fields().len() {
+        0 => quote! { crudkit_core::ValueKind::Void },
+        _ => quote! {
+            match self {
+                #(#value_kind_arms),*
+            }
+        },
+    };
+
+    let is_optional_arms = input_receiver
+        .fields()
+        .iter()
+        .map(|field| generate_is_optional_arm(field, &field_name));
+    let is_optional_impl = match input_receiver.fields().len() {
+        0 => quote! { false },
+        _ => quote! {
+            match self {
+                #(#is_optional_arms),*
+            }
+        },
+    };
+
     let field_value_trait_impl = quote! {
         impl crudkit_web::FieldAccess<#name> for #field_name {
             fn value(&self, entity: &#name) -> crudkit_core::Value {
@@ -428,6 +487,14 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
 
             fn set_value(&self, entity: &mut #name, value: crudkit_core::Value) {
                 #set_value_impl
+            }
+
+            fn value_kind(&self) -> crudkit_core::ValueKind {
+                #value_kind_impl
+            }
+
+            fn is_optional(&self) -> bool {
+                #is_optional_impl
             }
         }
     };
@@ -467,6 +534,14 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
             fn set_value(&self, model: &mut crudkit_web::model::DynModel, value: crudkit_core::Value) {
                 let model = model.downcast_mut::<#name>();
                 crudkit_web::FieldAccess::set_value(self, model, value);
+            }
+
+            fn value_kind(&self) -> crudkit_core::ValueKind {
+                crudkit_web::FieldAccess::<#name>::value_kind(self)
+            }
+
+            fn is_optional(&self) -> bool {
+                crudkit_web::FieldAccess::<#name>::is_optional(self)
             }
         }
 

@@ -4,6 +4,8 @@ use leptonic::components::icon::Icon;
 use leptonic::prelude::icondata;
 use leptos::prelude::*;
 
+/// Validation status field component that displays a checkmark or exclamation mark
+/// based on whether validation errors exist.
 #[component]
 pub fn CrudValidationStatusField(
     id: String,

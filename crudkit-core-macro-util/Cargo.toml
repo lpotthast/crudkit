@@ -5,6 +5,7 @@ edition = "2024"
 description = "Shared utilities for crudkit derive macros"
 
 [dependencies]
+crudkit-core = { path = "../crudkit-core" }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }

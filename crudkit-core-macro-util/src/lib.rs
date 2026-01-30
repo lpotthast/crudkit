@@ -8,11 +8,14 @@
 //!
 //! # Value Kind Classification
 //!
-//! The [`ValueKind`] enum provides a shared abstraction for classifying Rust types
-//! into their corresponding `crudkit_core::Value` variants. This is used by both
-//! frontend (`crudkit-web-macros`) and backend (`crudkit-rs-macros`) derive macros.
+//! The [`ValueKind`] type (re-exported from `crudkit_core`) classifies Rust types
+//! into their corresponding `crudkit_core::Value` variants. The [`ValueKindExt`]
+//! extension trait adds macro-specific helper methods for code generation.
 
 use proc_macro2::{Ident, Span};
+
+// Re-export ValueKind from crudkit-core for use by macro crates.
+pub use crudkit_core::ValueKind;
 
 /// Capitalizes the first letter of a string.
 ///
@@ -105,50 +108,33 @@ mod tests {
 // Value Kind Classification
 // =============================================================================
 
-/// Represents the base variant families of `crudkit_core::Value`.
+/// Extension trait for `ValueKind` providing macro-specific helper methods.
 ///
-/// Each variant corresponds to a non-optional `Value` variant.
-/// Optionality is tracked separately by callers using [`is_option_path`].
-///
-/// # Usage
-///
-/// Use [`classify_base_type`] to convert a type path string into a `ValueKind`.
-/// Then use the various methods to get variant names and method names for code generation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ValueKind {
-    Void,
-    Bool,
-    U8,
-    U16,
-    U32,
-    U64,
-    U128,
-    I8,
-    I16,
-    I32,
-    I64,
-    I128,
-    F32,
-    F64,
-    String,
-    Json,
-    Uuid,
-    PrimitiveDateTime,
-    OffsetDateTime,
-    Duration,
-    // Vec types (no optional variants in Value).
-    U8Vec,
-    I32Vec,
-    I64Vec,
-    // Fallback (no optional variant in Value).
-    Other,
+/// These methods are only needed during code generation, not at runtime,
+/// so they are defined here rather than in `crudkit_core`.
+pub trait ValueKindExt {
+    /// Returns the `Value` variant name (e.g., "I32" for `I32`).
+    fn value_variant_name(&self) -> &'static str;
+
+    /// Creates an `Ident` for the `Value` variant name.
+    fn value_variant_ident(&self) -> Ident;
+
+    /// Returns the `ConditionClauseValue::to_*` method name for converting the clause value
+    /// to a `Value` of this `ValueKind`.
+    ///
+    /// Returns `None` for types without a conversion method (`Null`, `Void`, `Array`, `Other`).
+    fn condition_method_name(&self) -> Option<&'static str>;
+
+    /// Returns the `Value::as_*` method name for accessing a value of this kind.
+    ///
+    /// Returns `None` for types without an accessor method (`Null`, `Void`).
+    fn accessor_method_name(&self) -> Option<&'static str>;
 }
 
-impl ValueKind {
-    /// Returns the `Value` variant name (e.g., "I32" for `I32`).
-    #[must_use]
-    pub fn value_variant_name(&self) -> &'static str {
+impl ValueKindExt for ValueKind {
+    fn value_variant_name(&self) -> &'static str {
         match self {
+            ValueKind::Null => "Null",
             ValueKind::Void => "Void",
             ValueKind::Bool => "Bool",
             ValueKind::U8 => "U8",
@@ -169,59 +155,16 @@ impl ValueKind {
             ValueKind::PrimitiveDateTime => "PrimitiveDateTime",
             ValueKind::OffsetDateTime => "OffsetDateTime",
             ValueKind::Duration => "Duration",
-            ValueKind::U8Vec => "U8Vec",
-            ValueKind::I32Vec => "I32Vec",
-            ValueKind::I64Vec => "I64Vec",
+            ValueKind::Array => "Array",
             ValueKind::Other => "Other",
         }
     }
 
-    /// Returns the optional variant name (e.g., `OptionalI32` for `I32`).
-    ///
-    /// Returns `None` for kinds without optional variants: `Void`, `U8Vec`, `I32Vec`, `I64Vec`, `Other`.
-    #[must_use]
-    pub fn optional_variant_name(&self) -> Option<&'static str> {
-        match self {
-            ValueKind::Bool => Some("OptionalBool"),
-            ValueKind::U8 => Some("OptionalU8"),
-            ValueKind::U16 => Some("OptionalU16"),
-            ValueKind::U32 => Some("OptionalU32"),
-            ValueKind::U64 => Some("OptionalU64"),
-            ValueKind::U128 => Some("OptionalU128"),
-            ValueKind::I8 => Some("OptionalI8"),
-            ValueKind::I16 => Some("OptionalI16"),
-            ValueKind::I32 => Some("OptionalI32"),
-            ValueKind::I64 => Some("OptionalI64"),
-            ValueKind::I128 => Some("OptionalI128"),
-            ValueKind::F32 => Some("OptionalF32"),
-            ValueKind::F64 => Some("OptionalF64"),
-            ValueKind::String => Some("OptionalString"),
-            ValueKind::Json => Some("OptionalJson"),
-            ValueKind::Uuid => Some("OptionalUuid"),
-            ValueKind::PrimitiveDateTime => Some("OptionalPrimitiveDateTime"),
-            ValueKind::OffsetDateTime => Some("OptionalOffsetDateTime"),
-            ValueKind::Duration => Some("OptionalDuration"),
-            ValueKind::Void
-            | ValueKind::U8Vec
-            | ValueKind::I32Vec
-            | ValueKind::I64Vec
-            | ValueKind::Other => None,
-        }
+    fn value_variant_ident(&self) -> Ident {
+        Ident::new(self.value_variant_name(), Span::call_site())
     }
 
-    /// Whether `crudkit_core::Value` has an `Optional*` variant for this kind.
-    ///
-    /// Returns `false` for: `Void`, `U8Vec`, `I32Vec`, `I64Vec`, `Other`.
-    #[must_use]
-    pub fn has_optional_variant(&self) -> bool {
-        self.optional_variant_name().is_some()
-    }
-
-    /// Returns the method name on `ConditionClauseValue` for this kind.
-    ///
-    /// Returns `None` for types without a conversion method (`Void`, `Other`, `I32Vec`, `I64Vec`).
-    #[must_use]
-    pub fn condition_method_name(&self) -> Option<&'static str> {
+    fn condition_method_name(&self) -> Option<&'static str> {
         match self {
             ValueKind::Bool => Some("to_bool"),
             ValueKind::U8 => Some("to_u8"),
@@ -242,88 +185,35 @@ impl ValueKind {
             ValueKind::PrimitiveDateTime => Some("to_primitive_date_time"),
             ValueKind::OffsetDateTime => Some("to_offset_date_time"),
             ValueKind::Duration => Some("to_time_duration"),
-            ValueKind::U8Vec => Some("to_byte_vec"),
-            ValueKind::Void | ValueKind::I32Vec | ValueKind::I64Vec | ValueKind::Other => None,
+            ValueKind::Null | ValueKind::Void | ValueKind::Array | ValueKind::Other => None,
         }
     }
 
-    /// Returns the `Value::take_*` method name for extracting a value of this kind.
-    ///
-    /// The `is_optional` parameter determines whether to return the optional variant
-    /// (e.g., `take_optional_i32` vs `take_i32`).
-    ///
-    /// Returns `None` for types without a take method (`Void`, `Json`, `Uuid`, `Other`).
-    /// These types require special handling in code generation.
-    #[must_use]
-    pub fn take_method_name(&self, is_optional: bool) -> Option<&'static str> {
-        match (self, is_optional) {
-            (ValueKind::Bool, false) => Some("take_bool"),
-            (ValueKind::Bool, true) => Some("take_optional_bool"),
-
-            (ValueKind::U8, false) => Some("take_u8"),
-            (ValueKind::U8, true) => Some("take_optional_u8"),
-            (ValueKind::U16, false) => Some("take_u16"),
-            (ValueKind::U16, true) => Some("take_optional_u16"),
-            (ValueKind::U32, false) => Some("take_u32"),
-            (ValueKind::U32, true) => Some("take_optional_u32"),
-            (ValueKind::U64, false) => Some("take_u64"),
-            (ValueKind::U64, true) => Some("take_optional_u64"),
-            (ValueKind::U128, false) => Some("take_u128"),
-            (ValueKind::U128, true) => Some("take_optional_u128"),
-
-            (ValueKind::I8, false) => Some("take_i8"),
-            (ValueKind::I8, true) => Some("take_optional_i8"),
-            (ValueKind::I16, false) => Some("take_i16"),
-            (ValueKind::I16, true) => Some("take_optional_i16"),
-            (ValueKind::I32, false) => Some("take_i32"),
-            (ValueKind::I32, true) => Some("take_optional_i32"),
-            (ValueKind::I64, false) => Some("take_i64"),
-            (ValueKind::I64, true) => Some("take_optional_i64"),
-            (ValueKind::I128, false) => Some("take_i128"),
-            (ValueKind::I128, true) => Some("take_optional_i128"),
-
-            (ValueKind::F32, false) => Some("take_f32"),
-            (ValueKind::F32, true) => Some("take_optional_f32"),
-            (ValueKind::F64, false) => Some("take_f64"),
-            (ValueKind::F64, true) => Some("take_optional_f64"),
-
-            (ValueKind::String, false) => Some("take_string"),
-            (ValueKind::String, true) => Some("take_optional_string"),
-
-            (ValueKind::PrimitiveDateTime, false) => Some("take_primitive_date_time"),
-            (ValueKind::PrimitiveDateTime, true) => Some("take_optional_primitive_date_time"),
-            (ValueKind::OffsetDateTime, false) => Some("take_offset_date_time"),
-            (ValueKind::OffsetDateTime, true) => Some("take_optional_offset_date_time"),
-            (ValueKind::Duration, false) => Some("take_duration"),
-            (ValueKind::Duration, true) => Some("take_optional_duration"),
-
-            // Vec types don't have optional variants.
-            (ValueKind::U8Vec, _) => Some("take_u8_vec"),
-            (ValueKind::I32Vec, _) => Some("take_i32_vec"),
-            (ValueKind::I64Vec, _) => Some("take_i64_vec"),
-
-            // These require special handling - return None.
-            (ValueKind::Void | ValueKind::Json | ValueKind::Uuid | ValueKind::Other, _) => None,
+    fn accessor_method_name(&self) -> Option<&'static str> {
+        match self {
+            ValueKind::Bool => Some("as_bool"),
+            ValueKind::U8 => Some("as_u8"),
+            ValueKind::U16 => Some("as_u16"),
+            ValueKind::U32 => Some("as_u32"),
+            ValueKind::U64 => Some("as_u64"),
+            ValueKind::U128 => Some("as_u128"),
+            ValueKind::I8 => Some("as_i8"),
+            ValueKind::I16 => Some("as_i16"),
+            ValueKind::I32 => Some("as_i32"),
+            ValueKind::I64 => Some("as_i64"),
+            ValueKind::I128 => Some("as_i128"),
+            ValueKind::F32 => Some("as_f32"),
+            ValueKind::F64 => Some("as_f64"),
+            ValueKind::String => Some("as_string"),
+            ValueKind::Json => Some("as_json"),
+            ValueKind::Uuid => Some("as_uuid"),
+            ValueKind::PrimitiveDateTime => Some("as_primitive_date_time"),
+            ValueKind::OffsetDateTime => Some("as_offset_date_time"),
+            ValueKind::Duration => Some("as_duration"),
+            ValueKind::Array => Some("as_array"),
+            ValueKind::Other => Some("as_other"),
+            ValueKind::Null | ValueKind::Void => None,
         }
-    }
-
-    /// Creates an `Ident` for the `Value` variant name.
-    #[must_use]
-    pub fn value_variant_ident(&self) -> Ident {
-        Ident::new(self.value_variant_name(), Span::call_site())
-    }
-
-    /// Creates an `Ident` for the optional `Value` variant name.
-    ///
-    /// # Panics
-    /// Panics if this kind has no optional variant.
-    #[must_use]
-    pub fn optional_variant_ident(&self) -> Ident {
-        Ident::new(
-            self.optional_variant_name()
-                .expect("ValueKind has no optional variant"),
-            Span::call_site(),
-        )
     }
 }
 
@@ -380,7 +270,6 @@ pub fn strip_option_path(path: &syn::Path) -> Option<&syn::Type> {
 /// - UUID: `uuid::Uuid`, `Uuid`
 /// - JSON: `serde_json::Value`
 /// - Ordered floats: `OrderedFloat<f32>`, `OrderedFloat<f64>` (mapped to `F32`, `F64`)
-/// - Vec types: `Vec<u8>`, `Vec<i32>`, `Vec<i64>`
 ///
 /// # Examples
 /// ```
@@ -420,10 +309,6 @@ pub fn classify_base_type(path_str: &str) -> ValueKind {
         "time::PrimitiveDateTime" => ValueKind::PrimitiveDateTime,
         "time::OffsetDateTime" => ValueKind::OffsetDateTime,
         "TimeDuration" | "crudkit_sea_orm::newtypes::TimeDuration" => ValueKind::Duration,
-
-        "Vec<u8>" => ValueKind::U8Vec,
-        "Vec<i32>" => ValueKind::I32Vec,
-        "Vec<i64>" => ValueKind::I64Vec,
 
         _ => ValueKind::Other,
     }
@@ -497,16 +382,12 @@ mod value_kind_tests {
     }
 
     #[test]
-    fn test_classify_base_type_vec() {
-        assert_eq!(classify_base_type("Vec<u8>"), ValueKind::U8Vec);
-        assert_eq!(classify_base_type("Vec<i32>"), ValueKind::I32Vec);
-        assert_eq!(classify_base_type("Vec<i64>"), ValueKind::I64Vec);
-    }
-
-    #[test]
     fn test_classify_base_type_unknown() {
         assert_eq!(classify_base_type("CustomType"), ValueKind::Other);
         assert_eq!(classify_base_type("my_crate::MyType"), ValueKind::Other);
+        // Vec types are now classified as Other (use Array variant instead).
+        assert_eq!(classify_base_type("Vec<u8>"), ValueKind::Other);
+        assert_eq!(classify_base_type("Vec<i32>"), ValueKind::Other);
     }
 
     #[test]
@@ -514,27 +395,8 @@ mod value_kind_tests {
         assert_eq!(ValueKind::I32.value_variant_name(), "I32");
         assert_eq!(ValueKind::String.value_variant_name(), "String");
         assert_eq!(ValueKind::Void.value_variant_name(), "Void");
-    }
-
-    #[test]
-    fn test_optional_variant_name() {
-        assert_eq!(ValueKind::I32.optional_variant_name(), Some("OptionalI32"));
-        assert_eq!(
-            ValueKind::String.optional_variant_name(),
-            Some("OptionalString")
-        );
-        assert_eq!(ValueKind::Void.optional_variant_name(), None);
-        assert_eq!(ValueKind::U8Vec.optional_variant_name(), None);
-        assert_eq!(ValueKind::Other.optional_variant_name(), None);
-    }
-
-    #[test]
-    fn test_has_optional_variant() {
-        assert!(ValueKind::I32.has_optional_variant());
-        assert!(ValueKind::String.has_optional_variant());
-        assert!(!ValueKind::Void.has_optional_variant());
-        assert!(!ValueKind::U8Vec.has_optional_variant());
-        assert!(!ValueKind::Other.has_optional_variant());
+        assert_eq!(ValueKind::Null.value_variant_name(), "Null");
+        assert_eq!(ValueKind::Array.value_variant_name(), "Array");
     }
 
     #[test]
@@ -546,55 +408,29 @@ mod value_kind_tests {
             ValueKind::Json.condition_method_name(),
             Some("to_json_value")
         );
-        assert_eq!(
-            ValueKind::U8Vec.condition_method_name(),
-            Some("to_byte_vec")
-        );
         assert_eq!(ValueKind::Void.condition_method_name(), None);
+        assert_eq!(ValueKind::Null.condition_method_name(), None);
+        assert_eq!(ValueKind::Array.condition_method_name(), None);
         assert_eq!(ValueKind::Other.condition_method_name(), None);
-        assert_eq!(ValueKind::I32Vec.condition_method_name(), None);
     }
 
     #[test]
-    fn test_take_method_name() {
-        // Non-optional
-        assert_eq!(ValueKind::Bool.take_method_name(false), Some("take_bool"));
-        assert_eq!(ValueKind::I32.take_method_name(false), Some("take_i32"));
+    fn test_accessor_method_name() {
+        assert_eq!(ValueKind::Bool.accessor_method_name(), Some("as_bool"));
+        assert_eq!(ValueKind::I32.accessor_method_name(), Some("as_i32"));
+        assert_eq!(ValueKind::String.accessor_method_name(), Some("as_string"));
+        assert_eq!(ValueKind::Json.accessor_method_name(), Some("as_json"));
+        assert_eq!(ValueKind::Uuid.accessor_method_name(), Some("as_uuid"));
         assert_eq!(
-            ValueKind::String.take_method_name(false),
-            Some("take_string")
+            ValueKind::PrimitiveDateTime.accessor_method_name(),
+            Some("as_primitive_date_time")
         );
-        assert_eq!(
-            ValueKind::PrimitiveDateTime.take_method_name(false),
-            Some("take_primitive_date_time")
-        );
+        assert_eq!(ValueKind::Array.accessor_method_name(), Some("as_array"));
+        assert_eq!(ValueKind::Other.accessor_method_name(), Some("as_other"));
 
-        // Optional
-        assert_eq!(
-            ValueKind::Bool.take_method_name(true),
-            Some("take_optional_bool")
-        );
-        assert_eq!(
-            ValueKind::I32.take_method_name(true),
-            Some("take_optional_i32")
-        );
-        assert_eq!(
-            ValueKind::String.take_method_name(true),
-            Some("take_optional_string")
-        );
-
-        // Vec types (no optional variants)
-        assert_eq!(
-            ValueKind::U8Vec.take_method_name(false),
-            Some("take_u8_vec")
-        );
-        assert_eq!(ValueKind::U8Vec.take_method_name(true), Some("take_u8_vec"));
-
-        // Special types return None
-        assert_eq!(ValueKind::Void.take_method_name(false), None);
-        assert_eq!(ValueKind::Json.take_method_name(false), None);
-        assert_eq!(ValueKind::Uuid.take_method_name(false), None);
-        assert_eq!(ValueKind::Other.take_method_name(false), None);
+        // Special types return None.
+        assert_eq!(ValueKind::Void.accessor_method_name(), None);
+        assert_eq!(ValueKind::Null.accessor_method_name(), None);
     }
 
     #[test]

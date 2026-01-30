@@ -5,7 +5,7 @@ use crate::crud_fields::CrudFields;
 use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{FieldRendererRegistry, UpdateElements};
 use crate::crud_table::NoDataAvailable;
-use crate::ReactiveValue;
+use crate::ReactiveField;
 use crudkit_core::condition::{merge_conditions, TryIntoAllEqualCondition};
 use crudkit_core::id::SerializableId;
 use crudkit_web::prelude::*;
@@ -71,7 +71,7 @@ pub fn CrudReadView(
     ));
 
     // TODO: Read and Edit view have some things in common, like loading the current entity and creating the signals map. Can this be simplified or extracted?
-    let (signals, set_sig) = signal::<StoredValue<HashMap<DynUpdateField, ReactiveValue>>>(
+    let (signals, set_sig) = signal::<StoredValue<HashMap<DynUpdateField, ReactiveField>>>(
         StoredValue::new(HashMap::new()),
     );
 

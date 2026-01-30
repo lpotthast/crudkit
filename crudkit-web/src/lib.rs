@@ -8,7 +8,6 @@ pub mod action;
 pub mod data_provider;
 pub mod dyn_data_provider;
 pub mod error;
-pub mod files;
 pub mod layout;
 pub mod model;
 pub mod request;
@@ -30,16 +29,16 @@ use crate::request_error::RequestError;
 use crudkit_core::Value;
 
 use crate::action::CrudActionPayload;
+pub use crudkit_core;
 pub use crudkit_core::collaboration;
 pub use crudkit_core::condition;
-pub use crudkit_core;
 pub use crudkit_core::id;
 pub use crudkit_core::validation;
 
 pub mod prelude {
+    pub use crudkit_core;
     pub use crudkit_core::collaboration;
     pub use crudkit_core::condition;
-    pub use crudkit_core;
     pub use crudkit_core::id;
     pub use crudkit_core::validation;
 
@@ -47,9 +46,6 @@ pub mod prelude {
     pub use crudkit_web_macros::{CkActionPayload, CkField, CkResource};
 
     pub use super::error::ErrorInfo;
-    pub use super::files::FileResource;
-    pub use super::files::ListFileError;
-    pub use super::files::ListFilesResponse;
     pub use super::request_error::CrudOperationError;
     pub use super::request_error::RequestError;
     pub use super::reqwest_executor::ReqwestExecutor;
@@ -218,14 +214,24 @@ pub trait Model:
 /// Re-export `HasId` from crudkit-id for typed ID access.
 pub use crudkit_core::id::HasId;
 
+
 /// Re-export `Named` from crudkit_core.
 pub use crudkit_core::Named;
 
 
 /// Trait for typed field value access.
 pub trait FieldAccess<T> {
+    /// Returns the value of this field from the entity.
     fn value(&self, entity: &T) -> Value;
+
+    /// Sets the value of this field on the entity.
     fn set_value(&self, entity: &mut T, value: Value);
+
+    /// Returns the kind of value this field holds.
+    fn value_kind(&self) -> crudkit_core::ValueKind;
+
+    /// Returns whether this field is optional.
+    fn is_optional(&self) -> bool;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

@@ -1,6 +1,6 @@
 use crate::crud_field::CrudField;
 use crate::crud_instance_config::FieldRendererRegistry;
-use crate::ReactiveValue;
+use crate::ReactiveField;
 use crudkit_core::Value;
 use crudkit_web::prelude::*;
 use crudkit_web::{FieldMode, TabId};
@@ -12,7 +12,7 @@ use std::collections::HashMap;
 pub fn CrudFields<F: TypeErasedField>(
     field_renderer_registry: Signal<FieldRendererRegistry<F>>,
     #[prop(into)] elements: Signal<Vec<Elem<F>>>,
-    #[prop(into)] signals: StoredValue<HashMap<F, ReactiveValue>>,
+    #[prop(into)] signals: StoredValue<HashMap<F, ReactiveField>>,
     mode: FieldMode,
     value_changed: Callback<(F, Result<Value, String>)>,
     on_tab_selection: Callback<TabId>,

@@ -1,6 +1,6 @@
 use crate::crud_action::{CrudAction, CrudEntityAction};
 use crate::fields::FieldRenderer;
-use crate::{IntoReactiveValue, ReactiveValue};
+use crate::ReactiveField;
 use crudkit_core::condition::Condition;
 use crudkit_core::{Order, Saved};
 use crudkit_web::prelude::*;
@@ -222,10 +222,10 @@ pub struct ModelHandler {
 
     pub read_model_to_update_model: Callback<DynReadModel, DynUpdateModel>,
     pub create_model_to_signal_map:
-        Callback<DynCreateModel, HashMap<DynCreateField, ReactiveValue>>,
-    pub read_model_to_signal_map: Callback<DynReadModel, HashMap<DynReadField, ReactiveValue>>,
+        Callback<DynCreateModel, HashMap<DynCreateField, ReactiveField>>,
+    pub read_model_to_signal_map: Callback<DynReadModel, HashMap<DynReadField, ReactiveField>>,
     pub update_model_to_signal_map:
-        Callback<DynUpdateModel, HashMap<DynUpdateField, ReactiveValue>>,
+        Callback<DynUpdateModel, HashMap<DynUpdateField, ReactiveField>>,
     pub get_create_model_field: Callback<Cow<'static, str>, DynCreateField>,
     pub get_default_create_model: Callback<(), DynCreateModel>,
 }
@@ -265,28 +265,28 @@ impl ModelHandler {
             }),
             create_model_to_signal_map: Callback::new(move |create_model: DynCreateModel| {
                 let create_model: &Create = create_model.downcast_ref::<Create>();
-                let mut map: HashMap<DynCreateField, ReactiveValue> = HashMap::new();
+                let mut map: HashMap<DynCreateField, ReactiveField> = HashMap::new();
                 for field in Create::all_fields() {
                     let initial = FieldAccess::value(&field, create_model);
-                    map.insert(DynCreateField::from(field), initial.into_reactive_value());
+                    map.insert(DynCreateField::from(field), ReactiveField::from(initial));
                 }
                 map
             }),
             read_model_to_signal_map: Callback::new(move |read_model: DynReadModel| {
                 let read_model: &Read = read_model.downcast_ref::<Read>();
-                let mut map: HashMap<DynReadField, ReactiveValue> = HashMap::new();
+                let mut map: HashMap<DynReadField, ReactiveField> = HashMap::new();
                 for field in Read::all_fields() {
                     let initial = FieldAccess::value(&field, read_model);
-                    map.insert(DynReadField::from(field), initial.into_reactive_value());
+                    map.insert(DynReadField::from(field), ReactiveField::from(initial));
                 }
                 map
             }),
             update_model_to_signal_map: Callback::new(move |update_model: DynUpdateModel| {
                 let update_model: &Update = update_model.downcast_ref::<Update>();
-                let mut map: HashMap<DynUpdateField, ReactiveValue> = HashMap::new();
+                let mut map: HashMap<DynUpdateField, ReactiveField> = HashMap::new();
                 for field in Update::all_fields() {
                     let initial = FieldAccess::value(&field, update_model);
-                    map.insert(DynUpdateField::from(field), initial.into_reactive_value());
+                    map.insert(DynUpdateField::from(field), ReactiveField::from(initial));
                 }
                 map
             }),

@@ -1,6 +1,6 @@
 //! Implementation of the `CkField` derive macro.
 
-use crudkit_core_macro_util::{classify_base_type, path_to_string, strip_option_path};
+use crudkit_core_macro_util::{classify_base_type, path_to_string, strip_option_path, ValueKindExt};
 use darling::*;
 use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error::abort;

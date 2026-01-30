@@ -125,6 +125,12 @@ pub trait ErasedField:
     Debug + Named + DynClone + DynEq + DynHash + SerializeAsKey + Send + Sync
 {
     fn set_value(&self, model: &mut DynModel, value: Value);
+
+    /// Returns the kind of value this field holds.
+    fn value_kind(&self) -> crudkit_core::ValueKind;
+
+    /// Returns whether this field is optional.
+    fn is_optional(&self) -> bool;
 }
 dyn_eq::eq_trait_object!(ErasedField);
 dyn_clone::clone_trait_object!(ErasedField);
@@ -134,6 +140,8 @@ dyn_hash::hash_trait_object!(ErasedField);
 #[typetag::serde]
 pub trait ErasedCreateField: ErasedField {
     fn set_value(&self, model: &mut DynCreateModel, value: Value);
+    fn value_kind(&self) -> crudkit_core::ValueKind;
+    fn is_optional(&self) -> bool;
 }
 dyn_eq::eq_trait_object!(ErasedCreateField);
 dyn_clone::clone_trait_object!(ErasedCreateField);
@@ -143,6 +151,8 @@ dyn_hash::hash_trait_object!(ErasedCreateField);
 #[typetag::serde]
 pub trait ErasedReadField: ErasedField {
     fn set_value(&self, model: &mut DynReadModel, value: Value);
+    fn value_kind(&self) -> crudkit_core::ValueKind;
+    fn is_optional(&self) -> bool;
 }
 dyn_eq::eq_trait_object!(ErasedReadField);
 dyn_clone::clone_trait_object!(ErasedReadField);
@@ -152,6 +162,8 @@ dyn_hash::hash_trait_object!(ErasedReadField);
 #[typetag::serde]
 pub trait ErasedUpdateField: ErasedField {
     fn set_value(&self, model: &mut DynUpdateModel, value: Value);
+    fn value_kind(&self) -> crudkit_core::ValueKind;
+    fn is_optional(&self) -> bool;
 }
 dyn_eq::eq_trait_object!(ErasedUpdateField);
 dyn_clone::clone_trait_object!(ErasedUpdateField);
@@ -164,6 +176,11 @@ dyn_hash::hash_trait_object!(ErasedUpdateField);
 pub trait TypeErasedField:
     Named + Debug + Clone + PartialEq + Eq + Hash + Send + Sync + 'static
 {
+    /// Returns the kind of value this field holds.
+    fn value_kind(&self) -> crudkit_core::ValueKind;
+
+    /// Returns whether this field is optional.
+    fn is_optional(&self) -> bool;
 }
 
 macro_rules! impl_dyn_field {
@@ -215,7 +232,15 @@ macro_rules! impl_dyn_field {
             }
         }
 
-        impl TypeErasedField for $dyn_ty {}
+        impl TypeErasedField for $dyn_ty {
+            fn value_kind(&self) -> crudkit_core::ValueKind {
+                $erased_ty::value_kind(self.inner.as_ref())
+            }
+
+            fn is_optional(&self) -> bool {
+                $erased_ty::is_optional(self.inner.as_ref())
+            }
+        }
     };
 }
 

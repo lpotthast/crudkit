@@ -78,61 +78,37 @@ impl TryFrom<Value> for ConditionClauseValue {
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         match value {
+            value @ Value::Null => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::Void(()) => Err(NotConditionClauseCompatibleValue { value }),
 
             Value::Bool(value) => Ok(Self::Bool(value)),
-            value @ Value::OptionalBool(_) => Err(NotConditionClauseCompatibleValue { value }),
 
             Value::I8(value) => Ok(Self::I8(value)),
             Value::I16(value) => Ok(Self::I16(value)),
             Value::I32(value) => Ok(Self::I32(value)),
             Value::I64(value) => Ok(Self::I64(value)),
             Value::I128(value) => Ok(Self::I128(value)),
-            value @ Value::OptionalI8(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::OptionalI16(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::OptionalI32(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::OptionalI64(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::OptionalI128(_) => Err(NotConditionClauseCompatibleValue { value }),
 
             Value::U8(value) => Ok(Self::U8(value)),
             Value::U16(value) => Ok(Self::U16(value)),
             Value::U32(value) => Ok(Self::U32(value)),
             Value::U64(value) => Ok(Self::U64(value)),
             Value::U128(value) => Ok(Self::U128(value)),
-            value @ Value::OptionalU8(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::OptionalU16(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::OptionalU32(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::OptionalU64(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::OptionalU128(_) => Err(NotConditionClauseCompatibleValue { value }),
 
             Value::F32(value) => Ok(Self::F32(value)),
             Value::F64(value) => Ok(Self::F64(value)),
-            value @ Value::OptionalF32(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::OptionalF64(_) => Err(NotConditionClauseCompatibleValue { value }),
-
-            value @ Value::U8Vec(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::I32Vec(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::I64Vec(_) => Err(NotConditionClauseCompatibleValue { value }),
 
             Value::String(value) => Ok(Self::String(value)),
-            value @ Value::OptionalString(_) => Err(NotConditionClauseCompatibleValue { value }),
 
             // Ecosystem support.
             Value::Json(value) => Ok(Self::Json(value)),
-            value @ Value::OptionalJson(_) => Err(NotConditionClauseCompatibleValue { value }),
             Value::Uuid(value) => Ok(Self::Uuid(value)),
-            value @ Value::OptionalUuid(_) => Err(NotConditionClauseCompatibleValue { value }),
+
             value @ Value::PrimitiveDateTime(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::OffsetDateTime(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::OptionalPrimitiveDateTime(_) => {
-                Err(NotConditionClauseCompatibleValue { value })
-            }
-            value @ Value::OptionalOffsetDateTime(_) => {
-                Err(NotConditionClauseCompatibleValue { value })
-            }
             value @ Value::Duration(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::OptionalDuration(_) => Err(NotConditionClauseCompatibleValue { value }),
 
+            value @ Value::Array(_) => Err(NotConditionClauseCompatibleValue { value }),
             value @ Value::Other(_) => Err(NotConditionClauseCompatibleValue { value }),
         }
     }
@@ -314,7 +290,9 @@ impl ConditionClauseValue {
     pub fn to_i32(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::I32(num) => Ok(Value::I32(num)),
-            ConditionClauseValue::I32Vec(numbers) => Ok(Value::I32Vec(numbers)),
+            ConditionClauseValue::I32Vec(numbers) => Ok(Value::Array(
+                numbers.into_iter().map(Value::I32).collect(),
+            )),
             ConditionClauseValue::String(string) => parse::<i32>(&string).map(Value::I32),
             _ => Err(format!(
                 "{self:?} can not be converted to an i32 or Vec<i32>. Expected i32 or Vec<i32> or String."
@@ -325,7 +303,9 @@ impl ConditionClauseValue {
     pub fn to_i64(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::I64(num) => Ok(Value::I64(num)),
-            ConditionClauseValue::I64Vec(numbers) => Ok(Value::I64Vec(numbers)),
+            ConditionClauseValue::I64Vec(numbers) => Ok(Value::Array(
+                numbers.into_iter().map(Value::I64).collect(),
+            )),
             ConditionClauseValue::String(string) => parse::<i64>(&string).map(Value::I64),
             _ => Err(format!(
                 "{self:?} can not be converted to an i64. Expected i64 or String."
@@ -365,7 +345,9 @@ impl ConditionClauseValue {
 
     pub fn to_byte_vec(self) -> Result<Value, String> {
         match self {
-            ConditionClauseValue::U8Vec(vec) => Ok(Value::U8Vec(vec)),
+            ConditionClauseValue::U8Vec(vec) => Ok(Value::Array(
+                vec.into_iter().map(Value::U8).collect(),
+            )),
             _ => Err(format!(
                 "{self:?} can not be converted to an U8Vec. Expected U8Vec."
             )),

@@ -7,6 +7,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Crudkit is a type-safe, full-stack Rust CRUD framework featuring backend integration with SeaORM + Axum and frontend UI
 components built with Leptos 0.8. The project is organized as a single workspace with 12 crates.
 
+## Design Philosophy
+
+The framework is designed to be **well-defined**, **extensible**, **easy to reason about**, and **safe to use**.
+
+### Core Principles
+
+1. **Exhaustiveness over stringly-typed APIs**: Use enums and pattern matching to force compile-time handling of all
+   cases.
+2. **Optionality at the metadata level**: Field presence is tracked via metadata (`is_optional()`), not via separate
+   types. All optional fields use `Value::Null` for absence.
+3. **Type erasure with downcasting escape hatches**: Generic code uses typed traits; runtime polymorphism uses `Erased*`
+   traits with `Dyn*` wrappers that support downcasting.
+4. **Fine-grained reactivity**: Frontend signals operate at the field level (`Signal<Option<T>>`), not entity level.
+5. **Explicit error handling**: No implicit panics. Return `Result` with semantic error types. HTTP 200 = success;
+   everything else is an error.
+6. **Composition over inheritance**: Extend via trait implementations and lifecycle hooks, not subclassing.
+
+### Safety Patterns
+
+- `#![forbid(unsafe_code)]` in all crates.
+- `#![deny(clippy::unwrap_used)]` prevents implicit panics.
+- Graduated accessor methods: `as_*()` → `Option<T>` (safe), `expect_*()` → `T` (panics on mismatch, documented),
+  `take_*()` → `Option<T>` (consuming).
+- Validation returns `Result<Saved<T>, CrudError>` where `Saved` contains warnings; `CrudError` contains critical
+  errors.
+
 ## Common Commands
 
 This project uses `just` as a command runner. Run `just` to see all available commands.
@@ -60,6 +86,9 @@ just upgrades
 
 # Automatically upgrade all dependencies to latest versions
 just upgrade
+
+# Sort dependencies in all Cargo.toml files
+just sort
 ```
 
 ## VCS
@@ -174,6 +203,65 @@ The central abstraction is the `CrudResource` trait (crudkit-rs/src/resource.rs)
 - `SignalsTrait` - Convert between models and reactive field maps
 - `CrudInstanceContext<T>` - Manages view state (List/Create/Edit/Read/Delete)
 
+### The Value System
+
+The `Value` enum is the foundation for type-safe field access:
+
+```rust
+pub enum Value {
+    Null,                    // Explicit absence (optional fields)
+    Void(()),                // Field doesn't participate in Value system
+    Bool(bool),
+    I8(i8), ...,             // Primitives
+    String(String),          // Common types
+    Uuid(Uuid),              // Ecosystem integration
+    Array(Vec<Value>),       // Collections
+    Other(Box<dyn FieldValue>), // Extension point
+}
+```
+
+**Key design decisions:**
+
+1. **No separate optional variants** (e.g., no `OptionalString`). Optionality is tracked via field metadata.
+2. **Uniform `Value::Null`** for all absent optional values enables consistent handling.
+3. **`Null` vs `Void`**: `Null` means "no value present" for an optional field. `Void` is the Value representation of
+   Rust's unit type `()`.
+4. **`Other` variant** allows custom types via the `FieldValue` trait.
+
+### Three-Tier Type Erasure
+
+The framework uses a consistent pattern for runtime polymorphism:
+
+| Tier | Pattern          | Purpose                         | Example                      |
+|------|------------------|---------------------------------|------------------------------|
+| 1    | Typed traits     | Compile-time generic code       | `Model`, `FieldAccess<T>`    |
+| 2    | `Erased*` traits | Object-safe trait objects       | `ErasedModel`, `ErasedField` |
+| 3    | `Dyn*` wrappers  | Boxed/Arc wrappers with helpers | `DynModel`, `DynField`       |
+
+**Conversion flow:** `T: Model` → auto-impl `ErasedModel` → wrap in `DynModel` → downcast back when needed.
+
+Wrappers provide `downcast_ref<T>()` and `downcast_mut<T>()` for escaping back to concrete types.
+
+### Field-Level Reactivity (Frontend)
+
+Rather than entity-level signals, the framework uses field-level granularity:
+
+```rust
+pub enum ReactiveValue {
+    Bool(RwSignal<Option<bool>>),
+    String(RwSignal<Option<String>>),
+    // ... one variant per Value variant
+}
+```
+
+**Key insight:** All field signals use `Signal<Option<T>>`:
+
+- Required fields: `Some(value)`
+- Optional fields: `None` when absent
+- This enables uniform components that work for both required and optional fields.
+
+Field renderers accept `Signal<Option<T>>` and derive display from `FieldMode` (Display/Readable/Editable).
+
 ### Error Handling Architecture
 
 The framework follows a unified error handling approach: **HTTP 200 always means success with entity. Everything else is
@@ -220,7 +308,16 @@ The framework follows consistent naming patterns:
 - **No `*Trait` suffix** for main abstractions: Use `Field`, `Model`, `HasId` - not `FieldTrait`, `ModelTrait`
 - **No `get_*` prefix** for simple accessors: Use `name()`, `id()`, `value()` - not `get_name()`, `get_id()`
 - **`Erased*` prefix** for type-erased traits: `ErasedModel`, `ErasedField`, `ErasedIdentifiable`
-- **`Dyn*` prefix** for type-erased wrapper types: `DynReadModel = Box<dyn ErasedReadModel>`, `DynCreateField = Arc<dyn ErasedCreateField>`
+- **`Dyn*` prefix** for type-erased wrapper types: `DynReadModel = Box<dyn ErasedReadModel>`,
+  `DynCreateField = Arc<dyn ErasedCreateField>`
+
+**Value Accessor Patterns:**
+
+| Pattern      | Returns      | Behavior                              | Use case                |
+|--------------|--------------|---------------------------------------|-------------------------|
+| `as_*()`     | `Option<&T>` | Safe, returns `None` on type mismatch | When type might vary    |
+| `expect_*()` | `T`          | Panics on type mismatch               | When type is guaranteed |
+| `take_*()`   | `Option<T>`  | Consumes, returns `None` on mismatch  | Ownership transfer      |
 
 **Derive Macro Prefix:**
 
@@ -243,6 +340,30 @@ The framework provides derive macros to reduce boilerplate:
 
 Unlike most CRUD frameworks, Crudkit fully supports composite primary keys via the `Id` trait. An entity's
 ID can be a tuple of multiple fields (e.g., `(user_id, org_id)`).
+
+### Query DSL (Conditions)
+
+The `Condition` type provides composable, type-safe query building:
+
+```rust
+pub enum Condition {
+    All(Vec<ConditionElement>),  // AND logic
+    Any(Vec<ConditionElement>),  // OR logic
+}
+
+pub struct ConditionClause {
+    pub column_name: String,
+    pub operator: Operator,       // Equal, NotEqual, Less, LessOrEqual, Greater, GreaterOrEqual, IsIn
+    pub value: ConditionClauseValue,
+}
+```
+
+**Key features:**
+
+- Nested conditions for complex queries.
+- `ConditionClauseValue` is a separate enum from `Value` (excludes non-comparable types).
+- `Condition::none()` creates a matchless condition for bulk operations.
+- `merge_conditions()` safely combines filters with AND logic.
 
 ### Framework Integrations
 
@@ -403,3 +524,48 @@ The validation system supports:
 
 The framework supports hierarchical relationships where child resources are filtered by parent ID. The
 `CrudInstanceContext` tracks parent links and automatically includes parent filters in queries.
+
+### Extension Points
+
+The framework provides well-defined extension points:
+
+| Extension              | Mechanism                                         | Location              |
+|------------------------|---------------------------------------------------|-----------------------|
+| Custom field types     | Implement `FieldValue` trait, use `Value::Other`  | `crudkit-core`        |
+| Custom storage         | Implement `Repository<R>` trait                   | `crudkit-rs`          |
+| Field validators       | Add to `CrudContext::validators`                  | `crudkit-rs`          |
+| Aggregate validators   | Add to `CrudContext::aggregate_validators`        | `crudkit-rs`          |
+| Lifecycle hooks        | Implement `CrudLifetime<R>`                       | `crudkit-rs`          |
+| Custom field renderers | Create `FieldRenderer::new()`                     | `crudkit-leptos`      |
+| Custom ID types        | Derive `CkId` on any `Eq + Hash + Serialize` type | `crudkit-core-macros` |
+
+**Adding a new field type:**
+
+1. Define the type and implement `FieldValue` (serde, debug, clone, eq, hash).
+2. Store instances as `Value::Other(Box::new(my_value))`.
+3. For frontend, create a component accepting `Signal<Option<MyType>>`.
+4. Register a `FieldRenderer` for the new type.
+
+**Adding a validator:**
+
+```rust
+struct MyValidator;
+
+impl EntityValidator<MyResource> for MyValidator {
+    fn name(&self) -> &'static str { "my-validator" }
+    fn version(&self) -> u32 { 1 }
+
+    async fn validate_single(&self, entity: &Entity) -> Vec<Violation> {
+        // Return Major violations (warnings) or Critical violations (block save)
+    }
+}
+```
+
+## Additional Documentation
+
+The `documentation/` folder contains detailed architectural documentation:
+
+- `four-model-architecture.md` - Explains the four-model pattern (Model, CreateModel, UpdateModel, ReadModel) and why
+  each serves a distinct purpose
+- `validation-architecture.md` - Details the validation system including EntityValidators, AggregateValidators,
+  validation modes, and severity levels

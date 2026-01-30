@@ -830,6 +830,7 @@ dependencies = [
  "assertr",
  "dyn-clone",
  "dyn-eq",
+ "paste",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -843,6 +844,7 @@ dependencies = [
 name = "crudkit-core-macro-util"
 version = "0.1.0"
 dependencies = [
+ "crudkit-core",
  "proc-macro2",
  "quote",
  "syn 2.0.114",

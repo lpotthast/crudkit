@@ -33,9 +33,14 @@ use dyn_clone::DynClone;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::fmt::Debug;
+use std::hash::Hash;
 use time::format_description::well_known::Rfc3339;
 use utoipa::openapi::Type;
 use utoipa::ToSchema;
+
+// ============================================================================
+// Model traits
+// ============================================================================
 
 /// A trait for types that have a name.
 pub trait Named {
@@ -77,6 +82,55 @@ pub enum Order {
         deserialize = "Desc"
     ))]
     Desc,
+}
+
+// ============================================================================
+// Value system
+// ============================================================================
+
+/// Represents the type kind of a `Value` variant.
+///
+/// This enum provides runtime type information for field values, enabling
+/// dynamic dispatch based on value types without matching on `Value` directly.
+///
+/// # Design
+///
+/// Each variant corresponds to a `Value` variant. Optionality is tracked
+/// separately via field metadata (`is_optional()`), not via separate variants.
+///
+/// # Usage
+///
+/// Primarily used by:
+/// - Field metadata (`FieldAccess::value_kind()`) to describe expected value types
+/// - Field renderers to select the appropriate UI component
+/// - Code generation to map Rust types to Value variants
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ValueKind {
+    Null,
+    Void,
+    Bool,
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    I8,
+    I16,
+    I32,
+    I64,
+    I128,
+    F32,
+    F64,
+    String,
+    Json,
+    Uuid,
+    PrimitiveDateTime,
+    OffsetDateTime,
+    Duration,
+    /// Homogeneous array (element type known from field metadata).
+    Array,
+    /// Fallback for custom types using `Value::Other`.
+    Other,
 }
 
 /// A duration of time.
@@ -122,123 +176,62 @@ impl utoipa::PartialSchema for TimeDuration {
     }
 }
 
+/// Extension trait for custom field value types.
+///
+/// Implement this trait for custom types that need to be stored in `Value::Other`.
+/// Built-in types (bool, integers, String, etc.) have dedicated `Value` variants
+/// and don't need this trait.
 #[typetag::serde]
 pub trait FieldValue: Debug + DynClone + Send + Sync + 'static {}
 dyn_clone::clone_trait_object!(FieldValue);
 
-#[typetag::serde]
-impl FieldValue for bool {}
-
-#[typetag::serde]
-impl FieldValue for u8 {}
-
-#[typetag::serde]
-impl FieldValue for u16 {}
-
-#[typetag::serde]
-impl FieldValue for u32 {}
-
-#[typetag::serde]
-impl FieldValue for u64 {}
-
-#[typetag::serde]
-impl FieldValue for u128 {}
-
-#[typetag::serde]
-impl FieldValue for i8 {}
-
-#[typetag::serde]
-impl FieldValue for i16 {}
-
-#[typetag::serde]
-impl FieldValue for i32 {}
-
-#[typetag::serde]
-impl FieldValue for i64 {}
-
-#[typetag::serde]
-impl FieldValue for i128 {}
-
-#[typetag::serde]
-
-impl FieldValue for f32 {}
-
-#[typetag::serde]
-impl FieldValue for f64 {}
-
-#[typetag::serde]
-impl FieldValue for String {}
-
-#[typetag::serde]
-impl FieldValue for serde_json::Value {}
-
-#[typetag::serde]
-impl FieldValue for time::PrimitiveDateTime {}
-
-#[typetag::serde]
-impl FieldValue for time::OffsetDateTime {}
-
-#[typetag::serde]
-impl FieldValue for TimeDuration {}
-
 /// Values which can be used by crud fields.
+///
+/// The optionality of a field is tracked separately via field metadata (`is_optional()`),
+/// not via separate Optional* variants. Use `Value::Null` to represent an absent value
+/// for optional fields.
 #[derive(Debug, Clone)]
 pub enum Value {
+    /// Explicit absence of a value: An optional field having no current value.
+    Null,
+
+    /// The unit type `()` field.
+    ///
+    /// Unlike `Null` (which represents "no value present for this optional field"),
+    /// `Void` simply is the value for the unit value `()`.
     Void(()),
 
+    // Primitives.
     Bool(bool),
-    OptionalBool(Option<bool>),
-
     U8(u8),
     U16(u16),
     U32(u32),
     U64(u64),
     U128(u128),
-    OptionalU8(Option<u8>),
-    OptionalU16(Option<u16>),
-    OptionalU32(Option<u32>),
-    OptionalU64(Option<u64>),
-    OptionalU128(Option<u128>),
-
     I8(i8),
     I16(i16),
     I32(i32),
     I64(i64),
     I128(i128),
-    OptionalI8(Option<i8>),
-    OptionalI16(Option<i16>),
-    OptionalI32(Option<i32>),
-    OptionalI64(Option<i64>),
-    OptionalI128(Option<i128>),
-
-    U8Vec(Vec<u8>),
-    I32Vec(Vec<i32>),
-    I64Vec(Vec<i64>),
-
     F32(f32),
     F64(f64),
-    OptionalF32(Option<f32>),
-    OptionalF64(Option<f64>),
 
+    // Common types.
     String(String),
-    OptionalString(Option<String>),
 
     // Ecosystem support.
     // -- serde
     Json(serde_json::Value),
-    OptionalJson(Option<serde_json::Value>),
-
     // -- uuid
     Uuid(uuid::Uuid),
-    OptionalUuid(Option<uuid::Uuid>),
-
     // -- time
     PrimitiveDateTime(time::PrimitiveDateTime),
     OffsetDateTime(time::OffsetDateTime),
     Duration(TimeDuration),
-    OptionalPrimitiveDateTime(Option<time::PrimitiveDateTime>),
-    OptionalOffsetDateTime(Option<time::OffsetDateTime>),
-    OptionalDuration(Option<TimeDuration>),
+
+    // Collections.
+    /// Homogeneous array (element type known from field metadata).
+    Array(Vec<Value>),
 
     // Extension support.
     Other(Box<dyn FieldValue>),
@@ -266,267 +259,180 @@ impl From<IdValue> for Value {
     }
 }
 
+/// Generates `as_<variant>` accessor methods that return `Option<T>` by copying.
+macro_rules! impl_as {
+    ($($variant:ident, $ty:ty);* $(;)?) => {
+        paste::paste! {
+            $(
+                pub fn [<as_ $variant:snake>](&self) -> Option<$ty> {
+                    match self {
+                        Self::$variant(v) => Some(*v),
+                        _ => None,
+                    }
+                }
+            )*
+        }
+    };
+}
+
+/// Generates `as_<variant>` accessor methods that return `Option<&T>` by reference.
+macro_rules! impl_as_ref {
+    ($($variant:ident, $ty:ty);* $(;)?) => {
+        paste::paste! {
+            $(
+                pub fn [<as_ $variant:snake>](&self) -> Option<&$ty> {
+                    match self {
+                        Self::$variant(v) => Some(v),
+                        _ => None,
+                    }
+                }
+            )*
+        }
+    };
+}
+
+/// Generates `take_<variant>` consuming accessor methods that return `Option<T>`.
+macro_rules! impl_take {
+    ($($variant:ident, $ty:ty);* $(;)?) => {
+        paste::paste! {
+            $(
+                pub fn [<take_ $variant:snake>](self) -> Option<$ty> {
+                    match self {
+                        Self::$variant(v) => Some(v),
+                        _ => None,
+                    }
+                }
+            )*
+        }
+    };
+}
+
+/// Generates `expect_<variant>` methods that call `as_<variant>` and panic on None.
+macro_rules! impl_expect {
+    ($($variant:ident, $ty:ty);* $(;)?) => {
+        paste::paste! {
+            $(
+                pub fn [<expect_ $variant:snake>](&self) -> $ty {
+                    self.[<as_ $variant:snake>]().expect(concat!("Value is not ", stringify!($variant)))
+                }
+            )*
+        }
+    };
+}
+
 impl Value {
-    pub fn take_bool(self) -> bool {
+    /// Returns true if this value is Null.
+    pub fn is_null(&self) -> bool {
+        matches!(self, Self::Null)
+    }
+
+    // === Copy accessors (primitives) ===
+
+    impl_as! {
+        Bool, bool;
+        U8, u8;
+        U16, u16;
+        U32, u32;
+        U64, u64;
+        U128, u128;
+        I8, i8;
+        I16, i16;
+        I32, i32;
+        I64, i64;
+        I128, i128;
+        F32, f32;
+        F64, f64;
+        Uuid, uuid::Uuid;
+    }
+
+    // === Reference accessors ===
+
+    impl_as_ref! {
+        String, String;
+        Json, serde_json::Value;
+        Duration, TimeDuration;
+        Array, Vec<Value>;
+        Other, Box<dyn FieldValue>;
+    }
+
+    // === Date/time accessors with String parsing fallback ===
+
+    pub fn as_primitive_date_time(&self) -> Option<time::PrimitiveDateTime> {
         match self {
-            Self::Bool(bool) => bool,
-            other => panic!("unsupported type provided: {other:?} "),
+            Self::PrimitiveDateTime(v) => Some(*v),
+            Self::String(s) => time::PrimitiveDateTime::parse(s, &Rfc3339).ok(),
+            _ => None,
         }
     }
-    pub fn take_optional_bool(self) -> Option<bool> {
+
+    pub fn as_offset_date_time(&self) -> Option<time::OffsetDateTime> {
         match self {
-            Self::OptionalBool(bool) => bool,
-            other => panic!("unsupported type provided: {other:?} "),
+            Self::OffsetDateTime(v) => Some(*v),
+            Self::String(s) => time::OffsetDateTime::parse(s, &Rfc3339).ok(),
+            _ => None,
         }
     }
-    pub fn take_u8(self) -> u8 {
-        match self {
-            Self::U8(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
+
+    // === Taking ownership (consuming accessors) ===
+
+    impl_take! {
+        String, String;
+        Json, serde_json::Value;
+        Duration, TimeDuration;
+        Array, Vec<Value>;
+        Other, Box<dyn FieldValue>;
     }
-    pub fn take_u16(self) -> u16 {
-        match self {
-            Self::U16(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
+
+    // === Expect methods (panic on wrong type or Null) ===
+
+    impl_expect! {
+        Bool, bool;
+        U8, u8;
+        U16, u16;
+        U32, u32;
+        U64, u64;
+        U128, u128;
+        I8, i8;
+        I16, i16;
+        I32, i32;
+        I64, i64;
+        I128, i128;
+        F32, f32;
+        F64, f64;
+        Uuid, uuid::Uuid;
+        PrimitiveDateTime, time::PrimitiveDateTime;
+        OffsetDateTime, time::OffsetDateTime;
+
+        String, &String;
+        Json, &serde_json::Value;
+        Duration, &TimeDuration;
+        Array, &Vec<Value>;
+        Other, &Box<dyn FieldValue>;
     }
-    pub fn take_u32(self) -> u32 {
-        match self {
-            Self::U32(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_u64(self) -> u64 {
-        match self {
-            Self::U64(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_u128(self) -> u128 {
-        match self {
-            Self::U128(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_u8(self) -> Option<u8> {
-        match self {
-            Self::U8(value) => Some(value),
-            Self::OptionalU8(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_u16(self) -> Option<u16> {
-        match self {
-            Self::U16(value) => Some(value),
-            Self::OptionalU16(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_u32(self) -> Option<u32> {
-        match self {
-            Self::U32(value) => Some(value),
-            Self::OptionalU32(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_u64(self) -> Option<u64> {
-        match self {
-            Self::U64(value) => Some(value),
-            Self::OptionalU64(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_u128(self) -> Option<u128> {
-        match self {
-            Self::U128(value) => Some(value),
-            Self::OptionalU128(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_i8(self) -> i8 {
-        match self {
-            Self::I8(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_i16(self) -> i16 {
-        match self {
-            Self::I16(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_i32(self) -> i32 {
-        match self {
-            Self::I32(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_i64(self) -> i64 {
-        match self {
-            Self::I64(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_i128(self) -> i128 {
-        match self {
-            Self::I128(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_i8(self) -> Option<i8> {
-        match self {
-            Self::I8(value) => Some(value),
-            Self::OptionalI8(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_i16(self) -> Option<i16> {
-        match self {
-            Self::I16(value) => Some(value),
-            Self::OptionalI16(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_i32(self) -> Option<i32> {
-        match self {
-            Self::I32(value) => Some(value),
-            Self::OptionalI32(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_i64(self) -> Option<i64> {
-        match self {
-            Self::I64(value) => Some(value),
-            Self::OptionalI64(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_i128(self) -> Option<i128> {
-        match self {
-            Self::I128(value) => Some(value),
-            Self::OptionalI128(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_f32(self) -> f32 {
-        match self {
-            Self::F32(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_f64(self) -> f64 {
-        match self {
-            Self::F64(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_f32(self) -> Option<f32> {
-        match self {
-            Self::F32(value) => Some(value),
-            Self::OptionalF32(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_f64(self) -> Option<f64> {
-        match self {
-            Self::F64(value) => Some(value),
-            Self::OptionalF64(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_string(self) -> String {
-        match self {
-            Self::String(string) => string,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_string(self) -> Option<String> {
-        match self {
-            Self::OptionalString(string) => string,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_json_value(self) -> serde_json::Value {
-        match self {
-            Self::Json(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_json_value(self) -> Option<serde_json::Value> {
-        match self {
-            Self::OptionalJson(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_uuid(self) -> uuid::Uuid {
-        match self {
-            Self::Uuid(uuid) => uuid,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_uuid(self) -> Option<uuid::Uuid> {
-        match self {
-            Self::OptionalUuid(uuid) => uuid,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_primitive_date_time(self) -> time::PrimitiveDateTime {
-        match self {
-            Self::PrimitiveDateTime(primitive_date_time) => primitive_date_time,
-            Self::String(string) => time::PrimitiveDateTime::parse(&string, &Rfc3339).unwrap(),
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_offset_date_time(self) -> time::OffsetDateTime {
-        match self {
-            Self::OffsetDateTime(offset_date_time) => offset_date_time,
-            Self::String(string) => time::OffsetDateTime::parse(&string, &Rfc3339).unwrap(),
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_duration(self) -> TimeDuration {
-        match self {
-            Self::Duration(duration) => duration,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_primitive_date_time(self) -> Option<time::PrimitiveDateTime> {
-        match self {
-            Self::PrimitiveDateTime(primitive_date_time) => Some(primitive_date_time),
-            Self::OptionalPrimitiveDateTime(optional_primitive_date_time) => {
-                optional_primitive_date_time
+
+    // === Array utilities ===
+
+    /// Verifies that all elements in a Value array are of the same type.
+    ///
+    /// Returns `Ok(())` if the slice is empty or all elements have the same discriminant.
+    /// Returns `Err(index)` with the index of the first element that differs from the first.
+    pub fn verify_array_homogeneity(values: &[Value]) -> Result<(), usize> {
+        let Some(first) = values.first() else {
+            return Ok(());
+        };
+        let expected = std::mem::discriminant(first);
+        for (i, v) in values.iter().enumerate().skip(1) {
+            if std::mem::discriminant(v) != expected {
+                return Err(i);
             }
-            // TODO: We might want to catch parsing errors and return an empty optional here.
-            Self::String(string) => {
-                Some(time::PrimitiveDateTime::parse(&string, &Rfc3339).unwrap())
-            }
-            other => panic!("unsupported type provided: {other:?} "),
         }
-    }
-    pub fn take_optional_offset_date_time(self) -> Option<time::OffsetDateTime> {
-        match self {
-            Self::OffsetDateTime(offset_date_time) => Some(offset_date_time),
-            Self::OptionalOffsetDateTime(optional_offset_date_time) => optional_offset_date_time,
-            // TODO: We might want to catch parsing errors and return an empty optional here.
-            Self::String(string) => Some(time::OffsetDateTime::parse(&string, &Rfc3339).unwrap()),
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_optional_duration(self) -> Option<TimeDuration> {
-        match self {
-            Self::Duration(duration) => Some(duration),
-            Self::OptionalDuration(optional_duration) => optional_duration,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
-    }
-    pub fn take_other(self) -> Box<dyn FieldValue> {
-        match self {
-            Value::Other(value) => value,
-            other => panic!("unsupported type provided: {other:?} "),
-        }
+        Ok(())
     }
 }
+
+// ============================================================================
+// Result types
+// ============================================================================
 
 /// Successful save result.
 ///

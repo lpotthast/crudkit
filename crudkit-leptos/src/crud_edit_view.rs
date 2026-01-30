@@ -6,7 +6,7 @@ use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{FieldRendererRegistry, UpdateElements};
 use crate::crud_leave_modal::CrudLeaveModal;
 use crate::crud_table::NoDataAvailable;
-use crate::ReactiveValue;
+use crate::ReactiveField;
 use crudkit_core::condition::{merge_conditions, TryIntoAllEqualCondition};
 use crudkit_core::{Saved, Value};
 use crudkit_core::id::SerializableId;
@@ -97,7 +97,7 @@ pub fn CrudEditView(
         NoDataAvailable::NotYetLoaded,
     ));
 
-    let (signals, set_sig) = signal(StoredValue::<HashMap<DynUpdateField, ReactiveValue>>::new(
+    let (signals, set_sig) = signal(StoredValue::<HashMap<DynUpdateField, ReactiveField>>::new(
         HashMap::new(),
     ));
 

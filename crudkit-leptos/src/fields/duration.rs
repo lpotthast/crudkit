@@ -48,7 +48,7 @@ fn with_centiseconds(duration: time::Duration, centiseconds: i64) -> time::Durat
 }
 
 fn duration_to_string(duration: time::Duration) -> String {
-    // Format components manually since time::Duration doesn't have Display
+    // Format components manually since time::Duration doesn't have Display.
     let hours = duration.whole_hours();
     let minutes = duration.whole_minutes() % 60;
     let seconds = duration.whole_seconds() % 60;
@@ -114,7 +114,6 @@ fn DurationInput(
         <div style="display: flex; flex-direction: row;">
             // Hours
             <NumberInput
-                // TODO: This should not be necessary. We can style the leptonic-input directly.
                 attr:class="crud-input-field"
                 attr:pattern="[0-9]*"
                 min=0.0
@@ -134,7 +133,6 @@ fn DurationInput(
 
             // Minutes
             <NumberInput
-                // TODO: This should not be necessary. We can style the leptonic-input directly.
                 attr:class="crud-input-field"
                 attr:pattern="[0-9]*"
                 min=0.0
@@ -154,7 +152,6 @@ fn DurationInput(
 
             // Seconds
             <NumberInput
-                // TODO: This should not be necessary. We can style the leptonic-input directly.
                 attr:class="crud-input-field"
                 attr:pattern="[0-9]*"
                 min=0.0
@@ -174,7 +171,6 @@ fn DurationInput(
 
             // Centiseconds
             <NumberInput
-                // TODO: This should not be necessary. We can style the leptonic-input directly.
                 attr:class="crud-input-field"
                 attr:pattern="[0-9]*"
                 min=0.0
@@ -222,86 +218,87 @@ pub fn OptionalDurationInput(
     }
 }
 
+/// Duration field component that handles both required and optional duration fields.
+/// The signal always holds Option<TimeDuration> - Some(value) for values, None for null.
 #[component]
 pub fn CrudDurationField(
     id: String,
     field_options: FieldOptions,
     field_mode: FieldMode,
-    #[prop(into)] value: Signal<TimeDuration>,
-    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
-) -> impl IntoView {
-    match field_mode {
-        FieldMode::Display => {
-            view! { {move || duration_to_string(value.get().0) } }.into_any()
-        }
-        FieldMode::Readable => view! {
-            {render_label(field_options.label.clone())}
-            <DurationInput
-                attr:id=id.clone()
-                // TODO: This should not be necessary. We can style the leptonic-input directly.
-                attr:class="crud-input-field"
-                disabled=true
-                get=Signal::derive(move || value.get().0)
-            />
-        }
-        .into_any(),
-        FieldMode::Editable => view! {
-            {render_label(field_options.label.clone())}
-            <DurationInput
-                attr:id=id.clone()
-                // TODO: This should not be necessary. We can style the leptonic-input directly.
-                attr:class="crud-input-field"
-                disabled=false
-                get=Signal::derive(move || value.get().0)
-                set=move |new: time::Duration| value_changed.run(Ok(Value::Duration(TimeDuration(new))))
-            />
-        }
-        .into_any(),
-    }
-}
-
-#[component]
-pub fn CrudOptionalDurationField(
-    id: String,
-    field_options: FieldOptions,
-    field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<TimeDuration>>,
+    is_optional: bool,
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
+    let duration_value = Signal::derive(move || value.get().map(|it| it.0).unwrap_or(time::Duration::ZERO));
+
     match field_mode {
         FieldMode::Display => {
             move || match value.get() {
-                Some(value) => view! { {duration_to_string(value.0)} }.into_any(),
+                Some(v) => view! { {duration_to_string(v.0)} }.into_any(),
                 None => view! { "-" }.into_any(),
             }
         }
         .into_any(),
-        FieldMode::Readable => {
+
+        FieldMode::Readable if is_optional => {
             view! {
                 {render_label(field_options.label.clone())}
                 <OptionalDurationInput
                     attr:id=id.clone()
-                    // TODO: This should not be necessary. We can style the leptonic-input directly.
                     attr:class="crud-input-field"
-                    disabled=false
+                    disabled=true
                     get=Signal::derive(move || { value.get().map(|it| it.0) })
                     set={move |_new: Option<time::Duration>| {}}
                 />
             }
             .into_any()
         }
-        FieldMode::Editable => {
+
+        FieldMode::Readable => {
+            view! {
+                {render_label(field_options.label.clone())}
+                <DurationInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled=true
+                    get=duration_value
+                />
+            }
+            .into_any()
+        }
+
+        FieldMode::Editable if is_optional => {
             view! {
                 {render_label(field_options.label.clone())}
                 <OptionalDurationInput
                     attr:id=id.clone()
-                    // TODO: This should not be necessary. We can style the leptonic-input directly.
                     attr:class="crud-input-field"
                     disabled=field_options.disabled
                     get=Signal::derive(move || { value.get().map(|it| it.0) })
                     set={move |new: Option<time::Duration>| {
-                        value_changed.run(Ok(Value::OptionalDuration(new.map(|it| TimeDuration(it)))))
+                        let val = match new {
+                            Some(d) => Value::Duration(TimeDuration(d)),
+                            None => Value::Null,
+                        };
+                        value_changed.run(Ok(val))
                     }}
+                />
+            }
+            .into_any()
+        }
+
+        FieldMode::Editable => {
+            let disabled = field_options.disabled;
+            view! {
+                {render_label(field_options.label.clone())}
+                <DurationInput
+                    attr:id=id.clone()
+                    attr:class="crud-input-field"
+                    disabled
+                    get=duration_value
+                    set=Callback::new(move |new: time::Duration| {
+                        value_changed.run(Ok(Value::Duration(TimeDuration(new))));
+                    })
                 />
             }
             .into_any()

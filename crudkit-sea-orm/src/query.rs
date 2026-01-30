@@ -176,53 +176,63 @@ fn add_condition_from_value<C: ColumnTrait>(
     value: Value,
 ) -> Result<sea_query::Condition, SeaOrmRepoError> {
     let tree = match value {
+        // Null represents explicit absence - use IS NULL condition.
+        Value::Null => match operator {
+            Operator::Equal => tree.add(col.is_null()),
+            Operator::NotEqual => tree.add(col.is_not_null()),
+            _ => unimplemented!("Only Equal/NotEqual operators supported for Null"),
+        },
+
+        Value::Bool(val) => add_condition(tree, col, operator, val),
+        Value::U8(val) => add_condition(tree, col, operator, val),
+        Value::U16(val) => add_condition(tree, col, operator, val),
+        Value::U32(val) => add_condition(tree, col, operator, val),
+        Value::U64(val) => add_condition(tree, col, operator, val),
+        // SeaORM doesn't support i128/u128 directly - log a warning.
+        Value::U128(_) => {
+            tracing::warn!("U128 values in conditions are not supported by SeaORM");
+            tree
+        }
+        Value::I8(val) => add_condition(tree, col, operator, val),
+        Value::I16(val) => add_condition(tree, col, operator, val),
+        Value::I32(val) => add_condition(tree, col, operator, val),
+        Value::I64(val) => add_condition(tree, col, operator, val),
+        Value::I128(_) => {
+            tracing::warn!("I128 values in conditions are not supported by SeaORM");
+            tree
+        }
+        Value::F32(val) => add_condition(tree, col, operator, val),
+        Value::F64(val) => add_condition(tree, col, operator, val),
         Value::String(val) => add_condition(tree, col, operator, val),
         Value::Json(val) => add_condition(tree, col, operator, val),
         Value::Uuid(val) => add_condition(tree, col, operator, val),
-        Value::I32(val) => add_condition(tree, col, operator, val),
-        Value::U8Vec(values) => add_condition_iterable(tree, col, operator, values),
-        Value::I32Vec(values) => add_condition_iterable(tree, col, operator, values),
-        Value::I64(val) => add_condition(tree, col, operator, val),
-        Value::I64Vec(values) => add_condition_iterable(tree, col, operator, values),
-        Value::U32(val) => add_condition(tree, col, operator, val),
-        Value::U64(val) => add_condition(tree, col, operator, val),
-        Value::F32(val) => add_condition(tree, col, operator, val),
-        Value::F64(val) => add_condition(tree, col, operator, val),
-        Value::Bool(val) => add_condition(tree, col, operator, val),
         Value::PrimitiveDateTime(val) => add_condition(tree, col, operator, val),
         Value::OffsetDateTime(val) => add_condition(tree, col, operator, val),
         Value::Duration(val) => add_condition(tree, col, operator, TimeDuration(val.0)),
-        // TODO: Implement missing variants.
+
+        // Array is used for IN conditions.
+        Value::Array(values) => {
+            if operator != Operator::IsIn {
+                panic!(
+                    "Array value can only be used with IsIn operator, got {:?}",
+                    operator
+                );
+            }
+            if let Err(index) = Value::verify_array_homogeneity(&values) {
+                panic!(
+                    "Array elements must be homogeneous. Element at index {} has different type than first element.",
+                    index
+                );
+            }
+            // Convert each element to sea_orm::Value and use is_in.
+            let sea_values: Vec<sea_orm::Value> = values
+                .into_iter()
+                .map(|v| value_to_sea_orm_value(v))
+                .collect();
+            tree.add(col.is_in(sea_values))
+        }
+
         Value::Void(_) => unimplemented!("Void value in condition"),
-        Value::OptionalBool(_) => unimplemented!("OptionalBool value in condition"),
-        Value::U8(_) => unimplemented!("U8 value in condition"),
-        Value::U16(_) => unimplemented!("U16 value in condition"),
-        Value::U128(_) => unimplemented!("U128 value in condition"),
-        Value::OptionalU8(_) => unimplemented!("OptionalU8 value in condition"),
-        Value::OptionalU16(_) => unimplemented!("OptionalU16 value in condition"),
-        Value::OptionalU32(_) => unimplemented!("OptionalU32 value in condition"),
-        Value::OptionalU64(_) => unimplemented!("OptionalU64 value in condition"),
-        Value::OptionalU128(_) => unimplemented!("OptionalU128 value in condition"),
-        Value::I8(_) => unimplemented!("I8 value in condition"),
-        Value::I16(_) => unimplemented!("I16 value in condition"),
-        Value::I128(_) => unimplemented!("I128 value in condition"),
-        Value::OptionalI8(_) => unimplemented!("OptionalI8 value in condition"),
-        Value::OptionalI16(_) => unimplemented!("OptionalI16 value in condition"),
-        Value::OptionalI32(_) => unimplemented!("OptionalI32 value in condition"),
-        Value::OptionalI64(_) => unimplemented!("OptionalI64 value in condition"),
-        Value::OptionalI128(_) => unimplemented!("OptionalI128 value in condition"),
-        Value::OptionalF32(_) => unimplemented!("OptionalF32 value in condition"),
-        Value::OptionalF64(_) => unimplemented!("OptionalF64 value in condition"),
-        Value::OptionalString(_) => unimplemented!("OptionalString value in condition"),
-        Value::OptionalJson(_) => unimplemented!("OptionalJson value in condition"),
-        Value::OptionalUuid(_) => unimplemented!("OptionalUuid value in condition"),
-        Value::OptionalPrimitiveDateTime(_) => {
-            unimplemented!("OptionalPrimitiveDateTime value in condition")
-        }
-        Value::OptionalOffsetDateTime(_) => {
-            unimplemented!("OptionalOffsetDateTime value in condition")
-        }
-        Value::OptionalDuration(_) => unimplemented!("OptionalDuration value in condition"),
         Value::Other(_) => unimplemented!("Other value in condition"),
     };
     Ok(tree)
@@ -245,28 +255,36 @@ where
         Operator::LessOrEqual => tree.add(col.lte(val)),
         Operator::Greater => tree.add(col.gt(val)),
         Operator::GreaterOrEqual => tree.add(col.gte(val)),
-        Operator::IsIn => panic!("This is a bug. Should have called add_condition_iterable!"),
+        Operator::IsIn => panic!("IsIn operator requires an array value, not a scalar"),
     }
 }
 
-fn add_condition_iterable<C, T>(
-    tree: sea_query::Condition,
-    col: C,
-    operator: Operator,
-    val: T,
-) -> sea_query::Condition
-where
-    C: ColumnTrait,
-    T: IntoIterator,
-    sea_orm::Value: From<<T as IntoIterator>::Item>,
-{
-    match operator {
-        Operator::Equal => panic!("This is a bug. Should have called add_condition!"),
-        Operator::NotEqual => panic!("This is a bug. Should have called add_condition!"),
-        Operator::Less => panic!("This is a bug. Should have called add_condition!"),
-        Operator::LessOrEqual => panic!("This is a bug. Should have called add_condition!"),
-        Operator::Greater => panic!("This is a bug. Should have called add_condition!"),
-        Operator::GreaterOrEqual => panic!("This is a bug. Should have called add_condition!"),
-        Operator::IsIn => tree.add(col.is_in(val)),
+/// Convert a crudkit Value to a sea_orm::Value for use in conditions.
+fn value_to_sea_orm_value(value: Value) -> sea_orm::Value {
+    match value {
+        Value::Null => sea_orm::Value::String(None),
+        Value::Bool(v) => v.into(),
+        Value::U8(v) => v.into(),
+        Value::U16(v) => (v as i32).into(),
+        Value::U32(v) => v.into(),
+        Value::U64(v) => v.into(),
+        Value::U128(_) => panic!("U128 values are not supported by SeaORM"),
+        Value::I8(v) => v.into(),
+        Value::I16(v) => v.into(),
+        Value::I32(v) => v.into(),
+        Value::I64(v) => v.into(),
+        Value::I128(_) => panic!("I128 values are not supported by SeaORM"),
+        Value::F32(v) => v.into(),
+        Value::F64(v) => v.into(),
+        Value::String(v) => v.into(),
+        Value::Json(v) => v.into(),
+        Value::Uuid(v) => v.into(),
+        Value::PrimitiveDateTime(v) => v.into(),
+        Value::OffsetDateTime(v) => v.into(),
+        Value::Duration(v) => TimeDuration(v.0).into(),
+        Value::Void(_) => panic!("Void value cannot be converted to sea_orm::Value"),
+        Value::Array(_) => panic!("Nested arrays are not supported in conditions"),
+        Value::Other(_) => panic!("Other values are not supported in conditions"),
     }
 }
+

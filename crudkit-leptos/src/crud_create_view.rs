@@ -2,7 +2,7 @@ use crate::crud_fields::CrudFields;
 use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{CreateElements, FieldRendererRegistry};
 use crate::crud_leave_modal::CrudLeaveModal;
-use crate::ReactiveValue;
+use crate::ReactiveField;
 use crudkit_core::{Saved, Value};
 use crudkit_core::id::{SerializableId, SerializableIdEntry};
 use crudkit_web::prelude::*;
@@ -81,7 +81,7 @@ pub fn CrudCreateView(
 
     let default_create_model = default_create_model(&ctx);
 
-    let signals: StoredValue<HashMap<DynCreateField, ReactiveValue>> = // CrateModel field
+    let signals: StoredValue<HashMap<DynCreateField, ReactiveField>> =
         StoredValue::new(
             ctx.static_config
                 .read_value()
