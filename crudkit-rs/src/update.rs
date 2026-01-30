@@ -12,7 +12,7 @@ use crudkit_core::validation::{
     PartialSerializableAggregateViolations, PartialSerializableValidations, ViolationsByEntity,
 };
 
-use crate::data::CrudIdTrait;
+use crate::data::HasId;
 use crate::validate::{run_delta_validation, run_global_validation};
 use crate::validation::{CrudAction, ValidationContext, ValidationTrigger, When};
 use crate::{

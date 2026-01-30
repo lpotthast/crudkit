@@ -96,7 +96,7 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
         // Storage-agnostic traits (crudkit-rs)
         // =========================================================================
 
-        impl crudkit_rs::data::FieldTrait for #field_enum_name {
+        impl crudkit_rs::data::Field for #field_enum_name {
             fn name(&self) -> &'static str {
                 match self {
                     #(#field_trait_name_arms),*
@@ -121,7 +121,7 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
             }
         }
 
-        impl crudkit_rs::data::CrudModel for #name {
+        impl crudkit_rs::data::Model for #name {
             type Field = #field_enum_name;
         }
     })

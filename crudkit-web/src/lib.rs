@@ -46,15 +46,6 @@ pub mod prelude {
     pub use crudkit_core_macros::CkId;
     pub use crudkit_web_macros::{CkActionPayload, CkField, CkResource};
 
-    pub use super::CrudFieldValueTrait;
-    // Backward compatibility alias for FieldAccess.
-        pub use super::CrudIdTrait;
-    // Backward compatibility alias for HasId.
-    pub use super::CrudMainTrait;
-    // Backward compatibility alias for Resource.
-    pub use super::CrudModel;
-    // Backward compatibility alias for Model.
-    pub use super::CrudResourceTrait;
     pub use super::error::ErrorInfo;
     pub use super::files::FileResource;
     pub use super::files::ListFileError;
@@ -64,7 +55,6 @@ pub mod prelude {
     pub use super::reqwest_executor::ReqwestExecutor;
     pub use super::view::CrudView;
     pub use super::view::SerializableCrudView;
-    // Backward compatibility trait.
     pub use super::FieldAccess;
     pub use super::FieldMode;
     pub use super::FieldOptions;
@@ -195,14 +185,6 @@ pub trait Resource: PartialEq + Default + Debug + Clone + Serialize + Send + Syn
     type ActionPayload: Serialize + CrudActionPayload + Send + Sync;
 }
 
-/// Backward compatibility alias.
-pub use Resource as CrudMainTrait;
-
-
-/// Backward compatibility alias - now merged into Resource.
-pub use Resource as CrudResourceTrait;
-
-
 /// Trait for typed model access in the frontend.
 ///
 /// This extends the base `Model` trait from crudkit-core with frontend-specific
@@ -233,19 +215,10 @@ pub trait Model:
     fn field(field_name: &str) -> Self::Field;
 }
 
-/// Backward compatibility alias.
-pub use Model as CrudModel;
-
-
 /// Re-export `HasId` from crudkit-id for typed ID access.
 pub use crudkit_core::id::HasId;
 
-
-/// Alias for backward compatibility.
-pub use crudkit_core::id::HasId as CrudIdTrait;
-
-
-/// Re-export `Named` from crudkit_core for backwards compatibility and convenience.
+/// Re-export `Named` from crudkit_core.
 pub use crudkit_core::Named;
 
 
@@ -254,10 +227,6 @@ pub trait FieldAccess<T> {
     fn value(&self, entity: &T) -> Value;
     fn set_value(&self, entity: &mut T, value: Value);
 }
-
-/// Backward compatibility alias.
-pub use FieldAccess as CrudFieldValueTrait;
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum FieldMode {

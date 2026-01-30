@@ -6,7 +6,7 @@ use crudkit_core::{Order, Saved};
 use crudkit_web::prelude::*;
 use crudkit_web::reqwest_executor::ReqwestExecutor;
 use crudkit_web::view::SerializableCrudView;
-use crudkit_web::{CrudFieldValueTrait, CrudModel, HeaderOptions};
+use crudkit_web::{FieldAccess, HeaderOptions, Model};
 use indexmap::IndexMap;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -233,12 +233,12 @@ pub struct ModelHandler {
 impl ModelHandler {
     pub fn new<Create, Read, Update>() -> ModelHandler
     where
-        Create: ErasedCreateModel + CrudModel + Default,
-        Read: ErasedReadModel + CrudModel,
-        Update: ErasedUpdateModel + CrudModel + From<Read>,
-        <Read as CrudModel>::Field: ErasedReadField,
-        <Create as CrudModel>::Field: ErasedCreateField,
-        <Update as CrudModel>::Field: ErasedUpdateField,
+        Create: ErasedCreateModel + Model + Default,
+        Read: ErasedReadModel + Model,
+        Update: ErasedUpdateModel + Model + From<Read>,
+        <Read as Model>::Field: ErasedReadField,
+        <Create as Model>::Field: ErasedCreateField,
+        <Update as Model>::Field: ErasedUpdateField,
     {
         let deserialize_update_model = Callback::new(move |json| {
             let saved: Saved<Update> = serde_json::from_value(json)?;
@@ -267,7 +267,7 @@ impl ModelHandler {
                 let create_model: &Create = create_model.downcast_ref::<Create>();
                 let mut map: HashMap<DynCreateField, ReactiveValue> = HashMap::new();
                 for field in Create::all_fields() {
-                    let initial = CrudFieldValueTrait::value(&field, create_model);
+                    let initial = FieldAccess::value(&field, create_model);
                     map.insert(DynCreateField::from(field), initial.into_reactive_value());
                 }
                 map
@@ -276,7 +276,7 @@ impl ModelHandler {
                 let read_model: &Read = read_model.downcast_ref::<Read>();
                 let mut map: HashMap<DynReadField, ReactiveValue> = HashMap::new();
                 for field in Read::all_fields() {
-                    let initial = CrudFieldValueTrait::value(&field, read_model);
+                    let initial = FieldAccess::value(&field, read_model);
                     map.insert(DynReadField::from(field), initial.into_reactive_value());
                 }
                 map
@@ -285,7 +285,7 @@ impl ModelHandler {
                 let update_model: &Update = update_model.downcast_ref::<Update>();
                 let mut map: HashMap<DynUpdateField, ReactiveValue> = HashMap::new();
                 for field in Update::all_fields() {
-                    let initial = CrudFieldValueTrait::value(&field, update_model);
+                    let initial = FieldAccess::value(&field, update_model);
                     map.insert(DynUpdateField::from(field), initial.into_reactive_value());
                 }
                 map

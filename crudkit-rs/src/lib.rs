@@ -91,11 +91,8 @@ pub mod prelude {
 
     // Data traits.
     pub use super::data::ConditionValueConverter;
-    pub use super::data::CrudIdTrait; // Backward compatibility alias for HasId.
-    pub use super::data::CrudModel; // Backward compatibility alias for Model.
     pub use super::data::Field;
     pub use super::data::FieldLookup;
-    pub use super::data::FieldTrait; // Backward compatibility alias for Field.
     pub use super::data::HasId;
     pub use super::data::Model;
 

@@ -223,7 +223,7 @@ pub fn generate_create_model(input: &DeriveInput) -> darling::Result<CreateModel
     };
 
     let trait_impls = quote! {
-        impl crudkit_rs::data::CrudModel for #create_model_name {
+        impl crudkit_rs::data::Model for #create_model_name {
             type Field = #field_enum_name;
         }
 
@@ -263,7 +263,7 @@ pub fn generate_update_model(input: &DeriveInput) -> darling::Result<UpdateModel
     };
 
     let trait_impls = quote! {
-        impl crudkit_rs::data::CrudModel for #update_model_name {
+        impl crudkit_rs::data::Model for #update_model_name {
             type Field = #field_enum_name;
         }
     };

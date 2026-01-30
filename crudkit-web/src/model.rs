@@ -7,7 +7,7 @@
 //! - `Erased*` prefix: Traits for type-erased behavior (e.g., `ErasedModel`)
 //! - `Dyn*` prefix: Boxed trait object wrappers (e.g., `DynModel = Box<dyn ErasedModel>`)
 
-use crate::{CrudModel, HasId, Named};
+use crate::{HasId, Model, Named};
 use crudkit_core::Value;
 use dyn_clone::DynClone;
 use dyn_eq::DynEq;
@@ -108,7 +108,7 @@ impl_dyn_model!(DynReadModel, ErasedReadModel);
 impl_dyn_model!(DynUpdateModel, ErasedUpdateModel);
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ReadOrUpdateModel<ReadModel: CrudModel + HasId, UpdateModel: CrudModel + HasId> {
+pub enum ReadOrUpdateModel<ReadModel: Model + HasId, UpdateModel: Model + HasId> {
     Read(ReadModel),
     Update(UpdateModel),
 }

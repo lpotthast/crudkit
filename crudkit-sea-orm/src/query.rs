@@ -118,7 +118,7 @@ fn build_condition_tree<F, C>(
     field_to_column: fn(&F) -> C,
 ) -> Result<sea_query::Condition, SeaOrmRepoError>
 where
-    F: FieldTrait + FieldLookup + ConditionValueConverter,
+    F: Field + FieldLookup + ConditionValueConverter,
     C: ColumnTrait,
 {
     let mut tree = match &condition {

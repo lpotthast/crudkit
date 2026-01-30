@@ -3,7 +3,7 @@
 use crate::{
     auth::RequestContext,
     collaboration,
-    data::CrudIdTrait,
+    data::HasId,
     error::CrudError,
     lifetime::CrudLifetime,
     prelude::*,

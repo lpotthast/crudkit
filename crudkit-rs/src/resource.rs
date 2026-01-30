@@ -6,7 +6,7 @@
 
 use crate::{
     auth::{AuthExtractor, CrudAuthPolicy},
-    data::{ConditionValueConverter, CrudIdTrait, CrudModel, FieldLookup, FieldTrait},
+    data::{ConditionValueConverter, Field, FieldLookup, HasId, Model},
     lifetime::CrudLifetime,
     prelude::*,
 };
@@ -62,7 +62,7 @@ pub trait CrudResource: Sized + Debug {
     ///
     /// This might be backed by a SQL view rather than a direct table.
     /// Must be identifiable and serializable for API responses.
-    type ReadModel: CrudModel<Field = Self::ReadModelField>
+    type ReadModel: Model<Field = Self::ReadModelField>
         + HasId<Id = Self::ReadModelId>
         + Serialize
         + Clone
@@ -74,7 +74,7 @@ pub trait CrudResource: Sized + Debug {
     type ReadModelId: Id + Clone + Send + Sync + 'static;
 
     /// The field enum for read models, used for ordering and filtering.
-    type ReadModelField: FieldTrait
+    type ReadModelField: Field
         + FieldLookup
         + ConditionValueConverter
         + DeserializeOwned
@@ -92,7 +92,7 @@ pub trait CrudResource: Sized + Debug {
     /// The DTO used to create new entities.
     ///
     /// Typically doesn't have an ID if the ID is generated during insertion.
-    type CreateModel: CrudModel<Field = Self::CreateModelField>
+    type CreateModel: Model<Field = Self::CreateModelField>
         + CreateModelTrait
         + DeserializeOwned
         + Debug
@@ -102,7 +102,7 @@ pub trait CrudResource: Sized + Debug {
         + 'static;
 
     /// Type representing individual fields of the `CreateModel`.
-    type CreateModelField: FieldTrait + Clone + Send + Sync + 'static;
+    type CreateModelField: Field + Clone + Send + Sync + 'static;
 
     // =========================================================================
     // Update Model (for updating existing entities).
@@ -112,7 +112,7 @@ pub trait CrudResource: Sized + Debug {
     ///
     /// Contains the data to update. The entity to update is identified
     /// via a condition in the request.
-    type UpdateModel: CrudModel<Field = Self::UpdateModelField>
+    type UpdateModel: Model<Field = Self::UpdateModelField>
         + DeserializeOwned
         + Debug
         + Clone
@@ -121,7 +121,7 @@ pub trait CrudResource: Sized + Debug {
         + 'static;
 
     /// Type representing individual fields of the `UpdateModel`.
-    type UpdateModelField: FieldTrait + Clone + Send + Sync + 'static;
+    type UpdateModelField: Field + Clone + Send + Sync + 'static;
 
     // =========================================================================
     // Entity Model - the actual persisted entity
@@ -132,8 +132,8 @@ pub trait CrudResource: Sized + Debug {
     /// This is the "real" entity that gets stored. It's used in lifecycle hooks
     /// for validation and in the repository for fetch/delete operations.
     /// Unlike ReadModel (which may be a view), this represents the actual table.
-    type Model: CrudModel<Field = Self::ModelField>
-        + CrudIdTrait<Id = Self::Id>
+    type Model: Model<Field = Self::ModelField>
+        + HasId<Id = Self::Id>
         + Serialize
         + Clone
         + Send
@@ -144,7 +144,7 @@ pub trait CrudResource: Sized + Debug {
     type Id: Id + Clone + Send + Sync + 'static;
 
     /// The field enum for the persisted entity model.
-    type ModelField: FieldTrait
+    type ModelField: Field
         + FieldLookup
         + ConditionValueConverter
         + DeserializeOwned

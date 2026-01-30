@@ -10,7 +10,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 use utoipa::ToSchema;
 
-use crate::data::CrudIdTrait;
+use crate::data::HasId;
 use crate::validate::{run_global_validation, run_model_validation};
 use crate::{
     auth::RequestContext,

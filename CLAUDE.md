@@ -103,7 +103,7 @@ crudkit/
     - `crudkit-rs-macros-core` - Shared macro utilities
     - `crudkit-sea-orm` - SeaORM repository implementation
     - `crudkit-sea-orm-macros` - SeaORM-specific derive macros
-    - Derive macros: `CkCreateModel`, `CkUpdateModel`, `CkField`, `CkValidationModel`, `CkResourceContext`
+    - Derive macros: `CkSeaOrmCreateModel`, `CkSeaOrmUpdateModel`, `CkField`, `CkValidationModel`, `CkResourceContext`
     - Axum REST API generation via `impl_add_crud_routes!` macro
     - Lifecycle hooks (before/after create/update/delete)
     - Keycloak authentication support
@@ -154,9 +154,9 @@ The central abstraction is the `CrudResource` trait (crudkit-rs/src/resource.rs)
 
 **Web Layer** (crudkit-web):
 
-- `Resource` - Central frontend trait defining CreateModel/ReadModel/UpdateModel (alias: `CrudMainTrait`)
-- `Model` - Frontend model trait with field enumeration and serialization (alias: `CrudModel`)
-- `FieldAccess<T>` - Trait for typed field value access with `value()`/`set_value()` (alias: `CrudFieldValueTrait`)
+- `Resource` - Central frontend trait defining CreateModel/ReadModel/UpdateModel
+- `Model` - Frontend model trait with field enumeration and serialization
+- `FieldAccess<T>` - Trait for typed field value access with `value()`/`set_value()`
 - `CrudRestDataProvider<T>` - HTTP client for CRUD operations
 
 **Type-Erased Traits** (crudkit-web/model.rs) - Use `Erased*` for traits, `Dyn*` for wrapper types:
@@ -225,12 +225,7 @@ The framework follows consistent naming patterns:
 **Derive Macro Prefix:**
 
 - All derive macros use the `Ck` prefix (short for CrudKit): `CkId`, `CkField`, `CkResource`, etc.
-- SeaORM-specific macros may use longer prefixes internally but are aliased for convenience
-
-**Backward Compatibility:**
-
-- Old trait names are available as type aliases (e.g., `CrudModel` = `Model`, `CrudMainTrait` = `Resource`)
-- These aliases are deprecated and will be removed in future versions
+- SeaORM-specific macros use `CkSeaOrm` prefix: `CkSeaOrmCreateModel`, `CkSeaOrmUpdateModel`
 
 ### Derive Macro Ecosystem
 
@@ -238,9 +233,9 @@ The framework provides derive macros to reduce boilerplate:
 
 **Shared** (`crudkit-core-macros`): `CkId`
 
-**Backend** (`crudkit-rs`): `CkCreateModel`, `CkUpdateModel`, `CkField`, `CkValidationModel`, `CkResourceContext`
+**Backend** (`crudkit-rs`): `CkField`, `CkValidationModel`, `CkResourceContext`
 
-**SeaORM** (`crudkit-sea-orm`): `CkSeaOrmCreateModel`, `CkSeaOrmUpdateModel` (aliased as `CkCreateModel`, `CkUpdateModel`)
+**SeaORM** (`crudkit-sea-orm`): `CkSeaOrmCreateModel`, `CkSeaOrmUpdateModel`
 
 **Web Layer** (`crudkit-web`): `CkResource`, `CkField`, `CkActionPayload`
 

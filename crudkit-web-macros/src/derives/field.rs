@@ -365,7 +365,7 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
             impl crudkit_web::model::ErasedCreateField for #field_name {
                 fn set_value(&self, model: &mut crudkit_web::model::DynCreateModel, value: crudkit_core::Value) {
                     let model = model.downcast_mut::<#name>();
-                    crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
+                    crudkit_web::FieldAccess::set_value(self, model, value);
                 }
             }
         },
@@ -374,7 +374,7 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
             impl crudkit_web::model::ErasedReadField for #field_name {
                 fn set_value(&self, model: &mut crudkit_web::model::DynReadModel, value: crudkit_core::Value) {
                     let model = model.downcast_mut::<#name>();
-                    crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
+                    crudkit_web::FieldAccess::set_value(self, model, value);
                 }
             }
         },
@@ -383,7 +383,7 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
             impl crudkit_web::model::ErasedUpdateField for #field_name {
                 fn set_value(&self, model: &mut crudkit_web::model::DynUpdateModel, value: crudkit_core::Value) {
                     let model = model.downcast_mut::<#name>();
-                    crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
+                    crudkit_web::FieldAccess::set_value(self, model, value);
                 }
             }
         },
@@ -421,7 +421,7 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
     };
 
     let field_value_trait_impl = quote! {
-        impl crudkit_web::CrudFieldValueTrait<#name> for #field_name {
+        impl crudkit_web::FieldAccess<#name> for #field_name {
             fn value(&self, entity: &#name) -> crudkit_core::Value {
                 #get_value_impl
             }
@@ -450,7 +450,7 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
             }
         }
 
-        impl crudkit_web::CrudModel for #name {
+        impl crudkit_web::Model for #name {
             type Field = #field_name;
 
             fn all_fields() -> Vec<#field_name> {
@@ -466,7 +466,7 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
         impl crudkit_web::model::ErasedField for #field_name {
             fn set_value(&self, model: &mut crudkit_web::model::DynModel, value: crudkit_core::Value) {
                 let model = model.downcast_mut::<#name>();
-                crudkit_web::CrudFieldValueTrait::set_value(self, model, value);
+                crudkit_web::FieldAccess::set_value(self, model, value);
             }
         }
 

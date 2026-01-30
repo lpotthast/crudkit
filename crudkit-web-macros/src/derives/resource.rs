@@ -94,7 +94,7 @@ pub fn expand_derive_resource(input: DeriveInput) -> syn::Result<TokenStream> {
         #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
         pub struct #resource_ident {}
 
-        impl crudkit_web::CrudMainTrait for #resource_ident {
+        impl crudkit_web::Resource for #resource_ident {
             fn resource_name() -> &'static str {
                 #resource_name
             }
