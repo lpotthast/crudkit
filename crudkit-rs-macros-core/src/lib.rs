@@ -227,7 +227,7 @@ pub fn generate_create_model(input: &DeriveInput) -> darling::Result<CreateModel
             type Field = #field_enum_name;
         }
 
-        impl crudkit_rs::data::CreateModelTrait for #create_model_name {}
+        impl crudkit_rs::data::CreateModel for #create_model_name {}
     };
 
     Ok(CreateModelOutput {

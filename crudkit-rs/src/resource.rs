@@ -13,7 +13,7 @@ use crate::{
 
 use crudkit_core::id::Id;
 
-use crate::data::CreateModelTrait;
+use crate::data::CreateModel;
 use crate::repository::ValidationResultRepository;
 use serde::{de::DeserializeOwned, Serialize};
 use std::fmt::Debug;
@@ -93,7 +93,7 @@ pub trait CrudResource: Sized + Debug {
     ///
     /// Typically doesn't have an ID if the ID is generated during insertion.
     type CreateModel: Model<Field = Self::CreateModelField>
-        + CreateModelTrait
+        + CreateModel
         + DeserializeOwned
         + Debug
         + Clone

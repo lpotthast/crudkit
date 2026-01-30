@@ -30,9 +30,9 @@ pub fn derive_sea_orm_bridge(input: TokenStream) -> TokenStream {
 ///
 /// ```ignore
 /// pub struct CreateModel { ... }
-/// impl crudkit_rs::data::CrudModel for CreateModel { type Field = Col; }
-/// impl crudkit_rs::data::CreateModelTrait for CreateModel {}
-/// impl crudkit_sea_orm::CreateModelTrait<ActiveModel> for CreateModel { ... }
+/// impl crudkit_rs::data::Model for CreateModel { type Field = Col; }
+/// impl crudkit_rs::data::CreateModel for CreateModel {}
+/// impl crudkit_sea_orm::SeaOrmCreateModel<ActiveModel> for CreateModel { ... }
 /// ```
 ///
 /// # Field Attributes
@@ -54,9 +54,8 @@ pub fn derive_sea_orm_create_model(input: TokenStream) -> TokenStream {
 ///
 /// ```ignore
 /// pub struct UpdateModel { ... }
-/// impl crudkit_rs::data::CrudModel for UpdateModel { type Field = Col; }
-/// impl crudkit_sea_orm::UpdateModelTrait for UpdateModel {}
-/// impl crudkit_sea_orm::UpdateActiveModelTrait<UpdateModel> for ActiveModel { ... }
+/// impl crudkit_rs::data::Model for UpdateModel { type Field = Col; }
+/// impl crudkit_sea_orm::SeaOrmUpdateModel<UpdateModel> for ActiveModel { ... }
 /// ```
 ///
 /// # Field Attributes

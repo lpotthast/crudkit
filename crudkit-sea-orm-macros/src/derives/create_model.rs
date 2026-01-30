@@ -37,7 +37,7 @@ fn generate_sea_orm_create_model_impl(
     });
 
     quote! {
-        impl crudkit_sea_orm::CreateModelTrait<ActiveModel> for #create_model_name {
+        impl crudkit_sea_orm::SeaOrmCreateModel<ActiveModel> for #create_model_name {
             async fn into_active_model(self) -> ActiveModel {
                 ActiveModel {
                     #(#arms),*

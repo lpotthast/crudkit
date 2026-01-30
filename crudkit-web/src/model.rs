@@ -3,9 +3,43 @@
 //! These types allow crudkit-leptos components to work with any resource type
 //! without knowing concrete types at compile time.
 //!
-//! Naming conventions:
+//! # Three-Tier Type Erasure Pattern
+//!
+//! The framework uses a consistent three-tier pattern for runtime polymorphism:
+//!
+//! | Tier | Pattern | Purpose | Example |
+//! |------|---------|---------|---------|
+//! | 1 | Typed traits | Compile-time generic code | `Model`, `FieldAccess<T>` |
+//! | 2 | `Erased*` traits | Object-safe trait objects | `ErasedModel`, `ErasedField` |
+//! | 3 | `Dyn*` wrappers | Boxed/Arc wrappers with helpers | `DynModel`, `DynCreateField` |
+//!
+//! ## Why Three Tiers?
+//!
+//! - **Tier 1 (Typed)**: Provides full type safety and zero-cost abstractions. Used when
+//!   concrete types are known at compile time.
+//!
+//! - **Tier 2 (Erased)**: Makes traits dyn-compatible by removing generic parameters.
+//!   Uses `#[typetag::serde]` for serialization and `downcast_rs` for type recovery.
+//!
+//! - **Tier 3 (Dyn wrappers)**: Provides ergonomic wrappers around `Box<dyn Erased*>` or
+//!   `Arc<dyn Erased*>` with convenience methods like `downcast_ref<T>()`.
+//!
+//! ## Conversion Flow
+//!
+//! ```text
+//! T: Model  →  auto-impl ErasedModel  →  wrap in DynModel  →  downcast<T>() when needed
+//! ```
+//!
+//! ## Naming Conventions
+//!
 //! - `Erased*` prefix: Traits for type-erased behavior (e.g., `ErasedModel`)
 //! - `Dyn*` prefix: Boxed trait object wrappers (e.g., `DynModel = Box<dyn ErasedModel>`)
+//!
+//! The wrappers provide:
+//! - `new(concrete)` - Create from concrete type
+//! - `downcast<T>()` - Consume and recover concrete type (panics on mismatch)
+//! - `downcast_ref<T>()` - Borrow as concrete type (panics on mismatch)
+//! - `downcast_mut<T>()` - Mutably borrow as concrete type (panics on mismatch)
 
 use crate::{HasId, Model, Named};
 use crudkit_core::Value;

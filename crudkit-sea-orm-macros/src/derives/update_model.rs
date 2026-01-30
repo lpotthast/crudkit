@@ -36,9 +36,7 @@ fn generate_sea_orm_update_model_impl(
     });
 
     quote! {
-        impl crudkit_sea_orm::UpdateModelTrait for #update_model_name {}
-
-        impl crudkit_sea_orm::UpdateActiveModelTrait<#update_model_name> for ActiveModel {
+        impl crudkit_sea_orm::SeaOrmUpdateModel<#update_model_name> for ActiveModel {
             fn update_with(&mut self, update: #update_model_name) {
                 #(#stmts)*
             }

@@ -6,6 +6,7 @@ use crudkit_web::OrderByUpdateOptions;
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
+use leptonic::hooks::PressEvent;
 use leptos::prelude::*;
 use std::borrow::Cow;
 
@@ -83,17 +84,18 @@ fn HeaderCell(
     apply_min_width_class: bool,
 ) -> impl IntoView {
     let name_clone = name.clone();
+    let on_press = Callback::new(move |_: PressEvent| {
+        tracing::info!("Pressed on {}", name_clone);
+        if ordering_allowed {
+            update_order.run(())
+        }
+    });
     view! {
         <TableHeaderCell
             class:crud-column-ordered=order.is_some()
             class:crud-order-by-trigger=ordering_allowed
             class:min-width=apply_min_width_class
-            on:click=move |_| {
-                tracing::info!("Clicked on {}", name_clone);
-                if ordering_allowed {
-                    update_order.run(())
-                }
-            }
+            on_press
         >
             { name }
             <span class="crud-order-by-sign" class:active=order.is_some()>

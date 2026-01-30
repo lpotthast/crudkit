@@ -52,11 +52,31 @@ pub trait Named {
 ///
 /// This is the minimal shared definition used by both backend (crudkit-rs)
 /// and frontend (crudkit-web) layers. Each layer extends this with additional
-/// bounds and methods appropriate for their context:
+/// bounds and methods appropriate for their context.
 ///
-/// - **Backend (`crudkit-rs`)**: Uses this directly with `Field: crudkit_rs::Field`
-/// - **Frontend (`crudkit-web`)**: Adds `Serialize`, `DeserializeOwned`, `PartialEq`,
-///   field accessor methods, and more extensive `Field` bounds
+/// # Model Trait Hierarchy
+///
+/// The framework has three `Model` traits, each adding layer-specific bounds:
+///
+/// | Crate | Trait | Additional Bounds | Purpose |
+/// |-------|-------|-------------------|---------|
+/// | `crudkit-core` | `Model` (this trait) | — | Minimal shared definition |
+/// | `crudkit-rs` | `Model` | `Field: crudkit_rs::Field` | Backend with field metadata |
+/// | `crudkit-web` | `Model` | `Serialize`, `DeserializeOwned`, `PartialEq`, accessor methods | Frontend with serialization |
+///
+/// All three share the same fundamental structure: a model type with an associated
+/// `Field` enum. The differences are in what additional capabilities each layer requires.
+///
+/// # Marker Traits for Model Roles
+///
+/// Models play different roles in CRUD operations. The backend defines marker traits
+/// in `crudkit-rs::data`:
+///
+/// - **`CreateModel`**: DTOs for creating new entities (typically lacks auto-generated fields like ID).
+/// - **`UpdateModel`**: DTOs for updating existing entities.
+/// - **`ReadModel`**: Entities returned from queries (must have ID, be serializable).
+///
+/// These marker traits bundle the required bounds for each role without adding new methods.
 pub trait Model: Clone + Debug + Send + Sync + 'static {
     /// The field enum type for this model.
     ///

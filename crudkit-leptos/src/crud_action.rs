@@ -2,7 +2,6 @@ use crate::prelude::*;
 use crudkit_web::prelude::*;
 use leptonic::prelude::icondata;
 use leptos::prelude::*;
-use std::borrow::Cow;
 use std::{fmt::Debug, rc::Rc};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -193,140 +192,9 @@ pub struct CrudActionAftermath {
 
 /// Used to model entity action such as "Open edit view", ...
 /// Currently not related with the CrudAction enum.
-///
-/// TODO: Should this be dyn compatible?
-/// TODO: Move methods to AnyAction!
 pub trait CrudActionTrait: Named + Debug + Send + Sync {
     fn icon(&self) -> Option<icondata::Icon>;
     fn eq(&self, other: &dyn CrudActionTrait) -> bool;
-}
-
-// TODO: Unused. Delete this?
-#[derive(PartialEq, Debug)]
-pub struct ShowListViewAction {
-    name: String,
-    icon: Option<icondata::Icon>,
-}
-
-impl Default for ShowListViewAction {
-    fn default() -> Self {
-        Self {
-            name: "List".to_owned(),
-            icon: Some(icondata::BsList),
-        }
-    }
-}
-
-impl Named for ShowListViewAction {
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Owned(self.name.clone())
-    }
-}
-
-impl CrudActionTrait for ShowListViewAction {
-    fn icon(&self) -> Option<icondata::Icon> {
-        self.icon
-    }
-
-    fn eq(&self, other: &dyn CrudActionTrait) -> bool {
-        self.icon() == other.icon() && self.name() == other.name()
-    }
-}
-
-// TODO: Unused. Delete this?
-#[derive(PartialEq, Debug)]
-pub struct ShowReadViewAction {
-    name: String,
-    icon: Option<icondata::Icon>,
-}
-
-impl Default for ShowReadViewAction {
-    fn default() -> Self {
-        Self {
-            name: "Read".to_owned(),
-            icon: Some(icondata::BsEye),
-        }
-    }
-}
-
-impl Named for ShowReadViewAction {
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Owned(self.name.clone())
-    }
-}
-
-impl CrudActionTrait for ShowReadViewAction {
-    fn icon(&self) -> Option<icondata::Icon> {
-        self.icon
-    }
-
-    fn eq(&self, other: &dyn CrudActionTrait) -> bool {
-        self.icon() == other.icon() && self.name() == other.name()
-    }
-}
-
-// TODO: Unused. Delete this?
-#[derive(PartialEq, Debug)]
-pub struct ShowEditViewAction {
-    name: String,
-    icon: Option<icondata::Icon>,
-}
-
-impl Default for ShowEditViewAction {
-    fn default() -> Self {
-        Self {
-            name: "Edit".to_owned(),
-            icon: Some(icondata::BsPencil),
-        }
-    }
-}
-
-impl Named for ShowEditViewAction {
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Owned(self.name.clone())
-    }
-}
-
-impl CrudActionTrait for ShowEditViewAction {
-    fn icon(&self) -> Option<icondata::Icon> {
-        self.icon
-    }
-
-    fn eq(&self, other: &dyn CrudActionTrait) -> bool {
-        self.icon() == other.icon() && self.name() == other.name()
-    }
-}
-
-// TODO: Unused. Delete this?
-#[derive(PartialEq, Debug)]
-pub struct DeleteAction {
-    name: String,
-    icon: Option<icondata::Icon>,
-}
-
-impl Default for DeleteAction {
-    fn default() -> Self {
-        Self {
-            name: "Delete".to_owned(),
-            icon: Some(icondata::BsTrash),
-        }
-    }
-}
-
-impl Named for DeleteAction {
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Owned(self.name.clone())
-    }
-}
-
-impl CrudActionTrait for DeleteAction {
-    fn icon(&self) -> Option<icondata::Icon> {
-        self.icon
-    }
-
-    fn eq(&self, other: &dyn CrudActionTrait) -> bool {
-        self.icon() == other.icon() && self.name() == other.name()
-    }
 }
 
 impl PartialEq for dyn CrudActionTrait + '_ {

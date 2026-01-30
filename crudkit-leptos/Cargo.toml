@@ -12,8 +12,8 @@ crudkit-web-macros = { path = "../crudkit-web-macros" }
 
 dyn-clone = "1.0.20"
 indexmap = { version = "2.12.1", features = ["serde"] }
-#leptonic = { path = "../../../../leptonic/leptonic", features = ["tiptap"] }
-leptonic = { version = "0.5.0", git = "https://github.com/lpotthast/leptonic", branch = "migrate-to-leptos-0.8", features = ["tiptap"] }
+leptonic = { path = "../../../leptonic/leptonic", features = ["tiptap"] }
+#leptonic = { version = "0.5.0", git = "https://github.com/lpotthast/leptonic", branch = "migrate-to-leptos-0.8", features = ["tiptap"] }
 leptos = "0.8.15"
 serde = { version = "1.0.228", features = ["derive"] }
 # TODO: Only required to handle TipTap content. Can we get rid of this?

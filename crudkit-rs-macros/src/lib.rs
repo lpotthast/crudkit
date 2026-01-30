@@ -57,8 +57,8 @@ pub fn derive_resource_context(input: TokenStream) -> TokenStream {
 ///
 /// ```ignore
 /// pub struct CreateModel { ... }
-/// impl crudkit_rs::data::CrudModel for CreateModel { type Field = Col; }
-/// impl crudkit_rs::data::CreateModelTrait for CreateModel {}
+/// impl crudkit_rs::data::Model for CreateModel { type Field = Col; }
+/// impl crudkit_rs::data::CreateModel for CreateModel {}
 /// ```
 ///
 /// # Field Attributes
