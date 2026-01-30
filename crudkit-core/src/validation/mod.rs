@@ -68,7 +68,7 @@ impl ViolationsByValidator {
     }
 
     pub fn has_violations(&self) -> bool {
-        for (_validator, violations) in &self.violations_by_validator {
+        for violations in self.violations_by_validator.values() {
             if !violations.is_empty() {
                 return true;
             }
@@ -77,7 +77,7 @@ impl ViolationsByValidator {
     }
 
     pub fn has_any_violations_of(&self, severity: Severity) -> bool {
-        for (_validator, violations) in &self.violations_by_validator {
+        for violations in self.violations_by_validator.values() {
             for violation in violations.iter() {
                 if violation.is_of_severity(severity) {
                     return true;
@@ -89,6 +89,12 @@ impl ViolationsByValidator {
 
     pub fn has_critical_violations(&self) -> bool {
         self.has_any_violations_of(Severity::Critical)
+    }
+}
+
+impl Default for ViolationsByValidator {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -113,8 +119,14 @@ impl<I: Id> ViolationsByEntity<I> {
     pub fn push(&mut self, entity_id: I, validator_info: OwnedValidatorInfo, violation: Violation) {
         self.map
             .entry(entity_id)
-            .or_insert_with(ViolationsByValidator::new)
+            .or_default()
             .push(validator_info, violation);
+    }
+}
+
+impl<I: Id> Default for ViolationsByEntity<I> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -140,6 +152,12 @@ impl<I: Id> ResourceViolations<I> {
     }
 }
 
+impl<I: Id> Default for ResourceViolations<I> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct ViolationsByResource {
     // Note: We have to use the type-erased SerializableId here, because each resource uses a
     // different type of ID.
@@ -151,6 +169,12 @@ impl ViolationsByResource {
         Self {
             map: HashMap::new(),
         }
+    }
+}
+
+impl Default for ViolationsByResource {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -252,8 +276,8 @@ impl PartialSerializableAggregateViolations {
 
     /// Returns true if there are no violations in any category.
     pub fn is_empty(&self) -> bool {
-        let general_empty = self.general.as_ref().map_or(true, |v| v.is_empty());
-        let create_empty = self.create.as_ref().map_or(true, |v| v.is_empty());
+        let general_empty = self.general.as_ref().is_none_or(|v| v.is_empty());
+        let create_empty = self.create.as_ref().is_none_or(|v| v.is_empty());
         let by_entity_empty =
             self.by_entity.is_empty() || self.by_entity.iter().all(|(_id, v)| v.is_empty());
         general_empty && create_empty && by_entity_empty

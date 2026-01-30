@@ -427,7 +427,12 @@ impl Value {
         Json, &serde_json::Value;
         Duration, &TimeDuration;
         Array, &Vec<Value>;
-        Other, &Box<dyn FieldValue>;
+    }
+
+    pub fn expect_other(&self) -> &dyn FieldValue {
+        self.as_other()
+            .expect("Value is not Other")
+            .as_ref()
     }
 
     // === Array utilities ===
