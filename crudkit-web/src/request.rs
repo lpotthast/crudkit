@@ -20,10 +20,13 @@ where
     // ASSUMPTION: The given url is complete, meaning nothing hast to be added to it to work!
     let allow_body = method == Method::POST || method == Method::PUT;
 
+    let parsed_url = reqwest::Url::parse(&url)
+        .map_err(|e| RequestError::BadRequest(format!("Invalid URL '{}': {}", url, e)))?;
+
     let result = executor
         .request(
             method,
-            reqwest::Url::parse(&url).unwrap(),
+            parsed_url,
             Arc::new(move |builder| {
                 if allow_body {
                     builder

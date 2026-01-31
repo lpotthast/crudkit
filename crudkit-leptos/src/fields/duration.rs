@@ -184,7 +184,7 @@ fn DurationInput(
             <div>
                 <Show
                   when=move || { last_error.get().is_some() }
-                  fallback=|| view! { }
+                  fallback=|| ()
                 >
                     { last_error.get().expect("present") }
                 </Show>

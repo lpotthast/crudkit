@@ -24,6 +24,7 @@ pub struct ReadMany<T: Model> {
 }
 
 impl<T: Model> ReadMany<T> {
+    #[allow(clippy::type_complexity)]
     pub fn paged(
         page: u64,
         items_per_page: u64,

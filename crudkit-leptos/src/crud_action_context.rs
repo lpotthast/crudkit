@@ -14,6 +14,12 @@ pub struct CrudActionContext {
     set_actions_executing: WriteSignal<Vec<&'static str>>,
 }
 
+impl Default for CrudActionContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CrudActionContext {
     pub fn new() -> Self {
         // Stores the actions for which execution was requested by the user.
@@ -44,7 +50,7 @@ impl CrudActionContext {
     }
 
     pub fn _is_action_requested_signal(&self) -> impl Fn(ActionId) -> Signal<bool> {
-        let actions_requested = self.actions_requested.clone();
+        let actions_requested = self.actions_requested;
         move |action_id: ActionId| {
             Signal::derive(move || actions_requested.get().iter().any(|it| it == &action_id))
         }
@@ -85,7 +91,7 @@ impl CrudActionContext {
         self.set_actions_executing
             .update(|actions| actions.push(action_id));
 
-        let this = self.clone();
+        let this = *self;
         let finish_handler = Callback::new(move |outcome| {
             tracing::debug!(?outcome, "action finished");
 
@@ -130,7 +136,7 @@ impl CrudActionContext {
         self.set_actions_executing
             .update(|actions| actions.push(action_id));
 
-        let this = self.clone();
+        let this = *self;
         let finish_handler = Callback::new(move |outcome| {
             tracing::debug!(?outcome, "action finished");
 

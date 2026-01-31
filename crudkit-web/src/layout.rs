@@ -2,18 +2,13 @@ use crate::model::{DynCreateField, DynUpdateField, ErasedCreateField, ErasedUpda
 use crate::{FieldOptions, Label, TabId};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Layout {
     Columns1,
+    #[default]
     Columns2,
     Columns3,
     Columns4,
-}
-
-impl Default for Layout {
-    fn default() -> Self {
-        Self::Columns2
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

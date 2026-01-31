@@ -39,7 +39,7 @@ pub fn CrudPrimitiveDateTimeField(
             DateTimeDisplay::LocalizedLocal => {
                 move || match value.get() {
                     // TODO: Use icu4x formatting using the current users locale!
-                    Some(dt) => view! { {dt.format(format_description!("[day].[month].[year] [hour]:[minute]")).unwrap()} }.into_any(),
+                    Some(dt) => view! { {dt.format(format_description!("[day].[month].[year] [hour]:[minute]")).expect("infallible with valid format")} }.into_any(),
                     None => view! { "-" }.into_any(),
                 }
             }

@@ -58,7 +58,7 @@ pub fn CrudTable(
                     read_allowed=read_allowed
                     edit_allowed=edit_allowed
                     delete_allowed=delete_allowed
-                    additional_item_actions=Signal::derive(move || vec![])
+                    additional_item_actions=Signal::derive(Vec::new)
                 />
 
                 <CrudTableFooter/>

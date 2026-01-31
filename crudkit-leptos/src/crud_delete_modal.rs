@@ -51,10 +51,7 @@ pub fn CrudDeleteModal(
                                 <Button
                                     color=ButtonColor::Danger
                                     on_press=move |_| {
-                                        match entity.get() {
-                                            Some(model) => on_accept.run(model),
-                                            None => {}
-                                        }
+                                        if let Some(model) = entity.get() { on_accept.run(model) }
                                     }
                                 >
                                     "Löschen"

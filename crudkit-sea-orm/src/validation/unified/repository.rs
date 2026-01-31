@@ -17,9 +17,7 @@ use crudkit_core::id::{Id, SerializableId};
 use crudkit_core::resource::ResourceName;
 use crudkit_core::validation::validator::ValidatorInfo;
 use crudkit_core::validation::violation::{Violation, Violations};
-use crudkit_core::validation::{
-    ResourceViolations, ViolationsByEntity, ViolationsByResource, ViolationsByValidator,
-};
+use crudkit_core::validation::{ViolationsByEntity, ViolationsByResource};
 use crudkit_rs::repository::{RepositoryError, ValidationResultRepository};
 
 /// Errors that can occur when working with the validation repository.
@@ -164,11 +162,11 @@ impl UnifiedValidationRepository {
 
             all.map
                 .entry(aggregate_name)
-                .or_insert_with(ResourceViolations::new)
+                .or_default()
                 .by_entity
                 .map
                 .entry(entity_id)
-                .or_insert_with(ViolationsByValidator::new)
+                .or_default()
                 .push(validator_info, violation);
         }
 

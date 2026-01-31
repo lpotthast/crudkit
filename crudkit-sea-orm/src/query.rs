@@ -225,10 +225,8 @@ fn add_condition_from_value<C: ColumnTrait>(
                 );
             }
             // Convert each element to sea_orm::Value and use is_in.
-            let sea_values: Vec<sea_orm::Value> = values
-                .into_iter()
-                .map(|v| value_to_sea_orm_value(v))
-                .collect();
+            let sea_values: Vec<sea_orm::Value> =
+                values.into_iter().map(value_to_sea_orm_value).collect();
             tree.add(col.is_in(sea_values))
         }
 
@@ -287,4 +285,3 @@ fn value_to_sea_orm_value(value: Value) -> sea_orm::Value {
         Value::Other(_) => panic!("Other values are not supported in conditions"),
     }
 }
-

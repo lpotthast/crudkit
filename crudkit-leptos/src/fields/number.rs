@@ -7,6 +7,7 @@ use leptos::prelude::*;
 use std::sync::Arc;
 
 /// Helper function to render a numeric field.
+#[allow(clippy::too_many_arguments)]
 fn render_number_field<T, ToF64, IntoValue, IntoOptValue>(
     id: String,
     field_options: FieldOptions,

@@ -89,7 +89,7 @@ pub fn CrudJsonField(
                                         TiptapContent::Html(content) => serde_json::from_str(&content),
                                         TiptapContent::Json(content) => serde_json::from_str(&content),
                                     }
-                                        .map(|json_value| Value::Json(json_value))
+                                        .map(Value::Json)
                                         .map_err(|err| Arc::new(err) as Arc<dyn std::error::Error>)
                                 );
                             }}
@@ -113,7 +113,7 @@ pub fn CrudJsonField(
                             TiptapContent::Html(content) => serde_json::from_str(&content),
                             TiptapContent::Json(content) => serde_json::from_str(&content),
                         }
-                            .map(|json_value| Value::Json(json_value))
+                            .map(Value::Json)
                             .map_err(|err| Arc::new(err) as Arc<dyn std::error::Error>)
                     );
                 }

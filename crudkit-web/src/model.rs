@@ -220,7 +220,7 @@ pub trait TypeErasedField:
 macro_rules! impl_dyn_field {
     ($dyn_ty:tt, $erased_ty:tt, $dyn_model_ty:tt) => {
         /// Any field. Usable in collections.
-        #[derive(Debug, Clone, Eq, Hash, serde::Serialize, serde::Deserialize)]
+        #[derive(Debug, Clone, Eq, serde::Serialize, serde::Deserialize)]
         pub struct $dyn_ty {
             inner: Arc<dyn $erased_ty>,
         }
@@ -228,6 +228,12 @@ macro_rules! impl_dyn_field {
         impl PartialEq for $dyn_ty {
             fn eq(&self, other: &Self) -> bool {
                 self.inner.dyn_eq(DynEq::as_any(&other.inner))
+            }
+        }
+
+        impl std::hash::Hash for $dyn_ty {
+            fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                self.inner.dyn_hash(state);
             }
         }
 
@@ -288,7 +294,7 @@ pub trait SerializeAsKey: Send + Sync {
 }
 
 // TODO: This only exists for DynReadField. Why? Should we abstract?
-#[derive(Debug, Eq, Hash)]
+#[derive(Debug, Eq)]
 pub struct SerializableReadField {
     field: DynReadField,
 }
@@ -296,6 +302,12 @@ pub struct SerializableReadField {
 impl PartialEq for SerializableReadField {
     fn eq(&self, other: &Self) -> bool {
         self.field.dyn_eq(DynEq::as_any(&other.field))
+    }
+}
+
+impl std::hash::Hash for SerializableReadField {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.field.hash(state);
     }
 }
 

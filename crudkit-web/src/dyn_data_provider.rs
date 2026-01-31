@@ -123,17 +123,18 @@ impl DynCrudRestDataProvider {
         struct CreateOneDto {
             entity: serde_json::Value,
         }
+
+        let entity =
+            serialize_any_as_json_value_omitting_type_information(&create_one.entity.inner)
+                .map_err(|e| RequestError::BadRequest(format!("Serialization failed: {e}")))?;
+
         post_json(
             format!(
                 "{}/{}/crud/create-one",
                 self.api_base_url, self.resource_name
             ),
             self.executor.as_ref(),
-            CreateOneDto {
-                entity: serialize_any_as_json_value_omitting_type_information(
-                    &create_one.entity.inner,
-                ),
-            },
+            CreateOneDto { entity },
         )
         .await
     }
@@ -148,6 +149,10 @@ impl DynCrudRestDataProvider {
             condition: Option<Condition>,
         }
 
+        let entity =
+            serialize_any_as_json_value_omitting_type_information(&update_one.entity.inner)
+                .map_err(|e| RequestError::BadRequest(format!("Serialization failed: {e}")))?;
+
         update_one.condition = merge_conditions(self.base_condition.clone(), update_one.condition);
         post_json(
             format!(
@@ -156,9 +161,7 @@ impl DynCrudRestDataProvider {
             ),
             self.executor.as_ref(),
             UpdateOneDto {
-                entity: serialize_any_as_json_value_omitting_type_information(
-                    &update_one.entity.inner,
-                ),
+                entity,
                 condition: update_one.condition,
             },
         )
@@ -200,29 +203,42 @@ impl DynCrudRestDataProvider {
 // Serialization helpers for type-erased models
 
 #[allow(dead_code)]
-pub(crate) fn serialize_any_as_json(data: &(impl erased_serde::Serialize + Debug)) -> String {
+pub(crate) fn serialize_any_as_json(
+    data: &(impl erased_serde::Serialize + Debug),
+) -> Result<String, erased_serde::Error> {
     let mut buf = Vec::new();
     let json = &mut serde_json::Serializer::new(&mut buf);
     let mut json_format = Box::new(<dyn erased_serde::Serializer>::erase(json));
-    data.erased_serialize(&mut json_format).unwrap();
+    data.erased_serialize(&mut json_format)?;
     drop(json_format);
-    String::from_utf8_lossy(buf.as_slice()).to_string()
+    Ok(String::from_utf8_lossy(buf.as_slice()).to_string())
 }
 
 pub(crate) fn serialize_any_as_json_value_omitting_type_information(
     data: &(impl erased_serde::Serialize + Debug),
-) -> serde_json::Value {
-    let value: serde_json::Value =
-        erased_serde::serialize(data, serde_json::value::Serializer).unwrap();
-    assert!(value.is_object());
+) -> Result<serde_json::Value, String> {
+    let value: serde_json::Value = erased_serde::serialize(data, serde_json::value::Serializer)
+        .map_err(|e| format!("Failed to serialize data: {e}"))?;
+
     match value {
-        serde_json::Value::Object(object) => {
-            assert_eq!(object.len(), 1);
-            object
-                .into_values()
-                .next()
-                .expect("real data to be present")
-        }
-        _ => unreachable!(),
+        serde_json::Value::Object(object) if object.len() == 1 => object
+            .into_values()
+            .next()
+            .ok_or_else(|| "Expected single value in object but found none".to_string()),
+        serde_json::Value::Object(object) => Err(format!(
+            "Expected object with exactly 1 field, found {} fields",
+            object.len()
+        )),
+        other => Err(format!(
+            "Expected JSON object, found {}",
+            match other {
+                serde_json::Value::Null => "null",
+                serde_json::Value::Bool(_) => "boolean",
+                serde_json::Value::Number(_) => "number",
+                serde_json::Value::String(_) => "string",
+                serde_json::Value::Array(_) => "array",
+                serde_json::Value::Object(_) => unreachable!(),
+            }
+        )),
     }
 }

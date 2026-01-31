@@ -119,7 +119,7 @@ pub fn CrudListView(
                     let original = instance_ctx.order_by.get();
                     let mut new = IndexMap::new();
                     for (field, order) in original {
-                        new.insert(SerializableReadField::from(field), order.clone());
+                        new.insert(SerializableReadField::from(field), order);
                     }
                     new
                 }),
@@ -163,17 +163,19 @@ pub fn CrudListView(
     let list_view_context = CrudListViewContext {
         data: page,
         has_data: Signal::derive(move || {
-            let data = page.read();
-            data.is_ok() && data.as_ref().unwrap().len() > 0
+            page.read()
+                .as_ref()
+                .ok()
+                .is_some_and(|data| !data.is_empty())
         }),
         selected,
         set_selected,
         all_selected: Signal::derive(move || {
-            let data = page.read();
             let selected = selected.get();
-            data.is_ok() // TODO: Performance, memo?
-                && selected.len() == data.as_ref().unwrap().len()
-                && data.as_ref().unwrap().len() > 0
+            page.read()
+                .as_ref()
+                .ok()
+                .is_some_and(|data| !data.is_empty() && selected.len() == data.len())
         }),
     };
     provide_context(list_view_context);
@@ -218,7 +220,7 @@ pub fn CrudListView(
             read_allowed=read_allowed
             edit_allowed=edit_allowed
             delete_allowed=delete_allowed
-            additional_item_actions=Signal::derive(move || vec![])
+            additional_item_actions=Signal::derive(Vec::new)
         />
 
         {multiselect_info}
@@ -239,7 +241,7 @@ pub fn CrudListView(
             Some(Err(reason)) => {
                 view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }.into_any()
             },
-            None => view! {}.into_any(),
+            None => ().into_any(),
         }}
     }
 }

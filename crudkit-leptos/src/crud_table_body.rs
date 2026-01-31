@@ -52,8 +52,7 @@ pub fn CrudTableBody(
                     .selected
                     .get()
                     .iter()
-                    .find(|it| *it == stored_entity)
-                    .is_some()
+                    .any(|it| it == stored_entity)
             })
         });
         let toggle_selected = move || list_ctx.toggle_entity_selection(stored_entity.get());
@@ -104,7 +103,7 @@ pub fn CrudTableBody(
                                     field_mode=FieldMode::Display
                                     signals=signals
                                     value=reactive_value
-                                    value_changed=dummy_value_changed_callback.clone()
+                                    value_changed=dummy_value_changed_callback
                                 />
                             </TableCell>
                         }

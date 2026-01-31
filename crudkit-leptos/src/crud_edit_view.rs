@@ -64,11 +64,15 @@ pub fn CrudEditView(
     // TODO: Do not use LocalResouce, allow loading on server.
     let entity_resource = LocalResource::new(move || async move {
         let _ = instance_ctx.reload.get();
-        let equals_id_condition = id
-            .get()
-            .into_entries()
-            .try_into_all_equal_condition()
-            .unwrap();
+        let equals_id_condition = match id.get().into_entries().try_into_all_equal_condition() {
+            Ok(condition) => condition,
+            Err(e) => {
+                return Err(RequestError::BadRequest(format!(
+                    "ID contains unsupported field types: {:?}",
+                    e
+                )));
+            }
+        };
         data_provider
             .read()
             .read_one(DynReadOne {
@@ -131,9 +135,7 @@ pub fn CrudEditView(
 
                         Ok(update_model)
                     }
-                    None => Err(NoDataAvailable::RequestReturnedNoData(format!(
-                        "Eintrag existiert nicht."
-                    ))),
+                    None => Err(NoDataAvailable::RequestReturnedNoData("Eintrag existiert nicht.".to_string())),
                 },
                 Err(request_error) => Err(NoDataAvailable::RequestFailed(request_error)),
             },
@@ -165,8 +167,20 @@ pub fn CrudEditView(
 
     let save_action = Action::new_local(move |(entity, and_then): &(DynUpdateModel, Then)| {
         let entity: DynUpdateModel = entity.clone();
-        let and_then = and_then.clone();
+        let and_then = *and_then;
         async move {
+            let id_condition = match id.get().0.into_iter().try_into_all_equal_condition() {
+                Ok(condition) => condition,
+                Err(e) => {
+                    return (
+                        Err(RequestError::BadRequest(format!(
+                            "ID contains unsupported field types: {:?}",
+                            e
+                        ))),
+                        and_then,
+                    );
+                }
+            };
             (
                 data_provider
                     .read()
@@ -174,13 +188,7 @@ pub fn CrudEditView(
                         entity: entity.clone(),
                         condition: merge_conditions(
                             instance_ctx.base_condition.get(),
-                            Some(
-                                id.get()
-                                    .0
-                                    .into_iter()
-                                    .try_into_all_equal_condition()
-                                    .unwrap(),
-                            ),
+                            Some(id_condition),
                         ),
                     })
                     .await
@@ -228,18 +236,32 @@ pub fn CrudEditView(
         }
     });
 
-    let trigger_save = move || save_action.dispatch((input.get().unwrap(), Then::DoNothing));
+    let trigger_save = move || {
+        // Button is disabled when input is None, so this guard is defensive.
+        if let Some(entity) = input.get() {
+            save_action.dispatch((entity, Then::DoNothing));
+        }
+    };
 
-    let trigger_save_and_return =
-        move || save_action.dispatch((input.get().unwrap(), Then::OpenListView));
+    let trigger_save_and_return = move || {
+        // Button is disabled when input is None, so this guard is defensive.
+        if let Some(entity) = input.get() {
+            save_action.dispatch((entity, Then::OpenListView));
+        }
+    };
 
-    let trigger_save_and_new =
-        move || save_action.dispatch((input.get().unwrap(), Then::OpenCreateView));
+    let trigger_save_and_new = move || {
+        // Button is disabled when input is None, so this guard is defensive.
+        if let Some(entity) = input.get() {
+            save_action.dispatch((entity, Then::OpenCreateView));
+        }
+    };
 
     let trigger_delete = move || {
-        instance_ctx.request_deletion_of(DynReadOrUpdateModel::Update(
-            input.get().expect("Entity to be already loaded"),
-        ));
+        // Button is disabled when input is None, so this guard is defensive.
+        if let Some(entity) = input.get() {
+            instance_ctx.request_deletion_of(DynReadOrUpdateModel::Update(entity));
+        }
     };
 
     let action_ctx = CrudActionContext::new();
@@ -249,10 +271,7 @@ pub fn CrudEditView(
             //tracing::debug!(?field, ?result, "value changed");
             match result {
                 Ok(value) => {
-                    set_input.update(|input| match input {
-                        Some(input) => field.set_value(input, value.clone()),
-                        None => {}
-                    });
+                    set_input.update(|input| if let Some(input) = input { field.set_value(input, value.clone()) });
                     set_input_errors.update(|errors| {
                         errors.remove(&field);
                     });
@@ -332,8 +351,8 @@ pub fn CrudEditView(
                         elements=elements
                         signals=signals
                         mode=FieldMode::Editable
-                        value_changed=value_changed.clone()
-                        on_tab_selection=on_tab_selected.clone()
+                        value_changed=value_changed
+                        on_tab_selection=on_tab_selected
                     />
                 }.into_any()
             }

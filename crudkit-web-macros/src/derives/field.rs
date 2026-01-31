@@ -192,10 +192,10 @@ fn generate_get_value_expr(field_ident: &Ident, classified: ClassifiedType) -> T
         }
 
         // Types that need cloning.
-        let needs_clone = match classified.kind {
-            String | PrimitiveDateTime | OffsetDateTime | Duration | Uuid => true,
-            _ => false,
-        };
+        let needs_clone = matches!(
+            classified.kind,
+            String | PrimitiveDateTime | OffsetDateTime | Duration | Uuid
+        );
 
         return if needs_clone {
             quote! {
@@ -222,10 +222,10 @@ fn generate_get_value_expr(field_ident: &Ident, classified: ClassifiedType) -> T
     }
 
     // Types that need cloning (non-Copy types).
-    let needs_clone = match classified.kind {
-        String | PrimitiveDateTime | OffsetDateTime | Duration | Uuid => true,
-        _ => false,
-    };
+    let needs_clone = matches!(
+        classified.kind,
+        String | PrimitiveDateTime | OffsetDateTime | Duration | Uuid
+    );
 
     if needs_clone {
         quote! { crudkit_core::Value::#value_variant_ident(entity.#field_ident.clone()) }
@@ -417,9 +417,10 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
         },
     };
 
-    let model_type_based_model_trait_impl = input_receiver.model.gen_erased_model_impl(&name);
-    let model_type_based_field_trait_impl =
-        input_receiver.model.gen_erased_field_impl(&field_name, &name);
+    let model_type_based_model_trait_impl = input_receiver.model.gen_erased_model_impl(name);
+    let model_type_based_field_trait_impl = input_receiver
+        .model
+        .gen_erased_field_impl(&field_name, name);
 
     // Generate CrudFieldValueTrait implementation.
     let get_field_value_arms = input_receiver

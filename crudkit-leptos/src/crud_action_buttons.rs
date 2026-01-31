@@ -18,7 +18,7 @@ pub fn CrudActionButtons(
             each=move || actions.get()
             key=|action| action.id
             children=move |CrudEntityAction { id, name, icon, button_color, valid_in, action, view }| {
-                let action_clone = action.clone();
+                let action_clone = action;
                 valid_in
                     .contains(&required_state)
                     .then(|| {
@@ -36,15 +36,17 @@ pub fn CrudActionButtons(
                                 {view_generator
                                     .run(EntityActionViewInput {
                                         show_when: Signal::derive(move || { action_ctx.is_action_requested(id) }),
-                                        state: input.into(),
+                                        state: input,
                                         cancel: Callback::new(move |_| { action_ctx.cancel_action(id) }),
                                         execute: Callback::new(move |action_payload| {
+                                            // Guard against None; button should be disabled when input is None.
+                                            let Some(model) = input.get() else { return };
                                             action_ctx
                                                 .trigger_entity_action(
                                                     id,
-                                                    input.get().unwrap(),
+                                                    model,
                                                     action_payload,
-                                                    action.clone(),
+                                                    action,
                                                     instance_ctx,
                                                 )
                                         }),
@@ -57,12 +59,14 @@ pub fn CrudActionButtons(
                                     color=button_color
                                     disabled=Signal::derive(move || { action_ctx.is_action_executing(id) })
                                     on_press=move |_| {
+                                        // Guard against None; button should be disabled when input is None.
+                                        let Some(model) = input.get() else { return };
                                         action_ctx
                                             .trigger_entity_action(
                                                 id,
-                                                input.get().unwrap(),
+                                                model,
                                                 None,
-                                                action_clone.clone(),
+                                                action_clone,
                                                 instance_ctx,
                                             )
                                     }

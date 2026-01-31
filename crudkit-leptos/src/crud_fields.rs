@@ -30,7 +30,7 @@ pub fn CrudFields<F: TypeErasedField>(
                                     field_renderer_registry=field_renderer_registry
                                     elements=group.children.clone()
                                     signals=signals
-                                    mode=mode.clone()
+                                    mode=mode
                                     value_changed=value_changed
                                     on_tab_selection=on_tab_selection
                                 />
@@ -55,7 +55,7 @@ pub fn CrudFields<F: TypeErasedField>(
                                                         field_renderer_registry=field_renderer_registry
                                                         elements=tab.group.children.clone()
                                                         signals=signals
-                                                        mode=mode.clone()
+                                                        mode=mode
                                                         value_changed=value_changed
                                                         on_tab_selection=on_tab_selection
                                                     />
@@ -72,7 +72,7 @@ pub fn CrudFields<F: TypeErasedField>(
                                         field_renderer_registry=field_renderer_registry
                                         elements=group.children.clone()
                                         signals=signals
-                                        mode=mode.clone()
+                                        mode=mode
                                         value_changed=value_changed
                                         on_tab_selection=on_tab_selection
                                     />
@@ -86,7 +86,7 @@ pub fn CrudFields<F: TypeErasedField>(
                             field_renderer_registry=field_renderer_registry
                             field=field.clone()
                             field_options=field_options.clone()
-                            field_mode=mode.clone()
+                            field_mode=mode
                             signals=signals
                             value=signals.with_value(|map| {
                                 match map.get(&field) {

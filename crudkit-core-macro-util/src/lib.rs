@@ -246,10 +246,10 @@ pub fn strip_option_path(path: &syn::Path) -> Option<&syn::Type> {
     match &last_segment.arguments {
         syn::PathArguments::AngleBracketed(args) => {
             // Option has exactly one type argument.
-            if args.args.len() == 1 {
-                if let syn::GenericArgument::Type(inner_ty) = args.args.first()? {
-                    return Some(inner_ty);
-                }
+            if args.args.len() == 1
+                && let syn::GenericArgument::Type(inner_ty) = args.args.first()?
+            {
+                return Some(inner_ty);
             }
             None
         }

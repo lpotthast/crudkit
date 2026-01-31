@@ -155,7 +155,7 @@ impl IntoResponse for AxumCrudError {
 ///
 /// - [`AuthRequirement::None`]: No authentication required for the operation (public access).
 /// - [`AuthRequirement::Authenticated`]: Authentication required, state must be present
-///  (automatic 401 response if `axum` `Extension` for that state is missing).
+///   (automatic 401 response if `axum` `Extension` for that state is missing).
 ///
 /// For fine-grained authorization logic (role-based access, ownership verification), implement
 /// checks in your [`CrudLifetime`] hooks.

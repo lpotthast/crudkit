@@ -118,7 +118,7 @@ pub fn CrudCreateView(
     let save_action =
         Action::new_local(move |(create_model, and_then): &(DynCreateModel, Then)| {
             let create_model = create_model.clone();
-            let and_then = and_then.clone();
+            let and_then = *and_then;
             let data_provider = data_provider.get(); // TODO: This does not track!!
             async move {
                 (

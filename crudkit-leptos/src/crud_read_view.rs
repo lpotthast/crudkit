@@ -37,11 +37,15 @@ pub fn CrudReadView(
 
     let entity_resource = LocalResource::new(move || async move {
         let _ = instance_ctx.reload.get();
-        let equals_id_condition = id
-            .get()
-            .into_entries()
-            .try_into_all_equal_condition()
-            .unwrap();
+        let equals_id_condition = match id.get().into_entries().try_into_all_equal_condition() {
+            Ok(condition) => condition,
+            Err(e) => {
+                return Err(RequestError::BadRequest(format!(
+                    "ID contains unsupported field types: {:?}",
+                    e
+                )));
+            }
+        };
         data_provider
             .read()
             .read_one(DynReadOne {
@@ -101,9 +105,7 @@ pub fn CrudReadView(
 
                         Ok(RwSignal::new(update_model).read_only())
                     }
-                    None => Err(NoDataAvailable::RequestReturnedNoData(format!(
-                        "Eintrag existiert nicht."
-                    ))),
+                    None => Err(NoDataAvailable::RequestReturnedNoData("Eintrag existiert nicht.".to_string())),
                 },
                 Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
             },
@@ -126,10 +128,10 @@ pub fn CrudReadView(
     view! {
         {move || match (entity.get(), signals.get()) {
             (Ok(_entity), signals) => {
-                let on_list_view = on_list_view.clone();
+                let on_list_view = on_list_view;
                 view! {
                     {move || {
-                        let on_list_view = on_list_view.clone();
+                        let on_list_view = on_list_view;
                         view! {
                             <Grid gap=Size::Em(0.6) attr:class="crud-nav">
                                 <Row>
@@ -162,13 +164,13 @@ pub fn CrudReadView(
                         elements=elements
                         signals=signals
                         mode=FieldMode::Readable
-                        value_changed=value_changed.clone()
-                        on_tab_selection=on_tab_selected.clone()
+                        value_changed=value_changed
+                        on_tab_selection=on_tab_selected
                     />
                 }.into_any()
             }
             (Err(no_data), _) => {
-                let on_list_view = on_list_view.clone();
+                let on_list_view = on_list_view;
                 view! {
                     <Grid gap=Size::Em(0.6) attr:class="crud-nav">
                         <Row>

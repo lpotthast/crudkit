@@ -36,6 +36,7 @@ pub mod validation_status;
 
 #[derive(Debug, Clone)]
 pub struct FieldRenderer<F: TypeErasedField> {
+    #[allow(clippy::type_complexity)]
     pub(crate) view_cb: ViewCallback<(
         StoredValue<HashMap<F, ReactiveField>>,              // signals
         F,                                                   // field (for metadata access)
@@ -108,9 +109,7 @@ impl<F: TypeErasedField> FieldRenderer<F> {
 
     pub fn for_void() -> FieldRenderer<F> {
         FieldRenderer::new(
-            move |_signals, _field, _field_mode, _field_options, _value, _value_changed| {
-                view! {}
-            },
+            move |_signals, _field, _field_mode, _field_options, _value, _value_changed| (),
         )
     }
 

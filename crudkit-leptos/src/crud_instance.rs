@@ -209,9 +209,9 @@ pub fn CrudInstance(
 
     let static_config = StoredValue::new(static_config);
 
-    let (api_base_url, set_api_base_url) = signal(config.api_base_url.clone());
+    let (api_base_url, _set_api_base_url) = signal(config.api_base_url.clone());
     let (view, set_view) = signal(config.view.clone());
-    let serializable_view = Memo::<SerializableCrudView>::new(move |_| view.get().into()); // TODO: remove this. now irrelevant
+    let serializable_view = Memo::<SerializableCrudView>::new(move |_| view.get()); // TODO: remove this. now irrelevant
 
     let mgr = expect_context::<CrudInstanceMgrContext>();
     mgr.register(
@@ -223,8 +223,8 @@ pub fn CrudInstance(
     );
 
     let (headers, _set_headers) = signal(config.headers.clone());
-    let (current_page, set_current_page) = signal(config.page.clone());
-    let (items_per_page, set_items_per_page) = signal(config.items_per_page.clone());
+    let (current_page, set_current_page) = signal(config.page);
+    let (items_per_page, set_items_per_page) = signal(config.items_per_page);
     let (order_by, set_order_by) = signal(config.order_by.clone());
 
     let parent = StoredValue::new(parent);
@@ -232,26 +232,42 @@ pub fn CrudInstance(
         parent
             .read_value()
             .as_ref()
-            .and_then(|parent| get_parent_id(&parent, mgr))
+            .and_then(|parent| get_parent_id(parent, mgr))
     });
     let parent_id_referencing_condition = Signal::derive(move || {
         parent
             .read_value()
             .as_ref()
-            .and_then(|parent| get_parent_id(&parent, mgr).map(|id| (parent, id)))
-            .map(|(parent, id)| {
-                let SerializableIdEntry {
+            .and_then(|parent| get_parent_id(parent, mgr).map(|id| (parent, id)))
+            .and_then(|(parent, id)| {
+                let entry = id
+                    .into_entries()
+                    .find(|entry| entry.field_name == parent.referenced_field);
+
+                let Some(SerializableIdEntry {
                     field_name: _,
                     value,
-                } = id
-                    .into_entries()
-                    .find(|entry| entry.field_name == parent.referenced_field)
-                    .expect("referenced field to be an ID field.");
-                Condition::All(vec![ConditionElement::Clause(ConditionClause {
-                    column_name: parent.referencing_field.to_string(),
-                    operator: crudkit_core::condition::Operator::Equal,
-                    value: value.clone().try_into().unwrap(),
-                })])
+                }) = entry
+                else {
+                    tracing::warn!(
+                        referenced_field = %parent.referenced_field,
+                        "Referenced field not found in parent ID"
+                    );
+                    return None;
+                };
+
+                let Ok(clause_value) = value.clone().try_into() else {
+                    tracing::warn!("Parent ID value not convertible to condition clause value");
+                    return None;
+                };
+
+                Some(Condition::All(vec![ConditionElement::Clause(
+                    ConditionClause {
+                        column_name: parent.referencing_field.to_string(),
+                        operator: crudkit_core::condition::Operator::Equal,
+                        value: clause_value,
+                    },
+                )]))
             })
     });
     let base_condition = config.base_condition.clone();
@@ -460,13 +476,13 @@ pub fn CrudInstance(
                 }}
                 <CrudDeleteModal
                     entity=deletion_request
-                    on_cancel=on_cancel_delete.clone()
-                    on_accept=on_accept_delete.clone()
+                    on_cancel=on_cancel_delete
+                    on_accept=on_accept_delete
                 />
                 <CrudDeleteManyModal
                     entities=mass_deletion_request
-                    on_cancel=on_cancel_delete_many.clone()
-                    on_accept=on_accept_delete_many.clone()
+                    on_cancel=on_cancel_delete_many
+                    on_accept=on_accept_delete_many
                 />
             </div>
         </div>
@@ -474,14 +490,10 @@ pub fn CrudInstance(
 }
 
 fn get_parent_id(parent: &CrudParentConfig, mgr: CrudInstanceMgrContext) -> Option<SerializableId> {
-    let parent_state = mgr
-        .instances
-        // Must be an untracked access!
-        // Otherwise, at instance nesting depth 3, rendering the instance and registering it would
-        // case instance at depth 2 to register this change here and force a field-rerender.
-        .read_untracked()
-        .get_by_name(parent.name)
-        .expect("parent to be managed");
+    // Uses untracked access via StoredValue::read_value() internally.
+    // Otherwise, at instance nesting depth 3, rendering the instance and registering it would
+    // cause instance at depth 2 to register this change here and force a field-rerender.
+    let parent_state = mgr.get_by_name(parent.name)?;
     match parent_state.view.get_untracked() {
         SerializableCrudView::List => None,
         SerializableCrudView::Create => None,
