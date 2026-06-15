@@ -58,10 +58,10 @@ pub trait SeaOrmResource: CrudResource {
 
     /// The SeaORM entity for the read view.
     type ReadViewEntity: EntityTrait<
-        Model = Self::ReadViewSeaOrmModel,
-        Column = Self::ReadViewColumn,
-        PrimaryKey = Self::ReadViewPrimaryKey,
-    >;
+            Model = Self::ReadViewSeaOrmModel,
+            Column = Self::ReadViewColumn,
+            PrimaryKey = Self::ReadViewPrimaryKey,
+        >;
 
     /// The SeaORM model for the read view.
     type ReadViewSeaOrmModel: ModelTrait<Entity = Self::ReadViewEntity>
@@ -73,7 +73,10 @@ pub trait SeaOrmResource: CrudResource {
         + 'static;
 
     /// The SeaORM active model for the read view.
-    type ReadViewActiveModel: ActiveModelTrait<Entity = Self::ReadViewEntity> + Send + Sync + 'static;
+    type ReadViewActiveModel: ActiveModelTrait<Entity = Self::ReadViewEntity>
+        + Send
+        + Sync
+        + 'static;
 
     /// The SeaORM column enum for the read view.
     type ReadViewColumn: ColumnTrait + Send + Sync + 'static;

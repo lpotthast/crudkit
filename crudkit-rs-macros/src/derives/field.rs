@@ -1,12 +1,14 @@
 //! Implementation of the `CkField` derive macro.
 
-use crudkit_core_macro_util::{classify_base_type, path_to_string, strip_option_path, ValueKindExt};
+use crudkit_core_macro_util::{
+    ValueKindExt, classify_base_type, path_to_string, strip_option_path,
+};
 use darling::*;
-use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error::abort;
 use proc_macro_type_name::ToTypeName;
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote};
-use syn::{spanned::Spanned, DeriveInput};
+use syn::{DeriveInput, spanned::Spanned};
 
 #[derive(Debug, FromField)]
 #[darling(attributes(ck_field))]

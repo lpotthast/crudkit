@@ -59,7 +59,8 @@ pub fn expand_derive_sea_orm_create_model(input: DeriveInput) -> syn::Result<Tok
 
     let struct_def = output.struct_def;
     let trait_impls = output.trait_impls;
-    let sea_orm_impl = generate_sea_orm_create_model_impl(&output.create_model_name, &output.fields);
+    let sea_orm_impl =
+        generate_sea_orm_create_model_impl(&output.create_model_name, &output.fields);
 
     Ok(quote! {
         #struct_def

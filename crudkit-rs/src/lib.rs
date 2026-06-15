@@ -63,8 +63,8 @@ pub mod prelude {
     pub use crudkit_core::validation as crudkit_validation;
 
     // Derive macros that remain in crudkit-rs (storage-agnostic).
-    pub use crudkit_rs_macros::CkResourceContext;
     pub use crudkit_core_macros::CkId;
+    pub use crudkit_rs_macros::CkResourceContext;
 
     // Authentication and authorization.
     pub use super::auth::Auth;
@@ -126,18 +126,18 @@ pub mod prelude {
     pub use super::create::create_one;
     // CRUD operations.
     pub use super::create::CreateOne;
-    pub use super::delete::delete_by_id;
-    pub use super::delete::delete_many;
-    pub use super::delete::delete_one;
     pub use super::delete::DeleteById;
     pub use super::delete::DeleteMany;
     pub use super::delete::DeleteOne;
-    pub use super::read::read_count;
-    pub use super::read::read_many;
-    pub use super::read::read_one;
+    pub use super::delete::delete_by_id;
+    pub use super::delete::delete_many;
+    pub use super::delete::delete_one;
     pub use super::read::ReadCount;
     pub use super::read::ReadMany;
     pub use super::read::ReadOne;
-    pub use super::update::update_one;
+    pub use super::read::read_count;
+    pub use super::read::read_many;
+    pub use super::read::read_one;
     pub use super::update::UpdateOne;
+    pub use super::update::update_one;
 }

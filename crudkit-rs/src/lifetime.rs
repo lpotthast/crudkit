@@ -2,8 +2,8 @@
 //!
 //! Hooks allow custom logic to run before and after create, read, update, and delete operations.
 
-use crudkit_core::condition::Condition;
 use crudkit_core::Order;
+use crudkit_core::condition::Condition;
 use indexmap::IndexMap;
 use snafu::Snafu;
 use std::fmt::Debug;

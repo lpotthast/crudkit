@@ -35,8 +35,8 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 use std::hash::Hash;
 use time::format_description::well_known::Rfc3339;
-use utoipa::openapi::Type;
 use utoipa::ToSchema;
+use utoipa::openapi::Type;
 
 // ============================================================================
 // Model traits
@@ -430,9 +430,7 @@ impl Value {
     }
 
     pub fn expect_other(&self) -> &dyn FieldValue {
-        self.as_other()
-            .expect("Value is not Other")
-            .as_ref()
+        self.as_other().expect("Value is not Other").as_ref()
     }
 
     // === Array utilities ===

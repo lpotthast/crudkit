@@ -1,4 +1,4 @@
-use darling::{ast, FromDeriveInput, FromField};
+use darling::{FromDeriveInput, FromField, ast};
 use proc_macro2::TokenStream;
 use quote::quote;
 

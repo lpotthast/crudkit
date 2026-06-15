@@ -3,7 +3,7 @@
 use darling::*;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{spanned::Spanned, DeriveInput, Ident, Type};
+use syn::{DeriveInput, Ident, Type, spanned::Spanned};
 
 #[derive(Debug, FromField)]
 #[darling(attributes(ck_validation_model))]

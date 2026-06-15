@@ -15,7 +15,7 @@ use crudkit_core::id::Id;
 
 use crate::data::CreateModel;
 use crate::repository::ValidationResultRepository;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::fmt::Debug;
 use std::hash::Hash;
 

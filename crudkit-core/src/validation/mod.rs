@@ -286,8 +286,8 @@ impl PartialSerializableAggregateViolations {
 
 #[cfg(test)]
 mod tests {
-    use super::violation::Violations;
     use super::PartialSerializableAggregateViolations;
+    use super::violation::Violations;
     use crate::id::{IdValue, SerializableId, SerializableIdEntry};
     use crate::resource::ResourceName;
     use assertr::prelude::*;

@@ -1,6 +1,6 @@
-use darling::{ast, FromDeriveInput, FromField};
-use proc_macro2::TokenStream;
+use darling::{FromDeriveInput, FromField, ast};
 use proc_macro_type_name::ToTypeName;
+use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 /// Field configuration for CkSeaOrmBridge.

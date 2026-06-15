@@ -1,7 +1,7 @@
 //! Query filtering DSL with condition clauses and operators.
 
-use crate::id::{IdValue, SerializableIdEntry};
 use crate::Value;
+use crate::id::{IdValue, SerializableIdEntry};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -290,9 +290,9 @@ impl ConditionClauseValue {
     pub fn to_i32(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::I32(num) => Ok(Value::I32(num)),
-            ConditionClauseValue::I32Vec(numbers) => Ok(Value::Array(
-                numbers.into_iter().map(Value::I32).collect(),
-            )),
+            ConditionClauseValue::I32Vec(numbers) => {
+                Ok(Value::Array(numbers.into_iter().map(Value::I32).collect()))
+            }
             ConditionClauseValue::String(string) => parse::<i32>(&string).map(Value::I32),
             _ => Err(format!(
                 "{self:?} can not be converted to an i32 or Vec<i32>. Expected i32 or Vec<i32> or String."
@@ -303,9 +303,9 @@ impl ConditionClauseValue {
     pub fn to_i64(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::I64(num) => Ok(Value::I64(num)),
-            ConditionClauseValue::I64Vec(numbers) => Ok(Value::Array(
-                numbers.into_iter().map(Value::I64).collect(),
-            )),
+            ConditionClauseValue::I64Vec(numbers) => {
+                Ok(Value::Array(numbers.into_iter().map(Value::I64).collect()))
+            }
             ConditionClauseValue::String(string) => parse::<i64>(&string).map(Value::I64),
             _ => Err(format!(
                 "{self:?} can not be converted to an i64. Expected i64 or String."
@@ -345,9 +345,9 @@ impl ConditionClauseValue {
 
     pub fn to_byte_vec(self) -> Result<Value, String> {
         match self {
-            ConditionClauseValue::U8Vec(vec) => Ok(Value::Array(
-                vec.into_iter().map(Value::U8).collect(),
-            )),
+            ConditionClauseValue::U8Vec(vec) => {
+                Ok(Value::Array(vec.into_iter().map(Value::U8).collect()))
+            }
             _ => Err(format!(
                 "{self:?} can not be converted to an U8Vec. Expected U8Vec."
             )),

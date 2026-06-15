@@ -24,9 +24,9 @@
 //! (typically via the `CkCreateModel` or `CkSeaOrmCreateModel` derive macros) because
 //! create models often need storage-specific conversion logic.
 
-use crudkit_core::condition::ConditionClauseValue;
 use crudkit_core::Value;
-use serde::{de::DeserializeOwned, Serialize};
+use crudkit_core::condition::ConditionClauseValue;
+use serde::{Serialize, de::DeserializeOwned};
 use std::fmt::Debug;
 use std::hash::Hash;
 

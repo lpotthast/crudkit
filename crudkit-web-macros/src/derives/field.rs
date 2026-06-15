@@ -1,12 +1,12 @@
 use crudkit_core_macro_util::{
-    classify_base_type, is_ordered_float, path_to_string, strip_option_path, to_pascal_case,
-    ValueKind, ValueKindExt,
+    ValueKind, ValueKindExt, classify_base_type, is_ordered_float, path_to_string,
+    strip_option_path, to_pascal_case,
 };
 use darling::*;
-use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error::abort;
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use syn::{spanned::Spanned, DeriveInput};
+use syn::{DeriveInput, spanned::Spanned};
 
 use super::model_type::ModelType;
 

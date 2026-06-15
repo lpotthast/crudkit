@@ -86,6 +86,7 @@ pub(crate) async fn broadcast_partial_validation_result<R: CrudResource>(
     }
 }
 
+#[allow(dead_code)]
 pub(crate) async fn broadcast_full_validation_result<R: CrudResource>(
     context: &CrudContext<R>,
     full: FullSerializableValidations,

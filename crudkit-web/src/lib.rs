@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{borrow::Cow, fmt::Debug, hash::Hash};
 
 pub mod action;
@@ -45,12 +45,6 @@ pub mod prelude {
     pub use crudkit_core_macros::CkId;
     pub use crudkit_web_macros::{CkActionPayload, CkField, CkResource};
 
-    pub use super::error::ErrorInfo;
-    pub use super::request_error::CrudOperationError;
-    pub use super::request_error::RequestError;
-    pub use super::reqwest_executor::ReqwestExecutor;
-    pub use super::view::CrudView;
-    pub use super::view::SerializableCrudView;
     pub use super::FieldAccess;
     pub use super::FieldMode;
     pub use super::FieldOptions;
@@ -63,6 +57,12 @@ pub mod prelude {
     pub use super::OrderByUpdateOptions;
     pub use super::Resource;
     pub use super::TabId;
+    pub use super::error::ErrorInfo;
+    pub use super::request_error::CrudOperationError;
+    pub use super::request_error::RequestError;
+    pub use super::reqwest_executor::ReqwestExecutor;
+    pub use super::view::CrudView;
+    pub use super::view::SerializableCrudView;
 
     pub use super::data_provider::CreateOne;
     pub use super::data_provider::CrudRestDataProvider;
@@ -214,10 +214,8 @@ pub trait Model:
 /// Re-export `HasId` from crudkit-id for typed ID access.
 pub use crudkit_core::id::HasId;
 
-
 /// Re-export `Named` from crudkit_core.
 pub use crudkit_core::Named;
-
 
 /// Trait for typed field value access.
 ///

@@ -36,7 +36,10 @@ pub fn expand_derive_resource(input: DeriveInput) -> syn::Result<TokenStream> {
     let update_model_ident = args.update_model.unwrap_or_else(|| input.ident.clone());
 
     let update_model_id_ident = args.update_model_id.unwrap_or_else(|| {
-        Ident::new(format!("{update_model_ident}Id").as_str(), input.ident.span())
+        Ident::new(
+            format!("{update_model_ident}Id").as_str(),
+            input.ident.span(),
+        )
     });
 
     let update_model_id_field_ident = args.update_model_id_field.unwrap_or_else(|| {

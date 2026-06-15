@@ -5,10 +5,10 @@
 use crate::context::CrudContext;
 use crate::prelude::{CrudResource, ValidationTrigger};
 use crate::validator::EntityValidator;
-use crudkit_core::validation::validator::ValidatorInfo;
 use crudkit_core::validation::ViolationsByValidator;
-use std::sync::atomic::{AtomicU8, Ordering};
+use crudkit_core::validation::validator::ValidatorInfo;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
 
 /// Run entity validation on a CreateModel using all registered validators.
 pub fn run_entity_validation<R: CrudResource>(

@@ -2,9 +2,9 @@
 //! TODO: Extract to own crate.
 
 use axum::{
+    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use crudkit_core::validation::PartialSerializableAggregateViolations;
 use serde_json::json;

@@ -4,8 +4,8 @@
 //! unified `CrudkitValidation` table to provide a `has_validation_errors` column.
 
 use sea_orm_migration::{
-    sea_orm::{ConnectionTrait, DbBackend, Statement}, DbErr,
-    SchemaManager,
+    DbErr, SchemaManager,
+    sea_orm::{ConnectionTrait, DbBackend, Statement},
 };
 
 /// Describes a primary key field for SQL generation.

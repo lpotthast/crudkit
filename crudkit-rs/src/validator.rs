@@ -6,8 +6,8 @@
 
 use crate::prelude::{CrudResource, ValidationTrigger};
 use async_trait::async_trait;
-use crudkit_core::validation::violation::Violations;
 use crudkit_core::validation::ViolationsByEntity;
+use crudkit_core::validation::violation::Violations;
 use std::borrow::Cow;
 
 /// Trait for validators that check a single entity or entity change.
