@@ -47,13 +47,8 @@ pub fn CrudTableBody(
         let instance_ctx = expect_context::<CrudInstanceContext>();
         let list_ctx = expect_context::<CrudListViewContext>();
         let is_selected = Memo::new(move |_prev| {
-            stored_entity.with(|stored_entity| {
-                list_ctx
-                    .selected
-                    .get()
-                    .iter()
-                    .any(|it| it == stored_entity)
-            })
+            stored_entity
+                .with(|stored_entity| list_ctx.selected.get().iter().any(|it| it == stored_entity))
         });
         let toggle_selected = move || list_ctx.toggle_entity_selection(stored_entity.get());
 

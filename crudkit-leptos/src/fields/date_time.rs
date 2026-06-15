@@ -31,7 +31,7 @@ pub fn CrudPrimitiveDateTimeField(
         FieldMode::Display => match field_options.date_time_display {
             DateTimeDisplay::IsoUtc => {
                 move || match value.get() {
-                    Some(dt) => view! { {dt.format(&Rfc3339).expect("infallible using well-known format")} }.into_any(),
+                    Some(dt) => view! { {dt.assume_utc().format(&Rfc3339).expect("infallible using well-known format")} }.into_any(),
                     None => view! { "-" }.into_any(),
                 }
             }

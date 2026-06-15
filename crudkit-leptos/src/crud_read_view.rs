@@ -1,3 +1,4 @@
+use crate::ReactiveField;
 use crate::crud_action::{CrudEntityAction, States};
 use crate::crud_action_buttons::CrudActionButtons;
 use crate::crud_action_context::CrudActionContext;
@@ -5,8 +6,7 @@ use crate::crud_fields::CrudFields;
 use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{FieldRendererRegistry, UpdateElements};
 use crate::crud_table::NoDataAvailable;
-use crate::ReactiveField;
-use crudkit_core::condition::{merge_conditions, TryIntoAllEqualCondition};
+use crudkit_core::condition::{TryIntoAllEqualCondition, merge_conditions};
 use crudkit_core::id::SerializableId;
 use crudkit_web::prelude::*;
 use crudkit_web::request_error::RequestError;
@@ -105,7 +105,9 @@ pub fn CrudReadView(
 
                         Ok(RwSignal::new(update_model).read_only())
                     }
-                    None => Err(NoDataAvailable::RequestReturnedNoData("Eintrag existiert nicht.".to_string())),
+                    None => Err(NoDataAvailable::RequestReturnedNoData(
+                        "Eintrag existiert nicht.".to_string(),
+                    )),
                 },
                 Err(reason) => Err(NoDataAvailable::RequestFailed(reason)),
             },

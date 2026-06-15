@@ -1,10 +1,10 @@
+use crate::ReactiveField;
 use crate::crud_fields::CrudFields;
 use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{CreateElements, FieldRendererRegistry};
 use crate::crud_leave_modal::CrudLeaveModal;
-use crate::ReactiveField;
-use crudkit_core::{Saved, Value};
 use crudkit_core::id::{SerializableId, SerializableIdEntry};
+use crudkit_core::{Saved, Value};
 use crudkit_web::prelude::*;
 use crudkit_web::request_error::{CrudOperationError, RequestError};
 use crudkit_web::{FieldMode, TabId};
@@ -81,14 +81,13 @@ pub fn CrudCreateView(
 
     let default_create_model = default_create_model(&ctx);
 
-    let signals: StoredValue<HashMap<DynCreateField, ReactiveField>> =
-        StoredValue::new(
-            ctx.static_config
-                .read_value()
-                .model_handler
-                .create_model_to_signal_map
-                .run(default_create_model.clone()),
-        );
+    let signals: StoredValue<HashMap<DynCreateField, ReactiveField>> = StoredValue::new(
+        ctx.static_config
+            .read_value()
+            .model_handler
+            .create_model_to_signal_map
+            .run(default_create_model.clone()),
+    );
 
     // The CreateModel enforces a `Default` value! We cannot deserialize a loaded model, so we have to create one from scratch with which the UI can be initialized.
     // We therefore do not have to deal with None states in the create case, compared to the edit view.

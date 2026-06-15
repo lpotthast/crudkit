@@ -1,3 +1,4 @@
+use crate::ReactiveField;
 use crate::crud_action::{CrudEntityAction, States};
 use crate::crud_action_buttons::CrudActionButtons;
 use crate::crud_action_context::CrudActionContext;
@@ -6,10 +7,9 @@ use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{FieldRendererRegistry, UpdateElements};
 use crate::crud_leave_modal::CrudLeaveModal;
 use crate::crud_table::NoDataAvailable;
-use crate::ReactiveField;
-use crudkit_core::condition::{merge_conditions, TryIntoAllEqualCondition};
-use crudkit_core::{Saved, Value};
+use crudkit_core::condition::{TryIntoAllEqualCondition, merge_conditions};
 use crudkit_core::id::SerializableId;
+use crudkit_core::{Saved, Value};
 use crudkit_web::prelude::*;
 use crudkit_web::request_error::{CrudOperationError, RequestError};
 use crudkit_web::{FieldMode, TabId};
@@ -135,7 +135,9 @@ pub fn CrudEditView(
 
                         Ok(update_model)
                     }
-                    None => Err(NoDataAvailable::RequestReturnedNoData("Eintrag existiert nicht.".to_string())),
+                    None => Err(NoDataAvailable::RequestReturnedNoData(
+                        "Eintrag existiert nicht.".to_string(),
+                    )),
                 },
                 Err(request_error) => Err(NoDataAvailable::RequestFailed(request_error)),
             },
@@ -271,7 +273,11 @@ pub fn CrudEditView(
             //tracing::debug!(?field, ?result, "value changed");
             match result {
                 Ok(value) => {
-                    set_input.update(|input| if let Some(input) = input { field.set_value(input, value.clone()) });
+                    set_input.update(|input| {
+                        if let Some(input) = input {
+                            field.set_value(input, value.clone())
+                        }
+                    });
                     set_input_errors.update(|errors| {
                         errors.remove(&field);
                     });

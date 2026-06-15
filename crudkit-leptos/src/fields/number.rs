@@ -115,7 +115,12 @@ pub fn CrudU8Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     render_number_field(
-        id, field_options, field_mode, value, is_optional, value_changed,
+        id,
+        field_options,
+        field_mode,
+        value,
+        is_optional,
+        value_changed,
         |v| v as f64,
         |f| Value::U8(f as u8),
         |opt| opt.map(Value::U8).unwrap_or(Value::Null),
@@ -132,7 +137,12 @@ pub fn CrudU16Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     render_number_field(
-        id, field_options, field_mode, value, is_optional, value_changed,
+        id,
+        field_options,
+        field_mode,
+        value,
+        is_optional,
+        value_changed,
         |v| v as f64,
         |f| Value::U16(f as u16),
         |opt| opt.map(Value::U16).unwrap_or(Value::Null),
@@ -149,7 +159,12 @@ pub fn CrudU32Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     render_number_field(
-        id, field_options, field_mode, value, is_optional, value_changed,
+        id,
+        field_options,
+        field_mode,
+        value,
+        is_optional,
+        value_changed,
         |v| v as f64,
         |f| Value::U32(f as u32),
         |opt| opt.map(Value::U32).unwrap_or(Value::Null),
@@ -166,7 +181,12 @@ pub fn CrudU64Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     render_number_field(
-        id, field_options, field_mode, value, is_optional, value_changed,
+        id,
+        field_options,
+        field_mode,
+        value,
+        is_optional,
+        value_changed,
         |v| v as f64,
         |f| Value::U64(f as u64),
         |opt| opt.map(Value::U64).unwrap_or(Value::Null),
@@ -183,7 +203,12 @@ pub fn CrudU128Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     render_number_field(
-        id, field_options, field_mode, value, is_optional, value_changed,
+        id,
+        field_options,
+        field_mode,
+        value,
+        is_optional,
+        value_changed,
         |v| v as f64,
         |f| Value::U128(f as u128),
         |opt| opt.map(Value::U128).unwrap_or(Value::Null),
@@ -200,7 +225,12 @@ pub fn CrudI8Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     render_number_field(
-        id, field_options, field_mode, value, is_optional, value_changed,
+        id,
+        field_options,
+        field_mode,
+        value,
+        is_optional,
+        value_changed,
         |v| v as f64,
         |f| Value::I8(f as i8),
         |opt| opt.map(Value::I8).unwrap_or(Value::Null),
@@ -217,7 +247,12 @@ pub fn CrudI16Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     render_number_field(
-        id, field_options, field_mode, value, is_optional, value_changed,
+        id,
+        field_options,
+        field_mode,
+        value,
+        is_optional,
+        value_changed,
         |v| v as f64,
         |f| Value::I16(f as i16),
         |opt| opt.map(Value::I16).unwrap_or(Value::Null),
@@ -234,7 +269,12 @@ pub fn CrudI32Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     render_number_field(
-        id, field_options, field_mode, value, is_optional, value_changed,
+        id,
+        field_options,
+        field_mode,
+        value,
+        is_optional,
+        value_changed,
         |v| v as f64,
         |f| Value::I32(f as i32),
         |opt| opt.map(Value::I32).unwrap_or(Value::Null),
@@ -251,7 +291,12 @@ pub fn CrudI64Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     render_number_field(
-        id, field_options, field_mode, value, is_optional, value_changed,
+        id,
+        field_options,
+        field_mode,
+        value,
+        is_optional,
+        value_changed,
         |v| v as f64,
         |f| Value::I64(f as i64),
         |opt| opt.map(Value::I64).unwrap_or(Value::Null),
@@ -268,7 +313,12 @@ pub fn CrudI128Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     render_number_field(
-        id, field_options, field_mode, value, is_optional, value_changed,
+        id,
+        field_options,
+        field_mode,
+        value,
+        is_optional,
+        value_changed,
         |v| v as f64,
         |f| Value::I128(f as i128),
         |opt| opt.map(Value::I128).unwrap_or(Value::Null),
@@ -285,7 +335,12 @@ pub fn CrudF32Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     render_number_field(
-        id, field_options, field_mode, value, is_optional, value_changed,
+        id,
+        field_options,
+        field_mode,
+        value,
+        is_optional,
+        value_changed,
         |v| v as f64,
         |f| Value::F32(f as f32),
         |opt| opt.map(Value::F32).unwrap_or(Value::Null),
@@ -302,7 +357,12 @@ pub fn CrudF64Field(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     render_number_field(
-        id, field_options, field_mode, value, is_optional, value_changed,
+        id,
+        field_options,
+        field_mode,
+        value,
+        is_optional,
+        value_changed,
         |v| v,
         Value::F64,
         |opt| opt.map(Value::F64).unwrap_or(Value::Null),

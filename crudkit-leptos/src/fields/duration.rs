@@ -229,7 +229,8 @@ pub fn CrudDurationField(
     is_optional: bool,
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
-    let duration_value = Signal::derive(move || value.get().map(|it| it.0).unwrap_or(time::Duration::ZERO));
+    let duration_value =
+        Signal::derive(move || value.get().map(|it| it.0).unwrap_or(time::Duration::ZERO));
 
     match field_mode {
         FieldMode::Display => {
@@ -240,52 +241,46 @@ pub fn CrudDurationField(
         }
         .into_any(),
 
-        FieldMode::Readable if is_optional => {
-            view! {
-                {render_label(field_options.label.clone())}
-                <OptionalDurationInput
-                    attr:id=id.clone()
-                    attr:class="crud-input-field"
-                    disabled=true
-                    get=Signal::derive(move || { value.get().map(|it| it.0) })
-                    set={move |_new: Option<time::Duration>| {}}
-                />
-            }
-            .into_any()
+        FieldMode::Readable if is_optional => view! {
+            {render_label(field_options.label.clone())}
+            <OptionalDurationInput
+                attr:id=id.clone()
+                attr:class="crud-input-field"
+                disabled=true
+                get=Signal::derive(move || { value.get().map(|it| it.0) })
+                set={move |_new: Option<time::Duration>| {}}
+            />
         }
+        .into_any(),
 
-        FieldMode::Readable => {
-            view! {
-                {render_label(field_options.label.clone())}
-                <DurationInput
-                    attr:id=id.clone()
-                    attr:class="crud-input-field"
-                    disabled=true
-                    get=duration_value
-                />
-            }
-            .into_any()
+        FieldMode::Readable => view! {
+            {render_label(field_options.label.clone())}
+            <DurationInput
+                attr:id=id.clone()
+                attr:class="crud-input-field"
+                disabled=true
+                get=duration_value
+            />
         }
+        .into_any(),
 
-        FieldMode::Editable if is_optional => {
-            view! {
-                {render_label(field_options.label.clone())}
-                <OptionalDurationInput
-                    attr:id=id.clone()
-                    attr:class="crud-input-field"
-                    disabled=field_options.disabled
-                    get=Signal::derive(move || { value.get().map(|it| it.0) })
-                    set={move |new: Option<time::Duration>| {
-                        let val = match new {
-                            Some(d) => Value::Duration(TimeDuration(d)),
-                            None => Value::Null,
-                        };
-                        value_changed.run(Ok(val))
-                    }}
-                />
-            }
-            .into_any()
+        FieldMode::Editable if is_optional => view! {
+            {render_label(field_options.label.clone())}
+            <OptionalDurationInput
+                attr:id=id.clone()
+                attr:class="crud-input-field"
+                disabled=field_options.disabled
+                get=Signal::derive(move || { value.get().map(|it| it.0) })
+                set={move |new: Option<time::Duration>| {
+                    let val = match new {
+                        Some(d) => Value::Duration(TimeDuration(d)),
+                        None => Value::Null,
+                    };
+                    value_changed.run(Ok(val))
+                }}
+            />
         }
+        .into_any(),
 
         FieldMode::Editable => {
             let disabled = field_options.disabled;

@@ -11,8 +11,8 @@ use crate::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
 use crate::crud_list_view::CrudListView;
 use crate::crud_read_view::CrudReadView;
 use crudkit_core::condition::{Condition, ConditionClause, ConditionElement};
-use crudkit_core::{Deleted, DeletedMany, Order};
 use crudkit_core::id::{SerializableId, SerializableIdEntry};
+use crudkit_core::{Deleted, DeletedMany, Order};
 use crudkit_web::prelude::*;
 use crudkit_web::request_error::CrudOperationError;
 use crudkit_web::request_error::RequestError;
@@ -20,6 +20,7 @@ use crudkit_web::view::SerializableCrudView;
 use crudkit_web::{OrderByUpdateOptions, TabId};
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
+use leptos::context::Provider;
 use leptos::prelude::*;
 use std::sync::Arc;
 use time::OffsetDateTime;
@@ -318,7 +319,6 @@ pub fn CrudInstance(
         reload,
         set_reload,
     };
-    provide_context(ctx);
     if let Some(on_context_created) = on_context_created {
         on_context_created.run(ctx)
     }
@@ -401,91 +401,93 @@ pub fn CrudInstance(
     });
 
     view! {
-        <div class="crud-instance">
-            <div class="body">
-                {move || match view.get() {
-                    SerializableCrudView::List => view! {
-                        <CrudListView
-                            data_provider=data_provider
-                            headers=headers
-                            order_by=order_by
-                            field_renderer_registry=read_field_renderer_registry
-                            actions=actions
-                        />
-                    }.into_any(),
-                    SerializableCrudView::Create => view! {
-                        <CrudCreateView
-                            data_provider=data_provider
-                            create_elements=create_elements
-                            field_renderer_registry=create_field_renderer_registry
-                            on_edit_view=move |id| ctx.edit(id)
-                            on_list_view=move || ctx.list()
-                            on_create_view=move || ctx.create()
-                            on_entity_created=move |_saved| {}
-                            on_entity_creation_failed=move |error: CrudOperationError| {
-                                expect_context::<Toasts>().push(Toast {
-                                    id: Uuid::new_v4(),
-                                    created_at: OffsetDateTime::now_utc(),
-                                    variant: ToastVariant::Error,
-                                    header: ViewFn::from(|| "Fehler"),
-                                    body: ViewFn::from(move || {
-                                        format!(
-                                            "Eintrag konnte nicht erstellt werden.\n{error}",
-                                        )
-                                    }),
-                                    timeout: ToastTimeout::DefaultDelay,
-                                })
-                            }
-                            on_tab_selected=move |tab_id| {
-                                ctx.tab_selected(tab_id)
-                            }
-                        />
-                    }.into_any(),
-                    SerializableCrudView::Read(id) => view! {
-                        <CrudReadView
-                            id=id
-                            data_provider=data_provider
-                            actions=entity_actions
-                            elements=update_elements
-                            field_renderer_registry=update_field_renderer_registry
-                            on_list_view=move || ctx.list()
-                            on_tab_selected=move |tab_id| {
-                                ctx.tab_selected(tab_id)
-                            }
-                        />
-                    }.into_any(),
-                    SerializableCrudView::Edit(id) => view! {
-                        <CrudEditView
-                            id=id
-                            data_provider=data_provider
-                            actions=entity_actions
-                            elements=update_elements
-                            field_renderer_registry=update_field_renderer_registry
-                            on_list_view=move || ctx.list()
-                            on_create_view=move || ctx.create()
-                            on_entity_updated=move |_saved| {}
-                            // TODO: Do we even need this callback? Deletion is handled inside this (CrudInstance) component using/inside of `delete_action`. We dont have an on_entity_delete_failed here. This seems somewhat inconsistent.
-                            on_entity_update_failed=move |_error: CrudOperationError| {
-                                // TODO: Handle the error: Display notification to the user.
-                            }
-                            on_tab_selected=move |tab_id| {
-                                ctx.tab_selected(tab_id)
-                            }
-                        />
-                    }.into_any(),
-                }}
-                <CrudDeleteModal
-                    entity=deletion_request
-                    on_cancel=on_cancel_delete
-                    on_accept=on_accept_delete
-                />
-                <CrudDeleteManyModal
-                    entities=mass_deletion_request
-                    on_cancel=on_cancel_delete_many
-                    on_accept=on_accept_delete_many
-                />
+        <Provider value=ctx>
+            <div class="crud-instance">
+                <div class="body">
+                    {move || match view.get() {
+                        SerializableCrudView::List => view! {
+                            <CrudListView
+                                data_provider=data_provider
+                                headers=headers
+                                order_by=order_by
+                                field_renderer_registry=read_field_renderer_registry
+                                actions=actions
+                            />
+                        }.into_any(),
+                        SerializableCrudView::Create => view! {
+                            <CrudCreateView
+                                data_provider=data_provider
+                                create_elements=create_elements
+                                field_renderer_registry=create_field_renderer_registry
+                                on_edit_view=move |id| ctx.edit(id)
+                                on_list_view=move || ctx.list()
+                                on_create_view=move || ctx.create()
+                                on_entity_created=move |_saved| {}
+                                on_entity_creation_failed=move |error: CrudOperationError| {
+                                    expect_context::<Toasts>().push(Toast {
+                                        id: Uuid::new_v4(),
+                                        created_at: OffsetDateTime::now_utc(),
+                                        variant: ToastVariant::Error,
+                                        header: ViewFn::from(|| "Fehler"),
+                                        body: ViewFn::from(move || {
+                                            format!(
+                                                "Eintrag konnte nicht erstellt werden.\n{error}",
+                                            )
+                                        }),
+                                        timeout: ToastTimeout::DefaultDelay,
+                                    })
+                                }
+                                on_tab_selected=move |tab_id| {
+                                    ctx.tab_selected(tab_id)
+                                }
+                            />
+                        }.into_any(),
+                        SerializableCrudView::Read(id) => view! {
+                            <CrudReadView
+                                id=id
+                                data_provider=data_provider
+                                actions=entity_actions
+                                elements=update_elements
+                                field_renderer_registry=update_field_renderer_registry
+                                on_list_view=move || ctx.list()
+                                on_tab_selected=move |tab_id| {
+                                    ctx.tab_selected(tab_id)
+                                }
+                            />
+                        }.into_any(),
+                        SerializableCrudView::Edit(id) => view! {
+                            <CrudEditView
+                                id=id
+                                data_provider=data_provider
+                                actions=entity_actions
+                                elements=update_elements
+                                field_renderer_registry=update_field_renderer_registry
+                                on_list_view=move || ctx.list()
+                                on_create_view=move || ctx.create()
+                                on_entity_updated=move |_saved| {}
+                                // TODO: Do we even need this callback? Deletion is handled inside this (CrudInstance) component using/inside of `delete_action`. We dont have an on_entity_delete_failed here. This seems somewhat inconsistent.
+                                on_entity_update_failed=move |_error: CrudOperationError| {
+                                    // TODO: Handle the error: Display notification to the user.
+                                }
+                                on_tab_selected=move |tab_id| {
+                                    ctx.tab_selected(tab_id)
+                                }
+                            />
+                        }.into_any(),
+                    }}
+                    <CrudDeleteModal
+                        entity=deletion_request
+                        on_cancel=on_cancel_delete
+                        on_accept=on_accept_delete
+                    />
+                    <CrudDeleteManyModal
+                        entities=mass_deletion_request
+                        on_cancel=on_cancel_delete_many
+                        on_accept=on_accept_delete_many
+                    />
+                </div>
             </div>
-        </div>
+        </Provider>
     }
 }
 

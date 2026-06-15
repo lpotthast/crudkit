@@ -1,16 +1,17 @@
+use crate::ReactiveField;
 use crate::crud_field_label::CrudFieldLabelOpt;
 use crate::fields::boolean::CrudBoolField;
 use crate::fields::date_time::CrudPrimitiveDateTimeField;
 use crate::fields::duration::CrudDurationField;
 use crate::fields::json::CrudJsonField;
 use crate::fields::number::{
-    CrudF32Field, CrudF64Field, CrudI128Field, CrudI16Field, CrudI32Field, CrudI64Field,
-    CrudI8Field, CrudU128Field, CrudU16Field, CrudU32Field, CrudU64Field, CrudU8Field,
+    CrudF32Field, CrudF64Field, CrudI8Field, CrudI16Field, CrudI32Field, CrudI64Field,
+    CrudI128Field, CrudU8Field, CrudU16Field, CrudU32Field, CrudU64Field, CrudU128Field,
 };
 use crate::fields::string::CrudStringField;
 use crate::fields::uuid::CrudUuidField;
 use crate::fields::validation_status::CrudValidationStatusField;
-use crate::ReactiveField;
+use ::uuid::Uuid;
 use crudkit_core::{Value, ValueKind};
 use crudkit_web::prelude::*;
 use crudkit_web::{FieldMode, FieldOptions, Label};
@@ -20,7 +21,6 @@ use leptos::prelude::*;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
-use ::uuid::Uuid;
 
 pub mod boolean;
 pub mod date_time;

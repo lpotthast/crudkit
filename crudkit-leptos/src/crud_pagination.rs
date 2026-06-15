@@ -32,7 +32,8 @@ pub fn CrudPagination(
 
         // Note: The set_items_per_page must always be in the returned vec, as this is always default-selected in our dropdown!
         if !default_options
-            .iter().any(|it| it.items_per_page == items_per_page)
+            .iter()
+            .any(|it| it.items_per_page == items_per_page)
         {
             default_options.push(ItemsPerPageEntry::some(items_per_page));
         }

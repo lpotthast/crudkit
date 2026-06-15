@@ -19,7 +19,8 @@ pub fn CrudJsonField(
     value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     let json_string = Signal::derive(move || {
-        value.get()
+        value
+            .get()
             .map(|v| serde_json::to_string(&v).unwrap_or_default())
             .unwrap_or_default()
     });

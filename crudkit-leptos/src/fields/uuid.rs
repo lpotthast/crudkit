@@ -16,8 +16,7 @@ pub fn CrudUuidField(
     field_mode: FieldMode,
     #[prop(into)] value: Signal<Option<Uuid>>,
     is_optional: bool,
-    #[allow(unused_variables)]
-    value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
+    #[allow(unused_variables)] value_changed: Callback<Result<Value, Arc<dyn std::error::Error>>>,
 ) -> impl IntoView {
     let uuid_string = Signal::derive(move || match value.get() {
         Some(uuid) => uuid.to_string(),

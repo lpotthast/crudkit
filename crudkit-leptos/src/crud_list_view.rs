@@ -10,6 +10,7 @@ use crudkit_web::request_error::RequestError;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
+use leptos::context::Provider;
 use leptos::prelude::*;
 use std::sync::Arc;
 
@@ -178,8 +179,6 @@ pub fn CrudListView(
                 .is_some_and(|data| !data.is_empty() && selected.len() == data.len())
         }),
     };
-    provide_context(list_view_context);
-
     // Clear the selection when the data is reloaded (e.g., after mass deletion).
     Effect::new(move || {
         let _ = instance_ctx.reload.get();
@@ -210,39 +209,41 @@ pub fn CrudListView(
     };
 
     view! {
-        <ActionRow actions filter filter_open />
+        <Provider value=list_view_context>
+            <ActionRow actions filter filter_open />
 
-        <CrudTable
-            headers=headers
-            order_by=order_by
-            data=page
-            field_renderer_registry=field_renderer_registry
-            read_allowed=read_allowed
-            edit_allowed=edit_allowed
-            delete_allowed=delete_allowed
-            additional_item_actions=Signal::derive(Vec::new)
-        />
+            <CrudTable
+                headers=headers
+                order_by=order_by
+                data=page
+                field_renderer_registry=field_renderer_registry
+                read_allowed=read_allowed
+                edit_allowed=edit_allowed
+                delete_allowed=delete_allowed
+                additional_item_actions=Signal::derive(Vec::new)
+            />
 
-        {multiselect_info}
+            {multiselect_info}
 
-        // Pagination
-        {move || match count_resource.get() {
-            Some(Ok(count)) => {
-                view! {
-                    <CrudPagination
-                        item_count=count
-                        items_per_page=instance_ctx.items_per_page
-                        current_page=instance_ctx.current_page
-                        set_current_page=move |page_number| instance_ctx.set_page(page_number)
-                        set_items_per_page=move |item_count| instance_ctx.set_items_per_page(item_count)
-                    />
-                }.into_any()
-            },
-            Some(Err(reason)) => {
-                view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }.into_any()
-            },
-            None => ().into_any(),
-        }}
+            // Pagination
+            {move || match count_resource.get() {
+                Some(Ok(count)) => {
+                    view! {
+                        <CrudPagination
+                            item_count=count
+                            items_per_page=instance_ctx.items_per_page
+                            current_page=instance_ctx.current_page
+                            set_current_page=move |page_number| instance_ctx.set_page(page_number)
+                            set_items_per_page=move |item_count| instance_ctx.set_items_per_page(item_count)
+                        />
+                    }.into_any()
+                },
+                Some(Err(reason)) => {
+                    view! { <div>{format!("Keine Daten verfügbar: {reason:?}")}</div> }.into_any()
+                },
+                None => ().into_any(),
+            }}
+        </Provider>
     }
 }
 

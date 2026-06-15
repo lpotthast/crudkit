@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
+#![recursion_limit = "512"]
 
 pub mod crud_action;
 pub mod crud_action_buttons;
@@ -59,13 +60,13 @@ pub mod prelude {
     pub use crudkit_core_macros::CkId;
     pub use crudkit_web_macros::{CkActionPayload, CkField, CkResource};
 
+    pub use super::ReactiveField;
     pub use super::crud_action::{
         CrudAction, CrudActionAftermath, CrudEntityAction, EntityActionViewInput,
         ResourceActionViewInput,
     };
     pub use super::crud_instance::CrudInstance;
     pub use super::crud_instance_config::{CreateElements, CrudInstanceConfig, CrudParentConfig};
-    pub use super::ReactiveField;
 }
 
 /// A reactive field holding a `Value` signal.
