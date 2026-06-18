@@ -66,7 +66,10 @@ pub mod prelude {
         ResourceActionViewInput,
     };
     pub use super::crud_instance::CrudInstance;
-    pub use super::crud_instance_config::{CreateElements, CrudInstanceConfig, CrudParentConfig};
+    pub use super::crud_instance_config::{
+        CreateElements, CrudCreateSaveTarget, CrudInstanceConfig, CrudNavigationConfig,
+        CrudParentConfig,
+    };
 }
 
 /// A reactive field holding a `Value` signal.

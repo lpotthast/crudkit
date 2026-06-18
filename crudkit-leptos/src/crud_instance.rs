@@ -83,6 +83,11 @@ pub struct CrudInstanceContext {
     /// It simply provides a new random ID on each invocation.
     pub reload: ReadSignal<Uuid>,
     set_reload: WriteSignal<Uuid>,
+
+    /// External containers can update this signal to route their own close/navigation requests
+    /// through the active CrudKit view's dirty-state leave protection.
+    pub leave_request: ReadSignal<Option<Uuid>>,
+    set_leave_request: WriteSignal<Option<Uuid>>,
 }
 
 impl CrudInstanceContext {
@@ -180,6 +185,10 @@ impl CrudInstanceContext {
         self.set_reload.set(Uuid::new_v4());
     }
 
+    pub fn request_leave(&self) {
+        self.set_leave_request.set(Some(Uuid::new_v4()));
+    }
+
     /// Reset this instance to its default configuration.
     /// Every change made by the user is reverted.
     pub fn reset(&self) {
@@ -201,6 +210,7 @@ pub fn CrudInstance(
     name: &'static str,
     config: CrudInstanceConfig,
     #[prop(optional)] parent: Option<CrudParentConfig>,
+    #[prop(optional)] on_exit: Option<Callback<()>>,
     #[prop(optional)] on_context_created: Option<Callback<CrudInstanceContext>>,
 ) -> impl IntoView {
     // Unique id of this instance. Volatile. Not persistent between rerenders.
@@ -283,6 +293,7 @@ pub fn CrudInstance(
     let (deletion_request, set_deletion_request) = signal(None);
     let (mass_deletion_request, set_mass_deletion_request) = signal(None::<Arc<Vec<DynReadModel>>>);
     let (reload, set_reload) = signal(Uuid::new_v4());
+    let (leave_request, set_leave_request) = signal(None);
 
     let default_config = StoredValue::new(config);
 
@@ -318,6 +329,8 @@ pub fn CrudInstance(
         set_mass_deletion_request,
         reload,
         set_reload,
+        leave_request,
+        set_leave_request,
     };
     if let Some(on_context_created) = on_context_created {
         on_context_created.run(ctx)
@@ -332,6 +345,12 @@ pub fn CrudInstance(
 
     let actions = Signal::derive(move || static_config.read_value().actions.clone());
     let entity_actions = Signal::derive(move || static_config.read_value().entity_actions.clone());
+    let navigation = Signal::derive(move || static_config.read_value().navigation);
+    let on_exit = StoredValue::new(on_exit);
+    let on_list_view = move || match on_exit.get_value() {
+        Some(on_exit) => on_exit.run(()),
+        None => ctx.list(),
+    };
 
     let on_cancel_delete = Callback::new(move |()| {
         tracing::info!("Removing delete request");
@@ -419,8 +438,9 @@ pub fn CrudInstance(
                                 data_provider=data_provider
                                 create_elements=create_elements
                                 field_renderer_registry=create_field_renderer_registry
+                                navigation=navigation
                                 on_edit_view=move |id| ctx.edit(id)
-                                on_list_view=move || ctx.list()
+                                on_list_view=on_list_view
                                 on_create_view=move || ctx.create()
                                 on_entity_created=move |_saved| {}
                                 on_entity_creation_failed=move |error: CrudOperationError| {
@@ -449,7 +469,7 @@ pub fn CrudInstance(
                                 actions=entity_actions
                                 elements=update_elements
                                 field_renderer_registry=update_field_renderer_registry
-                                on_list_view=move || ctx.list()
+                                on_list_view=on_list_view
                                 on_tab_selected=move |tab_id| {
                                     ctx.tab_selected(tab_id)
                                 }
@@ -462,7 +482,8 @@ pub fn CrudInstance(
                                 actions=entity_actions
                                 elements=update_elements
                                 field_renderer_registry=update_field_renderer_registry
-                                on_list_view=move || ctx.list()
+                                navigation=navigation
+                                on_list_view=on_list_view
                                 on_create_view=move || ctx.create()
                                 on_entity_updated=move |_saved| {}
                                 // TODO: Do we even need this callback? Deletion is handled inside this (CrudInstance) component using/inside of `delete_action`. We dont have an on_entity_delete_failed here. This seems somewhat inconsistent.

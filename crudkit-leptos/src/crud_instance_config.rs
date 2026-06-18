@@ -130,6 +130,7 @@ pub struct CrudInstanceConfig {
     pub model_handler: ModelHandler,
     pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction>,
+    pub navigation: CrudNavigationConfig,
     pub read_field_renderer: FieldRendererRegistry<DynReadField>,
     pub create_field_renderer: FieldRendererRegistry<DynCreateField>,
     pub update_field_renderer: FieldRendererRegistry<DynUpdateField>,
@@ -155,6 +156,7 @@ impl CrudInstanceConfig {
                 model_handler: self.model_handler,
                 actions: self.actions,
                 entity_actions: self.entity_actions,
+                navigation: self.navigation,
                 read_field_renderer: self.read_field_renderer,
                 create_field_renderer: self.create_field_renderer,
                 update_field_renderer: self.update_field_renderer,
@@ -184,9 +186,53 @@ pub(crate) struct CrudStaticInstanceConfig {
     pub model_handler: ModelHandler,
     pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction>,
+    pub navigation: CrudNavigationConfig,
     pub read_field_renderer: FieldRendererRegistry<DynReadField>,
     pub create_field_renderer: FieldRendererRegistry<DynCreateField>,
     pub update_field_renderer: FieldRendererRegistry<DynUpdateField>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CrudCreateSaveTarget {
+    EditView,
+    ListView,
+    CreateView,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrudNavigationConfig {
+    pub show_save: bool,
+    pub show_save_and_back: bool,
+    pub show_save_and_new: bool,
+    pub show_delete: bool,
+    pub show_list_view: bool,
+    pub create_save_target: CrudCreateSaveTarget,
+}
+
+impl CrudNavigationConfig {
+    pub fn embedded_single_entity() -> Self {
+        Self {
+            show_save: true,
+            show_save_and_back: false,
+            show_save_and_new: false,
+            show_delete: false,
+            show_list_view: false,
+            create_save_target: CrudCreateSaveTarget::ListView,
+        }
+    }
+}
+
+impl Default for CrudNavigationConfig {
+    fn default() -> Self {
+        Self {
+            show_save: true,
+            show_save_and_back: true,
+            show_save_and_new: true,
+            show_delete: true,
+            show_list_view: true,
+            create_save_target: CrudCreateSaveTarget::EditView,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -4,7 +4,7 @@ use crate::crud_action_buttons::CrudActionButtons;
 use crate::crud_action_context::CrudActionContext;
 use crate::crud_fields::CrudFields;
 use crate::crud_instance::CrudInstanceContext;
-use crate::crud_instance_config::{FieldRendererRegistry, UpdateElements};
+use crate::crud_instance_config::{CrudNavigationConfig, FieldRendererRegistry, UpdateElements};
 use crate::crud_leave_modal::CrudLeaveModal;
 use crate::crud_table::NoDataAvailable;
 use crudkit_core::condition::{TryIntoAllEqualCondition, merge_conditions};
@@ -42,6 +42,7 @@ pub fn CrudEditView(
     #[prop(into)] actions: Signal<Vec<CrudEntityAction>>,
     #[prop(into)] elements: Signal<UpdateElements>,
     #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<DynUpdateField>>,
+    #[prop(into)] navigation: Signal<CrudNavigationConfig>,
     #[prop(into)] on_list_view: Callback<()>,
     #[prop(into)] on_create_view: Callback<()>,
     /// Called when the entity is successfully updated.
@@ -158,6 +159,16 @@ pub fn CrudEditView(
 
     let force_leave = on_list_view;
     let request_leave = move || set_user_wants_to_leave.set(true);
+    let last_external_leave_request = RwSignal::new(None);
+
+    Effect::new(move |_| {
+        if let Some(request) = instance_ctx.leave_request.get()
+            && last_external_leave_request.get_untracked() != Some(request)
+        {
+            last_external_leave_request.set(Some(request));
+            set_user_wants_to_leave.set(true);
+        }
+    });
 
     Effect::new(
         move |_prev| match (user_wants_to_leave.get(), input_changed.get()) {
@@ -303,34 +314,58 @@ pub fn CrudEditView(
                         <Row>
                             <Col xs=6>
                                 <ButtonWrapper>
-                                    <Button
-                                        color=ButtonColor::Primary
-                                        disabled=save_disabled
-                                        on_press=move |_| { trigger_save(); }
-                                    >
-                                        "Speichern"
-                                    </Button>
-                                    <Button
-                                        color=ButtonColor::Primary
-                                        disabled=save_disabled
-                                        on_press=move |_| { trigger_save_and_return(); }
-                                    >
-                                        "Speichern und zurück"
-                                    </Button>
-                                    <Button
-                                        color=ButtonColor::Primary
-                                        disabled=save_disabled
-                                        on_press=move |_| { trigger_save_and_new(); }
-                                    >
-                                        "Speichern und neu"
-                                    </Button>
-                                    <Button
-                                        color=ButtonColor::Danger
-                                        disabled=delete_disabled
-                                        on_press=move |_| { trigger_delete(); }
-                                    >
-                                        "Löschen"
-                                    </Button>
+                                    {move || {
+                                        navigation.get().show_save.then(|| {
+                                            view! {
+                                                <Button
+                                                    color=ButtonColor::Primary
+                                                    disabled=save_disabled
+                                                    on_press=move |_| { trigger_save(); }
+                                                >
+                                                    "Speichern"
+                                                </Button>
+                                            }
+                                        })
+                                    }}
+                                    {move || {
+                                        navigation.get().show_save_and_back.then(|| {
+                                            view! {
+                                                <Button
+                                                    color=ButtonColor::Primary
+                                                    disabled=save_disabled
+                                                    on_press=move |_| { trigger_save_and_return(); }
+                                                >
+                                                    "Speichern und zurück"
+                                                </Button>
+                                            }
+                                        })
+                                    }}
+                                    {move || {
+                                        navigation.get().show_save_and_new.then(|| {
+                                            view! {
+                                                <Button
+                                                    color=ButtonColor::Primary
+                                                    disabled=save_disabled
+                                                    on_press=move |_| { trigger_save_and_new(); }
+                                                >
+                                                    "Speichern und neu"
+                                                </Button>
+                                            }
+                                        })
+                                    }}
+                                    {move || {
+                                        navigation.get().show_delete.then(|| {
+                                            view! {
+                                                <Button
+                                                    color=ButtonColor::Danger
+                                                    disabled=delete_disabled
+                                                    on_press=move |_| { trigger_delete(); }
+                                                >
+                                                    "Löschen"
+                                                </Button>
+                                            }
+                                        })
+                                    }}
 
                                     <CrudActionButtons
                                         action_ctx=action_ctx
@@ -343,10 +378,16 @@ pub fn CrudEditView(
 
                             <Col xs=6 h_align=ColAlign::End>
                                 <ButtonWrapper>
-                                    <Button color=ButtonColor::Secondary on_press=move |_| request_leave()>
-                                        <span style="text-decoration: underline;">{"L"}</span>
-                                        {"istenansicht"}
-                                    </Button>
+                                    {move || {
+                                        navigation.get().show_list_view.then(|| {
+                                            view! {
+                                                <Button color=ButtonColor::Secondary on_press=move |_| request_leave()>
+                                                    <span style="text-decoration: underline;">{"L"}</span>
+                                                    {"istenansicht"}
+                                                </Button>
+                                            }
+                                        })
+                                    }}
                                 </ButtonWrapper>
                             </Col>
                         </Row>
@@ -368,10 +409,16 @@ pub fn CrudEditView(
                         <Row>
                             <Col h_align=ColAlign::End>
                                 <ButtonWrapper>
-                                    <Button color=ButtonColor::Secondary on_press=move |_| force_leave.run(())>
-                                        <span style="text-decoration: underline;">{"L"}</span>
-                                        {"istenansicht"}
-                                    </Button>
+                                    {move || {
+                                        navigation.get().show_list_view.then(|| {
+                                            view! {
+                                                <Button color=ButtonColor::Secondary on_press=move |_| force_leave.run(())>
+                                                    <span style="text-decoration: underline;">{"L"}</span>
+                                                    {"istenansicht"}
+                                                </Button>
+                                            }
+                                        })
+                                    }}
                                 </ButtonWrapper>
                             </Col>
                         </Row>
