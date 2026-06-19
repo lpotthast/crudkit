@@ -200,6 +200,14 @@ pub enum CrudCreateSaveTarget {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CrudActionsPlacement {
+    Inline,
+    External,
+}
+
+pub type CrudCreateActionsPlacement = CrudActionsPlacement;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CrudNavigationConfig {
     pub show_save: bool,
     pub show_save_and_back: bool,
@@ -207,6 +215,7 @@ pub struct CrudNavigationConfig {
     pub show_delete: bool,
     pub show_list_view: bool,
     pub create_save_target: CrudCreateSaveTarget,
+    pub create_actions_placement: CrudActionsPlacement,
 }
 
 impl CrudNavigationConfig {
@@ -218,7 +227,13 @@ impl CrudNavigationConfig {
             show_delete: false,
             show_list_view: false,
             create_save_target: CrudCreateSaveTarget::ListView,
+            create_actions_placement: CrudActionsPlacement::Inline,
         }
+    }
+
+    pub fn with_create_actions_placement(mut self, placement: CrudActionsPlacement) -> Self {
+        self.create_actions_placement = placement;
+        self
     }
 }
 
@@ -231,6 +246,7 @@ impl Default for CrudNavigationConfig {
             show_delete: true,
             show_list_view: true,
             create_save_target: CrudCreateSaveTarget::EditView,
+            create_actions_placement: CrudActionsPlacement::Inline,
         }
     }
 }

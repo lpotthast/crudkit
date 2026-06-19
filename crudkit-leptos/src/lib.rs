@@ -65,10 +65,11 @@ pub mod prelude {
         CrudAction, CrudActionAftermath, CrudEntityAction, EntityActionViewInput,
         ResourceActionViewInput,
     };
+    pub use super::crud_create_view::{CrudActionSlot, CrudActionsOutlet, CrudCreateActionsOutlet};
     pub use super::crud_instance::CrudInstance;
     pub use super::crud_instance_config::{
-        CreateElements, CrudCreateSaveTarget, CrudInstanceConfig, CrudNavigationConfig,
-        CrudParentConfig,
+        CreateElements, CrudActionsPlacement, CrudCreateActionsPlacement, CrudCreateSaveTarget,
+        CrudInstanceConfig, CrudNavigationConfig, CrudParentConfig,
     };
 }
 

@@ -2614,6 +2614,7 @@ dependencies = [
 [[package]]
 name = "leptonic"
 version = "0.5.0"
+source = "git+https://github.com/lpotthast/leptonic?branch=migrate-to-leptos-0.8#feff3fc90a007ab842c8c110f82529453dc36c1d"
 dependencies = [
  "anyhow",
  "cargo_toml",
@@ -2645,6 +2646,7 @@ dependencies = [
 [[package]]
 name = "leptonic-theme"
 version = "0.5.0"
+source = "git+https://github.com/lpotthast/leptonic?branch=migrate-to-leptos-0.8#feff3fc90a007ab842c8c110f82529453dc36c1d"
 dependencies = [
  "anyhow",
  "include_dir",

@@ -1,5 +1,5 @@
 use crate::crud_action::CrudActionAftermath;
-use crate::crud_create_view::CrudCreateView;
+use crate::crud_create_view::{CrudCreateActions, CrudCreateView};
 use crate::crud_delete_many_modal::CrudDeleteManyModal;
 use crate::crud_delete_modal::CrudDeleteModal;
 use crate::crud_edit_view::CrudEditView;
@@ -88,6 +88,9 @@ pub struct CrudInstanceContext {
     /// through the active CrudKit view's dirty-state leave protection.
     pub leave_request: ReadSignal<Option<Uuid>>,
     set_leave_request: WriteSignal<Option<Uuid>>,
+
+    create_actions: ReadSignal<Option<CrudCreateActions>>,
+    set_create_actions: WriteSignal<Option<CrudCreateActions>>,
 }
 
 impl CrudInstanceContext {
@@ -189,6 +192,14 @@ impl CrudInstanceContext {
         self.set_leave_request.set(Some(Uuid::new_v4()));
     }
 
+    pub(crate) fn create_actions(&self) -> Option<CrudCreateActions> {
+        self.create_actions.get()
+    }
+
+    pub(crate) fn set_create_actions(&self, actions: Option<CrudCreateActions>) {
+        self.set_create_actions.set(actions);
+    }
+
     /// Reset this instance to its default configuration.
     /// Every change made by the user is reverted.
     pub fn reset(&self) {
@@ -198,6 +209,7 @@ impl CrudInstanceContext {
         self.set_current_page.set(default.page);
         self.set_items_per_page.set(default.items_per_page);
         self.set_order_by.set(default.order_by.clone());
+        self.set_create_actions.set(None);
         // TODO: Should there be functions resetting individual views? This always resets everything and sets the view to be the List view...
         self.set_view.set(default.view);
     }
@@ -294,6 +306,7 @@ pub fn CrudInstance(
     let (mass_deletion_request, set_mass_deletion_request) = signal(None::<Arc<Vec<DynReadModel>>>);
     let (reload, set_reload) = signal(Uuid::new_v4());
     let (leave_request, set_leave_request) = signal(None);
+    let (create_actions, set_create_actions) = signal(None::<CrudCreateActions>);
 
     let default_config = StoredValue::new(config);
 
@@ -331,10 +344,18 @@ pub fn CrudInstance(
         set_reload,
         leave_request,
         set_leave_request,
+        create_actions,
+        set_create_actions,
     };
     if let Some(on_context_created) = on_context_created {
         on_context_created.run(ctx)
     }
+
+    Effect::new(move |_| {
+        if view.get() != SerializableCrudView::Create {
+            set_create_actions.set(None);
+        }
+    });
 
     let read_field_renderer_registry =
         Signal::derive(move || static_config.read_value().read_field_renderer.clone());

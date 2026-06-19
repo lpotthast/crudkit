@@ -2,7 +2,8 @@ use crate::ReactiveField;
 use crate::crud_fields::CrudFields;
 use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{
-    CreateElements, CrudCreateSaveTarget, CrudNavigationConfig, FieldRendererRegistry,
+    CreateElements, CrudActionsPlacement, CrudCreateSaveTarget, CrudNavigationConfig,
+    FieldRendererRegistry,
 };
 use crate::crud_leave_modal::CrudLeaveModal;
 use crudkit_core::id::{SerializableId, SerializableIdEntry};
@@ -20,6 +21,21 @@ pub enum Then {
     OpenEditView,
     OpenListView,
     OpenCreateView,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct CrudCreateActions {
+    navigation: Signal<CrudNavigationConfig>,
+    save_disabled: Signal<bool>,
+    save: Callback<Then>,
+    request_leave: Callback<()>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CrudActionSlot {
+    CreatePrimary,
+    CreateNavigation,
+    CreateToolbar,
 }
 
 impl From<CrudCreateSaveTarget> for Then {
@@ -195,6 +211,13 @@ pub fn CrudCreateView(
     let save = Callback::new(move |then| {
         save_action.dispatch((input.get(), then));
     });
+    let actions = CrudCreateActions {
+        navigation,
+        save_disabled,
+        save,
+        request_leave,
+    };
+    ctx.set_create_actions(Some(actions));
 
     // TODO: Refactor this code. Much of it is shared with the edit_view!
     let value_changed =
@@ -219,7 +242,10 @@ pub fn CrudCreateView(
         });
 
     view! {
-        <Actions navigation save_disabled save request_leave />
+        {move || {
+            (navigation.get().create_actions_placement == CrudActionsPlacement::Inline)
+                .then(|| view! { <Actions actions /> })
+        }}
         {move || match create_elements.get() {
             CreateElements::None => view! { "Keine Felder definiert." }.into_any(),
             CreateElements::Custom(create_elements) => {
@@ -251,77 +277,131 @@ pub fn CrudCreateView(
 }
 
 #[component]
-fn Actions(
-    navigation: Signal<CrudNavigationConfig>,
-    save_disabled: Signal<bool>,
-    save: Callback<Then>,
-    request_leave: Callback<()>,
+pub fn CrudActionsOutlet(
+    #[prop(into)] context: Signal<Option<CrudInstanceContext>>,
+    action_slot: CrudActionSlot,
 ) -> impl IntoView {
+    actions_outlet(context, action_slot)
+}
+
+#[component]
+pub fn CrudCreateActionsOutlet(
+    #[prop(into)] context: Signal<Option<CrudInstanceContext>>,
+) -> impl IntoView {
+    actions_outlet(context, CrudActionSlot::CreatePrimary)
+}
+
+fn actions_outlet(
+    context: Signal<Option<CrudInstanceContext>>,
+    action_slot: CrudActionSlot,
+) -> impl IntoView {
+    view! {
+        {move || match context.get().and_then(|ctx| ctx.create_actions()) {
+            Some(actions) => create_actions_slot(actions, action_slot).into_any(),
+            None => ().into_any(),
+        }}
+    }
+}
+
+#[component]
+fn Actions(actions: CrudCreateActions) -> impl IntoView {
     view! {
         <Grid gap=Size::Em(0.6) attr:class="crud-nav">
             <Row>
                 <Col xs=6>
-                    <ButtonWrapper>
-                        {move || {
-                            let navigation = navigation.get();
-                            navigation.show_save.then(|| {
-                                view! {
-                                    <Button
-                                        color=ButtonColor::Primary
-                                        disabled=save_disabled
-                                        on_press=move |_| {
-                                            save.run(navigation.create_save_target.into());
-                                        }
-                                    >
-                                        "Speichern"
-                                    </Button>
-                                }
-                            })
-                        }}
-                        {move || {
-                            navigation.get().show_save_and_back.then(|| {
-                                view! {
-                                    <Button
-                                        color=ButtonColor::Primary
-                                        disabled=save_disabled
-                                        on_press=move |_| { save.run(Then::OpenListView); }
-                                    >
-                                        "Speichern und zurück"
-                                    </Button>
-                                }
-                            })
-                        }}
-                        {move || {
-                            navigation.get().show_save_and_new.then(|| {
-                                view! {
-                                    <Button
-                                        color=ButtonColor::Primary
-                                        disabled=save_disabled
-                                        on_press=move |_| { save.run(Then::OpenCreateView); }
-                                    >
-                                        "Speichern und neu"
-                                    </Button>
-                                }
-                            })
-                        }}
-                    </ButtonWrapper>
+                    {create_primary_actions(actions)}
                 </Col>
 
                 <Col xs=6 h_align=ColAlign::End>
-                    <ButtonWrapper>
-                        {move || {
-                            navigation.get().show_list_view.then(|| {
-                                view! {
-                                    <Button color=ButtonColor::Secondary on_press=move |_| request_leave.run(())>
-                                        <span style="text-decoration: underline;">{"L"}</span>
-                                        {"istenansicht"}
-                                    </Button>
-                                }
-                            })
-                        }}
-                    </ButtonWrapper>
+                    {create_navigation_actions(actions)}
                 </Col>
             </Row>
         </Grid>
+    }
+}
+
+fn create_actions_slot(actions: CrudCreateActions, slot: CrudActionSlot) -> impl IntoView {
+    match slot {
+        CrudActionSlot::CreatePrimary => create_primary_actions(actions).into_any(),
+        CrudActionSlot::CreateNavigation => create_navigation_actions(actions).into_any(),
+        CrudActionSlot::CreateToolbar => view! { <Actions actions /> }.into_any(),
+    }
+}
+
+fn create_primary_actions(actions: CrudCreateActions) -> impl IntoView {
+    let CrudCreateActions {
+        navigation,
+        save_disabled,
+        save,
+        request_leave: _,
+    } = actions;
+    view! {
+        <ButtonWrapper>
+            {move || {
+                let navigation = navigation.get();
+                navigation.show_save.then(|| {
+                    view! {
+                        <Button
+                            color=ButtonColor::Primary
+                            disabled=save_disabled
+                            on_press=move |_| {
+                                save.run(navigation.create_save_target.into());
+                            }
+                        >
+                            "Speichern"
+                        </Button>
+                    }
+                })
+            }}
+            {move || {
+                navigation.get().show_save_and_back.then(|| {
+                    view! {
+                        <Button
+                            color=ButtonColor::Primary
+                            disabled=save_disabled
+                            on_press=move |_| { save.run(Then::OpenListView); }
+                        >
+                            "Speichern und zurück"
+                        </Button>
+                    }
+                })
+            }}
+            {move || {
+                navigation.get().show_save_and_new.then(|| {
+                    view! {
+                        <Button
+                            color=ButtonColor::Primary
+                            disabled=save_disabled
+                            on_press=move |_| { save.run(Then::OpenCreateView); }
+                        >
+                            "Speichern und neu"
+                        </Button>
+                    }
+                })
+            }}
+        </ButtonWrapper>
+    }
+}
+
+fn create_navigation_actions(actions: CrudCreateActions) -> impl IntoView {
+    let CrudCreateActions {
+        navigation,
+        save_disabled: _,
+        save: _,
+        request_leave,
+    } = actions;
+    view! {
+        <ButtonWrapper>
+            {move || {
+                navigation.get().show_list_view.then(|| {
+                    view! {
+                        <Button color=ButtonColor::Secondary on_press=move |_| request_leave.run(())>
+                            <span style="text-decoration: underline;">{"L"}</span>
+                            {"istenansicht"}
+                        </Button>
+                    }
+                })
+            }}
+        </ButtonWrapper>
     }
 }
