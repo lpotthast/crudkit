@@ -3,8 +3,10 @@ use crate::crud_field::CrudField;
 use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{FieldRendererRegistry, Header};
 use crate::crud_list_view::CrudListViewContext;
+use crate::crud_navigation::CrudNavigation;
 use crate::crud_table::NoDataAvailable;
 use crudkit_web::prelude::*;
+use crudkit_web::view::CrudView;
 use crudkit_web::{FieldMode, FieldOptions};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
@@ -20,6 +22,7 @@ pub fn CrudTableBody(
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
     #[prop(into)] additional_item_actions: Signal<Vec<Arc<Box<dyn CrudActionTrait>>>>, // TODO: Use AnyAction
+    navigation: CrudNavigation,
 ) -> impl IntoView {
     let ctx = expect_context::<CrudInstanceContext>();
 
@@ -52,11 +55,10 @@ pub fn CrudTableBody(
         });
         let toggle_selected = move || list_ctx.toggle_entity_selection(stored_entity.get());
 
-        // TODO: These closures are now identical...
-        let read = move |entity: DynReadModel| instance_ctx.read(entity.id());
-        let edit = move |entity: DynReadModel| instance_ctx.edit(entity.id());
+        let read = move |entity: DynReadModel| navigation.navigate(CrudView::read(entity.id()));
+        let edit = move |entity: DynReadModel| navigation.navigate(CrudView::edit(entity.id()));
         let delete = move |entity: DynReadModel| {
-            instance_ctx.request_deletion_of(DynReadOrUpdateModel::Read(entity))
+            instance_ctx.request_deletion_of_from(DynReadOrUpdateModel::Read(entity), navigation)
         };
         // TODO: why is this Arc<Box<...>>?
         let trigger_action =
@@ -65,7 +67,9 @@ pub fn CrudTableBody(
         let dummy_value_changed_callback = Callback::new(move |_| {});
 
         view! {
-            <TableRow attr:class="interactable" on:click=move |_e| { instance_ctx.edit(stored_entity.get().id()) }>
+            <TableRow attr:class="interactable" on:click=move |_e| {
+                navigation.navigate(CrudView::edit(stored_entity.get().id()))
+            }>
                 <TableCell attr:class="select fit-content" on:click=move |e| e.stop_propagation()>
                     <Checkbox checked=is_selected set_checked=move |checked| {
                         if checked != is_selected.get_untracked() {

@@ -1,22 +1,26 @@
+//! Mounted CrudKit instance state and rendering.
+
+#![deny(missing_docs)]
+
 use crate::crud_action::CrudActionAftermath;
-use crate::crud_create_view::{CrudCreateActions, CrudCreateView};
+use crate::crud_create_view::CrudCreateActions;
 use crate::crud_delete_many_modal::CrudDeleteManyModal;
 use crate::crud_delete_modal::CrudDeleteModal;
-use crate::crud_edit_view::CrudEditView;
 use crate::crud_instance_config::{
-    CrudInstanceConfig, CrudMutableInstanceConfig, CrudParentConfig, CrudStaticInstanceConfig,
+    CreateElements, CrudInstanceConfig, CrudMutableInstanceConfig, CrudParentConfig,
+    CrudStaticInstanceConfig, Header, UpdateElements,
 };
 use crate::crud_instance_config::{ItemsPerPage, PageNr};
 use crate::crud_instance_mgr::{CrudInstanceMgrContext, InstanceState};
-use crate::crud_list_view::CrudListView;
-use crate::crud_read_view::CrudReadView;
+use crate::crud_leave_modal::CrudLeaveModal;
+use crate::crud_navigation::{CommittedReturnDestination, CrudNavigation};
+use crate::crud_view_registry::CrudViewRegistry;
 use crudkit_core::condition::{Condition, ConditionClause, ConditionElement};
 use crudkit_core::id::{SerializableId, SerializableIdEntry};
 use crudkit_core::{Deleted, DeletedMany, Order};
 use crudkit_web::prelude::*;
-use crudkit_web::request_error::CrudOperationError;
 use crudkit_web::request_error::RequestError;
-use crudkit_web::view::SerializableCrudView;
+use crudkit_web::view::CrudView;
 use crudkit_web::{OrderByUpdateOptions, TabId};
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
@@ -26,25 +30,32 @@ use std::sync::Arc;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-/// Runtime data of this instance, provided to child components through provide_context.
+/// Shared runtime state for one mounted [`CrudInstance`].
 ///
-/// This context struct contains data not really necessary in every view,
-/// but as we want to retain all state between view changes, this is a reasonable place to store that state.
-/// It allows a user to configure the list view, update an entry, return, and then find the list view unaltered.
+/// [`CrudInstance`] provides this value to descendant components through Leptos's `provide_ontext`.
+/// Copies refer to the same arena-owned signals and stored values. A copy is never immediately an
+/// independent state snapshot.
 ///
-/// Signal setters should generally not be pub. Define custom functions providing the required functionality.
+/// Public mutation methods preserve the instance invariants. Signal setters remain private so
+/// callers cannot bypass those methods.
 #[derive(Debug, Clone, Copy)]
 pub struct CrudInstanceContext {
+    /// Volatile identifier for this mount.
     pub id: Uuid,
 
+    /// Stable instance name used by [`CrudInstanceMgrContext`] lookups.
+    /// Provided by the user. Required to be unique across the entire application.
     pub name: &'static str,
 
     default_config: StoredValue<CrudMutableInstanceConfig>,
     pub(crate) static_config: StoredValue<CrudStaticInstanceConfig>,
+    pub(crate) data_provider: Signal<DynCrudRestDataProvider>,
+    pub(crate) headers: ReadSignal<Vec<Header>>,
+    pub(crate) create_elements: ReadSignal<CreateElements>,
+    pub(crate) update_elements: ReadSignal<UpdateElements>,
 
-    /// The current "view" of this instance. Can be List, Create, Edit, Read, ... Acts like a router...
-    pub view: ReadSignal<SerializableCrudView>,
-    set_view: WriteSignal<SerializableCrudView>,
+    /// Navigation used by this mounted instance.
+    pub navigation: CrudNavigation,
 
     /// The page the user is currently on in the list view.
     pub current_page: ReadSignal<PageNr>,
@@ -58,71 +69,52 @@ pub struct CrudInstanceContext {
     pub order_by: ReadSignal<IndexMap<DynReadField, Order>>,
     set_order_by: WriteSignal<IndexMap<DynReadField, Order>>,
 
-    /// Configuration of a parent, if present.
+    /// Parent-resource configuration, when this instance is nested below another resource.
     pub parent: StoredValue<Option<CrudParentConfig>>,
 
-    /// If a parent is referenced, this may provide the id the parent is currently using.
+    /// Current parent entity ID when parent-resource scoping can resolve one.
     pub parent_id: Signal<Option<SerializableId>>,
 
-    /// If a parent is referenced and that parent currently provides an id,
-    /// this hold a condition restraining the current resource to elements referencing the parent id.
+    /// Condition restricting this resource to the resolved parent entity.
     pub parent_id_referencing_condition: Signal<Option<Condition>>,
 
     /// The base condition applicable when fetching data.
     pub base_condition: Signal<Option<Condition>>,
 
-    /// Whenever the user requests to delete something, this is the place that information is stored.
+    /// Entity awaiting confirmation for a single-entity deletion.
     pub deletion_request: ReadSignal<Option<DynReadOrUpdateModel>>,
     set_deletion_request: WriteSignal<Option<DynReadOrUpdateModel>>,
+    set_deletion_navigation: WriteSignal<Option<CrudNavigation>>,
 
-    /// Whenever the user requests to delete multiple entities, this stores the entities to delete.
+    /// Entities awaiting confirmation for a mass deletion.
     pub mass_deletion_request: ReadSignal<Option<Arc<Vec<DynReadModel>>>>,
     set_mass_deletion_request: WriteSignal<Option<Arc<Vec<DynReadModel>>>>,
 
-    /// Whenever this signal changes, the current view should "refresh" by reloading all server provided data.
-    /// It simply provides a new random ID on each invocation.
+    /// Token changed by [`Self::reload`] to refresh server-provided data.
     pub reload: ReadSignal<Uuid>,
     set_reload: WriteSignal<Uuid>,
-
-    /// External containers can update this signal to route their own close/navigation requests
-    /// through the active CrudKit view's dirty-state leave protection.
-    pub leave_request: ReadSignal<Option<Uuid>>,
-    set_leave_request: WriteSignal<Option<Uuid>>,
 
     create_actions: ReadSignal<Option<CrudCreateActions>>,
     set_create_actions: WriteSignal<Option<CrudCreateActions>>,
 }
 
 impl CrudInstanceContext {
-    /// Opens the list view.
-    pub fn list(&self) {
-        self.set_view.set(SerializableCrudView::List);
-    }
-
-    /// Opens the create view.
-    pub fn create(&self) {
-        self.set_view.set(SerializableCrudView::Create);
-    }
-
-    /// Opens the read view for the given entity.
-    pub fn read(&self, entity_id: SerializableId) {
-        self.set_view.set(SerializableCrudView::Read(entity_id));
-    }
-
-    /// Opens the edit view for the given entity.
-    pub fn edit(&self, entity_id: SerializableId) {
-        self.set_view.set(SerializableCrudView::Edit(entity_id));
-    }
-
+    /// Selects the list page to load.
     pub fn set_page(&self, page_number: PageNr) {
         self.set_current_page.set(page_number);
     }
 
+    /// Sets the number of entities shown on each list page.
     pub fn set_items_per_page(&self, items_per_page: ItemsPerPage) {
         self.set_items_per_page.set(items_per_page);
     }
 
     // TODO: Why is this here and CrudInstanceConfig#update_order_by exists?
+    /// Applies an ordering interaction for `field`.
+    ///
+    /// The interaction toggles the field between ascending and descending. It
+    /// clears existing ordering first unless [`OrderByUpdateOptions::append`]
+    /// is set.
     pub fn oder_by(&self, field: DynReadField, options: OrderByUpdateOptions) {
         self.set_order_by
             .update(|order_by: &mut IndexMap<DynReadField, Order>| {
@@ -144,26 +136,46 @@ impl CrudInstanceContext {
             })
     }
 
+    /// Records that the tab identified by `tab_id` was selected.
+    ///
+    /// The current implementation emits a diagnostic and retains no tab state.
     pub fn tab_selected(&self, tab_id: TabId) {
         tracing::info!(?tab_id, "tab_selected");
     }
 
+    /// Opens single-entity deletion confirmation for `entity`.
     pub fn request_deletion_of(&self, entity: DynReadOrUpdateModel) {
+        self.request_deletion_of_from(entity, self.navigation);
+    }
+
+    pub(crate) fn request_deletion_of_from(
+        &self,
+        entity: DynReadOrUpdateModel,
+        navigation: CrudNavigation,
+    ) {
         // TODO: Use upcasting instead of helper function when Rust 1.86 lands. (see: dyn upcasting coercion")
+        self.set_deletion_navigation.set(Some(navigation));
         self.set_deletion_request.set(Some(entity));
     }
 
+    /// Opens mass-deletion confirmation for `entities` when the collection is non-empty.
     pub fn request_mass_deletion(&self, entities: Arc<Vec<DynReadModel>>) {
         if !entities.is_empty() {
             self.set_mass_deletion_request.set(Some(entities));
         }
     }
 
+    /// Cancels the current mass-deletion confirmation.
     pub fn cancel_mass_deletion(&self) {
         self.set_mass_deletion_request.set(None);
     }
 
     // TODO: Other functions do not take a . Should the instance provide its  to store it in this context? Would allow everyone to have access.
+    /// Applies the shared UI effects from an action result.
+    ///
+    /// Both success and failure aftermaths may publish a toast or reload the
+    /// instance. The `Result` variant records the action outcome; the contained
+    /// [`CrudActionAftermath`] defines the UI effects in either case.
     pub fn handle_action_outcome(&self, outcome: Result<CrudActionAftermath, CrudActionAftermath>) {
         tracing::info!(?outcome, "handling action outcome");
 
@@ -184,12 +196,9 @@ impl CrudInstanceContext {
         }
     }
 
+    /// Changes the reload token so data-dependent views fetch current server state.
     pub fn reload(&self) {
         self.set_reload.set(Uuid::new_v4());
-    }
-
-    pub fn request_leave(&self) {
-        self.set_leave_request.set(Some(Uuid::new_v4()));
     }
 
     pub(crate) fn create_actions(&self) -> Option<CrudCreateActions> {
@@ -203,27 +212,51 @@ impl CrudInstanceContext {
     /// Reset this instance to its default configuration.
     /// Every change made by the user is reverted.
     pub fn reset(&self) {
+        let context = *self;
+        self.navigation
+            .attempt(move || context.reset_committed(), || {});
+    }
+
+    fn reset_committed(&self) {
         let default = self.default_config.get_value();
         self.set_deletion_request.set(None);
+        self.set_deletion_navigation.set(None);
         self.set_mass_deletion_request.set(None);
         self.set_current_page.set(default.page);
         self.set_items_per_page.set(default.items_per_page);
         self.set_order_by.set(default.order_by.clone());
         self.set_create_actions.set(None);
-        // TODO: Should there be functions resetting individual views? This always resets everything and sets the view to be the List view...
-        self.set_view.set(default.view);
+        self.navigation
+            .navigate_committed(default.initial_view.clone());
     }
 }
 
 // TODO: Effect::new over all signals in config, bundle, serialize and store...
 
+/// Mounts one configured CrudKit resource and renders its current registered view.
+///
+/// Without `navigation`, the instance creates navigation in a child of the
+/// nearest manager navigation scope, initialized from
+/// [`CrudInstanceConfig::initial_view`]. Supplied navigation remains
+/// caller-owned and deliberately overrides the manager navigation scope. In
+/// both cases, the instance mounts a private child navigation scope so
+/// unmounting does not invalidate supplied navigation or remove the manager
+/// navigation scope.
 #[component]
 pub fn CrudInstance(
+    /// Stable name used to register this instance with its manager.
     name: &'static str,
+    /// Resource, view, renderer, control, and request configuration for this mount.
     config: CrudInstanceConfig,
-    #[prop(optional)] parent: Option<CrudParentConfig>,
-    #[prop(optional)] on_exit: Option<Callback<()>>,
-    #[prop(optional)] on_context_created: Option<Callback<CrudInstanceContext>>,
+    /// Optional parent-resource relationship used to scope child data.
+    #[prop(optional)]
+    parent: Option<CrudParentConfig>,
+    /// Optional caller-owned navigation that replaces manager-created navigation.
+    #[prop(optional)]
+    navigation: Option<CrudNavigation>,
+    /// Optional callback invoked once after the instance context is created.
+    #[prop(optional)]
+    on_context_created: Option<Callback<CrudInstanceContext>>,
 ) -> impl IntoView {
     // Unique id of this instance. Volatile. Not persistent between rerenders.
     let id = Uuid::new_v4();
@@ -233,17 +266,14 @@ pub fn CrudInstance(
     let static_config = StoredValue::new(static_config);
 
     let (api_base_url, _set_api_base_url) = signal(config.api_base_url.clone());
-    let (view, set_view) = signal(config.view.clone());
-    let serializable_view = Memo::<SerializableCrudView>::new(move |_| view.get()); // TODO: remove this. now irrelevant
-
     let mgr = expect_context::<CrudInstanceMgrContext>();
-    mgr.register(
-        name,
-        InstanceState {
-            name,
-            view: serializable_view.into(),
-        },
-    );
+    let instance_navigation =
+        navigation.unwrap_or_else(|| mgr.child_navigation(config.initial_view.clone()));
+    let view = instance_navigation.current();
+    let navigation = instance_navigation.scoped();
+    navigation.register_confirmation_host();
+
+    mgr.register(name, InstanceState { name, view });
 
     let (headers, _set_headers) = signal(config.headers.clone());
     let (current_page, set_current_page) = signal(config.page);
@@ -303,9 +333,9 @@ pub fn CrudInstance(
     let (create_elements, _set_create_elements) = signal(config.create_elements.clone());
     let (update_elements, _set_update_elements) = signal(config.elements.clone());
     let (deletion_request, set_deletion_request) = signal(None);
+    let (deletion_navigation, set_deletion_navigation) = signal(None::<CrudNavigation>);
     let (mass_deletion_request, set_mass_deletion_request) = signal(None::<Arc<Vec<DynReadModel>>>);
     let (reload, set_reload) = signal(Uuid::new_v4());
-    let (leave_request, set_leave_request) = signal(None);
     let (create_actions, set_create_actions) = signal(None::<CrudCreateActions>);
 
     let default_config = StoredValue::new(config);
@@ -318,14 +348,16 @@ pub fn CrudInstance(
         )
     });
 
-    // ctx is copy. But is it efficient? Do we want to put this into a stored value instead?
     let ctx = CrudInstanceContext {
         id,
         name,
         default_config,
         static_config,
-        view,
-        set_view,
+        data_provider,
+        headers,
+        create_elements,
+        update_elements,
+        navigation,
         current_page,
         set_current_page,
         items_per_page,
@@ -338,12 +370,11 @@ pub fn CrudInstance(
         base_condition,
         deletion_request,
         set_deletion_request,
+        set_deletion_navigation,
         mass_deletion_request,
         set_mass_deletion_request,
         reload,
         set_reload,
-        leave_request,
-        set_leave_request,
         create_actions,
         set_create_actions,
     };
@@ -351,59 +382,50 @@ pub fn CrudInstance(
         on_context_created.run(ctx)
     }
 
-    Effect::new(move |_| {
-        if view.get() != SerializableCrudView::Create {
-            set_create_actions.set(None);
-        }
-    });
-
-    let read_field_renderer_registry =
-        Signal::derive(move || static_config.read_value().read_field_renderer.clone());
-    let create_field_renderer_registry =
-        Signal::derive(move || static_config.read_value().create_field_renderer.clone());
-    let update_field_renderer_registry =
-        Signal::derive(move || static_config.read_value().update_field_renderer.clone());
-
-    let actions = Signal::derive(move || static_config.read_value().actions.clone());
-    let entity_actions = Signal::derive(move || static_config.read_value().entity_actions.clone());
-    let navigation = Signal::derive(move || static_config.read_value().navigation);
-    let on_exit = StoredValue::new(on_exit);
-    let on_list_view = move || match on_exit.get_value() {
-        Some(on_exit) => on_exit.run(()),
-        None => ctx.list(),
-    };
-
     let on_cancel_delete = Callback::new(move |()| {
         tracing::info!("Removing delete request");
         set_deletion_request.set(None);
+        set_deletion_navigation.set(None);
     });
 
-    let delete_action = Action::new_local(move |entity_id: &SerializableId| {
-        let data_provider = data_provider.get();
-        let id = entity_id.clone();
-        async move {
-            let result = data_provider.delete_by_id(DeleteById { id }).await;
+    let delete_action = Action::new_local(
+        move |(entity_id, deletion_navigation): &(SerializableId, CrudNavigation)| {
+            let data_provider = data_provider.get();
+            let id = entity_id.clone();
+            let deletion_navigation = *deletion_navigation;
+            async move {
+                let result = data_provider.delete_by_id(DeleteById { id }).await;
+                let deleted = result.is_ok();
 
-            // The delete operation was performed and must therefore no longer be requested.
-            set_deletion_request.set(None);
+                // The delete operation was performed and must therefore no longer be requested.
+                set_deletion_request.set(None);
+                set_deletion_navigation.set(None);
 
-            // No matter where the user deleted an entity, the list view should be shown afterwards.
-            ctx.list();
+                // The user must be notified how the delete operation went.
+                handle_delete_result(result);
 
-            // The user must be notified how the delete operation went.
-            handle_delete_result(result);
-
-            // We have to reload the list-view!
-            ctx.reload();
-        }
-    });
+                if deleted {
+                    // Persistence resolved the edited draft, so follow-up
+                    // navigation must not ask about the now-committed input again.
+                    if deletion_navigation.return_committed() == CommittedReturnDestination::View {
+                        ctx.reload();
+                    }
+                }
+            }
+        },
+    );
 
     let on_accept_delete = Callback::new(move |entity: DynReadOrUpdateModel| {
         let id = match entity {
             DynReadOrUpdateModel::Read(model) => model.id(),
             DynReadOrUpdateModel::Update(model) => model.id(),
         };
-        delete_action.dispatch(id);
+        let Some(deletion_navigation) = deletion_navigation.get_untracked() else {
+            tracing::error!("Delete request had no originating navigation scope");
+            set_deletion_request.set(None);
+            return;
+        };
+        delete_action.dispatch((id, deletion_navigation));
     });
 
     let on_cancel_delete_many = Callback::new(move |()| {
@@ -440,82 +462,22 @@ pub fn CrudInstance(
         delete_many_action.dispatch(entities);
     });
 
+    let view_registry = static_config.read_value().view_registry.clone();
+    let pending_navigation_requiring_leave_confirmation = navigation.requires_leave_confirmation();
+
     view! {
         <Provider value=ctx>
             <div class="crud-instance">
                 <div class="body">
-                    {move || match view.get() {
-                        SerializableCrudView::List => view! {
-                            <CrudListView
-                                data_provider=data_provider
-                                headers=headers
-                                order_by=order_by
-                                field_renderer_registry=read_field_renderer_registry
-                                actions=actions
-                            />
-                        }.into_any(),
-                        SerializableCrudView::Create => view! {
-                            <CrudCreateView
-                                data_provider=data_provider
-                                create_elements=create_elements
-                                field_renderer_registry=create_field_renderer_registry
+                    {move || {
+                        view! {
+                            <RegisteredCrudView
+                                context=ctx
+                                registry=view_registry.clone()
+                                view=view.get()
                                 navigation=navigation
-                                on_edit_view=move |id| ctx.edit(id)
-                                on_list_view=on_list_view
-                                on_create_view=move || ctx.create()
-                                on_entity_created=move |_saved| {}
-                                on_entity_creation_failed=move |error: CrudOperationError| {
-                                    expect_context::<Toasts>().push(Toast {
-                                        id: Uuid::new_v4(),
-                                        created_at: OffsetDateTime::now_utc(),
-                                        variant: ToastVariant::Error,
-                                        header: ViewFn::from(|| "Fehler"),
-                                        body: ViewFn::from(move || {
-                                            format!(
-                                                "Eintrag konnte nicht erstellt werden.\n{error}",
-                                            )
-                                        }),
-                                        timeout: ToastTimeout::DefaultDelay,
-                                    })
-                                }
-                                on_tab_selected=move |tab_id| {
-                                    ctx.tab_selected(tab_id)
-                                }
                             />
-                        }.into_any(),
-                        SerializableCrudView::Read(id) => view! {
-                            <CrudReadView
-                                id=id
-                                data_provider=data_provider
-                                actions=entity_actions
-                                elements=update_elements
-                                field_renderer_registry=update_field_renderer_registry
-                                on_list_view=on_list_view
-                                on_tab_selected=move |tab_id| {
-                                    ctx.tab_selected(tab_id)
-                                }
-                            />
-                        }.into_any(),
-                        SerializableCrudView::Edit(id) => view! {
-                            <CrudEditView
-                                id=id
-                                data_provider=data_provider
-                                actions=entity_actions
-                                elements=update_elements
-                                field_renderer_registry=update_field_renderer_registry
-                                navigation=navigation
-                                on_list_view=on_list_view
-                                on_create_view=move || ctx.create()
-                                on_entity_updated=move |_saved| {}
-                                // TODO: Do we even need this callback? Deletion is handled inside this (CrudInstance) component using/inside of `delete_action`. We dont have an on_entity_delete_failed here. This seems somewhat inconsistent.
-                                on_entity_update_failed=move |_error: CrudOperationError| {
-                                    // TODO: Handle the error: Display notification to the user.
-                                }
-                                on_tab_selected=move |tab_id| {
-                                    ctx.tab_selected(tab_id)
-                                }
-                            />
-                        }.into_any(),
+                        }
                     }}
                     <CrudDeleteModal
                         entity=deletion_request
@@ -527,10 +489,30 @@ pub fn CrudInstance(
                         on_cancel=on_cancel_delete_many
                         on_accept=on_accept_delete_many
                     />
+                    <CrudLeaveModal
+                        show_when=pending_navigation_requiring_leave_confirmation
+                        on_cancel=move || navigation.cancel_pending()
+                        on_accept=move || navigation.accept_pending()
+                    />
                 </div>
             </div>
         </Provider>
     }
+}
+
+#[component]
+fn RegisteredCrudView(
+    context: CrudInstanceContext,
+    registry: CrudViewRegistry,
+    view: CrudView,
+    navigation: CrudNavigation,
+) -> impl IntoView {
+    let navigation = navigation.scoped();
+    provide_context(CrudInstanceContext {
+        navigation,
+        ..context
+    });
+    registry.render(view, navigation)
 }
 
 fn get_parent_id(parent: &CrudParentConfig, mgr: CrudInstanceMgrContext) -> Option<SerializableId> {
@@ -538,12 +520,7 @@ fn get_parent_id(parent: &CrudParentConfig, mgr: CrudInstanceMgrContext) -> Opti
     // Otherwise, at instance nesting depth 3, rendering the instance and registering it would
     // cause instance at depth 2 to register this change here and force a field-rerender.
     let parent_state = mgr.get_by_name(parent.name)?;
-    match parent_state.view.get_untracked() {
-        SerializableCrudView::List => None,
-        SerializableCrudView::Create => None,
-        SerializableCrudView::Read(id) => Some(id),
-        SerializableCrudView::Edit(id) => Some(id),
-    }
+    parent_state.view.get_untracked().subject
 }
 
 fn handle_delete_result(result: Result<Deleted, RequestError>) {

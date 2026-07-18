@@ -1,11 +1,13 @@
 use crate::ReactiveField;
 use crate::crud_action::{CrudAction, CrudEntityAction};
+use crate::crud_view_registry::CrudViewRegistry;
 use crate::fields::FieldRenderer;
 use crudkit_core::condition::Condition;
+use crudkit_core::id::SerializableId;
 use crudkit_core::{Order, Saved};
 use crudkit_web::prelude::*;
 use crudkit_web::reqwest_executor::ReqwestExecutor;
-use crudkit_web::view::SerializableCrudView;
+use crudkit_web::view::CrudView;
 use crudkit_web::{FieldAccess, HeaderOptions, Model};
 use indexmap::IndexMap;
 use leptos::prelude::*;
@@ -113,7 +115,8 @@ impl<F: TypeErasedField> FieldRendererRegistryBuilder<F> {
 pub struct CrudInstanceConfig {
     /* Later to-be mutable data. */
     pub api_base_url: String,
-    pub view: SerializableCrudView,
+    /// View used to initialize instance-owned navigation and as the reset destination.
+    pub initial_view: CrudView,
     pub list_columns: Vec<Header>,
     pub create_elements: CreateElements,
     pub elements: UpdateElements,
@@ -130,7 +133,10 @@ pub struct CrudInstanceConfig {
     pub model_handler: ModelHandler,
     pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction>,
-    pub navigation: CrudNavigationConfig,
+    /// Visibility and follow-up behavior for controls in CrudKit's built-in views.
+    pub builtin_view_controls: CrudBuiltinViewControls,
+    /// Built-in replacements and application-defined view renderers for this instance.
+    pub view_registry: CrudViewRegistry,
     pub read_field_renderer: FieldRendererRegistry<DynReadField>,
     pub create_field_renderer: FieldRendererRegistry<DynCreateField>,
     pub update_field_renderer: FieldRendererRegistry<DynUpdateField>,
@@ -141,7 +147,7 @@ impl CrudInstanceConfig {
         (
             CrudMutableInstanceConfig {
                 api_base_url: self.api_base_url,
-                view: self.view,
+                initial_view: self.initial_view,
                 headers: self.list_columns,
                 create_elements: self.create_elements,
                 elements: self.elements,
@@ -156,7 +162,8 @@ impl CrudInstanceConfig {
                 model_handler: self.model_handler,
                 actions: self.actions,
                 entity_actions: self.entity_actions,
-                navigation: self.navigation,
+                builtin_view_controls: self.builtin_view_controls,
+                view_registry: self.view_registry,
                 read_field_renderer: self.read_field_renderer,
                 create_field_renderer: self.create_field_renderer,
                 update_field_renderer: self.update_field_renderer,
@@ -168,7 +175,7 @@ impl CrudInstanceConfig {
 #[derive(Debug, Clone)] // TODO: Serialize, Deserialize
 pub(crate) struct CrudMutableInstanceConfig {
     pub api_base_url: String,
-    pub view: SerializableCrudView,
+    pub initial_view: CrudView,
     pub headers: Vec<Header>,
     pub create_elements: CreateElements,
     pub elements: UpdateElements,
@@ -186,65 +193,98 @@ pub(crate) struct CrudStaticInstanceConfig {
     pub model_handler: ModelHandler,
     pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction>,
-    pub navigation: CrudNavigationConfig,
+    pub builtin_view_controls: CrudBuiltinViewControls,
+    pub view_registry: CrudViewRegistry,
     pub read_field_renderer: FieldRendererRegistry<DynReadField>,
     pub create_field_renderer: FieldRendererRegistry<DynCreateField>,
     pub update_field_renderer: FieldRendererRegistry<DynUpdateField>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Follow-up performed after a successful create operation.
+#[derive(Debug, Clone, Copy)]
 pub enum CrudCreateSaveTarget {
+    /// Open the built-in edit view for the created entity.
     EditView,
-    ListView,
-    CreateView,
+    /// Resolve the created id to an arbitrary view.
+    View(Callback<SerializableId, CrudView>),
+    /// Perform the navigation object's configured return action.
+    Return,
+    /// Keep the create view mounted.
+    Stay,
 }
 
+impl CrudCreateSaveTarget {
+    /// Opens one fixed view after creation.
+    pub fn view(view: CrudView) -> Self {
+        Self::View(Callback::new(move |_| view.clone()))
+    }
+
+    /// Builds the destination from the created entity id.
+    pub fn dynamic(callback: impl Fn(SerializableId) -> CrudView + Send + Sync + 'static) -> Self {
+        Self::View(Callback::new(callback))
+    }
+}
+
+/// Placement of CrudKit action controls relative to the built-in form.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CrudActionsPlacement {
+    /// Render controls inside the built-in form.
     Inline,
+    /// Publish controls through an application-placed actions outlet.
     External,
 }
 
+/// Backward-compatible name for [`CrudActionsPlacement`].
 pub type CrudCreateActionsPlacement = CrudActionsPlacement;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CrudNavigationConfig {
+/// Controls which buttons CrudKit's built-in views render.
+#[derive(Debug, Clone, Copy)]
+pub struct CrudBuiltinViewControls {
+    /// Whether create and edit views show the primary save button.
     pub show_save: bool,
+    /// Whether create and edit views show the save-and-return button.
     pub show_save_and_back: bool,
+    /// Whether the create view shows the save-and-create-another button.
     pub show_save_and_new: bool,
+    /// Whether read and edit views show the delete button.
     pub show_delete: bool,
-    pub show_list_view: bool,
+    /// Whether read and edit views show the configured return action.
+    pub show_return: bool,
+    /// Follow-up performed after a successful create operation.
     pub create_save_target: CrudCreateSaveTarget,
+    /// Placement of create action controls.
     pub create_actions_placement: CrudActionsPlacement,
 }
 
-impl CrudNavigationConfig {
+impl CrudBuiltinViewControls {
+    /// Returns controls suitable for a single entity embedded in an application-owned host.
     pub fn embedded_single_entity() -> Self {
         Self {
             show_save: true,
             show_save_and_back: false,
             show_save_and_new: false,
             show_delete: false,
-            show_list_view: false,
-            create_save_target: CrudCreateSaveTarget::ListView,
+            show_return: false,
+            create_save_target: CrudCreateSaveTarget::Return,
             create_actions_placement: CrudActionsPlacement::Inline,
         }
     }
 
+    /// Sets where create action controls are rendered.
     pub fn with_create_actions_placement(mut self, placement: CrudActionsPlacement) -> Self {
         self.create_actions_placement = placement;
         self
     }
 }
 
-impl Default for CrudNavigationConfig {
+impl Default for CrudBuiltinViewControls {
     fn default() -> Self {
         Self {
             show_save: true,
             show_save_and_back: true,
             show_save_and_new: true,
             show_delete: true,
-            show_list_view: true,
+            show_return: true,
             create_save_target: CrudCreateSaveTarget::EditView,
             create_actions_placement: CrudActionsPlacement::Inline,
         }

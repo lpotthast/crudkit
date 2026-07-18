@@ -5,6 +5,7 @@
 pub mod crud_action;
 pub mod crud_action_buttons;
 pub mod crud_action_context;
+mod crud_builtin_views;
 pub mod crud_create_view;
 pub mod crud_delete_many_modal;
 pub mod crud_delete_modal;
@@ -17,12 +18,14 @@ pub mod crud_instance_config;
 pub mod crud_instance_mgr;
 pub mod crud_leave_modal;
 pub mod crud_list_view;
+pub mod crud_navigation;
 pub mod crud_pagination;
 pub mod crud_read_view;
 pub mod crud_table;
 pub mod crud_table_body;
 pub mod crud_table_footer;
 pub mod crud_table_header;
+pub mod crud_view_registry;
 pub mod fields;
 
 /*
@@ -68,9 +71,12 @@ pub mod prelude {
     pub use super::crud_create_view::{CrudActionSlot, CrudActionsOutlet, CrudCreateActionsOutlet};
     pub use super::crud_instance::CrudInstance;
     pub use super::crud_instance_config::{
-        CreateElements, CrudActionsPlacement, CrudCreateActionsPlacement, CrudCreateSaveTarget,
-        CrudInstanceConfig, CrudNavigationConfig, CrudParentConfig,
+        CreateElements, CrudActionsPlacement, CrudBuiltinViewControls, CrudCreateActionsPlacement,
+        CrudCreateSaveTarget, CrudInstanceConfig, CrudParentConfig,
     };
+    pub use super::crud_instance_mgr::{CrudInstanceMgr, CrudInstanceMgrContext, InstanceState};
+    pub use super::crud_navigation::{CrudNavigation, CrudNavigationScope};
+    pub use super::crud_view_registry::{CrudViewRegistry, DuplicateCrudViewError};
 }
 
 /// A reactive field holding a `Value` signal.

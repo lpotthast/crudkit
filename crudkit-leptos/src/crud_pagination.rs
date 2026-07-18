@@ -38,7 +38,7 @@ pub fn CrudPagination(
             default_options.push(ItemsPerPageEntry::some(items_per_page));
         }
 
-        default_options.sort_by(|a, b| a.items_per_page.cmp(&b.items_per_page));
+        default_options.sort_by_key(|option| option.items_per_page);
         default_options
     });
 

@@ -2,14 +2,15 @@ use crate::ReactiveField;
 use crate::crud_fields::CrudFields;
 use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{
-    CreateElements, CrudActionsPlacement, CrudCreateSaveTarget, CrudNavigationConfig,
+    CreateElements, CrudActionsPlacement, CrudBuiltinViewControls, CrudCreateSaveTarget,
     FieldRendererRegistry,
 };
-use crate::crud_leave_modal::CrudLeaveModal;
-use crudkit_core::id::{SerializableId, SerializableIdEntry};
+use crate::crud_navigation::CrudNavigation;
+use crudkit_core::id::SerializableIdEntry;
 use crudkit_core::{Saved, Value};
 use crudkit_web::prelude::*;
 use crudkit_web::request_error::{CrudOperationError, RequestError};
+use crudkit_web::view::CrudView;
 use crudkit_web::{FieldMode, TabId};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
@@ -18,17 +19,17 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Then {
-    OpenEditView,
-    OpenListView,
-    OpenCreateView,
+    Configured,
+    Return,
+    Create,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct CrudCreateActions {
-    navigation: Signal<CrudNavigationConfig>,
+    controls: Signal<CrudBuiltinViewControls>,
+    navigation: CrudNavigation,
     save_disabled: Signal<bool>,
     save: Callback<Then>,
-    request_leave: Callback<()>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,16 +37,6 @@ pub enum CrudActionSlot {
     CreatePrimary,
     CreateNavigation,
     CreateToolbar,
-}
-
-impl From<CrudCreateSaveTarget> for Then {
-    fn from(target: CrudCreateSaveTarget) -> Self {
-        match target {
-            CrudCreateSaveTarget::EditView => Self::OpenEditView,
-            CrudCreateSaveTarget::ListView => Self::OpenListView,
-            CrudCreateSaveTarget::CreateView => Self::OpenCreateView,
-        }
-    }
 }
 
 // TODO: Make this a signal? How would we act upon changes?
@@ -93,10 +84,8 @@ pub fn CrudCreateView(
     #[prop(into)] data_provider: Signal<DynCrudRestDataProvider>,
     #[prop(into)] create_elements: Signal<CreateElements>,
     #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<DynCreateField>>,
-    #[prop(into)] navigation: Signal<CrudNavigationConfig>,
-    #[prop(into)] on_edit_view: Callback<SerializableId>, // UpdateModel id
-    #[prop(into)] on_list_view: Callback<()>,
-    #[prop(into)] on_create_view: Callback<()>,
+    #[prop(into)] controls: Signal<CrudBuiltinViewControls>,
+    navigation: CrudNavigation,
     /// Called when the entity is successfully created.
     #[prop(into)]
     on_entity_created: Callback<Saved<DynUpdateModel>>,
@@ -124,35 +113,10 @@ pub fn CrudCreateView(
     let (input, set_input) = signal(default_create_model.clone());
 
     let input_changed = Signal::derive(move || input.get() != default_create_model);
+    navigation.guard(input_changed);
 
     // The state of the `input` signal should be considered to be erroneous if at least one field is contained in this error list.
     let (_input_errors, set_input_errors) = signal(HashMap::<DynCreateField, String>::new());
-
-    let (user_wants_to_leave, set_user_wants_to_leave) = signal(false);
-    let (show_leave_modal, set_show_leave_modal) = signal(false);
-
-    let on_list_view_for_leave = on_list_view.clone();
-    let force_leave = Callback::new(move |()| on_list_view_for_leave.run(()));
-    let request_leave = Callback::new(move |()| set_user_wants_to_leave.set(true));
-    let force_leave_for_effect = force_leave.clone();
-    let last_external_leave_request = RwSignal::new(None);
-
-    Effect::new(move |_| {
-        if let Some(request) = ctx.leave_request.get()
-            && last_external_leave_request.get_untracked() != Some(request)
-        {
-            last_external_leave_request.set(Some(request));
-            set_user_wants_to_leave.set(true);
-        }
-    });
-
-    Effect::new(
-        move |_prev| match (user_wants_to_leave.get(), input_changed.get()) {
-            (true, true) => set_show_leave_modal.set(true),
-            (true, false) => force_leave_for_effect.run(()),
-            (false, _) => {}
-        },
-    );
 
     // TODO: Can we get rid of new_local?
     let save_action =
@@ -192,9 +156,22 @@ pub fn CrudCreateView(
                     let id = saved.entity.id();
                     on_entity_created.run(saved);
                     match and_then {
-                        Then::OpenEditView => on_edit_view.run(id),
-                        Then::OpenListView => on_list_view.run(()),
-                        Then::OpenCreateView => on_create_view.run(()),
+                        Then::Configured => match controls.get_untracked().create_save_target {
+                            CrudCreateSaveTarget::EditView => {
+                                navigation.navigate_committed(CrudView::edit(id));
+                            }
+                            CrudCreateSaveTarget::View(resolve) => {
+                                navigation.navigate_committed(resolve.run(id));
+                            }
+                            CrudCreateSaveTarget::Return => {
+                                navigation.return_committed();
+                            }
+                            CrudCreateSaveTarget::Stay => {}
+                        },
+                        Then::Return => {
+                            navigation.return_committed();
+                        }
+                        Then::Create => navigation.navigate_committed(CrudView::create()),
                     }
                 }
                 Err(request_error) => {
@@ -212,12 +189,13 @@ pub fn CrudCreateView(
         save_action.dispatch((input.get(), then));
     });
     let actions = CrudCreateActions {
+        controls,
         navigation,
         save_disabled,
         save,
-        request_leave,
     };
     ctx.set_create_actions(Some(actions));
+    on_cleanup(move || ctx.set_create_actions(None));
 
     // TODO: Refactor this code. Much of it is shared with the edit_view!
     let value_changed =
@@ -243,7 +221,7 @@ pub fn CrudCreateView(
 
     view! {
         {move || {
-            (navigation.get().create_actions_placement == CrudActionsPlacement::Inline)
+            (controls.get().create_actions_placement == CrudActionsPlacement::Inline)
                 .then(|| view! { <Actions actions /> })
         }}
         {move || match create_elements.get() {
@@ -261,18 +239,6 @@ pub fn CrudCreateView(
                 }.into_any()
             }
         }}
-
-        <CrudLeaveModal
-            show_when=show_leave_modal
-            on_cancel=move || {
-                set_show_leave_modal.set(false);
-                set_user_wants_to_leave.set(false);
-            }
-            on_accept=move || {
-                set_show_leave_modal.set(false);
-                force_leave.run(());
-            }
-        />
     }
 }
 
@@ -330,22 +296,22 @@ fn create_actions_slot(actions: CrudCreateActions, slot: CrudActionSlot) -> impl
 
 fn create_primary_actions(actions: CrudCreateActions) -> impl IntoView {
     let CrudCreateActions {
-        navigation,
+        controls,
+        navigation: _,
         save_disabled,
         save,
-        request_leave: _,
     } = actions;
     view! {
         <ButtonWrapper>
             {move || {
-                let navigation = navigation.get();
-                navigation.show_save.then(|| {
+                let controls = controls.get();
+                controls.show_save.then(|| {
                     view! {
                         <Button
                             color=ButtonColor::Primary
                             disabled=save_disabled
                             on_press=move |_| {
-                                save.run(navigation.create_save_target.into());
+                                save.run(Then::Configured);
                             }
                         >
                             "Speichern"
@@ -354,12 +320,12 @@ fn create_primary_actions(actions: CrudCreateActions) -> impl IntoView {
                 })
             }}
             {move || {
-                navigation.get().show_save_and_back.then(|| {
+                controls.get().show_save_and_back.then(|| {
                     view! {
                         <Button
                             color=ButtonColor::Primary
                             disabled=save_disabled
-                            on_press=move |_| { save.run(Then::OpenListView); }
+                            on_press=move |_| { save.run(Then::Return); }
                         >
                             "Speichern und zurück"
                         </Button>
@@ -367,12 +333,12 @@ fn create_primary_actions(actions: CrudCreateActions) -> impl IntoView {
                 })
             }}
             {move || {
-                navigation.get().show_save_and_new.then(|| {
+                controls.get().show_save_and_new.then(|| {
                     view! {
                         <Button
                             color=ButtonColor::Primary
                             disabled=save_disabled
-                            on_press=move |_| { save.run(Then::OpenCreateView); }
+                            on_press=move |_| { save.run(Then::Create); }
                         >
                             "Speichern und neu"
                         </Button>
@@ -385,19 +351,18 @@ fn create_primary_actions(actions: CrudCreateActions) -> impl IntoView {
 
 fn create_navigation_actions(actions: CrudCreateActions) -> impl IntoView {
     let CrudCreateActions {
+        controls,
         navigation,
         save_disabled: _,
         save: _,
-        request_leave,
     } = actions;
     view! {
         <ButtonWrapper>
             {move || {
-                navigation.get().show_list_view.then(|| {
+                controls.get().show_return.then(|| {
                     view! {
-                        <Button color=ButtonColor::Secondary on_press=move |_| request_leave.run(())>
-                            <span style="text-decoration: underline;">{"L"}</span>
-                            {"istenansicht"}
+                        <Button color=ButtonColor::Secondary on_press=move |_| navigation.return_from_current()>
+                            "Zurück"
                         </Button>
                     }
                 })

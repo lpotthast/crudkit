@@ -2,11 +2,13 @@ use crate::crud_action::{CrudAction, ResourceActionViewInput};
 use crate::crud_action_context::CrudActionContext;
 use crate::crud_instance::CrudInstanceContext;
 use crate::crud_instance_config::{FieldRendererRegistry, Header};
+use crate::crud_navigation::CrudNavigation;
 use crate::crud_pagination::CrudPagination;
 use crate::crud_table::{CrudTable, NoDataAvailable};
 use crudkit_core::Order;
 use crudkit_web::prelude::*;
 use crudkit_web::request_error::RequestError;
+use crudkit_web::view::CrudView;
 use indexmap::IndexMap;
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
@@ -88,6 +90,7 @@ pub fn CrudListView(
     #[prop(into)] order_by: Signal<IndexMap<DynReadField, Order>>,
     #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<DynReadField>>,
     #[prop(into)] actions: Signal<Vec<CrudAction>>,
+    navigation: CrudNavigation,
 ) -> impl IntoView {
     let instance_ctx = expect_context::<CrudInstanceContext>();
 
@@ -210,7 +213,7 @@ pub fn CrudListView(
 
     view! {
         <Provider value=list_view_context>
-            <ActionRow actions filter filter_open />
+            <ActionRow actions filter filter_open navigation />
 
             <CrudTable
                 headers=headers
@@ -221,6 +224,7 @@ pub fn CrudListView(
                 edit_allowed=edit_allowed
                 delete_allowed=delete_allowed
                 additional_item_actions=Signal::derive(Vec::new)
+                navigation=navigation
             />
 
             {multiselect_info}
@@ -252,6 +256,7 @@ fn ActionRow(
     actions: Signal<Vec<CrudAction>>,
     filter: RwSignal<Option<String>>,
     filter_open: RwSignal<bool>,
+    navigation: CrudNavigation,
 ) -> impl IntoView {
     let instance_ctx = expect_context::<CrudInstanceContext>();
     let action_ctx = CrudActionContext::new();
@@ -260,7 +265,9 @@ fn ActionRow(
             <Row>
                 <Col xs=6>
                     <ButtonWrapper>
-                        <Button color=ButtonColor::Success on_press=move |_| { instance_ctx.create() }>
+                        <Button color=ButtonColor::Success on_press=move |_| {
+                            navigation.navigate(CrudView::create())
+                        }>
                             <Icon icon=icondata::BsPlusCircle/>
                             <span style="text-decoration: underline">"N"</span>
                             "eu"

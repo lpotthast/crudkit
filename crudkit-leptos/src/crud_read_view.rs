@@ -4,7 +4,8 @@ use crate::crud_action_buttons::CrudActionButtons;
 use crate::crud_action_context::CrudActionContext;
 use crate::crud_fields::CrudFields;
 use crate::crud_instance::CrudInstanceContext;
-use crate::crud_instance_config::{FieldRendererRegistry, UpdateElements};
+use crate::crud_instance_config::{CrudBuiltinViewControls, FieldRendererRegistry, UpdateElements};
+use crate::crud_navigation::CrudNavigation;
 use crate::crud_table::NoDataAvailable;
 use crudkit_core::condition::{TryIntoAllEqualCondition, merge_conditions};
 use crudkit_core::id::SerializableId;
@@ -30,7 +31,8 @@ pub fn CrudReadView(
     #[prop(into)] actions: Signal<Vec<CrudEntityAction>>,
     #[prop(into)] elements: Signal<UpdateElements>,
     #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<DynUpdateField>>,
-    #[prop(into)] on_list_view: Callback<()>,
+    #[prop(into)] controls: Signal<CrudBuiltinViewControls>,
+    navigation: CrudNavigation,
     #[prop(into)] on_tab_selected: Callback<TabId>,
 ) -> impl IntoView {
     let instance_ctx = expect_context::<CrudInstanceContext>();
@@ -125,35 +127,65 @@ pub fn CrudReadView(
             None
         }
     });
+    let delete_disabled = Signal::derive(move || maybe_entity.get().is_none());
+    let trigger_delete = move || {
+        if let Some(entity) = maybe_entity.get() {
+            instance_ctx.request_deletion_of_from(DynReadOrUpdateModel::Update(entity), navigation);
+        }
+    };
 
     // TODO: Do we need to match over entity?
     view! {
         {move || match (entity.get(), signals.get()) {
             (Ok(_entity), signals) => {
-                let on_list_view = on_list_view;
                 view! {
                     {move || {
-                        let on_list_view = on_list_view;
                         view! {
                             <Grid gap=Size::Em(0.6) attr:class="crud-nav">
                                 <Row>
                                     <Col xs=6 h_align=ColAlign::Start>
-                                        <CrudActionButtons
-                                            action_ctx=action_ctx
-                                            actions=actions
-                                            input=maybe_entity
-                                            required_state=States::Read
-                                        />
+                                        <ButtonWrapper>
+                                            {move || {
+                                                controls
+                                                    .get()
+                                                    .show_delete
+                                                    .then(|| {
+                                                        view! {
+                                                            <Button
+                                                                color=ButtonColor::Danger
+                                                                disabled=delete_disabled
+                                                                on_press=move |_| {
+                                                                    trigger_delete();
+                                                                }
+                                                            >
+                                                                "Löschen"
+                                                            </Button>
+                                                        }
+                                                    })
+                                            }}
+                                            <CrudActionButtons
+                                                action_ctx=action_ctx
+                                                actions=actions
+                                                input=maybe_entity
+                                                required_state=States::Read
+                                            />
+                                        </ButtonWrapper>
                                     </Col>
                                     <Col xs=6 h_align=ColAlign::End>
                                         <ButtonWrapper>
-                                            <Button
-                                                color=ButtonColor::Secondary
-                                                on_press=move |_| on_list_view.run(())
-                                            >
-                                                <span style="text-decoration: underline;">{"L"}</span>
-                                                {"istenansicht"}
-                                            </Button>
+                                            {controls
+                                                .get()
+                                                .show_return
+                                                .then(|| {
+                                                    view! {
+                                                        <Button
+                                                            color=ButtonColor::Secondary
+                                                            on_press=move |_| navigation.return_from_current()
+                                                        >
+                                                            "Zurück"
+                                                        </Button>
+                                                    }
+                                                })}
                                         </ButtonWrapper>
                                     </Col>
                                 </Row>
@@ -169,25 +201,35 @@ pub fn CrudReadView(
                         value_changed=value_changed
                         on_tab_selection=on_tab_selected
                     />
-                }.into_any()
+                }
+                    .into_any()
             }
             (Err(no_data), _) => {
-                let on_list_view = on_list_view;
                 view! {
                     <Grid gap=Size::Em(0.6) attr:class="crud-nav">
                         <Row>
                             <Col h_align=ColAlign::End>
                                 <ButtonWrapper>
-                                    <Button color=ButtonColor::Secondary on_press=move |_| on_list_view.run(())>
-                                        <span style="text-decoration: underline;">{"L"}</span>
-                                        {"istenansicht"}
-                                    </Button>
+                                    {controls
+                                        .get()
+                                        .show_return
+                                        .then(|| {
+                                            view! {
+                                                <Button
+                                                    color=ButtonColor::Secondary
+                                                    on_press=move |_| navigation.return_from_current()
+                                                >
+                                                    "Zurück"
+                                                </Button>
+                                            }
+                                        })}
                                 </ButtonWrapper>
                             </Col>
                         </Row>
                     </Grid>
                     <div>{format!("Daten nicht verfügbar: {:?}", no_data)}</div>
-                }.into_any()
+                }
+                    .into_any()
             }
         }}
     }

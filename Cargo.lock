@@ -156,6 +156,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "assertr"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "030dc45f79b3d68fba33b17792e1c634a3bb876a417f279ffbca69b6f27e3722"
+dependencies = [
+ "futures",
+ "indoc",
+ "num",
+]
+
+[[package]]
 name = "async-lock"
 version = "3.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -827,7 +838,7 @@ checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 name = "crudkit-core"
 version = "0.1.0"
 dependencies = [
- "assertr",
+ "assertr 0.4.3",
  "dyn-clone",
  "dyn-eq",
  "paste",
@@ -854,7 +865,7 @@ dependencies = [
 name = "crudkit-core-macros"
 version = "0.1.0"
 dependencies = [
- "assertr",
+ "assertr 0.4.3",
  "crudkit-core",
  "darling 0.23.0",
  "indoc",
@@ -874,7 +885,9 @@ dependencies = [
 name = "crudkit-leptos"
 version = "0.1.0"
 dependencies = [
+ "any_spawner",
  "anyhow",
+ "assertr 0.6.0",
  "cargo_toml",
  "crudkit-core",
  "crudkit-core-macros",
@@ -991,6 +1004,7 @@ dependencies = [
 name = "crudkit-web"
 version = "0.1.0"
 dependencies = [
+ "assertr 0.6.0",
  "async-trait",
  "crudkit-core",
  "crudkit-core-macros",

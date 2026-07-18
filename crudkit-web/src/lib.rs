@@ -62,7 +62,6 @@ pub mod prelude {
     pub use super::request_error::RequestError;
     pub use super::reqwest_executor::ReqwestExecutor;
     pub use super::view::CrudView;
-    pub use super::view::SerializableCrudView;
 
     pub use super::data_provider::CreateOne;
     pub use super::data_provider::CrudRestDataProvider;

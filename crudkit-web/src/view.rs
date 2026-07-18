@@ -1,44 +1,167 @@
+//! Serializable descriptions of CrudKit views.
+
+#![deny(missing_docs)]
+
 use crudkit_core::id::SerializableId;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum CrudView<ReadId, UpdateId>
-where
-    ReadId: crudkit_core::id::Id + Serialize + DeserializeOwned,
-    UpdateId: crudkit_core::id::Id + Serialize + DeserializeOwned,
-{
-    #[default]
-    List,
-    Create,
-    #[serde(bound = "")]
-    Read(ReadId),
-    #[serde(bound = "")]
-    Edit(UpdateId),
+/// Stable name of CrudKit's built-in table view.
+pub const TABLE_VIEW: &str = "crudkit.table";
+/// Stable name of CrudKit's built-in create view.
+pub const CREATE_VIEW: &str = "crudkit.create";
+/// Stable name of CrudKit's built-in read view.
+pub const READ_VIEW: &str = "crudkit.read";
+/// Stable name of CrudKit's built-in edit view.
+pub const EDIT_VIEW: &str = "crudkit.edit";
+
+/// An open, serializable description of a view shown by a CrudKit instance.
+///
+/// CrudKit supplies constructors for its built-in views, but applications may
+/// use any stable name and JSON payload for views registered in a
+/// `CrudViewRegistry`. Entity-oriented custom views can set [`Self::subject`]
+/// so nested instances can resolve their parent resource without knowing the
+/// custom view name.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CrudView {
+    /// Stable registry key that selects the renderer.
+    pub name: String,
+    /// Renderer-specific data, or JSON `null` when the view has no payload.
+    #[serde(default)]
+    pub payload: serde_json::Value,
+    /// Entity represented by the view, when parent-resource composition needs one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject: Option<SerializableId>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum SerializableCrudView {
-    #[default]
-    List,
-    Create,
-    #[serde(bound = "")]
-    Read(SerializableId),
-    #[serde(bound = "")]
-    Edit(SerializableId),
-}
-
-impl<ReadId, UpdateId> From<CrudView<ReadId, UpdateId>> for SerializableCrudView
-where
-    ReadId: crudkit_core::id::Id + Serialize + DeserializeOwned,
-    UpdateId: crudkit_core::id::Id + Serialize + DeserializeOwned,
-{
-    fn from(value: CrudView<ReadId, UpdateId>) -> Self {
-        match value {
-            CrudView::List => Self::List,
-            CrudView::Create => Self::Create,
-            CrudView::Read(id) => Self::Read(id.to_serializable_id()),
-            CrudView::Edit(id) => Self::Edit(id.to_serializable_id()),
+impl CrudView {
+    /// Describes an application-defined view with an empty payload.
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            payload: serde_json::Value::Null,
+            subject: None,
         }
+    }
+
+    /// Sets an already serialized JSON payload.
+    pub fn with_payload(mut self, payload: serde_json::Value) -> Self {
+        self.payload = payload;
+        self
+    }
+
+    /// Serializes and sets a typed payload.
+    ///
+    /// # Errors
+    ///
+    /// Returns the serialization error produced by `serde_json` when `payload`
+    /// cannot be represented as JSON.
+    pub fn with_typed_payload<T: Serialize>(
+        mut self,
+        payload: T,
+    ) -> Result<Self, serde_json::Error> {
+        self.payload = serde_json::to_value(payload)?;
+        Ok(self)
+    }
+
+    /// Deserializes this view's payload into a concrete type.
+    ///
+    /// # Errors
+    ///
+    /// Returns the deserialization error produced by `serde_json` when the
+    /// payload does not match `T`.
+    pub fn typed_payload<T: DeserializeOwned>(&self) -> Result<T, serde_json::Error> {
+        serde_json::from_value(self.payload.clone())
+    }
+
+    /// Marks the entity represented by this view.
+    pub fn with_subject(mut self, subject: SerializableId) -> Self {
+        self.subject = Some(subject);
+        self
+    }
+
+    /// Describes CrudKit's built-in table view.
+    pub fn table() -> Self {
+        Self::new(TABLE_VIEW)
+    }
+
+    /// Describes CrudKit's built-in create view.
+    pub fn create() -> Self {
+        Self::new(CREATE_VIEW)
+    }
+
+    /// Describes CrudKit's built-in read view for `id`.
+    pub fn read(id: SerializableId) -> Self {
+        Self::new(READ_VIEW).with_subject(id)
+    }
+
+    /// Describes CrudKit's built-in edit view for `id`.
+    pub fn edit(id: SerializableId) -> Self {
+        Self::new(EDIT_VIEW).with_subject(id)
+    }
+}
+
+impl Default for CrudView {
+    fn default() -> Self {
+        Self::table()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assertr::prelude::*;
+    use crudkit_core::id::{IdValue, SerializableIdEntry};
+    use serde::{Deserialize, Serialize};
+
+    fn id() -> SerializableId {
+        SerializableId(vec![SerializableIdEntry {
+            field_name: "id".to_owned(),
+            value: IdValue::I64(42),
+        }])
+    }
+
+    #[test]
+    fn json_and_subject_round_trip() {
+        let view = CrudView::new("example.detail")
+            .with_payload(serde_json::json!({ "tab": "activity" }))
+            .with_subject(id());
+
+        let json = serde_json::to_string(&view).expect("view should serialize");
+        let restored: CrudView = serde_json::from_str(&json).expect("view should deserialize");
+
+        assert_that!(restored).is_equal_to(view);
+    }
+
+    #[test]
+    fn typed_payload_round_trip() {
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct Payload {
+            tab: String,
+        }
+
+        let view = CrudView::new("example.detail")
+            .with_typed_payload(Payload {
+                tab: "activity".to_owned(),
+            })
+            .expect("payload should serialize");
+
+        assert_that!(
+            view.typed_payload::<Payload>()
+                .expect("payload should deserialize")
+        )
+        .is_equal_to(Payload {
+            tab: "activity".to_owned(),
+        });
+    }
+
+    #[test]
+    fn built_in_constructors_are_stable() {
+        assert_that!(CrudView::table()).is_equal_to(CrudView::new(TABLE_VIEW));
+        assert_that!(CrudView::create()).is_equal_to(CrudView::new(CREATE_VIEW));
+        assert_that!(CrudView::read(id()).name).is_equal_to(READ_VIEW.to_owned());
+        assert_that!(CrudView::read(id()).subject).is_equal_to(Some(id()));
+        assert_that!(CrudView::edit(id()).name).is_equal_to(EDIT_VIEW.to_owned());
+        assert_that!(CrudView::edit(id()).subject).is_equal_to(Some(id()));
     }
 }

@@ -1,6 +1,7 @@
 use crate::crud_action::CrudActionTrait;
 use crate::crud_instance_config::{FieldRendererRegistry, Header};
 use crate::crud_list_view::CrudListViewContext;
+use crate::crud_navigation::CrudNavigation;
 use crate::crud_table_body::CrudTableBody;
 use crate::crud_table_footer::CrudTableFooter;
 use crate::crud_table_header::CrudTableHeader;
@@ -29,6 +30,7 @@ pub fn CrudTable(
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
     #[prop(into)] additional_item_actions: Signal<Vec<Arc<Box<dyn CrudActionTrait>>>>, // TODO: Use AnyAction
+    navigation: CrudNavigation,
 ) -> impl IntoView {
     let list_ctx = expect_context::<CrudListViewContext>();
 
@@ -59,6 +61,7 @@ pub fn CrudTable(
                     edit_allowed=edit_allowed
                     delete_allowed=delete_allowed
                     additional_item_actions=Signal::derive(Vec::new)
+                    navigation=navigation
                 />
 
                 <CrudTableFooter/>

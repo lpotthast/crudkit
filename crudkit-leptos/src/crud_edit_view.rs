@@ -4,14 +4,15 @@ use crate::crud_action_buttons::CrudActionButtons;
 use crate::crud_action_context::CrudActionContext;
 use crate::crud_fields::CrudFields;
 use crate::crud_instance::CrudInstanceContext;
-use crate::crud_instance_config::{CrudNavigationConfig, FieldRendererRegistry, UpdateElements};
-use crate::crud_leave_modal::CrudLeaveModal;
+use crate::crud_instance_config::{CrudBuiltinViewControls, FieldRendererRegistry, UpdateElements};
+use crate::crud_navigation::CrudNavigation;
 use crate::crud_table::NoDataAvailable;
 use crudkit_core::condition::{TryIntoAllEqualCondition, merge_conditions};
 use crudkit_core::id::SerializableId;
 use crudkit_core::{Saved, Value};
 use crudkit_web::prelude::*;
 use crudkit_web::request_error::{CrudOperationError, RequestError};
+use crudkit_web::view::CrudView;
 use crudkit_web::{FieldMode, TabId};
 use leptonic::components::prelude::*;
 use leptonic::prelude::*;
@@ -21,8 +22,8 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Then {
     DoNothing,
-    OpenListView,
-    OpenCreateView,
+    Return,
+    Create,
 }
 
 // TODO: CrudEditView tracks changes, but CrudCreateView does not. Consolidate this logic into a shared component.
@@ -42,9 +43,8 @@ pub fn CrudEditView(
     #[prop(into)] actions: Signal<Vec<CrudEntityAction>>,
     #[prop(into)] elements: Signal<UpdateElements>,
     #[prop(into)] field_renderer_registry: Signal<FieldRendererRegistry<DynUpdateField>>,
-    #[prop(into)] navigation: Signal<CrudNavigationConfig>,
-    #[prop(into)] on_list_view: Callback<()>,
-    #[prop(into)] on_create_view: Callback<()>,
+    #[prop(into)] controls: Signal<CrudBuiltinViewControls>,
+    navigation: CrudNavigation,
     /// Called when the entity is successfully updated.
     #[prop(into)]
     on_entity_updated: Callback<Saved<DynUpdateModel>>,
@@ -150,33 +150,10 @@ pub fn CrudEditView(
         (Some(input), Ok(entity)) => input != entity,
         _ => false,
     });
+    navigation.guard(input_changed.into());
 
     // The state of the `input` signal should be considered to be erroneous if at least one field is contained in this error list.
     let (_input_errors, set_input_errors) = signal(HashMap::<DynUpdateField, String>::new());
-
-    let (user_wants_to_leave, set_user_wants_to_leave) = signal(false);
-    let (show_leave_modal, set_show_leave_modal) = signal(false);
-
-    let force_leave = on_list_view;
-    let request_leave = move || set_user_wants_to_leave.set(true);
-    let last_external_leave_request = RwSignal::new(None);
-
-    Effect::new(move |_| {
-        if let Some(request) = instance_ctx.leave_request.get()
-            && last_external_leave_request.get_untracked() != Some(request)
-        {
-            last_external_leave_request.set(Some(request));
-            set_user_wants_to_leave.set(true);
-        }
-    });
-
-    Effect::new(
-        move |_prev| match (user_wants_to_leave.get(), input_changed.get()) {
-            (true, true) => set_show_leave_modal.set(true),
-            (true, false) => force_leave.run(()),
-            (false, _) => {}
-        },
-    );
 
     let save_action = Action::new_local(move |(entity, and_then): &(DynUpdateModel, Then)| {
         let entity: DynUpdateModel = entity.clone();
@@ -233,8 +210,10 @@ pub fn CrudEditView(
                     on_entity_updated.run(saved);
                     match and_then {
                         Then::DoNothing => {}
-                        Then::OpenListView => force_leave.run(()),
-                        Then::OpenCreateView => on_create_view.run(()),
+                        Then::Return => {
+                            navigation.return_committed();
+                        }
+                        Then::Create => navigation.navigate_committed(CrudView::create()),
                     }
                 }
                 Err(request_error) => {
@@ -259,21 +238,21 @@ pub fn CrudEditView(
     let trigger_save_and_return = move || {
         // Button is disabled when input is None, so this guard is defensive.
         if let Some(entity) = input.get() {
-            save_action.dispatch((entity, Then::OpenListView));
+            save_action.dispatch((entity, Then::Return));
         }
     };
 
     let trigger_save_and_new = move || {
         // Button is disabled when input is None, so this guard is defensive.
         if let Some(entity) = input.get() {
-            save_action.dispatch((entity, Then::OpenCreateView));
+            save_action.dispatch((entity, Then::Create));
         }
     };
 
     let trigger_delete = move || {
         // Button is disabled when input is None, so this guard is defensive.
         if let Some(entity) = input.get() {
-            instance_ctx.request_deletion_of(DynReadOrUpdateModel::Update(entity));
+            instance_ctx.request_deletion_of_from(DynReadOrUpdateModel::Update(entity), navigation);
         }
     };
 
@@ -315,7 +294,7 @@ pub fn CrudEditView(
                             <Col xs=6>
                                 <ButtonWrapper>
                                     {move || {
-                                        navigation.get().show_save.then(|| {
+                                        controls.get().show_save.then(|| {
                                             view! {
                                                 <Button
                                                     color=ButtonColor::Primary
@@ -328,7 +307,7 @@ pub fn CrudEditView(
                                         })
                                     }}
                                     {move || {
-                                        navigation.get().show_save_and_back.then(|| {
+                                        controls.get().show_save_and_back.then(|| {
                                             view! {
                                                 <Button
                                                     color=ButtonColor::Primary
@@ -341,7 +320,7 @@ pub fn CrudEditView(
                                         })
                                     }}
                                     {move || {
-                                        navigation.get().show_save_and_new.then(|| {
+                                        controls.get().show_save_and_new.then(|| {
                                             view! {
                                                 <Button
                                                     color=ButtonColor::Primary
@@ -354,7 +333,7 @@ pub fn CrudEditView(
                                         })
                                     }}
                                     {move || {
-                                        navigation.get().show_delete.then(|| {
+                                        controls.get().show_delete.then(|| {
                                             view! {
                                                 <Button
                                                     color=ButtonColor::Danger
@@ -379,11 +358,10 @@ pub fn CrudEditView(
                             <Col xs=6 h_align=ColAlign::End>
                                 <ButtonWrapper>
                                     {move || {
-                                        navigation.get().show_list_view.then(|| {
+                                        controls.get().show_return.then(|| {
                                             view! {
-                                                <Button color=ButtonColor::Secondary on_press=move |_| request_leave()>
-                                                    <span style="text-decoration: underline;">{"L"}</span>
-                                                    {"istenansicht"}
+                                                <Button color=ButtonColor::Secondary on_press=move |_| navigation.return_from_current()>
+                                                    "Zurück"
                                                 </Button>
                                             }
                                         })
@@ -410,11 +388,10 @@ pub fn CrudEditView(
                             <Col h_align=ColAlign::End>
                                 <ButtonWrapper>
                                     {move || {
-                                        navigation.get().show_list_view.then(|| {
+                                        controls.get().show_return.then(|| {
                                             view! {
-                                                <Button color=ButtonColor::Secondary on_press=move |_| force_leave.run(())>
-                                                    <span style="text-decoration: underline;">{"L"}</span>
-                                                    {"istenansicht"}
+                                                <Button color=ButtonColor::Secondary on_press=move |_| navigation.return_from_current()>
+                                                    "Zurück"
                                                 </Button>
                                             }
                                         })
@@ -427,18 +404,6 @@ pub fn CrudEditView(
                 }.into_any()
             }
         }}
-
-        <CrudLeaveModal
-            show_when=show_leave_modal
-            on_cancel=move || {
-                set_show_leave_modal.set(false);
-                set_user_wants_to_leave.set(false);
-            }
-            on_accept=move || {
-                set_show_leave_modal.set(false);
-                force_leave.run(());
-            }
-        />
     }
 }
 
