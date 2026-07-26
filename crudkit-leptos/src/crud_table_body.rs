@@ -21,6 +21,7 @@ pub fn CrudTableBody(
     #[prop(into)] read_allowed: Signal<bool>,
     #[prop(into)] edit_allowed: Signal<bool>,
     #[prop(into)] delete_allowed: Signal<bool>,
+    #[prop(into)] select_allowed: Signal<bool>,
     #[prop(into)] additional_item_actions: Signal<Vec<Arc<Box<dyn CrudActionTrait>>>>, // TODO: Use AnyAction
     navigation: CrudNavigation,
 ) -> impl IntoView {
@@ -70,13 +71,17 @@ pub fn CrudTableBody(
             <TableRow attr:class="interactable" on:click=move |_e| {
                 navigation.navigate(CrudView::edit(stored_entity.get().id()))
             }>
-                <TableCell attr:class="select fit-content" on:click=move |e| e.stop_propagation()>
-                    <Checkbox checked=is_selected set_checked=move |checked| {
-                        if checked != is_selected.get_untracked() {
-                            toggle_selected()
-                        }
-                    }/>
-                </TableCell>
+                {move || {
+                    select_allowed.get().then(|| view! {
+                        <TableCell attr:class="select fit-content" on:click=move |e| e.stop_propagation()>
+                            <Checkbox checked=is_selected set_checked=move |checked| {
+                                if checked != is_selected.get_untracked() {
+                                    toggle_selected()
+                                }
+                            }/>
+                        </TableCell>
+                    })
+                }}
 
                 <For
                     each=move || headers.get()

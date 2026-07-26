@@ -246,7 +246,7 @@ pub struct CrudBuiltinViewControls {
     pub show_save_and_back: bool,
     /// Whether the create view shows the save-and-create-another button.
     pub show_save_and_new: bool,
-    /// Whether read and edit views show the delete button.
+    /// Whether table, read, and edit views show delete controls.
     pub show_delete: bool,
     /// Whether read and edit views show the configured return action.
     pub show_return: bool,

@@ -99,7 +99,13 @@ pub fn CrudListView(
 
     let read_allowed = Signal::derive(move || true);
     let edit_allowed = Signal::derive(move || true);
-    let delete_allowed = Signal::derive(move || true);
+    let delete_allowed = Signal::derive(move || {
+        instance_ctx
+            .static_config
+            .read_value()
+            .builtin_view_controls
+            .show_delete
+    });
 
     //let headers = Memo::new(move |_prev| {
     //    headers
