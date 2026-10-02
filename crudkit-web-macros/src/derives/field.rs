@@ -161,16 +161,16 @@ fn generate_get_value_expr(field_ident: &Ident, classified: ClassifiedType) -> T
         (Void, _) => return quote! { crudkit_core::Value::Void(()) },
         (Other, _) => return quote! { crudkit_core::Value::Void(()) },
 
-        // Json needs JsonValue wrapper.
+        // Json fields use serde_json::Value directly.
         (Json, false) => {
             return quote! {
-                crudkit_core::Value::Json(crudkit_web::JsonValue::new(entity.#field_ident.clone()))
+                crudkit_core::Value::Json(entity.#field_ident.clone())
             };
         }
         (Json, true) => {
             return quote! {
                 match &entity.#field_ident {
-                    Some(v) => crudkit_core::Value::Json(crudkit_web::JsonValue::new(v.clone())),
+                    Some(v) => crudkit_core::Value::Json(v.clone()),
                     None => crudkit_core::Value::Null,
                 }
             };

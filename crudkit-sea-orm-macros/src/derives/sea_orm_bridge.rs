@@ -9,6 +9,14 @@ use quote::{format_ident, quote};
 #[darling(forward_attrs)]
 struct Field {
     ident: Option<syn::Ident>,
+
+    /// Consumed but unused — accepted so `#[ck_id(id)]` does not cause a darling error.
+    #[allow(dead_code)]
+    id: Option<bool>,
+
+    /// Consumed but unused — accepted so `#[ck_field(convert_ccv = "...")]` does not cause a darling error.
+    #[allow(dead_code)]
+    convert_ccv: Option<String>,
 }
 
 #[derive(Debug, FromDeriveInput)]

@@ -77,7 +77,6 @@ impl DeriveReadView {
                     Clone,
                     Debug,
                     PartialEq,
-                    Eq,
                     sea_orm::DeriveEntityModel,
                     CkId,
                     CkField,
