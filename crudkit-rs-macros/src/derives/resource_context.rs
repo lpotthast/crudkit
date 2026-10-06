@@ -4,10 +4,10 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::DeriveInput;
 
-pub fn expand_derive_resource_context(input: DeriveInput) -> syn::Result<TokenStream> {
-    let ident = input.ident;
+pub fn expand_derive_resource_context(input: &DeriveInput) -> TokenStream {
+    let ident = &input.ident;
 
-    Ok(quote! {
+    quote! {
         impl crudkit_rs::resource::CrudResourceContext for #ident {}
-    })
+    }
 }

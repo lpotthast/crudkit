@@ -3,7 +3,7 @@
 use crudkit_core_macro_util::{
     ValueKindExt, classify_base_type, path_to_string, strip_option_path,
 };
-use darling::*;
+use darling::{FromDeriveInput, FromField, ast};
 use proc_macro_error::abort;
 use proc_macro_type_name::ToTypeName;
 use proc_macro2::{Ident, Span, TokenStream};
@@ -37,8 +37,8 @@ impl MyInputReceiver {
     }
 }
 
-pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
-    let input: MyInputReceiver = FromDeriveInput::from_derive_input(&input)?;
+pub fn expand_derive_field(input: &DeriveInput) -> syn::Result<TokenStream> {
+    let input: MyInputReceiver = FromDeriveInput::from_derive_input(input)?;
 
     let name = input.ident.clone();
     let field_enum_name = format_ident!("{}Field", name, span = Span::call_site());

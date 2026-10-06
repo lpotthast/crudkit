@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
+// darling's derives generate redundant `continue` expressions in this crate's config types.
+#![allow(clippy::needless_continue)]
 
 //! Consolidated derive macros for crudkit-rs.
 //!
@@ -34,7 +36,7 @@ mod derives;
 #[proc_macro_error]
 pub fn derive_field(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_field(input)
+    derives::expand_derive_field(&input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
 }
@@ -46,9 +48,7 @@ pub fn derive_field(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(CkResourceContext, attributes(ck_resource_context))]
 pub fn derive_resource_context(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_resource_context(input)
-        .unwrap_or_else(Error::into_compile_error)
-        .into()
+    derives::expand_derive_resource_context(&input).into()
 }
 
 /// Derives a `CreateModel` struct with storage-agnostic trait implementations.
@@ -63,13 +63,13 @@ pub fn derive_resource_context(input: TokenStream) -> TokenStream {
 ///
 /// # Field Attributes
 ///
-/// - `#[ck_create_model(exclude)]` - Exclude field from CreateModel
+/// - `#[ck_create_model(exclude)]` - Exclude field from `CreateModel`
 /// - `#[ck_create_model(optional)]` - Wrap field in Option
-/// - `#[ck_create_model(use_default)]` - Use Default::default() for excluded fields (storage-specific)
+/// - `#[ck_create_model(use_default)]` - Use `Default::default()` for excluded fields (storage-specific)
 #[proc_macro_derive(CkCreateModel, attributes(ck_create_model))]
 pub fn derive_create_model(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_create_model(input)
+    derives::expand_derive_create_model(&input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
 }
@@ -85,13 +85,13 @@ pub fn derive_create_model(input: TokenStream) -> TokenStream {
 ///
 /// # Field Attributes
 ///
-/// - `#[ck_update_model(exclude)]` - Exclude field from UpdateModel
+/// - `#[ck_update_model(exclude)]` - Exclude field from `UpdateModel`
 /// - `#[ck_update_model(optional)]` - Wrap field in Option
-/// - `#[ck_update_model(use_default)]` - Use Default::default() for excluded fields (storage-specific)
+/// - `#[ck_update_model(use_default)]` - Use `Default::default()` for excluded fields (storage-specific)
 #[proc_macro_derive(CkUpdateModel, attributes(ck_update_model))]
 pub fn derive_update_model(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_update_model(input)
+    derives::expand_derive_update_model(&input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
 }
