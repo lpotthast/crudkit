@@ -1,20 +1,22 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
+// darling's derives generate redundant `continue` expressions in this crate's config types.
+#![allow(clippy::needless_continue)]
 
-//! Shared TokenStream generation logic for Create/Update model derive macros.
+//! Shared `TokenStream` generation logic for Create/Update model derive macros.
 //!
 //! This library provides storage-agnostic code generation that can be used by
 //! both `derive-model` (storage-agnostic) and storage-specific crates like
 //! `crudkit-sea-orm-macros`.
 
-use darling::*;
+use darling::{FromDeriveInput, FromField, ast};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use syn::DeriveInput;
 
 // ============== Field Configuration ==============
 
-/// Field configuration shared between CkCreateModel and CkUpdateModel.
+/// Field configuration shared between `CkCreateModel` and `CkUpdateModel`.
 /// Each macro uses its own attribute namespace but the config is identical.
 #[derive(Debug, Clone)]
 pub struct ModelFieldConfig {
@@ -26,7 +28,7 @@ pub struct ModelFieldConfig {
     pub exclude: bool,
     /// Optional fields have their model type wrapped in `Option`.
     pub optional: bool,
-    /// Fields with use_default will use `Default::default()` for excluded fields.
+    /// Fields with `use_default` will use `Default::default()` for excluded fields.
     pub use_default: bool,
 }
 
@@ -153,7 +155,7 @@ pub struct CreateModelOutput {
     pub struct_def: TokenStream,
     /// The storage-agnostic trait implementations.
     pub trait_impls: TokenStream,
-    /// The name of the generated CreateModel struct.
+    /// The name of the generated `CreateModel` struct.
     pub create_model_name: Ident,
     /// Field metadata for storage-specific implementations.
     pub fields: Vec<FieldInfo>,
@@ -165,7 +167,7 @@ pub struct UpdateModelOutput {
     pub struct_def: TokenStream,
     /// The storage-agnostic trait implementations.
     pub trait_impls: TokenStream,
-    /// The name of the generated UpdateModel struct.
+    /// The name of the generated `UpdateModel` struct.
     pub update_model_name: Ident,
     /// Field metadata for storage-specific implementations.
     pub fields: Vec<FieldInfo>,
@@ -173,7 +175,7 @@ pub struct UpdateModelOutput {
 
 // ============== Shared Generation Logic ==============
 
-/// Generates model struct fields (used for both CreateModel and UpdateModel).
+/// Generates model struct fields (used for both `CreateModel` and `UpdateModel`).
 fn generate_model_fields<'a>(
     fields: impl Iterator<Item = &'a ModelFieldConfig> + 'a,
 ) -> impl Iterator<Item = TokenStream> + 'a {
@@ -198,10 +200,14 @@ fn generate_model_fields<'a>(
 
 // ============== Public API ==============
 
-/// Parse and generate CreateModel output from a DeriveInput.
+/// Parse and generate `CreateModel` output from a `DeriveInput`.
 ///
 /// Returns the struct definition, storage-agnostic trait implementations,
 /// and field metadata for storage-specific code generation.
+///
+/// # Errors
+///
+/// Returns an error if `input` is not a struct or its `ck_create_model` attributes are invalid.
 pub fn generate_create_model(input: &DeriveInput) -> darling::Result<CreateModelOutput> {
     let parsed: CreateModelInputInternal = FromDeriveInput::from_derive_input(input)?;
 
@@ -212,7 +218,7 @@ pub fn generate_create_model(input: &DeriveInput) -> darling::Result<CreateModel
     let model_fields = generate_model_fields(fields.iter());
 
     let name = &parsed.ident;
-    let create_model_name = Ident::new(&format!("Create{}", name), name.span());
+    let create_model_name = Ident::new(&format!("Create{name}"), name.span());
     let field_enum_name = format_ident!("{}Field", name);
 
     let struct_def = quote! {
@@ -238,10 +244,14 @@ pub fn generate_create_model(input: &DeriveInput) -> darling::Result<CreateModel
     })
 }
 
-/// Parse and generate UpdateModel output from a DeriveInput.
+/// Parse and generate `UpdateModel` output from a `DeriveInput`.
 ///
 /// Returns the struct definition, storage-agnostic trait implementations,
 /// and field metadata for storage-specific code generation.
+///
+/// # Errors
+///
+/// Returns an error if `input` is not a struct or its `ck_update_model` attributes are invalid.
 pub fn generate_update_model(input: &DeriveInput) -> darling::Result<UpdateModelOutput> {
     let parsed: UpdateModelInputInternal = FromDeriveInput::from_derive_input(input)?;
 
@@ -252,7 +262,7 @@ pub fn generate_update_model(input: &DeriveInput) -> darling::Result<UpdateModel
     let model_fields = generate_model_fields(fields.iter());
 
     let name = &parsed.ident;
-    let update_model_name = Ident::new(&format!("Update{}", name), name.span());
+    let update_model_name = Ident::new(&format!("Update{name}"), name.span());
     let field_enum_name = format_ident!("{}Field", name);
 
     let struct_def = quote! {
