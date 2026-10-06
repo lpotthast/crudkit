@@ -3,7 +3,7 @@ use proc_macro_type_name::ToTypeName;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-/// Field configuration for CkSeaOrmBridge.
+/// Field configuration for `CkSeaOrmBridge`.
 #[derive(Debug, Clone, FromField)]
 #[darling(attributes(ck_field, ck_id))]
 #[darling(forward_attrs)]
@@ -37,7 +37,11 @@ impl DeriveCkSeaOrmBridge {
 
 impl DeriveCkSeaOrmBridge {
     fn expand(&self) -> TokenStream {
-        let fields: Vec<Field> = self.fields().iter().map(|f| f.to_owned()).collect();
+        let fields: Vec<Field> = self
+            .fields()
+            .iter()
+            .map(ToOwned::to_owned)
+            .collect();
         let field_enum_name = format_ident!("{}Field", self.ident);
 
         // Generate {StructName}Field::Variant => Column::Variant match arms.
@@ -60,7 +64,7 @@ impl DeriveCkSeaOrmBridge {
     }
 }
 
-pub fn expand_derive_sea_orm_bridge(input: syn::DeriveInput) -> syn::Result<TokenStream> {
-    let derive: DeriveCkSeaOrmBridge = FromDeriveInput::from_derive_input(&input)?;
+pub fn expand_derive_sea_orm_bridge(input: &syn::DeriveInput) -> syn::Result<TokenStream> {
+    let derive: DeriveCkSeaOrmBridge = FromDeriveInput::from_derive_input(input)?;
     Ok(derive.expand())
 }

@@ -1,9 +1,9 @@
 //! Implementation of the `CkValidationModel` derive macro.
 
-use darling::*;
+use darling::{FromDeriveInput, FromField, ast};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{DeriveInput, Ident, Type, spanned::Spanned};
+use syn::{DeriveInput, Ident, Type};
 
 #[derive(Debug, FromField)]
 #[darling(attributes(ck_validation_model))]
@@ -46,52 +46,33 @@ impl MyInputReceiver {
     }
 }
 
-pub fn expand_derive_validation_model(input: DeriveInput) -> syn::Result<TokenStream> {
-    let input: MyInputReceiver = FromDeriveInput::from_derive_input(&input)?;
+pub fn expand_derive_validation_model(input: &DeriveInput) -> syn::Result<TokenStream> {
+    let input: MyInputReceiver = FromDeriveInput::from_derive_input(input)?;
 
     let table_name = &input.table_name;
     let parent_field_enum = format_ident!("{}Field", input.ident);
 
-    let pk_fields = input
-        .fields()
-        .iter()
-        .filter(|field| field.is_id())
-        .map(|field| {
-            let ident = Ident::new(
-                format!("entity_{}", field.ident.as_ref().expect("Named field")).as_str(),
-                field.ident.span(),
-            );
-            let ty = &field.ty;
-            quote! { pub #ident: #ty, }
-        });
-
-    let set_pk_active_fields = input
+    // The validated entity's primary key fields, stored as `entity_<field>`.
+    let id_fields = input
         .fields()
         .iter()
         .filter(|field| field.is_id())
         .map(|field| {
             let original_ident = field.ident.as_ref().expect("Named field");
-            let ident = Ident::new(
-                format!("entity_{original_ident}").as_str(),
-                field.ident.span(),
-            );
-
-            quote! { #ident: sea_orm::ActiveValue::Set(entity_id.#original_ident.clone()), }
-        });
-
-    // id: self.entity_id.clone(),
-    let super_id_field_init = input
-        .fields()
+            let ident = format_ident!("entity_{original_ident}", span = original_ident.span());
+            (original_ident, ident, &field.ty)
+        })
+        .collect::<Vec<_>>();
+    let pk_fields = id_fields
         .iter()
-        .filter(|field| field.is_id())
-        .map(|field| {
-            let original_ident = field.ident.as_ref().expect("Named field");
-            let ident = Ident::new(
-                format!("entity_{original_ident}").as_str(),
-                field.ident.span(),
-            );
-            quote! { #original_ident: self.#ident.clone(), }
-        });
+        .map(|(_, ident, ty)| quote! { pub #ident: #ty, });
+    let set_pk_active_fields = id_fields.iter().map(|(original_ident, ident, _)| {
+        quote! { #ident: sea_orm::ActiveValue::Set(entity_id.#original_ident.clone()), }
+    });
+    let super_id_field_init = id_fields
+        .iter()
+        .map(|(original_ident, ident, _)| quote! { #original_ident: self.#ident.clone(), });
+    let column_impls = validation_column_impls();
 
     Ok(quote! {
         pub mod validation_model {
@@ -180,29 +161,36 @@ pub fn expand_derive_validation_model(input: DeriveInput) -> syn::Result<TokenSt
                 }
             }
 
-            impl crudkit_sea_orm::ValidationColumns for Column {
-                fn get_validator_name_column() -> Self {
-                    Self::ValidatorName
-                }
-
-                fn get_validator_version_column() -> Self {
-                    Self::ValidatorVersion
-                }
-
-                fn get_violation_severity_column() -> Self {
-                    Self::ViolationSeverity
-                }
-            }
-
-            // Note: This impl returns the ID columns of this validation model (statically known from above), not the parent model!
-            // For that ID, see the `impl crudkit_sea_orm::ValidatorModel<ParentId> for Model` implementation.
-            impl crudkit_sea_orm::IdColumns for Column {
-                fn get_id_columns() -> Vec<Column> {
-                    let mut vec = Vec::with_capacity(1);
-                    vec.push(Column::Id);
-                    vec
-                }
-            }
+            #column_impls
         }
     })
+}
+
+/// Generates the column implementations, which are the same for every validation model.
+fn validation_column_impls() -> TokenStream {
+    quote! {
+    impl crudkit_sea_orm::ValidationColumns for Column {
+        fn get_validator_name_column() -> Self {
+            Self::ValidatorName
+        }
+
+        fn get_validator_version_column() -> Self {
+            Self::ValidatorVersion
+        }
+
+        fn get_violation_severity_column() -> Self {
+            Self::ViolationSeverity
+        }
+    }
+
+    // Note: This impl returns the ID columns of this validation model (statically known from above), not the parent model!
+    // For that ID, see the `impl crudkit_sea_orm::ValidatorModel<ParentId> for Model` implementation.
+    impl crudkit_sea_orm::IdColumns for Column {
+        fn get_id_columns() -> Vec<Column> {
+            let mut vec = Vec::with_capacity(1);
+            vec.push(Column::Id);
+            vec
+        }
+    }
+    }
 }

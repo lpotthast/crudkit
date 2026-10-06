@@ -1,11 +1,11 @@
-//! SeaORM-specific CreateModel derive macro.
+//! SeaORM-specific `CreateModel` derive macro.
 
 use crudkit_rs_macros_core::FieldInfo;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::DeriveInput;
 
-/// Generate SeaORM-specific ActiveModel conversion for CreateModel.
+/// Generate SeaORM-specific `ActiveModel` conversion for `CreateModel`.
 fn generate_sea_orm_create_model_impl(
     create_model_name: &proc_macro2::Ident,
     fields: &[FieldInfo],
@@ -47,15 +47,15 @@ fn generate_sea_orm_create_model_impl(
     }
 }
 
-/// Expand CkSeaOrmCreateModel derive.
+/// Expand `CkSeaOrmCreateModel` derive.
 ///
 /// Generates:
-/// - CreateModel struct
-/// - Storage-agnostic trait implementations (CrudModel, CreateModelTrait)
-/// - SeaORM-specific impl (CreateModelTrait<ActiveModel>)
-pub fn expand_derive_sea_orm_create_model(input: DeriveInput) -> syn::Result<TokenStream> {
-    let output = crudkit_rs_macros_core::generate_create_model(&input)
-        .map_err(|e| syn::Error::new_spanned(&input, e.to_string()))?;
+/// - `CreateModel` struct
+/// - Storage-agnostic trait implementations (`CrudModel`, `CreateModelTrait`)
+/// - SeaORM-specific impl (`CreateModelTrait`<ActiveModel>)
+pub fn expand_derive_sea_orm_create_model(input: &DeriveInput) -> syn::Result<TokenStream> {
+    let output = crudkit_rs_macros_core::generate_create_model(input)
+        .map_err(|e| syn::Error::new_spanned(input, e.to_string()))?;
 
     let struct_def = output.struct_def;
     let trait_impls = output.trait_impls;

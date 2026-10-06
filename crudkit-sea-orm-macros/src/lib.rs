@@ -1,3 +1,6 @@
+// darling's derives generate redundant `continue` expressions in this crate's config types.
+#![allow(clippy::needless_continue)]
+
 use proc_macro::TokenStream;
 use proc_macro_error::proc_macro_error;
 use syn::{DeriveInput, Error, parse_macro_input};
@@ -9,17 +12,17 @@ mod derives;
 #[proc_macro_derive(ReadView, attributes(read_view))]
 pub fn derive_migration_name(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_read_view(input)
+    derives::expand_derive_read_view(&input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
 }
 
 /// Derives `impl CrudColumns<Column> for Col` which maps the `Col` enum variants
-/// to SeaORM `Column` variants.
+/// to `SeaORM` `Column` variants.
 #[proc_macro_derive(CkSeaOrmBridge, attributes(ck_columns, ck_id))]
 pub fn derive_sea_orm_bridge(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_sea_orm_bridge(input)
+    derives::expand_derive_sea_orm_bridge(&input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
 }
@@ -37,13 +40,13 @@ pub fn derive_sea_orm_bridge(input: TokenStream) -> TokenStream {
 ///
 /// # Field Attributes
 ///
-/// - `#[ck_create_model(exclude)]` - Exclude field from CreateModel
+/// - `#[ck_create_model(exclude)]` - Exclude field from `CreateModel`
 /// - `#[ck_create_model(optional)]` - Wrap field in Option
-/// - `#[ck_create_model(use_default)]` - Use Default::default() for excluded fields
+/// - `#[ck_create_model(use_default)]` - Use `Default::default()` for excluded fields
 #[proc_macro_derive(CkSeaOrmCreateModel, attributes(ck_create_model))]
 pub fn derive_sea_orm_create_model(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_sea_orm_create_model(input)
+    derives::expand_derive_sea_orm_create_model(&input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
 }
@@ -60,13 +63,13 @@ pub fn derive_sea_orm_create_model(input: TokenStream) -> TokenStream {
 ///
 /// # Field Attributes
 ///
-/// - `#[ck_update_model(exclude)]` - Exclude field from UpdateModel
+/// - `#[ck_update_model(exclude)]` - Exclude field from `UpdateModel`
 /// - `#[ck_update_model(optional)]` - Wrap field in Option
-/// - `#[ck_update_model(use_default)]` - Use Default::default() for excluded fields
+/// - `#[ck_update_model(use_default)]` - Use `Default::default()` for excluded fields
 #[proc_macro_derive(CkSeaOrmUpdateModel, attributes(ck_update_model))]
 pub fn derive_sea_orm_update_model(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_sea_orm_update_model(input)
+    derives::expand_derive_sea_orm_update_model(&input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
 }
@@ -74,7 +77,7 @@ pub fn derive_sea_orm_update_model(input: TokenStream) -> TokenStream {
 /// Derives a validation model module for persisting validation results.
 ///
 /// This macro generates a `validation_model` module containing:
-/// - A SeaORM entity for storing validation violations
+/// - A `SeaORM` entity for storing validation violations
 /// - Implementation of `NewActiveValidationModel` for creating new records
 /// - Implementation of `ValidatorModel` for accessing validation data
 /// - Implementation of `ValidationColumns` for column accessors
@@ -90,7 +93,7 @@ pub fn derive_sea_orm_update_model(input: TokenStream) -> TokenStream {
 #[proc_macro_error]
 pub fn derive_validation_model(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_validation_model(input)
+    derives::expand_derive_validation_model(&input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
 }
