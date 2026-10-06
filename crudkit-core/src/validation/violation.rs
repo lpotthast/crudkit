@@ -27,6 +27,7 @@ impl Violation {
         Violation::Critical(violation.into())
     }
 
+    #[must_use]
     pub fn severity(&self) -> Severity {
         match self {
             Violation::Major(_) => Severity::Major,
@@ -34,20 +35,21 @@ impl Violation {
         }
     }
 
+    #[must_use]
     pub fn is_of_severity(&self, severity: Severity) -> bool {
         self.severity() == severity
     }
 
+    #[must_use]
     pub fn message(&self) -> &str {
         match self {
-            Violation::Major(msg) => msg.as_str(),
-            Violation::Critical(msg) => msg.as_str(),
+            Violation::Major(msg) | Violation::Critical(msg) => msg.as_str(),
         }
     }
+    #[must_use]
     pub fn into_message(self) -> String {
         match self {
-            Violation::Major(msg) => msg,
-            Violation::Critical(msg) => msg,
+            Violation::Major(msg) | Violation::Critical(msg) => msg,
         }
     }
 }
@@ -58,16 +60,19 @@ pub struct Violations {
 }
 
 impl Violations {
+    #[must_use]
     pub fn empty() -> Self {
         Self {
             violations: Vec::new(),
         }
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.violations.len()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.violations.is_empty()
     }
@@ -89,6 +94,7 @@ impl Violations {
             .retain(|violation| violation.severity() != Severity::Critical);
     }
 
+    #[must_use]
     pub fn has_any_violations_of(&self, severity: Severity) -> bool {
         for violation in &self.violations {
             if violation.is_of_severity(severity) {
@@ -98,6 +104,7 @@ impl Violations {
         false
     }
 
+    #[must_use]
     pub fn has_critical_violations(&self) -> bool {
         self.has_any_violations_of(Severity::Critical)
     }

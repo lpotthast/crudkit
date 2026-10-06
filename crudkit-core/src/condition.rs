@@ -1,7 +1,7 @@
 //! Query filtering DSL with condition clauses and operators.
 
-use crate::Value;
 use crate::id::{IdValue, SerializableIdEntry};
+use crate::{TimeDuration, Value};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -78,9 +78,6 @@ impl TryFrom<Value> for ConditionClauseValue {
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         match value {
-            value @ Value::Null => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::Void(()) => Err(NotConditionClauseCompatibleValue { value }),
-
             Value::Bool(value) => Ok(Self::Bool(value)),
 
             Value::I8(value) => Ok(Self::I8(value)),
@@ -104,12 +101,13 @@ impl TryFrom<Value> for ConditionClauseValue {
             Value::Json(value) => Ok(Self::Json(value)),
             Value::Uuid(value) => Ok(Self::Uuid(value)),
 
-            value @ Value::PrimitiveDateTime(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::OffsetDateTime(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::Duration(_) => Err(NotConditionClauseCompatibleValue { value }),
-
-            value @ Value::Array(_) => Err(NotConditionClauseCompatibleValue { value }),
-            value @ Value::Other(_) => Err(NotConditionClauseCompatibleValue { value }),
+            value @ (Value::Null
+            | Value::Void(())
+            | Value::PrimitiveDateTime(_)
+            | Value::OffsetDateTime(_)
+            | Value::Duration(_)
+            | Value::Array(_)
+            | Value::Other(_)) => Err(NotConditionClauseCompatibleValue { value }),
         }
     }
 }
@@ -138,10 +136,7 @@ impl TryFrom<IdValue> for ConditionClauseValue {
             IdValue::Bool(value) => Ok(Self::Bool(value)),
             IdValue::String(value) => Ok(Self::String(value)),
             IdValue::Uuid(value) => Ok(Self::Uuid(value)),
-            value @ IdValue::PrimitiveDateTime(_) => {
-                Err(NotConditionClauseCompatibleIdValue { value })
-            }
-            value @ IdValue::OffsetDateTime(_) => {
+            value @ (IdValue::PrimitiveDateTime(_) | IdValue::OffsetDateTime(_)) => {
                 Err(NotConditionClauseCompatibleIdValue { value })
             }
         }
@@ -188,6 +183,7 @@ impl Condition {
     /// Creates an empty `All` condition.
     ///
     /// An empty `All` condition matches everything (vacuous truth).
+    #[must_use]
     pub fn all() -> Self {
         Self::All(Vec::new())
     }
@@ -195,6 +191,7 @@ impl Condition {
     /// Creates an empty `Any` condition.
     ///
     /// An empty `Any` condition matches nothing (no element can satisfy it).
+    #[must_use]
     pub fn any() -> Self {
         Self::Any(Vec::new())
     }
@@ -206,6 +203,7 @@ impl Condition {
     /// Useful when building conditions dynamically and you need a neutral starting
     /// point that won't match any entities (e.g., when no entities are selected
     /// for a bulk operation).
+    #[must_use]
     pub fn none() -> Self {
         Self::any()
     }
@@ -219,11 +217,12 @@ impl Condition {
     pub fn push_condition(&mut self, condition: Condition) {
         match self {
             Condition::All(vec) | Condition::Any(vec) => {
-                vec.push(ConditionElement::Condition(Box::new(condition)))
+                vec.push(ConditionElement::Condition(Box::new(condition)));
             }
         }
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         match self {
             Condition::All(vec) | Condition::Any(vec) => vec.is_empty(),
@@ -232,6 +231,7 @@ impl Condition {
 }
 
 // TODO: This always "AND"s them together. Are there places where an "OR" would be equally appropriate?
+#[must_use]
 pub fn merge_conditions(a: Option<Condition>, b: Option<Condition>) -> Option<Condition> {
     match (a, b) {
         (None, None) => None,
@@ -241,9 +241,10 @@ pub fn merge_conditions(a: Option<Condition>, b: Option<Condition>) -> Option<Co
             let mut combined = Condition::all();
             combined.push_condition(a);
             combined.push_condition(b);
-            match combined.is_empty() {
-                true => None,
-                false => Some(combined),
+            if combined.is_empty() {
+                None
+            } else {
+                Some(combined)
             }
         }
     }
@@ -256,6 +257,11 @@ pub struct IntoAllEqualConditionError;
 pub trait TryIntoAllEqualCondition {
     type Error;
 
+    /// Builds a condition requiring every entry to equal its value.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a value cannot be used in a condition clause.
     fn try_into_all_equal_condition(self) -> Result<Condition, Self::Error>;
 }
 
@@ -287,6 +293,11 @@ where
 
 impl ConditionClauseValue {
     // TODO: All these to functions support string->type parsing. Should this be removed and made explicit?
+    /// Converts the value to `Value::I32`, or to an array of them for a list.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the problem if the value is not an `i32`, a list of `i32`, or a string parsing as `i32`.
     pub fn to_i32(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::I32(num) => Ok(Value::I32(num)),
@@ -300,6 +311,11 @@ impl ConditionClauseValue {
         }
     }
 
+    /// Converts the value to `Value::I64`, or to an array of them for a list.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the problem if the value is not an `i64`, a list of `i64`, or a string parsing as `i64`.
     pub fn to_i64(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::I64(num) => Ok(Value::I64(num)),
@@ -313,6 +329,11 @@ impl ConditionClauseValue {
         }
     }
 
+    /// Converts the value to `Value::U32`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the problem if the value is not a `u32` or a string parsing as `u32`.
     pub fn to_u32(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::U32(num) => Ok(Value::U32(num)),
@@ -323,6 +344,11 @@ impl ConditionClauseValue {
         }
     }
 
+    /// Converts the value to `Value::F32`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the problem if the value is not an `f32` or a string parsing as `f32`.
     pub fn to_f32(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::F32(num) => Ok(Value::F32(num)),
@@ -333,6 +359,11 @@ impl ConditionClauseValue {
         }
     }
 
+    /// Converts the value to `Value::F64`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the problem if the value is not an `f64` or a string parsing as `f64`.
     pub fn to_f64(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::F64(num) => Ok(Value::F64(num)),
@@ -343,6 +374,11 @@ impl ConditionClauseValue {
         }
     }
 
+    /// Converts a byte list to an array of `Value::U8`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the problem if the value is not a list of `u8`.
     pub fn to_byte_vec(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::U8Vec(vec) => {
@@ -354,6 +390,11 @@ impl ConditionClauseValue {
         }
     }
 
+    /// Converts the value to `Value::Bool`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the problem if the value is not a `bool` or a string parsing as `bool`.
     pub fn to_bool(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::Bool(bool) => Ok(Value::Bool(bool)),
@@ -364,6 +405,11 @@ impl ConditionClauseValue {
         }
     }
 
+    /// Converts the value to `Value::String`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the problem if the value is not a string.
     pub fn to_string(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::String(string) => Ok(Value::String(string)),
@@ -373,6 +419,11 @@ impl ConditionClauseValue {
         }
     }
 
+    /// Converts the value to `Value::String` holding JSON.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the problem if the value is not a string.
     pub fn to_json_value(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::String(string) => Ok(Value::String(string)),
@@ -382,6 +433,11 @@ impl ConditionClauseValue {
         }
     }
 
+    /// Converts the value to `Value::Uuid`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the problem if the value is not a UUID.
     pub fn to_uuid(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::Uuid(uuid) => Ok(Value::Uuid(uuid)),
@@ -391,6 +447,11 @@ impl ConditionClauseValue {
         }
     }
 
+    /// Converts an RFC 3339 string to `Value::PrimitiveDateTime`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the problem if the value is not a string in RFC 3339 format.
     pub fn to_primitive_date_time(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::String(string) => {
@@ -404,6 +465,11 @@ impl ConditionClauseValue {
         }
     }
 
+    /// Converts an RFC 3339 string to `Value::OffsetDateTime`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the problem if the value is not a string in RFC 3339 format.
     pub fn to_offset_date_time(self) -> Result<Value, String> {
         match self {
             ConditionClauseValue::String(string) => time::OffsetDateTime::parse(&string, &Rfc3339)
@@ -429,8 +495,26 @@ impl ConditionClauseValue {
     //    }
     //}
 
+    /// Converts a number of microseconds, the wire format of [`TimeDuration`], to
+    /// `Value::Duration`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the problem if the value is not an `i64` or a string parsing as
+    /// `i64`.
     pub fn to_time_duration(self) -> Result<Value, String> {
-        unimplemented!()
+        let microseconds = match self {
+            ConditionClauseValue::I64(microseconds) => microseconds,
+            ConditionClauseValue::String(string) => parse::<i64>(&string)?,
+            _ => {
+                return Err(format!(
+                    "{self:?} can not be converted to a duration. Expected i64 microseconds or String."
+                ));
+            }
+        };
+        Ok(Value::Duration(TimeDuration(time::Duration::microseconds(
+            microseconds,
+        ))))
     }
 }
 
@@ -439,5 +523,31 @@ where
     T: FromStr,
     T::Err: std::fmt::Display,
 {
-    string.parse::<T>().map_err(|e| format!("{}", e))
+    string.parse::<T>().map_err(|e| format!("{e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ConditionClauseValue;
+    use crate::{TimeDuration, Value};
+
+    #[test]
+    fn durations_convert_from_microseconds() {
+        let expected = time::Duration::microseconds(1_500);
+        for value in [
+            ConditionClauseValue::I64(1_500),
+            ConditionClauseValue::String("1500".to_owned()),
+        ] {
+            assert!(matches!(
+                value.to_time_duration(),
+                Ok(Value::Duration(TimeDuration(duration))) if duration == expected
+            ));
+        }
+        assert!(ConditionClauseValue::Bool(true).to_time_duration().is_err());
+        assert!(
+            ConditionClauseValue::String("soon".to_owned())
+                .to_time_duration()
+                .is_err()
+        );
+    }
 }

@@ -1,7 +1,9 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
+// darling's derives generate redundant `continue` expressions in this crate's config types.
+#![allow(clippy::needless_continue)]
 
-use darling::*;
+use darling::{Error, FromDeriveInput, FromField, ast};
 use proc_macro::TokenStream;
 use proc_macro_error::{abort, proc_macro_error};
 use proc_macro_type_name::ToTypeName;
@@ -10,7 +12,7 @@ use quote::quote;
 use syn::{DeriveInput, Ident, parse_macro_input, spanned::Spanned};
 
 const SUPPORTED_TYPES_HELP: &str = indoc::indoc! {
-    r#"
+    r"
     Supported ID field types:
       - Integers: i8, i16, i32, i64, i128, u8, u16, u32, u64, u128
       - Strings: String
@@ -22,7 +24,7 @@ const SUPPORTED_TYPES_HELP: &str = indoc::indoc! {
       - Floating point types (f32, f64) are not supported (not Eq comparable)
       - Optional types (Option<T>) are not supported for ID fields
       - Use exact type paths as shown above
-    "#
+    "
 };
 
 /// Represents a supported ID field type.
@@ -112,13 +114,13 @@ impl CkIdInputConfig {
 
 /// Metadata for a single ID field, used during code generation.
 ///
-/// This struct holds all the TokenStreams and identifiers needed to generate
+/// This struct holds all the `TokenStreams` and identifiers needed to generate
 /// the code for one field in both the ID struct and the ID field enum.
 struct IdFieldMetadata {
     /// Original field identifier (e.g., `user_id`)
     ident: Ident,
 
-    /// Field name as string (e.g., "user_id")
+    /// Field name as string (e.g., "`user_id`")
     name: String,
 
     /// Field name in pascal case (e.g. `UserId`). Usable as a type (or enum variant) name.
@@ -231,9 +233,9 @@ pub fn derive_ck_id(input: TokenStream) -> TokenStream {
     }
 
     let source_struct_name = &input.ident;
-    let id_struct_ident = Ident::new(&format!("{}Id", source_struct_name), Span::call_site());
+    let id_struct_ident = Ident::new(&format!("{source_struct_name}Id"), Span::call_site());
     let id_field_enum_ident =
-        Ident::new(&format!("{}IdField", source_struct_name), Span::call_site());
+        Ident::new(&format!("{source_struct_name}IdField"), Span::call_site());
 
     let field_metadata = id_fields
         .into_iter()

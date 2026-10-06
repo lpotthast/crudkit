@@ -23,8 +23,8 @@ pub mod prelude {
 
 /// Trait for models that have an identifier.
 ///
-/// Not all models have an ID - CreateModel typically doesn't since the ID
-/// is generated during insertion. ReadModel and UpdateModel should implement this.
+/// Not all models have an ID - `CreateModel` typically doesn't since the ID
+/// is generated during insertion. `ReadModel` and `UpdateModel` should implement this.
 pub trait HasId {
     /// The ID type for this model.
     type Id: Id + Clone + Send + Sync + 'static;
@@ -235,11 +235,12 @@ mod tests {
         }];
         let serializable_id = SerializableId(entries);
 
-        let json = serde_json::to_string(&serializable_id).unwrap();
+        let json = serde_json::to_string(&serializable_id).expect("serialization should succeed");
 
         assert_that(&json).is_equal_to(r#"[["foo",{"I32":1}]]"#);
 
-        let deserialized: SerializableId = serde_json::from_str(json.as_str()).unwrap();
+        let deserialized: SerializableId =
+            serde_json::from_str(json.as_str()).expect("deserialization should succeed");
 
         assert_that(deserialized).is_equal_to(serializable_id);
     }

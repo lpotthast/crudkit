@@ -11,6 +11,7 @@ impl ResourceName {
         Self(name.into())
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -37,11 +38,12 @@ mod tests {
     fn serialize_and_deserialize_serializable_id() {
         let resource_name = ResourceName::new("foo");
 
-        let json = serde_json::to_string(&resource_name).unwrap();
+        let json = serde_json::to_string(&resource_name).expect("serialization should succeed");
 
         assert_that(&json).is_equal_to(r#""foo""#);
 
-        let deserialized: ResourceName = serde_json::from_str(json.as_str()).unwrap();
+        let deserialized: ResourceName =
+            serde_json::from_str(json.as_str()).expect("deserialization should succeed");
 
         assert_that(deserialized).is_equal_to(resource_name);
     }

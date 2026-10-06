@@ -163,7 +163,10 @@ impl Serialize for TimeDuration {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_i64(self.0.whole_microseconds() as i64)
+        let micros = i64::try_from(self.0.whole_microseconds()).map_err(|_| {
+            serde::ser::Error::custom("duration exceeds the range of i64 microseconds")
+        })?;
+        serializer.serialize_i64(micros)
     }
 }
 
@@ -342,6 +345,7 @@ macro_rules! impl_expect {
 
 impl Value {
     /// Returns true if this value is Null.
+    #[must_use]
     pub fn is_null(&self) -> bool {
         matches!(self, Self::Null)
     }
@@ -377,6 +381,7 @@ impl Value {
 
     // === Date/time accessors with String parsing fallback ===
 
+    #[must_use]
     pub fn as_primitive_date_time(&self) -> Option<time::PrimitiveDateTime> {
         match self {
             Self::PrimitiveDateTime(v) => Some(*v),
@@ -385,6 +390,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn as_offset_date_time(&self) -> Option<time::OffsetDateTime> {
         match self {
             Self::OffsetDateTime(v) => Some(*v),
@@ -429,6 +435,12 @@ impl Value {
         Array, &Vec<Value>;
     }
 
+    /// Returns the custom value of a `Value::Other`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is not `Value::Other`.
+    #[must_use]
     pub fn expect_other(&self) -> &dyn FieldValue {
         self.as_other().expect("Value is not Other").as_ref()
     }
@@ -437,8 +449,11 @@ impl Value {
 
     /// Verifies that all elements in a Value array are of the same type.
     ///
-    /// Returns `Ok(())` if the slice is empty or all elements have the same discriminant.
-    /// Returns `Err(index)` with the index of the first element that differs from the first.
+    /// An empty slice is homogeneous.
+    ///
+    /// # Errors
+    ///
+    /// Returns the index of the first element whose variant differs from the first element's.
     pub fn verify_array_homogeneity(values: &[Value]) -> Result<(), usize> {
         let Some(first) = values.first() else {
             return Ok(());
