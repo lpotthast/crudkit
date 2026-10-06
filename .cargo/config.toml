@@ -1,0 +1,3 @@
+[build]
+# Leptonic uses unstable `web-sys` APIs (e.g. the Web Animations API).
+rustflags = ["--cfg=web_sys_unstable_apis"]
