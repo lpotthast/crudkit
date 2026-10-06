@@ -18,7 +18,15 @@ impl From<time::Duration> for TimeDuration {
 
 impl From<TimeDuration> for Value {
     fn from(d: TimeDuration) -> Self {
-        Value::BigInt(Some(d.0.whole_microseconds() as i64))
+        // `Value` conversions are infallible, so durations beyond the range of `i64` microseconds
+        // (about 292,000 years) saturate.
+        let micros = d.0.whole_microseconds();
+        let micros = <i64 as TryFrom<i128>>::try_from(micros).unwrap_or(if micros < 0 {
+            i64::MIN
+        } else {
+            i64::MAX
+        });
+        Value::BigInt(Some(micros))
     }
 }
 
@@ -38,7 +46,7 @@ impl TryGetable for TimeDuration {
         let val: Option<i64> = res.try_get_by(idx).map_err(TryGetError::DbErr)?;
         match val {
             Some(us) => Ok(TimeDuration(time::Duration::microseconds(us))),
-            None => Err(TryGetError::Null(format!("{:?}", idx))),
+            None => Err(TryGetError::Null(format!("{idx:?}"))),
         }
     }
 }
@@ -73,7 +81,11 @@ impl Serialize for TimeDuration {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_i64(self.0.whole_microseconds() as i64)
+        let micros =
+            <i64 as TryFrom<i128>>::try_from(self.0.whole_microseconds()).map_err(|_| {
+                serde::ser::Error::custom("duration exceeds the range of i64 microseconds")
+            })?;
+        serializer.serialize_i64(micros)
     }
 }
 

@@ -10,7 +10,7 @@ use sea_orm_migration::{
 
 /// Describes a primary key field for SQL generation.
 pub struct IdFieldDef {
-    /// The column/field name (e.g., "id", "user_id").
+    /// The column/field name (e.g., "id", "`user_id`").
     pub name: &'static str,
     /// The `IdValue` type variant (e.g., "I64", "I32", "String", "Uuid").
     pub type_variant: &'static str,

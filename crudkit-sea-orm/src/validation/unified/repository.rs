@@ -71,16 +71,12 @@ impl UnifiedValidationRepository {
     }
 
     /// Build a filter condition for all entities of a specific resource type.
-    fn resource_filter(&self, resource_name: &str) -> sea_orm::Condition {
+    fn resource_filter(resource_name: &str) -> sea_orm::Condition {
         sea_orm::Condition::all().add(Column::ResourceName.eq(resource_name))
     }
 
     /// Build a filter condition for a specific entity of a specific resource type.
-    fn entity_filter<I: Id>(
-        &self,
-        resource_name: &str,
-        entity_id: &I,
-    ) -> Result<sea_orm::Condition> {
+    fn entity_filter<I: Id>(resource_name: &str, entity_id: &I) -> Result<sea_orm::Condition> {
         let json_id = Self::serialize_id(entity_id)?;
         let cond = sea_orm::Condition::all()
             .add(Column::ResourceName.eq(resource_name))
@@ -110,7 +106,7 @@ impl UnifiedValidationRepository {
             .order_by(Column::ValidatorVersion, Order::Desc)
             .order_by(Column::ViolationSeverity, Order::Asc);
 
-        query = query.filter(self.resource_filter(resource_name));
+        query = query.filter(Self::resource_filter(resource_name));
 
         query
             .all(self.db.as_ref())
@@ -125,8 +121,9 @@ impl UnifiedValidationRepository {
         for entry in self.list_all_of_resource_ordered(resource_name).await? {
             let entity_id = Self::deserialize_id(&entry.entity_id)?;
 
-            let validator_info =
-                ValidatorInfo::new_owned(entry.validator_name, entry.validator_version as u32);
+            let validator_version = u32::try_from(entry.validator_version)
+                .change_context(UnifiedValidationRepositoryError::Deserialization)?;
+            let validator_info = ValidatorInfo::new_owned(entry.validator_name, validator_version);
 
             let violation = match entry.violation_severity {
                 PersistedViolationSeverity::Major => Violation::major(entry.violation_message),
@@ -150,8 +147,9 @@ impl UnifiedValidationRepository {
 
             let entity_id = Self::deserialize_id_untyped(&entry.entity_id)?;
 
-            let validator_info =
-                ValidatorInfo::new_owned(entry.validator_name, entry.validator_version as u32);
+            let validator_version = u32::try_from(entry.validator_version)
+                .change_context(UnifiedValidationRepositoryError::Deserialization)?;
+            let validator_info = ValidatorInfo::new_owned(entry.validator_name, validator_version);
 
             let violation = match entry.violation_severity {
                 PersistedViolationSeverity::Major => Violation::major(entry.violation_message),
@@ -225,7 +223,7 @@ impl UnifiedValidationRepository {
                 resource_name: Set(resource_name.to_owned()),
                 entity_id: Set(json_id.clone()),
                 validator_name: Set(validator_name.to_owned()),
-                validator_version: Set(validator_version as i64),
+                validator_version: Set(i64::from(validator_version)),
                 violation_severity: Set(violation.severity().into()),
                 violation_message: Set(violation.into_message()),
                 created_at: Set(*now),
@@ -258,7 +256,7 @@ impl UnifiedValidationRepository {
         resource_name: &str,
         entity_id: &I,
     ) -> Result<()> {
-        let cond = self.entity_filter(resource_name, entity_id)?;
+        let cond = Self::entity_filter(resource_name, entity_id)?;
 
         let delete_result = Entity::delete_many()
             .filter(cond)
@@ -277,7 +275,7 @@ impl UnifiedValidationRepository {
     /// Delete all violations of a specific resource.
     async fn delete_violations_of_resource(&self, resource_name: &str) -> Result<()> {
         let delete_result = Entity::delete_many()
-            .filter(self.resource_filter(resource_name))
+            .filter(Self::resource_filter(resource_name))
             .exec(self.db.as_ref())
             .await
             .change_context(UnifiedValidationRepositoryError::Db)?;
