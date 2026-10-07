@@ -1,0 +1,127 @@
+# This example is its own Cargo workspace, so it keeps its own lockfile and target directory and is not built as
+# part of the CrudKit workspace.
+[workspace]
+
+[package]
+name = "full-stack"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Full-stack CrudKit example: crudkit-rs CRUD API and a Leptos SSR frontend in one cargo-leptos binary."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "full-stack"
+path = "src/main.rs"
+
+[features]
+default = []
+hydrate = ["dep:tracing-wasm", "leptos/hydrate", "crudkit-leptos/hydrate", "leptonic/hydrate"]
+ssr = [
+    "dep:async-trait",
+    "dep:axum",
+    "dep:axum-macros",
+    "dep:crudkit-rs",
+    "dep:crudkit-sea-orm",
+    "dep:leptos_axum",
+    "dep:paste",
+    "dep:sea-orm",
+    "dep:sea-orm-migration",
+    "dep:tokio",
+    "dep:tracing-subscriber",
+    "dep:utoipa",
+    "leptos/ssr",
+    "leptos_meta/ssr",
+    "leptos_router/ssr",
+    "crudkit-leptos/ssr",
+    "leptonic/ssr",
+]
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.test]
+debug = "line-tables-only"
+
+[dependencies]
+crudkit-core = { path = "../../crudkit-core" }
+crudkit-leptos = { path = "../../crudkit-leptos" }
+crudkit-web = { path = "../../crudkit-web" }
+
+console_error_panic_hook = "0.1.7"
+# Lucide icons, rendered through `leptos_icons`.
+icondata = { version = "0.7.0", default-features = false, features = ["lucide"] }
+indexmap = "2.12.1"
+# Leptonic's field atoms, used by a custom field renderer.
+leptonic = { path = "../../../leptonic/leptonic", default-features = false, features = ["atoms"] }
+leptos = "0.8.15"
+leptos_icons = "0.7.1"
+leptos_meta = "0.8.5"
+leptos_router = "0.8.11"
+reqwest = { version = "0.13.2", default-features = false, features = ["json"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.148"
+# `serde-human-readable` is enabled explicitly, so that the server and the WASM build agree on the date-time format.
+time = { version = "0.3.44", features = ["macros", "serde", "serde-human-readable", "wasm-bindgen"] }
+tracing = "0.1.44"
+# Required by code generated through crudkit-web's `CkField` derive.
+typetag = "0.2.19"
+wasm-bindgen = "0.2.108"
+
+# Hydrate-only dependencies.
+tracing-wasm = { version = "0.2.1", optional = true }
+
+# SSR-only dependencies.
+async-trait = { version = "0.1.89", optional = true }
+axum = { version = "0.8.8", optional = true }
+axum-macros = { version = "0.5.0", optional = true }
+crudkit-rs = { path = "../../crudkit-rs", optional = true }
+crudkit-sea-orm = { path = "../../crudkit-sea-orm", optional = true }
+leptos_axum = { version = "0.8.7", optional = true }
+paste = { version = "1.0.15", optional = true }
+sea-orm = { version = "0.12.15", default-features = false, features = [
+    "macros",
+    "runtime-tokio-rustls",
+    "sqlx-sqlite",
+    "with-json",
+    "with-time",
+], optional = true }
+sea-orm-migration = { version = "0.12.15", default-features = false, features = [
+    "runtime-tokio-rustls",
+    "sqlx-sqlite",
+], optional = true }
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread", "signal"], optional = true }
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"], optional = true }
+utoipa = { version = "5.4.0", features = ["time", "uuid"], optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+
+[package.metadata.crudkit]
+# CrudKit's build script generates its theme into `{style-dir}/crudkit`.
+style-dir = "style"
+
+[package.metadata.leptos]
+output-name = "full-stack"
+site-root = "target/site"
+site-pkg-dir = "pkg"
+style-file = "style/main.scss"
+assets-dir = "public"
+site-addr = "127.0.0.1:3000"
+reload-port = 3001
+browserquery = "defaults"
+bin-features = ["ssr"]
+bin-default-features = false
+lib-features = ["hydrate"]
+lib-default-features = false
+lib-profile-release = "wasm-release"
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"

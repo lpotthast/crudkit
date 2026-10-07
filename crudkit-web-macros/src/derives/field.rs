@@ -2,7 +2,7 @@ use crudkit_core_macro_util::{
     ValueKind, ValueKindExt, classify_base_type, is_ordered_float, path_to_string,
     strip_option_path, to_pascal_case,
 };
-use darling::*;
+use darling::{FromDeriveInput, FromField, ast};
 use proc_macro_error::abort;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -151,15 +151,14 @@ fn generate_get_value_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> To
 /// Generates the full expression to get a field's value as a `Value`.
 /// Includes the `Value::` wrapper and handles optional fields with `Value::Null`.
 fn generate_get_value_expr(field_ident: &Ident, classified: ClassifiedType) -> TokenStream {
-    use ValueKind::*;
+    use ValueKind::{Duration, Json, OffsetDateTime, Other, PrimitiveDateTime, String, Uuid, Void};
 
     let value_variant_ident = classified.value_variant_ident();
 
     // Special cases that need special handling.
     match (classified.kind, classified.is_optional) {
         // Void and Other: always returns unit.
-        (Void, _) => return quote! { crudkit_core::Value::Void(()) },
-        (Other, _) => return quote! { crudkit_core::Value::Void(()) },
+        (Void | Other, _) => return quote! { crudkit_core::Value::Void(()) },
 
         // Json fields use serde_json::Value directly.
         (Json, false) => {
@@ -277,7 +276,7 @@ fn generate_is_optional_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> 
 
 /// Generates the expression to set a field's value from a `Value`.
 fn generate_set_value_expr(field_ident: &Ident, classified: ClassifiedType) -> TokenStream {
-    use ValueKind::*;
+    use ValueKind::{Array, Duration, Json, Null, Other, String, Void};
 
     // Special cases that need special handling.
     match (classified.kind, classified.is_optional) {
@@ -343,20 +342,27 @@ fn generate_set_value_expr(field_ident: &Ident, classified: ClassifiedType) -> T
     }
 }
 
-pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
-    let input_receiver: CkFieldInputReceiver = FromDeriveInput::from_derive_input(&input)
-        .map_err(|e| syn::Error::new_spanned(&input, e))?;
+pub fn expand_derive_field(input: &DeriveInput) -> syn::Result<TokenStream> {
+    let input_receiver: CkFieldInputReceiver =
+        FromDeriveInput::from_derive_input(input).map_err(|e| syn::Error::new_spanned(input, e))?;
 
+    // Field enums serialize as their field names, the same names `Named::name()` returns, so that
+    // ordering keys and condition field names share one spelling.
     let typified_fields = input_receiver
         .fields()
         .iter()
         .map(|field| {
-            let name = field.ident.as_ref().expect("Expected named field!");
-            let type_name = to_pascal_case(&name.to_string());
-            Ident::new(type_name.as_str(), Span::call_site())
+            let name = field
+                .ident
+                .as_ref()
+                .expect("Expected named field!")
+                .to_string();
+            let type_ident = Ident::new(to_pascal_case(&name).as_str(), Span::call_site());
+            quote! { #[serde(rename = #name)] #type_ident }
         })
-        .collect::<Vec<Ident>>();
+        .collect::<Vec<TokenStream>>();
 
+    let fields = input_receiver.fields();
     let name = &input_receiver.ident;
     let field_name = Ident::new(format!("{name}Field").as_str(), name.span());
 
@@ -368,25 +374,8 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
         quote! { pub const #type_ident: #field_name = #field_name::#type_ident; }
     });
 
-    let match_field_name_to_str_arms = input_receiver.fields().iter().map(|field| {
-        let name = field.ident.as_ref().expect("Expected named field!");
-        let name = name.to_string();
-        let type_name = to_pascal_case(&name);
-        let type_ident = Ident::new(type_name.as_str(), Span::call_site());
-        quote! {
-            #field_name::#type_ident => #name
-        }
-    });
-    let get_name_impl = match input_receiver.fields().len() {
-        0 => quote! { "" },
-        _ => quote! {
-            match self {
-                #(#match_field_name_to_str_arms),*
-            }
-        },
-    };
-
-    let all_field_enum_accessors = input_receiver.fields().iter().map(|field| {
+    let (get_name_impl, get_field_impl) = generate_name_lookups(fields, &field_name);
+    let all_field_enum_accessors = fields.iter().map(|field| {
         let name = field.ident.as_ref().expect("Expected named field!");
         let name = name.to_string();
         let type_name = to_pascal_case(&name);
@@ -396,109 +385,12 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
         }
     });
 
-    let get_field_arms = input_receiver.fields().iter().map(|field| {
-        let name = field.ident.as_ref().expect("Expected named field!");
-        let name = name.to_string();
-        let type_name = to_pascal_case(&name);
-        let type_ident = Ident::new(type_name.as_str(), Span::call_site());
-        quote! {
-            #name => #field_name::#type_ident
-        }
-    });
-    let get_field_impl = match input_receiver.fields().len() {
-        0 => {
-            quote! { panic!("String '{}' can not be parsed as a field name! There are zero fields!", field_name) }
-        }
-        _ => quote! {
-            match field_name {
-                #(#get_field_arms),*,
-                other => panic!("String '{}' can not be parsed as a field name!", other),
-            }
-        },
-    };
-
     let model_type_based_model_trait_impl = input_receiver.model.gen_erased_model_impl(name);
     let model_type_based_field_trait_impl = input_receiver
         .model
         .gen_erased_field_impl(&field_name, name);
 
-    // Generate CrudFieldValueTrait implementation.
-    let get_field_value_arms = input_receiver
-        .fields()
-        .iter()
-        .map(|field| generate_get_value_arm(field, &field_name));
-    let get_value_impl = match input_receiver.fields().len() {
-        0 => {
-            quote! { panic!("Cannot get value. Zero fields available! Should be unreachable. Source-crate: crudkit-web-macros") }
-        }
-        _ => quote! {
-            match self {
-                #(#get_field_value_arms),*,
-            }
-        },
-    };
-
-    let set_field_value_arms = input_receiver
-        .fields()
-        .iter()
-        .map(|field| generate_set_value_arm(field, &field_name));
-    let set_value_impl = match input_receiver.fields().len() {
-        0 => {
-            quote! { panic!("Cannot set value. Zero fields available! Should be unreachable. Source-crate: crudkit-web-macros") }
-        }
-        _ => quote! {
-            match self {
-                #(#set_field_value_arms),*,
-            }
-        },
-    };
-
-    // Generate value_kind and is_optional match arms.
-    let value_kind_arms = input_receiver
-        .fields()
-        .iter()
-        .map(|field| generate_value_kind_arm(field, &field_name));
-    let value_kind_impl = match input_receiver.fields().len() {
-        0 => quote! { crudkit_core::ValueKind::Void },
-        _ => quote! {
-            match self {
-                #(#value_kind_arms),*
-            }
-        },
-    };
-
-    let is_optional_arms = input_receiver
-        .fields()
-        .iter()
-        .map(|field| generate_is_optional_arm(field, &field_name));
-    let is_optional_impl = match input_receiver.fields().len() {
-        0 => quote! { false },
-        _ => quote! {
-            match self {
-                #(#is_optional_arms),*
-            }
-        },
-    };
-
-    let field_value_trait_impl = quote! {
-        impl crudkit_web::FieldAccess<#name> for #field_name {
-            fn value(&self, entity: &#name) -> crudkit_core::Value {
-                #get_value_impl
-            }
-
-            fn set_value(&self, entity: &mut #name, value: crudkit_core::Value) {
-                #set_value_impl
-            }
-
-            fn value_kind(&self) -> crudkit_core::ValueKind {
-                #value_kind_impl
-            }
-
-            fn is_optional(&self) -> bool {
-                #is_optional_impl
-            }
-        }
-    };
+    let field_value_trait_impl = generate_field_access_impl(fields, name, &field_name);
 
     Ok(quote! {
         impl #name {
@@ -518,45 +410,160 @@ pub fn expand_derive_field(input: DeriveInput) -> syn::Result<TokenStream> {
             }
         }
 
-        impl crudkit_web::Model for #name {
+        impl crudkit_web::model::Model for #name {
             type Field = #field_name;
 
             fn all_fields() -> Vec<#field_name> {
                 vec![ #(#all_field_enum_accessors),* ]
             }
 
-            fn field(field_name: &str) -> #field_name {
+            fn field(field_name: &str) -> Option<#field_name> {
                 #get_field_impl
             }
         }
 
         #[typetag::serde]
         impl crudkit_web::model::ErasedField for #field_name {
-            fn set_value(&self, model: &mut crudkit_web::model::DynModel, value: crudkit_core::Value) {
-                let model = model.downcast_mut::<#name>();
-                crudkit_web::FieldAccess::set_value(self, model, value);
-            }
-
             fn value_kind(&self) -> crudkit_core::ValueKind {
-                crudkit_web::FieldAccess::<#name>::value_kind(self)
+                crudkit_web::model::FieldAccess::<#name>::value_kind(self)
             }
 
             fn is_optional(&self) -> bool {
-                crudkit_web::FieldAccess::<#name>::is_optional(self)
+                crudkit_web::model::FieldAccess::<#name>::is_optional(self)
             }
         }
 
         #model_type_based_field_trait_impl
-
-        impl crudkit_web::model::SerializeAsKey for #field_name {
-            fn serialize_as_key(&self) -> String {
-                serde_json::to_string(self).unwrap()
-            }
-        }
 
         #[typetag::serde]
         impl crudkit_web::model::ErasedModel for #name {}
 
         #field_value_trait_impl
     })
+}
+
+/// Generates the bodies of `Named::name` and `Model::field`, which map fields to their names and back.
+fn generate_name_lookups(
+    fields: &ast::Fields<CkFieldConfig>,
+    field_name: &Ident,
+) -> (TokenStream, TokenStream) {
+    let match_field_name_to_str_arms = fields.iter().map(|field| {
+        let name = field.ident.as_ref().expect("Expected named field!");
+        let name = name.to_string();
+        let type_name = to_pascal_case(&name);
+        let type_ident = Ident::new(type_name.as_str(), Span::call_site());
+        quote! {
+            #field_name::#type_ident => #name
+        }
+    });
+    let get_name_impl = if fields.is_empty() {
+        quote! { "" }
+    } else {
+        quote! {
+            match self {
+                #(#match_field_name_to_str_arms),*
+            }
+        }
+    };
+
+    let get_field_arms = fields.iter().map(|field| {
+        let name = field.ident.as_ref().expect("Expected named field!");
+        let name = name.to_string();
+        let type_name = to_pascal_case(&name);
+        let type_ident = Ident::new(type_name.as_str(), Span::call_site());
+        quote! {
+            #name => Some(#field_name::#type_ident)
+        }
+    });
+    let get_field_impl = if fields.is_empty() {
+        quote! { None }
+    } else {
+        quote! {
+            match field_name {
+                #(#get_field_arms),*,
+                _ => None,
+            }
+        }
+    };
+    (get_name_impl, get_field_impl)
+}
+
+/// Generates the `FieldAccess` implementation of `field_name` for the model `name`.
+fn generate_field_access_impl(
+    fields: &ast::Fields<CkFieldConfig>,
+    name: &Ident,
+    field_name: &Ident,
+) -> TokenStream {
+    let get_field_value_arms = fields
+        .iter()
+        .map(|field| generate_get_value_arm(field, field_name));
+    let get_value_impl = if fields.is_empty() {
+        quote! { panic!("Cannot get value. Zero fields available! Should be unreachable. Source-crate: crudkit-web-macros") }
+    } else {
+        quote! {
+            match self {
+                #(#get_field_value_arms),*,
+            }
+        }
+    };
+
+    let set_field_value_arms = fields
+        .iter()
+        .map(|field| generate_set_value_arm(field, field_name));
+    let set_value_impl = if fields.is_empty() {
+        quote! { panic!("Cannot set value. Zero fields available! Should be unreachable. Source-crate: crudkit-web-macros") }
+    } else {
+        quote! {
+            match self {
+                #(#set_field_value_arms),*,
+            }
+        }
+    };
+
+    // Generate value_kind and is_optional match arms.
+    let value_kind_arms = fields
+        .iter()
+        .map(|field| generate_value_kind_arm(field, field_name));
+    let value_kind_impl = if fields.is_empty() {
+        quote! { crudkit_core::ValueKind::Void }
+    } else {
+        quote! {
+            match self {
+                #(#value_kind_arms),*
+            }
+        }
+    };
+
+    let is_optional_arms = fields
+        .iter()
+        .map(|field| generate_is_optional_arm(field, field_name));
+    let is_optional_impl = if fields.is_empty() {
+        quote! { false }
+    } else {
+        quote! {
+            match self {
+                #(#is_optional_arms),*
+            }
+        }
+    };
+
+    quote! {
+        impl crudkit_web::model::FieldAccess<#name> for #field_name {
+            fn value(&self, entity: &#name) -> crudkit_core::Value {
+                #get_value_impl
+            }
+
+            fn set_value(&self, entity: &mut #name, value: crudkit_core::Value) {
+                #set_value_impl
+            }
+
+            fn value_kind(&self) -> crudkit_core::ValueKind {
+                #value_kind_impl
+            }
+
+            fn is_optional(&self) -> bool {
+                #is_optional_impl
+            }
+        }
+    }
 }

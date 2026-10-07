@@ -37,11 +37,7 @@ impl DeriveCkSeaOrmBridge {
 
 impl DeriveCkSeaOrmBridge {
     fn expand(&self) -> TokenStream {
-        let fields: Vec<Field> = self
-            .fields()
-            .iter()
-            .map(ToOwned::to_owned)
-            .collect();
+        let fields: Vec<Field> = self.fields().iter().map(ToOwned::to_owned).collect();
         let field_enum_name = format_ident!("{}Field", self.ident);
 
         // Generate {StructName}Field::Variant => Column::Variant match arms.

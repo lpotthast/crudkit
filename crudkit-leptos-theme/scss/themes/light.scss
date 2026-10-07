@@ -1,17 +1,27 @@
+// Light tokens. Also the defaults when no `data-theme` is set.
+:root,
 [data-theme="light"] {
-  --crudkit-instance-header-color: var(--std-text-dark);
-  --crudkit-instance-header-bg-color: #eaeaea;
-  //--crudkit-instance-body-bg-color: white;
-  --crudkit-instance-body-bg-color: transparent;
-  --crudkit-instance-collapsible-body-content-margin: 0.75em;
+  --crudkit-text: #1f2328;
+  --crudkit-text-muted: #636c76;
+  --crudkit-background: #ffffff;
+  --crudkit-surface: #f6f8fa;
+  --crudkit-surface-raised: #ffffff;
+  --crudkit-border: #d0d7de;
+  --crudkit-hover: #eef1f4;
+  --crudkit-selected: #ddf4ff;
+  --crudkit-focus: #0969da;
 
-  --crudkit-field-label-color: #767676;
+  --crudkit-primary: #0969da;
+  --crudkit-primary-text: #ffffff;
+  --crudkit-success: #1a7f37;
+  --crudkit-success-text: #ffffff;
+  --crudkit-warning: #9a6700;
+  --crudkit-warning-text: #ffffff;
+  --crudkit-danger: #cf222e;
+  --crudkit-danger-text: #ffffff;
+  --crudkit-secondary: #f6f8fa;
+  --crudkit-secondary-text: #1f2328;
 
-  // LEPTONIC OVERRIDES
-
-  // Input
-  --input-padding: 0.5em 2em 0.5em 0;
-  --input-border: none;
-  --input-border-bottom: 1px rgba(0, 0, 0, .15); // TODO make work
-  --input-border-radius: 0;
+  --crudkit-backdrop: rgba(31, 35, 40, 0.45);
+  --crudkit-shadow: 0 8px 24px rgba(140, 149, 159, 0.2);
 }

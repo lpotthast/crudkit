@@ -1,6 +1,6 @@
 //! Read operations for CRUD resources.
 //!
-//! Read operations return the ReadModel (which may be backed by a SQL view).
+//! Read operations return the `ReadModel` (which may be backed by a SQL view).
 
 use crate::{
     auth::RequestContext,
@@ -9,51 +9,22 @@ use crate::{
     prelude::*,
 };
 
-use crudkit_core::Order;
-use crudkit_core::condition::Condition;
+use crudkit_core::request::{ReadCount, ReadMany, ReadOne};
 
-use indexmap::IndexMap;
-use serde::Deserialize;
 use std::sync::Arc;
 use tracing::error;
-use utoipa::ToSchema;
-
-/// Request body for counting entities.
-#[derive(Debug, ToSchema, Deserialize)]
-pub struct ReadCount {
-    /// Filter condition.
-    pub condition: Option<Condition>,
-}
-
-/// Request body for reading one entity.
-#[derive(Debug, ToSchema, Deserialize)]
-pub struct ReadOne<R: CrudResource> {
-    /// Number of entities to skip.
-    pub skip: Option<u64>,
-    /// Ordering specification.
-    #[serde(bound = "")]
-    #[schema(value_type = Option<Object>, example = json!({"id": Order::Asc}))]
-    pub order_by: Option<IndexMap<R::ReadModelField, Order>>,
-    /// Filter condition.
-    pub condition: Option<Condition>,
-}
-
-/// Request body for reading many entities.
-#[derive(Debug, ToSchema, Deserialize)]
-pub struct ReadMany<R: CrudResource> {
-    /// Maximum number of entities to return.
-    pub limit: Option<u64>,
-    /// Number of entities to skip.
-    pub skip: Option<u64>,
-    /// Ordering specification.
-    #[serde(bound = "")]
-    #[schema(value_type = Option<Object>, example = json!({"id": Order::Asc}))]
-    pub order_by: Option<IndexMap<R::ReadModelField, Order>>,
-    /// Filter condition.
-    pub condition: Option<Condition>,
-}
 
 /// Count entities matching the given condition.
+///
+/// # Errors
+///
+/// Returns `CrudError::Forbidden`, `CrudError::UnprocessableEntity`, or
+/// `CrudError::LifecycleHookError` if a lifecycle hook rejects the operation or fails, or
+/// `CrudError::Repository` if counting fails.
+///
+/// # Panics
+///
+/// Panics if the `after_read` hook replaces the read result with a different `ReadResult` variant.
 #[tracing::instrument(level = "info", skip(context, request))]
 pub async fn read_count<R: CrudResource>(
     request: RequestContext<R::Auth>,
@@ -106,11 +77,21 @@ pub async fn read_count<R: CrudResource>(
 }
 
 /// Read a single entity matching the given criteria.
+///
+/// # Errors
+///
+/// Returns `CrudError::Forbidden`, `CrudError::UnprocessableEntity`, or
+/// `CrudError::LifecycleHookError` if a lifecycle hook rejects the operation or fails,
+/// `CrudError::Repository` if reading fails, or `CrudError::NotFound` if no entity matches.
+///
+/// # Panics
+///
+/// Panics if the `after_read` hook replaces the read result with a different `ReadResult` variant.
 #[tracing::instrument(level = "info", skip(context, request))]
 pub async fn read_one<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
-    body: ReadOne<R>,
+    body: ReadOne<R::ReadModelField>,
 ) -> Result<R::ReadModel, CrudError> {
     let mut read_request = ReadRequest {
         operation: ReadOperation::One,
@@ -164,11 +145,21 @@ pub async fn read_one<R: CrudResource>(
 }
 
 /// Read multiple entities matching the given criteria.
+///
+/// # Errors
+///
+/// Returns `CrudError::Forbidden`, `CrudError::UnprocessableEntity`, or
+/// `CrudError::LifecycleHookError` if a lifecycle hook rejects the operation or fails, or
+/// `CrudError::Repository` if reading fails.
+///
+/// # Panics
+///
+/// Panics if the `after_read` hook replaces the read result with a different `ReadResult` variant.
 #[tracing::instrument(level = "info", skip(context, request))]
 pub async fn read_many<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
-    body: ReadMany<R>,
+    body: ReadMany<R::ReadModelField>,
 ) -> Result<Vec<R::ReadModel>, CrudError> {
     let mut read_request = ReadRequest {
         operation: ReadOperation::Many,

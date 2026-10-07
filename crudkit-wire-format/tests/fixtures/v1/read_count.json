@@ -1,0 +1,6 @@
+{
+  "wire_format_version": 1,
+  "condition": {
+    "All": [{ "column_name": "house", "operator": "=", "value": { "String": "Gryffindor" } }]
+  }
+}

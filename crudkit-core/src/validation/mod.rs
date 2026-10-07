@@ -8,7 +8,6 @@ pub mod violation;
 
 pub use context::{CrudAction, ValidationContext, ValidationTrigger, When};
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::id::{Id, SerializableId};
@@ -17,7 +16,7 @@ use crate::validation::validator::OwnedValidatorInfo;
 use crate::validation::violation::{Severity, Violation, Violations};
 
 /// Violations for one entity.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct ViolationsByValidator {
     pub violations_by_validator: HashMap<OwnedValidatorInfo, Violations>,
 }
@@ -221,7 +220,7 @@ pub fn into_serializable_validations(
 /// replace all previously known validation results.
 ///
 /// All violations must either target the resource or a specific entity.
-#[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct FullSerializableAggregateViolations {
     /// Violations targeting the resource as a whole. Not tied to a specific entity.
     pub general: Violations,
@@ -245,7 +244,7 @@ impl FullSerializableAggregateViolations {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct PartialSerializableAggregateViolations {
     /// Violations targeting the resource as a whole. Not tied to a specific entity.
     /// If `Option::Empty`, no information is present. In an `Option::Some`, the contained Vec must hold ALL violations for the resource at hand.
@@ -299,40 +298,5 @@ impl PartialSerializableAggregateViolations {
         let by_entity_empty =
             self.by_entity.is_empty() || self.by_entity.iter().all(|(_id, v)| v.is_empty());
         general_empty && create_empty && by_entity_empty
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::PartialSerializableAggregateViolations;
-    use super::violation::Violations;
-    use crate::id::{IdValue, SerializableId, SerializableIdEntry};
-    use crate::resource::ResourceName;
-    use assertr::prelude::*;
-    use std::collections::HashMap;
-
-    type PartialSerializableValidations =
-        HashMap<ResourceName, PartialSerializableAggregateViolations>;
-
-    #[test]
-    fn serialize_and_deserialize_serializable_id() {
-        let partial: PartialSerializableValidations = HashMap::from([(
-            ResourceName::new("foo"),
-            PartialSerializableAggregateViolations {
-                general: None,
-                create: None,
-                by_entity: vec![(
-                    SerializableId(vec![SerializableIdEntry {
-                        field_name: "bar".into(),
-                        value: IdValue::I32(1),
-                    }]),
-                    Violations::empty(),
-                )],
-            },
-        )]);
-
-        let json = serde_json::to_string(&partial).expect("serialization should succeed");
-
-        assert_that(&json).is_equal_to(r#"{"foo":{"general":null,"create":null,"by_entity":[[[["bar",{"I32":1}]],{"violations":[]}]]}}"#);
     }
 }

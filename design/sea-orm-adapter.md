@@ -64,30 +64,35 @@ follows this path:
 Unknown fields and failed field conversions return `SeaOrmRepoError`. Ordering uses the same explicit field-to-column
 bridge.
 
-### Current unsupported condition cases
+### Unsupported condition cases
 
-The condition AST is broader than the adapter's safe implementation:
+The condition AST is broader than what the adapter can translate. These clauses return
+`SeaOrmRepoError::UnsupportedCondition` with the column and the reason:
 
-- scalar `IsIn`, array values with another operator, heterogeneous arrays, nested arrays, `Void`, and `Other`
-  currently panic or are unimplemented;
-- `Null` supports only equality and inequality;
-- `i128` and `u128` scalar predicates currently log a warning and omit that clause.
+- scalar `IsIn`, list values with another operator, heterogeneous lists, and nested lists;
+- `Null` with an operator other than equality and inequality;
+- `i128` and `u128` values, which SeaORM cannot represent, as well as `Void` and `Other`.
 
-Applications must not send these combinations until query translation returns structured errors for them. A
-serialized `Condition` is not proof that every adapter can execute it.
+Translation never drops a clause, so a rejected clause fails the whole query rather than widening its result. A
+serialized `Condition` is not proof that every adapter can execute it. Like the other repository errors, these
+currently surface as server errors.
 
 ## Unified Validation Storage
 
 The built-in CrudKit migrator creates one `CrudkitValidation` table for all resources. Rows contain:
 
 - resource name;
-- entity ID as JSON in `SerializableId` shape;
+- entity ID as JSON in the explicit `SerializableIdV1` format, independent of how internal types would serialize;
 - validator name and version;
 - severity and message;
 - creation timestamp.
 
 JSON IDs preserve composite keys without creating one validation table schema per resource. Queries first scope by
 resource name; the migration intentionally does not create a normal B-tree index for the JSON entity ID.
+
+Read views compare this column with JSON built in SQL, so the stored format is part of their contract. Date-time ID
+components are stored as `YYYY-MM-DDTHH:MM:SS[.fraction]` or RFC 3339 strings. Rows written before this format was made
+explicit stored them in whatever form the `time` crate's Cargo features selected, and do not match after the change.
 
 Replacing results for one entity and validator uses a database transaction: delete rows for that validator with
 versions less than or equal to the current version, then insert the new findings. The higher-level `save_all` error

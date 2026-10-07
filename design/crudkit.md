@@ -27,6 +27,8 @@ application's workflow, authorization rules, route structure outside the generat
   nested resources, field rendering, context isolation, and reset behavior.
 - [Views, Navigation Scopes, and Dirty Guards](views-and-navigation.md) defines open view descriptions, renderer
   registration, accepted-view ownership, navigation attempts, return actions, dirty guards, and leave confirmation.
+- [Leptos Hooks, Atoms, and Components](leptos-hooks-atoms-components.md) defines the layering of `crudkit-leptos`,
+  its state hooks, and how built-in views and applications share them.
 - [Actions](actions.md) defines resource and entity actions, payload UI, execution state, completion, and
   application-placed create-action outlets.
 - [Theming and Generated Assets](theming-and-generated-assets.md) defines the SCSS source, build-time generation,

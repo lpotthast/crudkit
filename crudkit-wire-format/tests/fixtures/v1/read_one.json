@@ -1,0 +1,11 @@
+{
+  "wire_format_version": 1,
+  "skip": 2,
+  "order_by": { "last_name": "asc" },
+  "condition": {
+    "Any": [
+      { "column_name": "year_of_birth", "operator": ">=", "value": { "I32": 1980 } },
+      { "All": [{ "column_name": "house", "operator": "!=", "value": { "String": "Slytherin" } }] }
+    ]
+  }
+}

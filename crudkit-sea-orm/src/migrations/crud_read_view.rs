@@ -140,7 +140,8 @@ pub fn build_create_read_view_stmt(
 }
 
 /// Build the JSON construction SQL for comparing entity IDs.
-/// Constructs a JSON array matching the `SerializableId` format: `[["field_name", {"TypeVariant": value}], ...]`
+/// Constructs a JSON array matching the stored `SerializableIdV1` format:
+/// `[["field_name", {"TypeVariant": value}], ...]`
 fn build_id_json_sql(id_fields: &[IdFieldDef]) -> String {
     let field_expressions: Vec<String> = id_fields
         .iter()

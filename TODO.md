@@ -12,19 +12,13 @@ Priorities are relative:
 
 ## Conditions and Shared Data
 
-- [ ] **P0 — Make condition conversion and query translation total and fallible.** Invalid value/operator pairs must
-  return structured errors, never panic, call `unimplemented!`, or silently weaken a predicate. Cover scalar `IsIn`,
-  non-`IsIn` arrays, heterogeneous and nested arrays, unsupported `Null` operators, `Void`, `Other`, and `i128`/`u128`.
-  Add an operator-by-value test matrix. See [Data Contracts](design/data-contracts.md) and
-  [SeaORM Adapter](design/sea-orm-adapter.md).
-- [ ] **P0 — Implement duration condition conversion.** `ConditionClauseValue::to_time_duration` currently calls
-  `unimplemented!`; duration filtering can therefore panic during field-value conversion before a predicate is built.
+- [ ] **P1 — Report rejected conditions as client errors.** Unknown columns, unconvertible values, and
+  `SeaOrmRepoError::UnsupportedCondition` all surface as `CrudError::Repository` (500), although the request is at
+  fault. Map them to 400 Bad Request. See [SeaORM Adapter](design/sea-orm-adapter.md).
 - [ ] **P0 — Correct JSON condition conversion.** `to_json_value` rejects `ConditionClauseValue::Json` and turns
   string input into `Value::String` rather than `Value::Json`.
 - [ ] **P1 — Align the condition wire domain with supported field values.** Decide which array and temporal values are
   supported, add the missing vector forms or narrow the public contract, and make string-to-type parsing explicit.
-- [ ] **P1 — Range-check duration conversions.** Both `crudkit-core::TimeDuration` serialization and the SeaORM
-  duration newtype cast `whole_microseconds()` to `i64` and can corrupt out-of-range values.
 - [ ] **P0 — Validate serialized IDs at server operation boundaries.** Reject empty, duplicate, missing, extra,
   misnamed, and mistyped components before building an ID predicate. Delete-by-ID currently accepts arbitrary entries;
   an empty `SerializableId` becomes a match-all condition. Add route tests for simple and composite IDs.
@@ -35,21 +29,21 @@ Priorities are relative:
 
 ## HTTP and Client Contracts
 
-- [ ] **P0 — Share one structured 422 response contract.** Generated routes currently emit `error` and optional
-  `violations`, while the web client expects `ErrorInfo { errors }`; real validation failures can be reported as network
-  errors. Add server/client contract tests. See
-  [HTTP and Data Providers](design/http-and-data-providers.md#current-422-incompatibility).
-- [ ] **P0 — Define an explicit write-result model.** The server returns `Saved<Model>`, while clients deserialize
-  `Saved<UpdateModel>`. Remove the accidental JSON-compatibility requirement by sharing a dedicated response type.
-- [ ] **P1 — Generate resource names, paths, and DTO shapes from one contract.** Backend and frontend currently
-  declare resource names independently and share the route surface by convention, allowing silent drift.
-- [ ] **P1 — Replace dynamic typetag stripping with an explicit wire conversion.** The dynamic provider currently
-  requires exactly one outer typetag object entry and mutates the serialized value before sending it.
+- [ ] **P0 — Define an explicit write-result model.** The server returns `SavedV1<Model>`, while clients deserialize
+  its entity as `UpdateModel`. Remove the accidental JSON-compatibility requirement by sharing a dedicated response
+  type.
+- [ ] **P1 — Generate resource names and paths from one contract.** Bodies are shared through
+  `crudkit_wire_format::v1`, but backend and frontend still declare resource names and paths independently, allowing
+  silent drift.
+- [ ] **P1 — Replace dynamic typetag stripping with an explicit wire conversion.** `Dyn*Model::to_untagged_json`
+  currently requires exactly one outer typetag object entry and unwraps the serialized value before sending it.
 - [ ] **P1 — Complete client-provider route parity.** Add or deliberately exclude typed delete-one/delete-many and
   dynamic delete-one so the provider API matches the generated server surface.
 - [ ] **P1 — Make provider scoping semantics uniform.** Decide whether a base condition is a general client scope and,
   if so, apply it consistently or expose explicitly unscoped operations. Delete-by-ID currently bypasses it. Keep
   authorization server-side regardless.
+- [ ] **P2 — Consider a gRPC API next to the HTTP API.** Idea for later, not yet investigated: offer the CRUD
+  operations over gRPC as well, built on the same versioned wire format as the HTTP routes.
 - [ ] **P2 — Decide whether the POST-only CRUD surface is permanent.** If it is, document infrastructure and caching
   implications; otherwise introduce conventional methods without losing rich request bodies or compatibility.
 
@@ -99,9 +93,21 @@ Priorities are relative:
 
 ## Leptos Instances, Lists, and Navigation
 
-- [ ] **P0 — Invalidate list selection whenever the displayed dataset changes.** Selection currently clears only on
-  the reload token, not on page, ordering, base-condition, or data changes. `all_selected` compares lengths rather than
-  membership, so another page can appear selected and mass deletion can target stale rows.
+- [ ] **P2 — Evaluate Leptonic's `Table` atoms for the built-in table.** They now accept bound sort and selection
+  state. `use_crud_table` and CrudKit's table atoms could shrink to the DOM-safe keys and row behavior they add.
+- [ ] **P2 — Add browser tests for the built-in UI.** The full-stack example was verified manually (hydration, grid
+  keyboard navigation, header sorting, selection, dialogs, number fields, create/edit/delete, notifications); automate
+  these checks.
+  Run them headless or in a visible window: Chrome pauses `requestAnimationFrame` in occluded windows, which
+  suppresses Leptonic's focus restoration after overlays close.
+- [ ] **P2 — Publish hook test support once an application needs it.** The native executor and in-memory server in
+  `crudkit-leptos`'s `test_support` module are crate-private. Expose them, e.g. behind a feature, when applications
+  want to unit-test their own hook-based views.
+- [ ] **P2 — Let optional `bool` fields return to null.** The default checkbox can only set `true` or `false`.
+- [ ] **P2 — Offer a rich-text renderer.** The Tiptap-based editor was removed with Leptonic's legacy components; JSON
+  fields now use a plain text area.
+- [ ] **P2 — Add a recomposed built-in view to the example.** The example shows the built-in UI and a view written with
+  hooks only, but not a view recomposed from CrudKit's public components.
 - [ ] **P1 — Finish or remove additional table-row actions.** `CrudTable` drops the supplied action list before
   passing it to the body, and the remaining trigger path calls `todo!()`. Unify this path with `CrudEntityAction` or
   delete the unusable legacy abstraction.
@@ -109,17 +115,15 @@ Priorities are relative:
   request.
 - [ ] **P1 — Expose table control policy.** Read, edit, and delete availability are hard-coded to `true`, and
   `CrudBuiltinViewControls` does not govern list create or row actions. UI controls remain presentation, not security.
-- [ ] **P1 — Enforce valid pagination state.** Make page numbers nonzero, clamp the current page when count or page
-  size shrinks, and test empty and last-page deletion cases.
+- [ ] **P1 — Enforce valid pagination state.** Changing the page size already clamps the current page
+  (`PageNr::clamp_to`). Also make page numbers nonzero by construction, clamp the current page when the count shrinks,
+  and test empty and last-page deletion cases.
 - [ ] **P1 — Reject duplicate instance names.** `CrudInstanceMgr` silently replaces the previous registration, which
   can redirect nested-resource lookup to the wrong instance.
 - [ ] **P1 — Validate and type parent-resource mappings.** `CrudParentConfig` stores field names as strings. A bad
   mapping can merely remove list scoping but panic later while prefilling the create model. Resolve both fields once
   during instance construction and report one configuration error.
-- [ ] **P1 — Implement default `OffsetDateTime` and array renderers.** Built-in rendering currently shows placeholder
-  text for both kinds.
-- [ ] **P2 — Apply layout column metadata.** `Layout` records one to four columns, but `CrudFields` ignores the
-  choice.
+- [ ] **P1 — Implement a default array renderer.** Built-in rendering currently shows placeholder text for arrays.
 - [ ] **P2 — Remove or implement the documented per-position field renderer tier.** Current source comments describe a
   resolution level that the renderer does not perform.
 - [ ] **P2 — Decide the mounted-configuration mutability contract.** Either persist and restore the mutable subset and
@@ -131,6 +135,17 @@ Priorities are relative:
 - [ ] **P2 — Add an application-defined entity label for destructive confirmation.** The delete modal currently shows
   a debug-formatted ID instead of a useful resource-specific description.
 
+### `crudkit-leptos` API follow-ups (review of 2026-10-05)
+
+- [ ] **P2 — Align configuration naming.** `CrudInstanceConfig::elements` is the update layout used by edit and read
+  views, `list_columns` becomes `headers` internally, registries are `read_field_renderer` in the configuration but
+  `read_field_renderers()` on the context, and `read_field_renderer` only affects listed entities.
+  `CreateElements::None` and an empty `Custom` layout overlap.
+- [ ] **P2 — Make `CrudParentConfig` deserializable and typed.** Its `&'static str` name only deserializes from
+  `'static` input, and `referencing_field` is still a string.
+- [ ] **P2 — Report entity actions executed without an entity.** `execute` silently does nothing while the input
+  entity is missing and leaves the action requested.
+
 ## Actions and Persistence Follow-Ups
 
 - [ ] **P1 — Validate action IDs and lifecycle.** Reject duplicate IDs and requested/executing markers, disable entity
@@ -141,8 +156,6 @@ Priorities are relative:
   require an explicit navigation outcome so actions cannot accidentally discard drafts.
 - [ ] **P1 — Resolve incomplete action states and outlets.** The entity-action enum includes create, but the built-in
   create view does not render entity actions. Generalized action-placement names still publish only create controls.
-- [ ] **P1 — Define save-and-stay draft semantics.** After a successful create with `CrudCreateSaveTarget::Stay`, the
-  form and dirty baseline are unchanged, so later navigation can warn about data that was already saved.
 
 ## SeaORM, Build, and Maintenance
 
@@ -151,11 +164,16 @@ Priorities are relative:
 - [ ] **P1 — Support explicit SQL NULL updates.** Generated optional update fields currently mean “write when
   `Some`, leave unchanged when `None`” and cannot distinguish set-null from unchanged.
 - [ ] **P2 — Separate portable and PostgreSQL-specific read-view support.** Make the database requirement explicit in
-  APIs or provide adapter implementations for other supported SeaORM backends.
-- [ ] **P2 — Stop requiring unused Leptonic metadata.** The build script requires `js-dir` even though CrudKit uses
-  only `style-dir`.
+  APIs or provide adapter implementations for other supported SeaORM backends. `crud_read_view.rs` hard-codes
+  `DbBackend::Postgres` and `jsonb_build_array`, and `impl_read_view_migration!` unwraps; the full-stack example
+  writes its SQLite read views by hand.
+- [ ] **P2 — Ship a no-op `CollaborationService`.** Applications without live collaboration, including the example,
+  must currently write their own.
+- [ ] **P2 — Document or re-export derive and route-macro dependencies.** The web `CkField` derive needs `typetag`,
+  and `impl_add_crud_routes!` needs `paste`, `axum-macros`, `utoipa`, and `tracing` in the calling crate. Create
+  models also need a hand-written, panicking `ErasedIdentifiable` implementation.
 - [ ] **P2 — Consolidate error infrastructure and dead compatibility types.** Evaluate the `thiserror`/SNAFU split and
-  remove obsolete `NoData` variants, aliases, and empty components after compatibility review.
+  remove obsolete aliases and empty components after compatibility review.
 - [ ] **P2 — Reconcile stale source documentation with the design set.** Several Rust comments still describe removed
   model relationships, aggregate validation as implemented, nonexistent renderer tiers, or two active validation
   storage modes. Keep [the design index](design/crudkit.md) authoritative and link to it instead of copying architecture

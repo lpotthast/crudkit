@@ -1,0 +1,20 @@
+[
+  { "wire_format_version": 1, "error": { "kind": "bad_request", "message": "unknown field 'hat'" } },
+  { "wire_format_version": 1, "error": { "kind": "unauthorized", "message": "Authentication required" } },
+  { "wire_format_version": 1, "error": { "kind": "forbidden", "message": "Only the captain may do this." } },
+  { "wire_format_version": 1, "error": { "kind": "not_found", "message": "Not found" } },
+  { "wire_format_version": 1, "error": { "kind": "unprocessable_entity", "message": "The season has ended." } },
+  {
+    "wire_format_version": 1,
+    "error": {
+      "kind": "critical_validation_errors",
+      "message": "Critical validation errors prevent the operation.",
+      "violations": {
+        "general": [{ "severity": "critical", "message": "Too many Seekers." }],
+        "create": null,
+        "by_entity": []
+      }
+    }
+  },
+  { "wire_format_version": 1, "error": { "kind": "internal_server_error", "message": "Repository error." } }
+]

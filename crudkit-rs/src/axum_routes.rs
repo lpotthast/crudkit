@@ -3,19 +3,19 @@
 
 use axum::{
     Json,
+    extract::rejection::JsonRejection,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
 use crudkit_core::validation::PartialSerializableAggregateViolations;
-use serde_json::json;
-use utoipa::ToSchema;
+use crudkit_wire_format::v1::{ErrorResponseV1, ErrorV1, WireFormatVersionV1};
 
 use crate::error::CrudError;
 
 /// Error type for Axum HTTP responses.
 ///
 /// Maps `CrudError` variants to appropriate HTTP status codes.
-#[derive(Debug, ToSchema)]
+#[derive(Debug)]
 pub enum AxumCrudError {
     /// Permission denied (HTTP 403 Forbidden).
     Forbidden { reason: String },
@@ -26,7 +26,6 @@ pub enum AxumCrudError {
     /// Critical validation errors prevent the operation (HTTP 422 Unprocessable Entity).
     CriticalValidationErrors {
         reason: String,
-        #[schema(value_type = Object)]
         violations: PartialSerializableAggregateViolations,
     },
 
@@ -86,58 +85,65 @@ impl From<CrudError> for AxumCrudError {
     }
 }
 
-impl IntoResponse for AxumCrudError {
-    fn into_response(self) -> Response {
+impl AxumCrudError {
+    /// Returns the HTTP status and the wire error of this failure.
+    #[must_use]
+    pub fn into_status_and_error(self) -> (StatusCode, ErrorV1) {
         match self {
-            Self::CriticalValidationErrors { reason, violations } => {
-                let body = Json(json!({
-                    "error": reason,
-                    "violations": violations,
-                }));
-                (StatusCode::UNPROCESSABLE_ENTITY, body).into_response()
-            }
-
-            // Client errors.
-            Self::Forbidden { reason } => {
-                (StatusCode::FORBIDDEN, Json(json!({"error": reason}))).into_response()
+            Self::BadRequest { reason } => (
+                StatusCode::BAD_REQUEST,
+                ErrorV1::BadRequest { message: reason },
+            ),
+            Self::Unauthorized { reason } => (
+                StatusCode::UNAUTHORIZED,
+                ErrorV1::Unauthorized { message: reason },
+            ),
+            Self::Forbidden { reason } => (
+                StatusCode::FORBIDDEN,
+                ErrorV1::Forbidden { message: reason },
+            ),
+            Self::NotFound { reason } => {
+                (StatusCode::NOT_FOUND, ErrorV1::NotFound { message: reason })
             }
             Self::UnprocessableEntity { reason } => (
                 StatusCode::UNPROCESSABLE_ENTITY,
-                Json(json!({"error": reason})),
-            )
-                .into_response(),
-            Self::NotFound { reason } => {
-                (StatusCode::NOT_FOUND, Json(json!({"error": reason}))).into_response()
-            }
-            Self::BadRequest { reason } => {
-                (StatusCode::BAD_REQUEST, Json(json!({"error": reason}))).into_response()
-            }
-            Self::Unauthorized { reason } => {
-                (StatusCode::UNAUTHORIZED, Json(json!({"error": reason}))).into_response()
-            }
-
-            // Server errors.
-            Self::Repository { reason } => (
+                ErrorV1::UnprocessableEntity { message: reason },
+            ),
+            Self::CriticalValidationErrors { reason, violations } => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                ErrorV1::CriticalValidationErrors {
+                    message: reason,
+                    violations: violations.into(),
+                },
+            ),
+            Self::Repository { reason }
+            | Self::LifecycleError { reason }
+            | Self::SaveValidations { reason }
+            | Self::DeleteValidations { reason } => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({"error": reason})),
-            )
-                .into_response(),
-            Self::LifecycleError { reason } => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({"error": reason})),
-            )
-                .into_response(),
-            Self::SaveValidations { reason } => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({"error": reason})),
-            )
-                .into_response(),
-            Self::DeleteValidations { reason } => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({"error": reason})),
-            )
-                .into_response(),
+                ErrorV1::InternalServerError { message: reason },
+            ),
         }
+    }
+}
+
+impl From<JsonRejection> for AxumCrudError {
+    /// A request body that is not valid JSON of the expected version 1 shape is malformed.
+    fn from(rejection: JsonRejection) -> Self {
+        Self::BadRequest {
+            reason: rejection.body_text(),
+        }
+    }
+}
+
+impl IntoResponse for AxumCrudError {
+    fn into_response(self) -> Response {
+        let (status, error) = self.into_status_and_error();
+        let body = ErrorResponseV1 {
+            wire_format_version: WireFormatVersionV1,
+            error,
+        };
+        (status, Json(body)).into_response()
     }
 }
 
@@ -200,15 +206,21 @@ macro_rules! impl_add_crud_routes {
                     Extension, Json, Router,
                 };
 
-                // We define this 'ResourceType' use statement, as `$resource_type` can not be used
-                // in the `utoipa` block below...
-                use $resource_type as ResourceType;
                 type Auth = <$resource_type as CrudResource>::Auth;
                 type Policy = <$resource_type as CrudResource>::AuthPolicy;
                 type ReadModel = <$resource_type as CrudResource>::ReadModel;
                 type CreateModel = <$resource_type as CrudResource>::CreateModel;
                 type Model = <$resource_type as CrudResource>::Model;
                 type UpdateModel = <$resource_type as CrudResource>::UpdateModel;
+
+                type ReadModelField = <$resource_type as CrudResource>::ReadModelField;
+                type ModelField = <$resource_type as CrudResource>::ModelField;
+                use crudkit_rs::crudkit_wire_format::v1::{
+                    CreateOneV1, DeleteByIdV1, DeleteManyV1, DeleteOneV1, DeletedManyV1, DeletedV1,
+                    ErrorResponseV1, ReadCountResponseV1, ReadCountV1, ReadManyResponseV1, ReadManyV1,
+                    ReadOneResponseV1, ReadOneV1, SavedV1, UpdateOneV1, WireFormatVersionV1,
+                };
+                use crudkit_rs::data::FieldLookup;
 
                 /// Check the authorization requirement and build a RequestContext.
                 ///
@@ -247,36 +259,37 @@ macro_rules! impl_add_crud_routes {
                 ) -> Router {
                     use crudkit_rs::resource::ResourceType;
                     let resource: &'static str = <$resource_type as CrudResource>::TYPE.name();
+                    let version = crudkit_rs::crudkit_wire_format::WireFormatVersion::V1.path_segment();
 
-                    let path = format!("{root}/{resource}/crud/read-count");
+                    let path = format!("{root}/{resource}/crud/{version}/read-count");
                     tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(read_count));
 
-                    let path = format!("{root}/{resource}/crud/read-one");
+                    let path = format!("{root}/{resource}/crud/{version}/read-one");
                     tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(read_one));
 
-                    let path = format!("{root}/{resource}/crud/read-many");
+                    let path = format!("{root}/{resource}/crud/{version}/read-many");
                     tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(read_many));
 
-                    let path = format!("{root}/{resource}/crud/create-one");
+                    let path = format!("{root}/{resource}/crud/{version}/create-one");
                     tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(create_one));
 
-                    let path = format!("{root}/{resource}/crud/update-one");
+                    let path = format!("{root}/{resource}/crud/{version}/update-one");
                     tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(update_one));
 
-                    let path = format!("{root}/{resource}/crud/delete-by-id");
+                    let path = format!("{root}/{resource}/crud/{version}/delete-by-id");
                     tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(delete_by_id));
 
-                    let path = format!("{root}/{resource}/crud/delete-one");
+                    let path = format!("{root}/{resource}/crud/{version}/delete-one");
                     tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(delete_one));
 
-                    let path = format!("{root}/{resource}/crud/delete-many");
+                    let path = format!("{root}/{resource}/crud/{version}/delete-many");
                     tracing::debug!("Adding route: {}", path);
                     router = router.route(path.as_str(), post(delete_many));
 
@@ -286,24 +299,36 @@ macro_rules! impl_add_crud_routes {
                 /// Retrieve the amount of entities available.
                 #[utoipa::path(
                     post,
-                    path = "/" $name "/crud/read-count",
-                    request_body = ReadCount,
+                    path = "/" $name "/crud/v1/read-count",
+                    request_body = ReadCountV1,
+                    responses(
+                        (status = 200, body = ReadCountResponseV1),
+                        (status = "default", body = ErrorResponseV1, description = "The request failed."),
+                    ),
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_count(
                     auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Json(body): Json<ReadCount>,
+                    body: Result<Json<ReadCountV1>, axum::extract::rejection::JsonRejection>,
                 ) -> Response {
                     let request_context = match check_auth_requirement(Policy::read_requirement(), auth) {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
-                    let result: Result<u64, AxumCrudError> = crudkit_rs::read::read_count::<$resource_type>(request_context, context.clone(), body)
+                    let Json(body) = match body {
+                        Ok(body) => body,
+                        Err(rejection) => return AxumCrudError::from(rejection).into_response(),
+                    };
+                    let result: Result<u64, AxumCrudError> = crudkit_rs::read::read_count::<$resource_type>(request_context, context.clone(), body.into())
                         .await
                         .map_err(Into::into);
                     match result {
-                        Ok(count) => (StatusCode::OK, Json(count)).into_response(),
+                        Ok(count) => (
+                            StatusCode::OK,
+                            Json(ReadCountResponseV1 { wire_format_version: WireFormatVersionV1, count }),
+                        )
+                            .into_response(),
                         Err(err) => {
                             tracing::error!(?err, "Could not perform CRUD operation: read count.");
                             err.into_response()
@@ -314,24 +339,36 @@ macro_rules! impl_add_crud_routes {
                 /// Retrieve one entity.
                 #[utoipa::path(
                     post,
-                    path = "/" $name "/crud/read-one",
-                    request_body = ReadOne<$resource_type>,
+                    path = "/" $name "/crud/v1/read-one",
+                    request_body = ReadOneV1,
+                    responses(
+                        (status = 200, body = ReadOneResponseV1<ReadModel>),
+                        (status = "default", body = ErrorResponseV1, description = "The request failed."),
+                    ),
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_one(
                     auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Json(body): Json<ReadOne<$resource_type>>,
+                    body: Result<Json<ReadOneV1>, axum::extract::rejection::JsonRejection>,
                 ) -> Response {
                     let request_context = match check_auth_requirement(Policy::read_requirement(), auth) {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
+                    let Json(body) = match body {
+                        Ok(body) => body,
+                        Err(rejection) => return AxumCrudError::from(rejection).into_response(),
+                    };
+                    let body = match ReadOne::try_from_v1(body, <ReadModelField as FieldLookup>::from_name) {
+                        Ok(body) => body,
+                        Err(err) => return AxumCrudError::BadRequest { reason: err.to_string() }.into_response(),
+                    };
                     let result: Result<ReadModel, AxumCrudError> = crudkit_rs::read::read_one::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
-                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
+                        Ok(data) => (StatusCode::OK, Json(ReadOneResponseV1 { wire_format_version: WireFormatVersionV1, entity: Some(data) })).into_response(),
                         Err(err) => {
                             tracing::error!(?err, "Could not perform CRUD operation: read one.");
                             err.into_response()
@@ -342,24 +379,36 @@ macro_rules! impl_add_crud_routes {
                 /// Retrieve many entities.
                 #[utoipa::path(
                     post,
-                    path = "/" $name "/crud/read-many",
-                    request_body = ReadMany<$resource_type>,
+                    path = "/" $name "/crud/v1/read-many",
+                    request_body = ReadManyV1,
+                    responses(
+                        (status = 200, body = ReadManyResponseV1<ReadModel>),
+                        (status = "default", body = ErrorResponseV1, description = "The request failed."),
+                    ),
                 )]
                 #[axum_macros::debug_handler]
                 async fn read_many(
                     auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Json(body): Json<ReadMany<$resource_type>>,
+                    body: Result<Json<ReadManyV1>, axum::extract::rejection::JsonRejection>,
                 ) -> Response {
                     let request_context = match check_auth_requirement(Policy::read_requirement(), auth) {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
+                    let Json(body) = match body {
+                        Ok(body) => body,
+                        Err(rejection) => return AxumCrudError::from(rejection).into_response(),
+                    };
+                    let body = match ReadMany::try_from_v1(body, <ReadModelField as FieldLookup>::from_name) {
+                        Ok(body) => body,
+                        Err(err) => return AxumCrudError::BadRequest { reason: err.to_string() }.into_response(),
+                    };
                     let result: Result<Vec<ReadModel>, AxumCrudError> = crudkit_rs::read::read_many::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
-                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
+                        Ok(data) => (StatusCode::OK, Json(ReadManyResponseV1 { wire_format_version: WireFormatVersionV1, entities: data })).into_response(),
                         Err(err) => {
                             tracing::error!(?err, "Could not perform CRUD operation: read many.");
                             err.into_response()
@@ -370,24 +419,32 @@ macro_rules! impl_add_crud_routes {
                 /// Create one entity.
                 #[utoipa::path(
                     post,
-                    path = "/" $name "/crud/create-one",
-                    request_body = CreateOne<CreateModel>,
+                    path = "/" $name "/crud/v1/create-one",
+                    request_body = CreateOneV1<CreateModel>,
+                    responses(
+                        (status = 200, body = SavedV1<Model>),
+                        (status = "default", body = ErrorResponseV1, description = "The request failed."),
+                    ),
                 )]
                 #[axum_macros::debug_handler]
                 async fn create_one(
                     auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Json(body): Json<CreateOne<CreateModel>>,
+                    body: Result<Json<CreateOneV1<CreateModel>>, axum::extract::rejection::JsonRejection>,
                 ) -> Response {
                     let request_context = match check_auth_requirement(Policy::create_requirement(), auth) {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
-                    let result: Result<Saved<Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type>(request_context, context.clone(), body)
+                    let Json(body) = match body {
+                        Ok(body) => body,
+                        Err(rejection) => return AxumCrudError::from(rejection).into_response(),
+                    };
+                    let result: Result<Saved<Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type>(request_context, context.clone(), body.into())
                         .await
                         .map_err(Into::into);
                     match result {
-                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
+                        Ok(data) => (StatusCode::OK, Json(SavedV1::from(data))).into_response(),
                         Err(err) => {
                             tracing::error!(?err, "Could not perform CRUD operation: create one.");
                             err.into_response()
@@ -398,24 +455,32 @@ macro_rules! impl_add_crud_routes {
                 /// Update one entity.
                 #[utoipa::path(
                     post,
-                    path = "/" $name "/crud/update-one",
-                    request_body = UpdateOne<UpdateModel>,
+                    path = "/" $name "/crud/v1/update-one",
+                    request_body = UpdateOneV1<UpdateModel>,
+                    responses(
+                        (status = 200, body = SavedV1<Model>),
+                        (status = "default", body = ErrorResponseV1, description = "The request failed."),
+                    ),
                 )]
                 #[axum_macros::debug_handler]
                 async fn update_one(
                     auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Json(body): Json<UpdateOne<UpdateModel>>,
+                    body: Result<Json<UpdateOneV1<UpdateModel>>, axum::extract::rejection::JsonRejection>,
                 ) -> Response {
                     let request_context = match check_auth_requirement(Policy::update_requirement(), auth) {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
-                    let result: Result<Saved<Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type>(request_context, context.clone(), body)
+                    let Json(body) = match body {
+                        Ok(body) => body,
+                        Err(rejection) => return AxumCrudError::from(rejection).into_response(),
+                    };
+                    let result: Result<Saved<Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type>(request_context, context.clone(), body.into())
                         .await
                         .map_err(Into::into);
                     match result {
-                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
+                        Ok(data) => (StatusCode::OK, Json(SavedV1::from(data))).into_response(),
                         Err(err) => {
                             tracing::error!(?err, "Could not perform CRUD operation: update.");
                             err.into_response()
@@ -426,24 +491,32 @@ macro_rules! impl_add_crud_routes {
                 /// Delete one entity by id.
                 #[utoipa::path(
                     post,
-                    path = "/" $name "/crud/delete-by-id",
-                    request_body = DeleteById,
+                    path = "/" $name "/crud/v1/delete-by-id",
+                    request_body = DeleteByIdV1,
+                    responses(
+                        (status = 200, body = DeletedV1),
+                        (status = "default", body = ErrorResponseV1, description = "The request failed."),
+                    ),
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_by_id(
                     auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Json(body): Json<DeleteById>,
+                    body: Result<Json<DeleteByIdV1>, axum::extract::rejection::JsonRejection>,
                 ) -> Response {
                     let request_context = match check_auth_requirement(Policy::delete_requirement(), auth) {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
-                    let result: Result<Deleted, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type>(request_context, context.clone(), body)
+                    let Json(body) = match body {
+                        Ok(body) => body,
+                        Err(rejection) => return AxumCrudError::from(rejection).into_response(),
+                    };
+                    let result: Result<Deleted, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type>(request_context, context.clone(), body.into())
                         .await
                         .map_err(Into::into);
                     match result {
-                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
+                        Ok(data) => (StatusCode::OK, Json(DeletedV1::from(data))).into_response(),
                         Err(err) => {
                             tracing::error!(?err, "Could not perform CRUD operation: delete by id.");
                             err.into_response()
@@ -454,24 +527,36 @@ macro_rules! impl_add_crud_routes {
                 /// Delete one entity using a standard filter query.
                 #[utoipa::path(
                     post,
-                    path = "/" $name "/crud/delete-one",
-                    request_body = DeleteOne<$resource_type>,
+                    path = "/" $name "/crud/v1/delete-one",
+                    request_body = DeleteOneV1,
+                    responses(
+                        (status = 200, body = DeletedV1),
+                        (status = "default", body = ErrorResponseV1, description = "The request failed."),
+                    ),
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_one(
                     auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Json(body): Json<DeleteOne<$resource_type>>,
+                    body: Result<Json<DeleteOneV1>, axum::extract::rejection::JsonRejection>,
                 ) -> Response {
                     let request_context = match check_auth_requirement(Policy::delete_requirement(), auth) {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
+                    let Json(body) = match body {
+                        Ok(body) => body,
+                        Err(rejection) => return AxumCrudError::from(rejection).into_response(),
+                    };
+                    let body = match DeleteOne::try_from_v1(body, <ModelField as FieldLookup>::from_name) {
+                        Ok(body) => body,
+                        Err(err) => return AxumCrudError::BadRequest { reason: err.to_string() }.into_response(),
+                    };
                     let result: Result<Deleted, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type>(request_context, context.clone(), body)
                         .await
                         .map_err(Into::into);
                     match result {
-                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
+                        Ok(data) => (StatusCode::OK, Json(DeletedV1::from(data))).into_response(),
                         Err(err) => {
                             tracing::error!(?err, "Could not perform CRUD operation: delete one.");
                             err.into_response()
@@ -482,24 +567,32 @@ macro_rules! impl_add_crud_routes {
                 /// Delete many entities using a standard filter query.
                 #[utoipa::path(
                     post,
-                    path = "/" $name "/crud/delete-many",
-                    request_body = DeleteMany,
+                    path = "/" $name "/crud/v1/delete-many",
+                    request_body = DeleteManyV1,
+                    responses(
+                        (status = 200, body = DeletedManyV1),
+                        (status = "default", body = ErrorResponseV1, description = "The request failed."),
+                    ),
                 )]
                 #[axum_macros::debug_handler]
                 async fn delete_many(
                     auth: Option<Extension<Auth>>,
                     Extension(context): Extension<Arc<CrudContext<$resource_type>>>,
-                    Json(body): Json<DeleteMany>,
+                    body: Result<Json<DeleteManyV1>, axum::extract::rejection::JsonRejection>,
                 ) -> Response {
                     let request_context = match check_auth_requirement(Policy::delete_requirement(), auth) {
                         Ok(ctx) => ctx,
                         Err(err) => return err.into_response(),
                     };
-                    let result: Result<DeletedMany, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type>(request_context, context.clone(), body)
+                    let Json(body) = match body {
+                        Ok(body) => body,
+                        Err(rejection) => return AxumCrudError::from(rejection).into_response(),
+                    };
+                    let result: Result<DeletedMany, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type>(request_context, context.clone(), body.into())
                         .await
                         .map_err(Into::into);
                     match result {
-                        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
+                        Ok(data) => (StatusCode::OK, Json(DeletedManyV1::from(data))).into_response(),
                         Err(err) => {
                             tracing::error!(?err, "Could not perform CRUD operation: delete many.");
                             err.into_response()
@@ -520,27 +613,129 @@ macro_rules! impl_add_crud_routes {
                         delete_many,
                     ),
                     components(
-                        schemas(crudkit_core::Deleted),
-                        schemas(crudkit_core::DeletedMany),
-                        schemas(crudkit_core::Saved<Model>),
-                        schemas(crudkit_core::condition::Condition),
-                        schemas(crudkit_core::condition::ConditionElement),
-                        schemas(crudkit_core::condition::ConditionClause),
-                        schemas(crudkit_core::condition::ConditionClauseValue),
-                        schemas(crudkit_core::condition::Operator),
-                        schemas(crudkit_core::id::SerializableId),
-                        schemas(crudkit_rs::create::CreateOne<CreateModel>),
-                        schemas(crudkit_rs::read::ReadCount),
-                        schemas(crudkit_rs::read::ReadOne<ResourceType>),
-                        schemas(crudkit_rs::read::ReadMany<ResourceType>),
-                        schemas(crudkit_rs::update::UpdateOne<UpdateModel>),
-                        schemas(crudkit_rs::delete::DeleteById),
-                        schemas(crudkit_rs::delete::DeleteOne<ResourceType>),
-                        schemas(crudkit_rs::delete::DeleteMany),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::DeletedV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::DeletedManyV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::SavedV1<Model>),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::ErrorResponseV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::ConditionV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::ConditionElementV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::ConditionClauseV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::ConditionClauseValueV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::OperatorV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::OrderV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::SerializableIdV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::CreateOneV1<CreateModel>),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::ReadCountV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::ReadOneV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::ReadManyV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::ReadCountResponseV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::ReadOneResponseV1<ReadModel>),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::ReadManyResponseV1<ReadModel>),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::WireFormatVersionV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::UpdateOneV1<UpdateModel>),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::DeleteByIdV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::DeleteOneV1),
+                        schemas(crudkit_rs::crudkit_wire_format::v1::DeleteManyV1),
                     ),
                 )]
                 pub struct ApiDoc;
             }
         }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crudkit_core::id::{IdValue, SerializableId, SerializableIdEntry};
+    use crudkit_core::validation::violation::{Violation, Violations};
+
+    #[test]
+    fn errors_map_to_their_status_and_wire_kind() {
+        let reason = || "reason".to_owned();
+        let cases = [
+            (
+                AxumCrudError::BadRequest { reason: reason() },
+                400,
+                "bad_request",
+            ),
+            (
+                AxumCrudError::Unauthorized { reason: reason() },
+                401,
+                "unauthorized",
+            ),
+            (
+                AxumCrudError::Forbidden { reason: reason() },
+                403,
+                "forbidden",
+            ),
+            (
+                AxumCrudError::NotFound { reason: reason() },
+                404,
+                "not_found",
+            ),
+            (
+                AxumCrudError::UnprocessableEntity { reason: reason() },
+                422,
+                "unprocessable_entity",
+            ),
+            (
+                AxumCrudError::Repository { reason: reason() },
+                500,
+                "internal_server_error",
+            ),
+            (
+                AxumCrudError::LifecycleError { reason: reason() },
+                500,
+                "internal_server_error",
+            ),
+            (
+                AxumCrudError::SaveValidations { reason: reason() },
+                500,
+                "internal_server_error",
+            ),
+            (
+                AxumCrudError::DeleteValidations { reason: reason() },
+                500,
+                "internal_server_error",
+            ),
+        ];
+        for (error, status, kind) in cases {
+            let (actual_status, error) = error.into_status_and_error();
+            let json = serde_json::to_value(&error).expect("error should serialize");
+            assert_eq!(actual_status.as_u16(), status);
+            assert_eq!(json["kind"], kind);
+            assert_eq!(json["message"], "reason");
+        }
+    }
+
+    #[test]
+    fn critical_validation_errors_carry_their_violations() {
+        let id = SerializableId(vec![SerializableIdEntry {
+            field_name: "id".to_owned(),
+            value: IdValue::I64(7),
+        }]);
+        let error = AxumCrudError::CriticalValidationErrors {
+            reason: "Critical validation errors prevent the operation.".to_owned(),
+            violations: PartialSerializableAggregateViolations {
+                general: None,
+                create: None,
+                by_entity: vec![(
+                    id,
+                    Violations {
+                        violations: vec![Violation::critical("Too many Seekers.")],
+                    },
+                )],
+            },
+        };
+
+        let (status, error) = error.into_status_and_error();
+        let json = serde_json::to_value(&error).expect("error should serialize");
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(json["kind"], "critical_validation_errors");
+        assert_eq!(
+            json["violations"]["by_entity"][0]["violations"][0],
+            serde_json::json!({ "severity": "critical", "message": "Too many Seekers." })
+        );
+    }
 }

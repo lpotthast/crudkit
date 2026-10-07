@@ -1,17 +1,16 @@
 //! Violation types and collections.
 
-use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::vec;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
     // TODO: Information?
     Major,
     Critical,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Violation {
     // TODO: Information(String)?
     Major(String),
@@ -54,7 +53,7 @@ impl Violation {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Violations {
     pub violations: Vec<Violation>,
 }

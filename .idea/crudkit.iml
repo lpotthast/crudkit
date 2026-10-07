@@ -11,11 +11,18 @@
       <sourceFolder url="file://$MODULE_DIR$/crudkit-rs-macros-core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crudkit-rs-macros/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crudkit-rs/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crudkit-rs/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crudkit-sea-orm-macros/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crudkit-sea-orm/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crudkit-web-macros/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crudkit-web-macros/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crudkit-web/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crudkit-web/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/crudkit-wire-format/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/full-stack/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples/full-stack/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/crudkit-wire-format/tests" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/examples/full-stack/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

@@ -1,45 +1,48 @@
 use anyhow::{Context, Result};
 use cargo_toml::{Manifest, Value};
-use lazy_static::lazy_static;
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
+    sync::LazyLock,
 };
 
-lazy_static! {
-    static ref ENABLE_LOGGING: bool = {
-        option_env!("LEPTONIC_BUILD_ENABLE_LOGGING")
-            .and_then(|v| str::parse::<bool>(v).ok())
-            .unwrap_or(false)
-    };
-    static ref MIN_LOG_LEVEL: Level = {
-        option_env!("LEPTONIC_BUILD_MIN_LOG_LEVEL")
-            .and_then(|v| str::parse::<Level>(v).ok())
-            .unwrap_or(Level::Debug)
-    };
-}
+static ENABLE_LOGGING: LazyLock<bool> = LazyLock::new(|| {
+    option_env!("CRUDKIT_BUILD_ENABLE_LOGGING")
+        .and_then(|v| str::parse::<bool>(v).ok())
+        .unwrap_or(false)
+});
+
+static MIN_LOG_LEVEL: LazyLock<Level> = LazyLock::new(|| {
+    option_env!("CRUDKIT_BUILD_MIN_LOG_LEVEL")
+        .and_then(|v| str::parse::<Level>(v).ok())
+        .unwrap_or(Level::Debug)
+});
 
 #[derive(Debug)]
-struct LeptonicMetadata {
+struct CrudkitMetadata {
     relative_style_dir: String,
-    relative_js_dir: String,
 }
 
-#[allow(clippy::unwrap_used)]
 pub fn main() -> Result<()> {
     // Do nothing when building documentation.
     if cfg!(doc) {
         return Ok(());
     }
 
-    let out_dir = get_out_dir().context("Could not find 'out_dir'.")?;
-    let target_dir = get_cargo_target_dir(out_dir).context("Could not find 'target_dir'.")?;
-    let root_dir = target_dir
-        .parent()
-        .context("Expected 'target_dir' to have a parent.")?
-        .to_owned();
+    println!("cargo:rerun-if-env-changed=CRUDKIT_APP_DIR");
+    // `CRUDKIT_APP_DIR` is required when the target directory does not live inside the application directory.
+    let root_dir = if let Some(app_dir) = std::env::var_os("CRUDKIT_APP_DIR") {
+        PathBuf::from(app_dir)
+    } else {
+        let out_dir = get_out_dir().context("Could not find 'out_dir'.")?;
+        let target_dir = get_cargo_target_dir(out_dir).context("Could not find 'target_dir'.")?;
+        target_dir
+            .parent()
+            .context("Expected 'target_dir' to have a parent.")?
+            .to_owned()
+    };
 
-    log(Level::Debug, format!("root_dir is: {root_dir:?}"));
+    log(Level::Debug, format!("root_dir is: {}", root_dir.display()));
 
     let cargo_lock_path = root_dir.join("Cargo.lock");
     let cargo_toml_path = root_dir.join("Cargo.toml");
@@ -50,7 +53,7 @@ pub fn main() -> Result<()> {
         cargo_toml_path.display()
     );
 
-    let Some(metadata) = read_leptonic_metadata(&cargo_toml_path)? else {
+    let Some(metadata) = read_crudkit_metadata(&cargo_toml_path)? else {
         return Ok(());
     };
 
@@ -58,11 +61,9 @@ pub fn main() -> Result<()> {
     println!("cargo:rerun-if-changed={}", cargo_toml_path.display());
 
     let style_dir = root_dir.join(&metadata.relative_style_dir);
-    #[allow(unused_variables)]
-    let js_dir = root_dir.join(&metadata.relative_js_dir);
 
     let theme_dir = style_dir.join("crudkit");
-    crudkit_leptos_theme::generate(&theme_dir).unwrap();
+    crudkit_leptos_theme::generate(&theme_dir).context("Could not generate the CrudKit theme.")?;
     log(
         Level::Info,
         format!("theme written to {}", theme_dir.display()),
@@ -71,8 +72,8 @@ pub fn main() -> Result<()> {
     Ok(())
 }
 
-/// Parse the Cargo.toml file! Abort if the Cargo.toml has no config.
-fn read_leptonic_metadata(cargo_toml_path: &PathBuf) -> Result<Option<LeptonicMetadata>> {
+/// Parses the application's `Cargo.toml`. Returns `None` if it does not configure the theme.
+fn read_crudkit_metadata(cargo_toml_path: &PathBuf) -> Result<Option<CrudkitMetadata>> {
     let cargo_toml: Manifest<Value> = Manifest::from_path_with_metadata(cargo_toml_path)
         .with_context(|| {
             format!(
@@ -86,70 +87,59 @@ fn read_leptonic_metadata(cargo_toml_path: &PathBuf) -> Result<Option<LeptonicMe
         format!("Processing '{}'", cargo_toml_path.display()),
     );
 
-    let leptonic_metadata = cargo_toml
+    let Some(metadata) = cargo_toml
         .package
         .as_ref()
         .and_then(|pkg| pkg.metadata.as_ref())
-        .or_else(|| cargo_toml.workspace.as_ref()?.metadata.as_ref())
-        .and_then(|metadata| metadata.get("leptonic"));
-
-    let meta = match leptonic_metadata {
-        Some(metadata) => {
-            // Found "leptonic" in either package or workspace metadata, proceed
-            log(
-                Level::Info,
-                format!(
-                    "Found 'leptonic' in metadata of package or workspace: {:?}",
-                    metadata
-                ),
+        .and_then(|metadata| metadata.get("crudkit"))
+        .or_else(|| {
+            cargo_toml
+                .workspace
+                .as_ref()?
+                .metadata
+                .as_ref()?
+                .get("crudkit")
+        })
+    else {
+        let declares_leptonic_metadata = cargo_toml
+            .package
+            .as_ref()
+            .and_then(|pkg| pkg.metadata.as_ref())
+            .is_some_and(|metadata| metadata.get("leptonic").is_some());
+        if declares_leptonic_metadata {
+            // Earlier versions generated the theme from Leptonic's metadata.
+            println!(
+                "cargo:warning=CrudKit no longer reads `[package.metadata.leptonic]`. Declare \
+                 `[package.metadata.crudkit] style-dir = \"..\"` to generate CrudKit's theme."
             );
-            metadata
         }
-        None => {
-            log(
-                Level::Debug,
-                "Aborting. Cargo.toml in root dir does not contain a package or workspace or is missing the necessary metadata.",
-            );
-            return Ok(None);
-        }
+        log(
+            Level::Debug,
+            "Skipping theme generation. The application declares no 'crudkit' metadata.",
+        );
+        return Ok(None);
     };
 
-    let table = meta
+    let relative_style_dir = metadata
         .as_table()
-        .context("Leptonic metadata was not of type 'table'.")?;
-
-    let relative_style_dir = table
+        .context("CrudKit metadata was not of type 'table'.")?
         .get("style-dir")
-        .context("Leptonic's 'style-dir' metadata was not declared.")?
+        .context("CrudKit's 'style-dir' metadata was not declared.")?
         .as_str()
-        .context("Leptonic's 'style-dir' metadata was not of type 'string'.")?
-        .to_owned();
-
-    let relative_js_dir = table
-        .get("js-dir")
-        .context("Leptonic's 'js-dir' metadata was not declared.")?
-        .as_str()
-        .context("Leptonic's 'js-dir' metadata was not of type 'string'.")?
+        .context("CrudKit's 'style-dir' metadata was not of type 'string'.")?
         .to_owned();
 
     log(
         Level::Debug,
         format!("relative_style_dir is: {relative_style_dir:?}"),
     );
-    log(
-        Level::Debug,
-        format!("relative_js_dir is: {relative_js_dir:?}"),
-    );
 
-    Ok(Some(LeptonicMetadata {
-        relative_style_dir,
-        relative_js_dir,
-    }))
+    Ok(Some(CrudkitMetadata { relative_style_dir }))
 }
 
 fn get_out_dir() -> Result<PathBuf> {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
-    log(Level::Debug, format!("out_dir is: {out_dir:?}"));
+    log(Level::Debug, format!("out_dir is: {}", out_dir.display()));
     Ok(out_dir)
 }
 

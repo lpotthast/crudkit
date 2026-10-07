@@ -1,38 +1,33 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
+#![deny(missing_docs)]
 #![recursion_limit = "512"]
 
-pub mod crud_action;
-pub mod crud_action_buttons;
-pub mod crud_action_context;
-mod crud_builtin_views;
-pub mod crud_create_view;
-pub mod crud_delete_many_modal;
-pub mod crud_delete_modal;
-pub mod crud_edit_view;
-pub mod crud_field;
-pub mod crud_field_label;
-pub mod crud_fields;
-pub mod crud_instance;
-pub mod crud_instance_config;
-pub mod crud_instance_mgr;
-pub mod crud_leave_modal;
-pub mod crud_list_view;
-pub mod crud_navigation;
-pub mod crud_pagination;
-pub mod crud_read_view;
-pub mod crud_table;
-pub mod crud_table_body;
-pub mod crud_table_footer;
-pub mod crud_table_header;
-pub mod crud_view_registry;
-pub mod fields;
+//! CrudKit's Leptos frontend.
+//!
+//! Layering, following Leptonic's hooks branch:
+//!
+//! - [`hooks`]: state hooks exposing CrudKit's behavior, and interaction hooks binding it to
+//!   Leptonic's accessible input and table hooks;
+//! - [`atoms`]: headless single-element components where CrudKit adds behavior;
+//! - [`components`]: the built-in, composed UI with `crudkit-*` classes.
+//!
+//! Next to these, [`config`] holds what applications declare, and [`instance`] the runtime of
+//! mounted instances.
+
+pub mod atoms;
+pub mod components;
+pub mod config;
+pub mod hooks;
+pub mod instance;
+#[cfg(all(test, not(target_family = "wasm")))]
+mod test_support;
 
 /*
 * Reexport common modules.
 * This allows the user to only
 *
-* - `use crudkit_yew::prelude::*` and
+* - `use crudkit_leptos::prelude::*` and
 * - derive all common proc macros
 *
 * without the need to add more use declaration or
@@ -42,9 +37,8 @@ pub mod fields;
 pub use crudkit_core;
 pub use crudkit_web;
 
-use crudkit_core::Value;
-use leptos::prelude::*;
-
+/// Common imports of CrudKit applications: the shared contracts, derive macros, and the public
+/// types, hooks, atoms, and components of this crate.
 pub mod prelude {
     pub use crudkit_core;
     pub use crudkit_core::collaboration;
@@ -58,63 +52,17 @@ pub mod prelude {
 
     // Explicitly re-export Model from crudkit_web to resolve ambiguity
     // (both crudkit_core and crudkit_web export Model).
-    pub use crudkit_web::Model;
+    pub use crudkit_web::model::Model;
 
     pub use crudkit_core_macros::CkId;
     pub use crudkit_web_macros::{CkActionPayload, CkField, CkResource};
 
-    pub use super::ReactiveField;
-    pub use super::crud_action::{
-        CrudAction, CrudActionAftermath, CrudEntityAction, EntityActionViewInput,
-        ResourceActionViewInput,
-    };
-    pub use super::crud_create_view::{CrudActionSlot, CrudActionsOutlet, CrudCreateActionsOutlet};
-    pub use super::crud_instance::CrudInstance;
-    pub use super::crud_instance_config::{
-        CreateElements, CrudActionsPlacement, CrudBuiltinViewControls, CrudCreateActionsPlacement,
-        CrudCreateSaveTarget, CrudInstanceConfig, CrudParentConfig,
-    };
-    pub use super::crud_instance_mgr::{CrudInstanceMgr, CrudInstanceMgrContext, InstanceState};
-    pub use super::crud_navigation::{CrudNavigation, CrudNavigationScope};
-    pub use super::crud_view_registry::{CrudViewRegistry, DuplicateCrudViewError};
-}
+    pub use crudkit_web::http::ReqwestExecutor;
+    pub use crudkit_web::view::{CREATE_VIEW, EDIT_VIEW, READ_VIEW, TABLE_VIEW};
 
-/// A reactive field holding a `Value` signal.
-///
-/// This provides fine-grained reactivity for individual fields. The inner signal
-/// holds `Value` directly, where `Value::Null` represents an absent/null value for optional fields.
-#[derive(Debug, Clone, Copy)]
-pub struct ReactiveField {
-    /// The reactive signal holding the field value.
-    pub value: RwSignal<Value>,
-}
-
-impl ReactiveField {
-    /// Creates a new `ReactiveField` with the given initial value.
-    pub fn new(value: Value) -> Self {
-        Self {
-            value: RwSignal::new(value),
-        }
-    }
-
-    /// Sets the value.
-    pub fn set(&self, v: Value) {
-        self.value.set(v);
-    }
-
-    /// Gets the current value.
-    pub fn get(&self) -> Value {
-        self.value.get()
-    }
-
-    /// Gets the current value without tracking.
-    pub fn get_untracked(&self) -> Value {
-        self.value.get_untracked()
-    }
-}
-
-impl From<Value> for ReactiveField {
-    fn from(v: Value) -> Self {
-        ReactiveField::new(v)
-    }
+    pub use super::atoms::prelude::*;
+    pub use super::components::prelude::*;
+    pub use super::config::*;
+    pub use super::hooks::*;
+    pub use super::instance::*;
 }

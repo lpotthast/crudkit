@@ -9,6 +9,8 @@ implements the same HTTP contract.
 The important runtime dependency direction is:
 
 ```text
+                     crudkit-wire-format
+                              |
                          crudkit-core
                          /          \
                 crudkit-rs       crudkit-web
@@ -21,20 +23,28 @@ The important runtime dependency direction is:
 ```
 
 Arrows point from an integration toward the contract it implements or consumes. Backend and frontend do not depend on
-each other; they meet through shared serialization and the generated HTTP shape.
+each other; they meet through the versioned wire format and the generated HTTP shape. `crudkit-rs` and `crudkit-web`
+also depend on `crudkit-wire-format` directly, because they convert at their transport boundaries.
 
 ## Crate Families
 
+- **Wire format — `crudkit-wire-format`:** The versioned serialized contract between clients and servers. Each version
+  is a module (`v1`) of data transfer objects with a matching suffix (`ReadManyV1`). It has no CrudKit dependencies;
+  a breaking change adds a new version instead of changing an existing one. `v1` covers every request, response,
+  and error body, and the collaboration messages.
 - **Shared — `crudkit-core`:** Framework-neutral models, values, identifiers, conditions, validation results,
-  collaboration messages, and save/delete result types. These types include Serde and OpenAPI contracts, so “shared”
-  does not mean transport-free.
+  collaboration messages, internal CRUD requests, and save/delete result types, plus the conversions to and from each
+  wire-format version (`wire_v1`). Its conditions, IDs, requests, results, validation, and collaboration types are
+  not serialized themselves; whatever leaves the process uses a wire-format type instead.
 - **Backend — `crudkit-rs`:** Storage-neutral resources, repositories, CRUD operations, lifecycle hooks, validation
   orchestration, authentication policy, collaboration service abstraction, and the current Axum route generator.
 - **Web client — `crudkit-web`:** Frontend resource and field contracts, typed and type-erased models, serializable
-  layouts and views, HTTP request execution, and typed or dynamic REST data providers. It has no Leptos component
-  dependency.
-- **UI — `crudkit-leptos`:** Mounted instance state, reactive fields, field and view rendering, application actions,
-  nested-instance composition, navigation scopes, and dirty guards using Leptos and Leptonic.
+  layouts and views, HTTP request execution, typed or dynamic REST data providers, and UI-independent list,
+  deletion, navigation, and value-formatting logic. It has no Leptos component dependency.
+- **UI — `crudkit-leptos`:** Instance configuration (`config`), the mounted-instance runtime with navigation scopes
+  and dirty guards (`instance`), state and interaction hooks (`hooks`), headless atoms (`atoms`), and the built-in UI
+  (`components`), using Leptos and the hooks and atoms of Leptonic's hooks branch.
+  See [Leptos Hooks, Atoms, and Components](leptos-hooks-atoms-components.md).
 - **Styling — `crudkit-leptos-theme`:** Embedded CrudKit SCSS sources and destructive generation into a disposable
   output directory.
 - **Storage adapter — `crudkit-sea-orm`:** `Repository` implementation, field-to-column mappings, query translation,
@@ -53,8 +63,9 @@ Backend operations remain generic over `R: CrudResource`. Storage adapters likew
 bounds, so model mismatches are compile-time errors.
 
 The Leptos instance is intentionally non-generic after configuration. Concrete frontend model and field types are
-converted to the `Erased*` traits and `Dyn*` wrappers described in [Data Contracts](data-contracts.md). `ModelHandler`
-captures the resource-specific conversions and deserializers before `CrudInstance` mounts.
+converted to the `Erased*` traits and `Dyn*` wrappers described in [Data Contracts](data-contracts.md).
+`crudkit-web`'s `ModelHandler` captures the resource-specific conversions and deserializers before `CrudInstance`
+mounts; `crudkit-leptos` holds no resource-specific code of its own.
 
 This boundary lets one component host render arbitrary resources. It does not make configuration dynamically safe: a
 downcast mismatch means the application assembled incompatible resource, model, field, or handler values and may panic.

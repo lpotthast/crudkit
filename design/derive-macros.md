@@ -36,6 +36,9 @@ Backend `CkField` generates one enum variant per field and implementations for:
 - lookup from a wire field name;
 - conversion from `ConditionClauseValue` to the field's expected `Value` kind.
 
+Both the backend and the frontend `CkField` rename every variant's serde representation to the field name, so a field
+enum serializes as the same name its `name()` returns.
+
 `#[ck_field(convert_ccv = "...")]` is the explicit escape hatch when the built-in conversion is insufficient. It changes
 query-value parsing and must remain consistent with the storage adapter's handling of the resulting `Value`.
 

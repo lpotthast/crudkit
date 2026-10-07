@@ -1,0 +1,181 @@
+.crudkit-form-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.crudkit-card {
+  padding: 1rem;
+  border: 1px solid var(--crudkit-border);
+  border-radius: 6px;
+  background-color: var(--crudkit-surface-raised);
+}
+
+.crudkit-group {
+  display: grid;
+  grid-template-columns: repeat(var(--crudkit-columns, 2), minmax(0, 1fr));
+  gap: 1rem;
+
+  &[data-columns="1"] {
+    --crudkit-columns: 1;
+  }
+
+  &[data-columns="3"] {
+    --crudkit-columns: 3;
+  }
+
+  &[data-columns="4"] {
+    --crudkit-columns: 4;
+  }
+
+  // Nested enclosures span the complete row.
+  > .crudkit-card,
+  > .crudkit-group,
+  > .crudkit-tabs,
+  > .crudkit-separator {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.crudkit-separator {
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--crudkit-border);
+}
+
+.crudkit-input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.crudkit-label {
+  color: var(--crudkit-text-muted);
+  font-size: 0.875em;
+}
+
+.crudkit-input {
+  padding: 0.45em 0.6em;
+  border: 1px solid var(--crudkit-border);
+  border-radius: 6px;
+  background-color: var(--crudkit-background);
+  color: var(--crudkit-text);
+  font: inherit;
+
+  &[data-invalid] {
+    border-color: var(--crudkit-danger);
+  }
+
+  &:read-only {
+    background-color: var(--crudkit-surface);
+  }
+}
+
+textarea.crudkit-input {
+  min-height: 8em;
+  font-family: ui-monospace, monospace;
+}
+
+.crudkit-number-group {
+  display: flex;
+
+  .crudkit-input {
+    flex: 1;
+    min-width: 0;
+    border-radius: 0;
+  }
+}
+
+.crudkit-number-step {
+  padding: 0 0.75em;
+  border: 1px solid var(--crudkit-border);
+  background-color: var(--crudkit-surface);
+  color: var(--crudkit-text);
+  font: inherit;
+  cursor: pointer;
+
+  &:first-child {
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+  }
+
+  &:last-child {
+    border-left: none;
+    border-radius: 0 6px 6px 0;
+  }
+}
+
+.crudkit-field-error {
+  color: var(--crudkit-danger);
+  font-size: 0.875em;
+}
+
+.crudkit-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  cursor: pointer;
+
+  &[data-disabled],
+  &[data-readonly] {
+    cursor: default;
+    opacity: 0.7;
+  }
+}
+
+.crudkit-checkbox-box {
+  width: 1.1em;
+  height: 1.1em;
+  border: 1px solid var(--crudkit-border);
+  border-radius: 4px;
+  background-color: var(--crudkit-background);
+
+  [data-selected] > & {
+    border-color: var(--crudkit-primary);
+    background-color: var(--crudkit-primary);
+    box-shadow: inset 0 0 0 2px var(--crudkit-background);
+  }
+
+  [data-focus-visible] > & {
+    outline: 2px solid var(--crudkit-focus);
+    outline-offset: 1px;
+  }
+}
+
+.crudkit-validation-status [data-invalid] {
+  color: var(--crudkit-warning);
+}
+
+.crudkit-tab-list {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--crudkit-border);
+}
+
+.crudkit-tab {
+  padding: 0.5em 1em;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+
+  &[data-selected] {
+    border-bottom-color: var(--crudkit-primary);
+    font-weight: 600;
+  }
+}
+
+.crudkit-tab-panel {
+  padding-top: 1rem;
+}
+
+.crudkit-form-status {
+  color: var(--crudkit-danger);
+}
+
+.crudkit-form-empty,
+.crudkit-value {
+  color: var(--crudkit-text);
+}

@@ -1,12 +1,14 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used)]
+// darling's derives generate redundant `continue` expressions in this crate's config types.
+#![allow(clippy::needless_continue)]
 
 //! Consolidated derive macros for crudkit-web.
 //!
 //! This crate provides derive macros for frontend CRUD models:
-//! - `CkResource` - Generates a resource struct implementing `Resource` (CrudMainTrait)
+//! - `CkResource` - Generates a resource struct implementing `Resource` (`CrudMainTrait`)
 //! - `CkField` - Generates a `{StructName}Field` enum and implements `Model`, field access traits
-//! - `CkActionPayload` - Implements `CrudActionPayload` and `ActionPayload` traits
+//! - `CkActionPayload` - Implements `ActionPayload` and `ErasedActionPayload` traits
 
 use proc_macro::TokenStream;
 use proc_macro_error::proc_macro_error;
@@ -24,7 +26,7 @@ mod derives;
 /// # Attributes
 ///
 /// - `#[ck_resource(resource_name = "...")]` - Required: the API resource name
-/// - `#[ck_resource(action_payload = "TypeName")]` - Optional: custom action payload type
+/// - `#[ck_resource(action_payload = TypeName)]` - Optional: custom action payload type, as a type path
 /// - `#[ck_resource(create_model = Ident)]` - Optional: custom create model type
 /// - `#[ck_resource(read_model = Ident)]` - Optional: custom read model type
 /// - `#[ck_resource(update_model = Ident)]` - Optional: custom update model type (defaults to struct name)
@@ -32,7 +34,7 @@ mod derives;
 #[proc_macro_error]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_resource(input)
+    derives::expand_derive_resource(&input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
 }
@@ -53,22 +55,20 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 #[proc_macro_error]
 pub fn derive_field(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_field(input)
+    derives::expand_derive_field(&input)
         .unwrap_or_else(Error::into_compile_error)
         .into()
 }
 
-/// Derives the `CrudActionPayload` and `ActionPayload` traits.
+/// Derives the `ActionPayload` and `ErasedActionPayload` traits.
 ///
 /// # Generated Code
 ///
-/// - `impl CrudActionPayload for {StructName}`
 /// - `impl ActionPayload for {StructName}`
+/// - `impl ErasedActionPayload for {StructName}`
 #[proc_macro_derive(CkActionPayload, attributes(ck_action_payload))]
 #[proc_macro_error]
 pub fn derive_action_payload(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    derives::expand_derive_action_payload(input)
-        .unwrap_or_else(Error::into_compile_error)
-        .into()
+    derives::expand_derive_action_payload(&input).into()
 }

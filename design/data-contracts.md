@@ -33,9 +33,9 @@ read output evolve independently.
 
 ### Current write-response constraint
 
-Generated backend create and update routes serialize `Saved<R::Model>`. The typed and dynamic web clients currently
-deserialize those bodies as `Saved<UpdateModel>`. Consequently, the backend `Model` JSON and frontend `UpdateModel` JSON
-must currently be wire-compatible for successful write responses.
+Generated backend create and update routes serialize `SavedV1<R::Model>`. The typed and dynamic web clients
+currently deserialize the entity of those bodies as `UpdateModel`. Consequently, the backend `Model` JSON and frontend
+`UpdateModel` JSON must currently be wire-compatible for successful write responses.
 
 This is an implementation constraint, not a collapse of the four conceptual roles. A future transport contract that
 returns a distinct write-result model must change both route and data-provider sides together.
@@ -47,11 +47,13 @@ update input, and stored model may expose different fields.
 
 - `crudkit-rs::Field` supplies static field names. `FieldLookup` and `ConditionValueConverter` add safe lookup and
   query-value conversion where filtering is supported.
-- `crudkit-web::FieldAccess<T>` reads and writes values on a concrete model and reports `ValueKind` and optionality.
-  Frontend forms need value access; the storage-neutral backend does not.
+- `crudkit_web::model::FieldAccess<T>` reads and writes values on a concrete model and reports `ValueKind` and
+  optionality. Frontend forms need value access; the storage-neutral backend does not.
 - The corresponding derives generate enums and implementations, but the traits remain the contract.
 
-A field name is part of the serialized query and ordering contract. Renaming a field therefore affects clients and
+A field's wire name is its Rust field name, the name `Field::name()` and `Named::name()` return. Conditions and
+ordering keys use that one spelling, and derived field enums serialize as it rather than as their PascalCase variant.
+A field name is therefore part of the serialized query and ordering contract. Renaming a field affects clients and
 storage mappings even when the Rust compiler can update local references.
 
 ## Values and Optionality
@@ -67,8 +69,8 @@ Optionality is metadata on the field, not a second family of `Value` variants:
 - `Value::Array` is intended to be homogeneous; `verify_array_homogeneity` checks that invariant.
 - `Value::Other` stores application-defined `FieldValue` trait objects. `FieldValue` is typetag-enabled so those erased
   custom values can participate in serialization where a containing contract explicitly supports it.
-- `Value` itself is not CrudKit's general wire format. Requests serialize concrete models or dedicated wire types such
-  as `ConditionClauseValue`, `IdValue`, and `SerializableId`.
+- `Value` itself is not CrudKit's general wire format. Requests serialize concrete models or the dedicated types of
+  `crudkit_wire_format::v1`, such as `ConditionClauseValueV1`, `IdValueV1`, and `SerializableIdV1`.
 - `TimeDuration` serializes as a signed 64-bit count of microseconds. Values outside that range are currently cast
   without validation.
 - A frontend custom renderer is required to present an application-defined `Value::Other` usefully.
@@ -81,7 +83,9 @@ mismatched kind and are appropriate only after a typed configuration invariant h
 `Id` supports simple and composite identifiers. An ID is ordered, hashable, and composed of named `IdField` values.
 Floating-point and optional ID components are excluded because identity requires total equality.
 
-`SerializableId` is the type-erased wire form: an ordered vector of `(field name, IdValue)` entries. It does not encode
+`SerializableId` is the type-erased ID: an ordered vector of `(field name, IdValue)` entries. Its wire form is
+`SerializableIdV1`, which writes date-time components in explicit string formats (`YYYY-MM-DDTHH:MM:SS[.fraction]`
+and RFC 3339) instead of relying on the `time` crate's Cargo features. It does not encode
 a resource name, so callers must retain the resource context separately. Entry names and values are sufficient to
 reconstruct a typed ID only when `Id::from_serializable_id` accepts the complete shape.
 
@@ -109,13 +113,13 @@ backend-specific predicate.
 nested-resource conditions, and entity-ID conditions therefore narrow one another. Converting an ID to a condition
 produces an `All` of equality clauses, one per ID component.
 
-Not every `Value` or `IdValue` can be used in a condition. Failure behavior depends on the field converter and storage
-adapter; see the [SeaORM adapter limitations](sea-orm-adapter.md#current-unsupported-condition-cases).
+Not every `Value` or `IdValue` can be used in a condition. Field converters and storage adapters reject unsupported
+combinations with errors; see the [SeaORM adapter](sea-orm-adapter.md#unsupported-condition-cases).
 
-The built-in wire enum has vector variants only for `u8`, `i32`, and `i64`. Its duration converter currently panics
-during field-value conversion. The JSON converter rejects `ConditionClauseValue::Json` and converts a string to
-`Value::String` rather than `Value::Json`. Applications must not rely on duration or JSON filtering through these
-converters yet.
+The built-in wire enum has vector variants only for `u8`, `i32`, and `i64`. Durations are filtered by their wire
+format, `i64` microseconds, given as a number or a string. The JSON converter rejects `ConditionClauseValue::Json`
+and converts a string to `Value::String` rather than `Value::Json`. Applications must not rely on JSON filtering
+through this converter yet.
 
 ## Layout Descriptions
 
@@ -123,9 +127,9 @@ converters yet.
 `FieldOptions`, a separator, or an enclosing group. Enclosures support plain groups, tabs, and cards. Create and update
 layouts use their own erased field types, preventing a field from the wrong model role from being inserted accidentally.
 
-`Layout` currently records a one- through four-column choice, but `CrudFields` does not yet apply that metadata while
-rendering. Tabs, cards, separators, and child order are implemented; column count should not be treated as an enforced
-visual invariant yet.
+`Layout` records a one- through four-column choice. `CrudFormLayout` exposes it as `data-columns` on each group, and
+the optional theme lays groups out accordingly; custom styles decide for themselves whether to honor it. Tabs, cards,
+separators, and child order are implemented.
 
 ## Frontend Type Erasure
 
@@ -138,9 +142,9 @@ The frontend uses three tiers:
 Models are boxed because a view owns and mutates one model value. Fields are `Arc`-backed because registries, layouts,
 maps, and renderers clone field handles frequently. Typetag supplies serialization for erased values.
 
-`ModelHandler` closes over the concrete create, read, and update types. It owns response deserialization, read-to-update
-conversion, default create-model construction, and model-to-reactive-field conversion. After that handler is built,
-`CrudInstance` can remain non-generic.
+`crudkit-web`'s `ModelHandler` closes over the concrete create, read, and update types. It owns response
+deserialization, read-to-update conversion, default create-model construction, field-value enumeration, and create-field
+lookup. After that handler is built, `CrudInstance` can remain non-generic.
 
 Downcast helpers panic on a wrong concrete type. This is intentional fail-fast behavior for incompatible application
 configuration, not validation for untrusted wire data; wire JSON is deserialized into a concrete type before it is

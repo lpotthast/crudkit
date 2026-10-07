@@ -1,0 +1,26 @@
+.crudkit-instance {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  color: var(--crudkit-text);
+}
+
+.crudkit-icon {
+  display: inline-block;
+  vertical-align: -0.125em;
+  flex-shrink: 0;
+}
+
+.crudkit-fit-content {
+  width: 1%;
+  white-space: nowrap;
+}
+
+// Shared focus ring of interactive elements. Leptonic marks keyboard focus with `data-focus-visible`.
+// Every rule is scoped to CrudKit's own markup, so the theme never styles application markup.
+.crudkit-instance [data-focus-visible],
+.crudkit-instance :focus-visible,
+.crudkit-dialog [data-focus-visible] {
+  outline: 2px solid var(--crudkit-focus);
+  outline-offset: 1px;
+}

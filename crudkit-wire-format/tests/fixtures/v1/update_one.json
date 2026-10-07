@@ -1,0 +1,5 @@
+{
+  "wire_format_version": 1,
+  "condition": { "All": [{ "column_name": "id", "operator": "=", "value": { "I64": 4 } }] },
+  "entity": { "id": 4, "name": "Ravenclaw" }
+}

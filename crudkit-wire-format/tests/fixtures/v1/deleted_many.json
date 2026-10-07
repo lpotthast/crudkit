@@ -1,0 +1,8 @@
+{
+  "wire_format_version": 1,
+  "deleted_count": 1,
+  "deleted_ids": [[["id", { "I64": 1 }]]],
+  "aborted": [{ "id": [["id", { "I64": 2 }]], "reason": "Team captains cannot be deleted." }],
+  "validation_failed": [[["id", { "I64": 3 }]]],
+  "errors": [{ "id": [["id", { "I64": 4 }]], "reason": "Repository error." }]
+}

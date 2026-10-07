@@ -9,10 +9,10 @@
 //!
 //! # Key Concepts
 //!
-//! - **CrudResource**: The central trait defining a CRUD resource
+//! - **`CrudResource`**: The central trait defining a CRUD resource
 //! - **Repository**: Storage-agnostic data access trait
-//! - **CrudLifetime**: Lifecycle hooks for CRUD operations
-//! - **EntityValidator**: Validation framework for entities
+//! - **`CrudLifetime`**: Lifecycle hooks for CRUD operations
+//! - **`EntityValidator`**: Validation framework for entities
 //!
 //! # Example
 //!
@@ -53,6 +53,7 @@ pub use crudkit_core::condition as crudkit_condition;
 pub use crudkit_core::id as crudkit_id;
 pub use crudkit_core::resource as crudkit_resource;
 pub use crudkit_core::validation as crudkit_validation;
+pub use crudkit_wire_format;
 
 pub mod prelude {
     pub use crudkit_core;
@@ -123,21 +124,23 @@ pub mod prelude {
     pub use super::validator::AggregateValidator;
     pub use super::validator::EntityValidator;
 
-    pub use super::create::create_one;
     // CRUD operations.
-    pub use super::create::CreateOne;
-    pub use super::delete::DeleteById;
-    pub use super::delete::DeleteMany;
-    pub use super::delete::DeleteOne;
+    pub use super::create::create_one;
     pub use super::delete::delete_by_id;
     pub use super::delete::delete_many;
     pub use super::delete::delete_one;
-    pub use super::read::ReadCount;
-    pub use super::read::ReadMany;
-    pub use super::read::ReadOne;
     pub use super::read::read_count;
     pub use super::read::read_many;
     pub use super::read::read_one;
-    pub use super::update::UpdateOne;
     pub use super::update::update_one;
+
+    // CRUD request bodies.
+    pub use crudkit_core::request::CreateOne;
+    pub use crudkit_core::request::DeleteById;
+    pub use crudkit_core::request::DeleteMany;
+    pub use crudkit_core::request::DeleteOne;
+    pub use crudkit_core::request::ReadCount;
+    pub use crudkit_core::request::ReadMany;
+    pub use crudkit_core::request::ReadOne;
+    pub use crudkit_core::request::UpdateOne;
 }

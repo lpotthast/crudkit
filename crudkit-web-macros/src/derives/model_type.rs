@@ -10,8 +10,8 @@ pub enum ModelType {
 }
 
 impl ModelType {
-    /// Generates the ErasedModel trait impl (empty body).
-    pub fn gen_erased_model_impl(&self, name: &Ident) -> TokenStream {
+    /// Generates the `ErasedModel` trait impl (empty body).
+    pub fn gen_erased_model_impl(self, name: &Ident) -> TokenStream {
         let trait_name = self.erased_model_trait();
         quote! {
             #[typetag::serde]
@@ -19,8 +19,8 @@ impl ModelType {
         }
     }
 
-    /// Generates the ErasedField trait impl.
-    pub fn gen_erased_field_impl(&self, field_name: &Ident, model_name: &Ident) -> TokenStream {
+    /// Generates the `ErasedField` trait impl.
+    pub fn gen_erased_field_impl(self, field_name: &Ident, model_name: &Ident) -> TokenStream {
         let trait_name = self.erased_field_trait();
         let dyn_model = self.dyn_model_type();
         quote! {
@@ -28,21 +28,13 @@ impl ModelType {
             impl crudkit_web::model::#trait_name for #field_name {
                 fn set_value(&self, model: &mut crudkit_web::model::#dyn_model, value: crudkit_core::Value) {
                     let model = model.downcast_mut::<#model_name>();
-                    crudkit_web::FieldAccess::set_value(self, model, value);
-                }
-
-                fn value_kind(&self) -> crudkit_core::ValueKind {
-                    crudkit_web::FieldAccess::<#model_name>::value_kind(self)
-                }
-
-                fn is_optional(&self) -> bool {
-                    crudkit_web::FieldAccess::<#model_name>::is_optional(self)
+                    crudkit_web::model::FieldAccess::set_value(self, model, value);
                 }
             }
         }
     }
 
-    fn erased_model_trait(&self) -> Ident {
+    fn erased_model_trait(self) -> Ident {
         Ident::new(
             match self {
                 ModelType::Create => "ErasedCreateModel",
@@ -53,7 +45,7 @@ impl ModelType {
         )
     }
 
-    fn erased_field_trait(&self) -> Ident {
+    fn erased_field_trait(self) -> Ident {
         Ident::new(
             match self {
                 ModelType::Create => "ErasedCreateField",
@@ -64,7 +56,7 @@ impl ModelType {
         )
     }
 
-    fn dyn_model_type(&self) -> Ident {
+    fn dyn_model_type(self) -> Ident {
         Ident::new(
             match self {
                 ModelType::Create => "DynCreateModel",

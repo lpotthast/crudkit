@@ -1,24 +1,35 @@
-.crud-pagination {
-  margin-top: 0.5em;
+.crudkit-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
 
-  .items-per-page-selector {
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    align-items: center;
-    margin-right: 3em;
+.crudkit-pages {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
 
-    .label {
-      margin-right: 0.5em;
-      color: #555555;
-      font-weight: 300;
-    }
+.crudkit-page-button {
+  min-width: 2.25em;
+  justify-content: center;
+
+  &[data-current] {
+    border-color: transparent;
+    background-color: var(--crudkit-primary);
+    color: var(--crudkit-primary-text);
   }
+}
 
-  .pagination-info {
-    font-size: 0.7em;
-    font-weight: 300;
-    color: var(--grey-4);
-    user-select: none;
-  }
+.crudkit-page-gap {
+  padding: 0 0.25em;
+  color: var(--crudkit-text-muted);
+}
+
+.crudkit-items-per-page {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }

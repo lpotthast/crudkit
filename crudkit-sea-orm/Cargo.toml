@@ -11,6 +11,7 @@ crudkit-core-macros = { path = "../crudkit-core-macros" }
 crudkit-rs = { path = "../crudkit-rs" }
 crudkit-rs-macros = { path = "../crudkit-rs-macros" }
 crudkit-sea-orm-macros = { path = "../crudkit-sea-orm-macros" }
+crudkit-wire-format = { path = "../crudkit-wire-format" }
 
 async-trait = "0.1.88"
 error-stack = "0.6.0"

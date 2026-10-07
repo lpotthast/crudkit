@@ -1,32 +1,23 @@
 //! Query filtering DSL with condition clauses and operators.
 
-use crate::id::{IdValue, SerializableIdEntry};
+use crate::id::{IdValue, SerializableId, SerializableIdEntry};
 use crate::{TimeDuration, Value};
-use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::str::FromStr;
 use time::format_description::well_known::Rfc3339;
-use utoipa::ToSchema;
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub enum Operator {
-    #[serde(rename = "=")]
     Equal,
-    #[serde(rename = "!=")]
     NotEqual,
-    #[serde(rename = "<")]
     Less,
-    #[serde(rename = "<=")]
     LessOrEqual,
-    #[serde(rename = ">")]
     Greater,
-    #[serde(rename = ">=")]
     GreaterOrEqual,
-    #[serde(rename = "is_in")]
     IsIn,
 }
 
-#[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ConditionClause {
     pub column_name: String,
     pub operator: Operator,
@@ -36,7 +27,7 @@ pub struct ConditionClause {
 /// Values which might be part of a `ConditionClause`.
 /// You can convert a `crudkit_core::Value` using `.try_into`.
 /// You can convert a `crudkit_core::id::IdValue` using `.try_into`.
-#[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ConditionClauseValue {
     Bool(bool),
 
@@ -143,12 +134,10 @@ impl TryFrom<IdValue> for ConditionClauseValue {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
-#[serde(untagged)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ConditionElement {
     Clause(ConditionClause),
 
-    #[schema(no_recursion)]
     Condition(Box<Condition>),
 }
 
@@ -170,7 +159,7 @@ pub enum ConditionElement {
 ///   ]
 /// }
 /// ```
-#[derive(Debug, Clone, PartialEq, ToSchema, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Condition {
     /// All elements must match (logical AND).
     All(Vec<ConditionElement>),
@@ -288,6 +277,61 @@ where
         }
 
         Ok(Condition::All(clauses))
+    }
+}
+
+/// Reasons why a set of entity IDs cannot be turned into a condition matching exactly them.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum IdConditionError {
+    /// No ID was supplied.
+    #[error("no entity IDs were supplied")]
+    NoIds,
+    /// An ID without components would match every entity.
+    #[error("an entity ID without components would match every entity")]
+    EmptyId,
+    /// An ID component cannot be used in an equality condition.
+    #[error("entity ID {id} cannot be used in an equality condition")]
+    UnsupportedIdValue {
+        /// Debug rendering of the offending ID.
+        id: String,
+    },
+}
+
+/// Builds a condition matching exactly the entities identified by `ids`.
+///
+/// The components of each ID are combined with AND, and the IDs are combined with OR. The conversion
+/// fails instead of weakening the condition, because a weakened selection condition, e.g. for a
+/// deletion, could select unrelated entities.
+///
+/// # Errors
+///
+/// Returns an error if `ids` is empty, if any ID has no components, or if an ID component cannot be
+/// compared for equality.
+pub fn condition_matching_any_id(
+    ids: impl IntoIterator<Item = SerializableId>,
+) -> Result<Condition, IdConditionError> {
+    let mut conditions = ids
+        .into_iter()
+        .map(|id| {
+            if id.0.is_empty() {
+                return Err(IdConditionError::EmptyId);
+            }
+            let rendered = format!("{id:?}");
+            id.0.into_iter()
+                .try_into_all_equal_condition()
+                .map_err(|_| IdConditionError::UnsupportedIdValue { id: rendered })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    match conditions.len() {
+        0 => Err(IdConditionError::NoIds),
+        1 => Ok(conditions.remove(0)),
+        _ => Ok(Condition::Any(
+            conditions
+                .into_iter()
+                .map(|condition| ConditionElement::Condition(Box::new(condition)))
+                .collect(),
+        )),
     }
 }
 
@@ -528,8 +572,43 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::ConditionClauseValue;
+    use super::{Condition, ConditionClauseValue, IdConditionError, condition_matching_any_id};
+    use crate::id::{IdValue, SerializableId, SerializableIdEntry};
     use crate::{TimeDuration, Value};
+
+    fn id(entries: &[(&str, i64)]) -> SerializableId {
+        SerializableId(
+            entries
+                .iter()
+                .map(|(name, value)| SerializableIdEntry {
+                    field_name: (*name).to_owned(),
+                    value: IdValue::I64(*value),
+                })
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn single_id_becomes_its_all_equal_condition() {
+        let condition = condition_matching_any_id([id(&[("id", 1)])]).expect("valid ID");
+        assert!(matches!(condition, Condition::All(ref elements) if elements.len() == 1));
+    }
+
+    #[test]
+    fn multiple_ids_are_combined_with_or() {
+        let condition = condition_matching_any_id([id(&[("id", 1)]), id(&[("a", 1), ("b", 2)])])
+            .expect("valid IDs");
+        assert!(matches!(condition, Condition::Any(ref elements) if elements.len() == 2));
+    }
+
+    #[test]
+    fn empty_input_and_empty_ids_are_rejected() {
+        assert_eq!(condition_matching_any_id([]), Err(IdConditionError::NoIds));
+        assert_eq!(
+            condition_matching_any_id([id(&[("id", 1)]), SerializableId(Vec::new())]),
+            Err(IdConditionError::EmptyId)
+        );
+    }
 
     #[test]
     fn durations_convert_from_microseconds() {

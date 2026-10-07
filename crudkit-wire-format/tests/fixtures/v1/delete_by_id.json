@@ -1,0 +1,5 @@
+{
+  "wire_format_version": 1,
+  "id": [["club_id", { "I64": 1 }], ["person_id", { "I64": 7 }]],
+  "condition": { "All": [{ "column_name": "house", "operator": "=", "value": { "String": "Gryffindor" } }] }
+}

@@ -13,6 +13,7 @@ members = [
     "crudkit-sea-orm-macros",
     "crudkit-web",
     "crudkit-web-macros",
+    "crudkit-wire-format",
 ]
 
 [workspace.dependencies]

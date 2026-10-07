@@ -5,11 +5,9 @@
 
 use dyn_clone::DynClone;
 use dyn_eq::DynEq;
-use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
-use utoipa::ToSchema;
 
 pub mod prelude {
     pub use super::DynIdentifiable;
@@ -68,7 +66,7 @@ pub type DynIdentifiable = Arc<dyn ErasedIdentifiable>;
 /// All variants must implement `Eq` for proper comparability!
 /// This constraint excludes options like floats as parts of primary keys.
 /// We might use the `ordered-float` create in the future to relax this constraint.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum IdValue {
     I8(i8),
     I16(i16),
@@ -144,8 +142,7 @@ pub trait Id:
 /// The first tuple element stores a field name.
 ///
 /// The type of resource or model this ID belongs to is not encoded in this datastructure.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)]
-#[schema(value_type = Vec<Object>)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SerializableId(pub Vec<SerializableIdEntry>);
 
 impl SerializableId {
@@ -164,8 +161,7 @@ impl Display for SerializableId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)]
-#[serde(into = "(String, IdValue)", from = "(String, IdValue)")]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SerializableIdEntry {
     pub field_name: String,
     pub value: IdValue,
@@ -219,29 +215,5 @@ impl Id for SerializableId {
         Self: Sized,
     {
         Some(id.clone())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use assertr::prelude::*;
-
-    #[test]
-    fn serialize_and_deserialize_serializable_id() {
-        let entries = vec![SerializableIdEntry {
-            field_name: "foo".to_string(),
-            value: IdValue::I32(1),
-        }];
-        let serializable_id = SerializableId(entries);
-
-        let json = serde_json::to_string(&serializable_id).expect("serialization should succeed");
-
-        assert_that(&json).is_equal_to(r#"[["foo",{"I32":1}]]"#);
-
-        let deserialized: SerializableId =
-            serde_json::from_str(json.as_str()).expect("deserialization should succeed");
-
-        assert_that(deserialized).is_equal_to(serializable_id);
     }
 }

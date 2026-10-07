@@ -1,45 +1,77 @@
-leptonic-table {
+.crudkit-table-container {
+  overflow-x: auto;
+  border: 1px solid var(--crudkit-border);
+  border-radius: 6px;
+  background-color: var(--crudkit-surface-raised);
+}
 
-  leptonic-table-header {
+.crudkit-table {
+  width: 100%;
+  border-collapse: collapse;
 
-    leptonic-table-header-cell {
-      text-align: start;
+  th,
+  td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--crudkit-border);
+    text-align: left;
+  }
 
-      &.fit-content {
-        min-width: fit-content;
-      }
+  th {
+    font-weight: 600;
+    white-space: nowrap;
+    background-color: var(--crudkit-surface);
 
-      &.crud-order-by-trigger {
-        user-select: none;
-        cursor: pointer;
-        white-space: nowrap;
+    &[data-allows-sorting] {
+      cursor: pointer;
+    }
 
-        &:hover {
-          background-color: var(--table-background-color-on-hover);
-        }
-      }
+    &[data-sort-direction]::after {
+      margin-left: 0.4em;
+      color: var(--crudkit-text-muted);
+    }
 
-      .crud-order-by-sign {
-        min-width: .5em;
-        display: inline-flex;
-        margin: 0 0 0 0.25em;
-        font-size: 1.1em;
-      }
+    &[data-sort-direction="ascending"]::after {
+      content: "\2191";
+    }
+
+    &[data-sort-direction="descending"]::after {
+      content: "\2193";
     }
   }
 
-  leptonic-table-row {
-    // TODO: use this in list view or delete this style.
-    &.recently-updated {
-      transition: background-color 0.5s;
-      background-color: #4181aa;
+  tbody tr {
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--crudkit-hover);
+    }
+
+    &[data-selected] {
+      background-color: var(--crudkit-selected);
+    }
+
+    &:last-child td {
+      border-bottom: none;
     }
   }
 
-  leptonic-table-body {
+  [data-focused] {
+    outline: 2px solid var(--crudkit-focus);
+    outline-offset: -2px;
+  }
+}
 
-    leptonic-table-cell.fit-content {
-      width: 0;
-    }
+.crudkit-row-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.crudkit-table-status {
+  padding: 1rem;
+  color: var(--crudkit-text-muted);
+  text-align: center;
+
+  &[data-failed] {
+    color: var(--crudkit-danger);
   }
 }

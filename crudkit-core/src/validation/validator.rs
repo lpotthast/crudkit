@@ -1,11 +1,10 @@
 //! Validator information types.
 
-use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
 /// Information about a validator, including its name and version.
 /// Uses `Cow` to support both borrowed static strings and owned strings.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub struct ValidatorInfo<'a> {
     pub validator_name: Cow<'a, str>,
     pub validator_version: u32,

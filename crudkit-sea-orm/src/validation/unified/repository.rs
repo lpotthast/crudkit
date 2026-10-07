@@ -19,6 +19,7 @@ use crudkit_core::validation::validator::ValidatorInfo;
 use crudkit_core::validation::violation::{Violation, Violations};
 use crudkit_core::validation::{ViolationsByEntity, ViolationsByResource};
 use crudkit_rs::repository::{RepositoryError, ValidationResultRepository};
+use crudkit_wire_format::v1::SerializableIdV1;
 
 /// Errors that can occur when working with the validation repository.
 #[derive(Debug, Error)]
@@ -51,15 +52,18 @@ pub struct UnifiedValidationRepository {
 
 impl UnifiedValidationRepository {
     /// Serialize an entity ID to JSON for storage.
+    ///
+    /// Stored IDs use the explicit `SerializableIdV1` format, independent of how internal types
+    /// serialize. Generated read-view SQL builds the same JSON to match against this column.
     fn serialize_id<I: Id>(id: &I) -> Result<serde_json::Value> {
-        // TODO: Can we do this serialization without requiring an intermittent allocation?
-        let serializable = id.to_serializable_id();
-        serde_json::to_value(&serializable)
+        let stored = SerializableIdV1::from(id.to_serializable_id());
+        serde_json::to_value(&stored)
             .change_context(UnifiedValidationRepositoryError::Serialization)
     }
 
     fn deserialize_id_untyped(value: &serde_json::Value) -> Result<SerializableId> {
-        serde_json::from_value(value.clone())
+        serde_json::from_value::<SerializableIdV1>(value.clone())
+            .map(SerializableId::from)
             .change_context(UnifiedValidationRepositoryError::Deserialization)
     }
 

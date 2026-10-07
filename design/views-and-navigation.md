@@ -7,8 +7,9 @@ CrudKit view composition has four public concepts:
 - `CrudNavigationScope` coordinates dirty guards and navigation attempts for a navigation subtree;
 - `CrudNavigation` owns an accepted view and return action inside one navigation scope.
 
-Renderer hosting, navigation scope and dirty guard IDs, the leave confirmation state machine, pending effects, and
-committed navigation methods remain private implementation details.
+Renderer hosting, pending effects, and committed navigation methods remain private implementation details of
+`crudkit-leptos`. The navigation state machine, including scope and dirty guard IDs, is the public, UI-independent
+`crudkit_web::navigation::NavigationStateMachine`; applications normally use it only through the Leptos handles.
 
 ## Terminology
 
@@ -59,7 +60,9 @@ error. They do not silently select another view. Built-in renderers require the 
 
 `CrudInstance` calls the registry in a child owner with private navigation for the accepted view.
 That owner provides a `CrudInstanceContext` containing the same navigation, so built-in and custom
-renderers observe identical navigation through both the renderer argument and context. A custom renderer
+renderers observe identical navigation through both the renderer argument and context. The view's navigation
+scope also becomes the enclosing navigation scope of everything the view renders (see
+[Navigation Scope Hierarchy and Dirty Guards](#navigation-scope-hierarchy-and-dirty-guards)). A custom renderer
 that directly calls `registry.render` controls the navigation it passes; direct composition does not create
 another child navigation scope or provide an instance context.
 
@@ -78,9 +81,9 @@ An application route parser may choose or overwrite `CrudInstanceConfig::initial
 instance. After mounting, the accepted view stays owned by CrudKit and changes only through navigation methods.
 CrudKit does not observe a router or mirror an application-owned view signal.
 
-`CrudInstanceConfig::initial_view` initializes navigation created below the nearest `CrudInstanceMgr` navigation
-scope. If navigation is supplied, its accepted view is rendered instead; the configured initial view remains the
-instance reset destination.
+`CrudInstanceConfig::initial_view` initializes navigation created below the enclosing navigation scope. If
+navigation is supplied, its accepted view is rendered instead; the configured initial view remains the instance
+reset destination.
 
 A table is the default return destination of a newly created navigation. It is not a mandatory root presentation.
 
@@ -145,6 +148,11 @@ guards in its target navigation scope and descendants:
 - an inline-editor attempt includes only that editor subtree;
 - a dirty sibling does not block a clean child-only attempt.
 
+Default instances and nested managers create their navigation scope below the **enclosing navigation scope**: the
+scope of the instance view they are rendered in, or else the scope of the nearest `CrudInstanceMgr`. An instance
+nested in a view, such as a related resource shown in an edit view, therefore belongs to that view's subtree.
+Leaving the view asks about the nested instance's drafts, while the nested instance's own navigation stays local.
+
 `guard(is_dirty)` registers a `Signal<bool>` for the current navigation scope and unregisters through Leptos cleanup.
 The dirty value is sampled when the navigation attempt begins. It is not re-evaluated while the leave confirmation is
 open, so the pending navigation attempt resolves according to that original attempt-time decision.
@@ -170,7 +178,8 @@ One navigation scope tree permits one pending navigation attempt at a time:
 8. Disposing the complete navigation scope tree drops registrations and pending work without invoking approval,
    cancellation, return, or application callbacks.
 
-The state machine is UI-independent and unit-tested separately from the Leptonic leave confirmation.
+The state machine lives in `crudkit-web`, is UI-independent, and is unit-tested separately from the reactive
+navigation handles and the leave confirmation.
 
 In a browser, publication of a newly pending navigation attempt is deferred to the next microtask. This keeps a
 containing modal's Escape event from also reaching and immediately cancelling the leave confirmation it just opened.
@@ -178,9 +187,9 @@ The state machine records the pending navigation attempt synchronously, so anoth
 replace it during that interval.
 
 `CrudInstanceMgr` owns the default root navigation scope for its navigation subtree. Default instances and nested
-managers create child navigation scopes. An instance using supplied navigation deliberately uses its supplied
-navigation scope instead. [Instances and Composition](instances-and-composition.md) owns the mounted-instance lifetime
-contract.
+managers create child navigation scopes of the enclosing navigation scope. An instance using supplied navigation
+deliberately uses its supplied navigation scope instead. [Instances and Composition](instances-and-composition.md)
+owns the mounted-instance lifetime contract.
 
 ## Built-In Behavior
 
@@ -209,8 +218,10 @@ the just-completed save would immediately prompt again.
 
 - edit save-and-return performs the configured return;
 - create performs its chosen view or return follow-up;
-- successful single deletion performs the configured return on the navigation used for deletion; a view return
-  reloads the remaining data, while a return callback leaves refresh or unmount behavior to the application;
+- successful single deletion performs the configured return on the navigation used for deletion when that
+  navigation's accepted view has the deleted entity as its subject; a view return reloads the remaining data, while
+  a return callback leaves refresh or unmount behavior to the application. Other views, such as a table, stay and
+  reload;
 - mass deletion stays in the accepted view and reloads data.
 
 `CrudCreateSaveTarget::Stay` is different: it performs no navigation and does not reset the mounted create

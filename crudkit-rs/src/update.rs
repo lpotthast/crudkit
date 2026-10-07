@@ -1,12 +1,10 @@
 //! Update operation for CRUD resources.
 
-use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
-use utoipa::ToSchema;
 
 use crudkit_core::Saved;
-use crudkit_core::condition::Condition;
 use crudkit_core::id::Id;
+use crudkit_core::request::UpdateOne;
 use crudkit_core::resource::ResourceName;
 use crudkit_core::validation::{
     PartialSerializableAggregateViolations, PartialSerializableValidations, ViolationsByEntity,
@@ -23,15 +21,6 @@ use crate::{
     prelude::*,
 };
 
-/// Request body for updating a single entity.
-#[derive(Debug, ToSchema, Deserialize)]
-pub struct UpdateOne<T> {
-    /// Condition to identify the entity to update.
-    pub condition: Option<Condition>,
-    /// The update data.
-    pub entity: T,
-}
-
 /// Update a single entity.
 ///
 /// # Flow
@@ -47,6 +36,15 @@ pub struct UpdateOne<T> {
 /// 9. Run `after_update` hook
 /// 10. Broadcast update event
 /// 11. Trigger global validation
+///
+/// # Errors
+///
+/// Returns `CrudError::NotFound` if no entity matches the condition, `CrudError::Repository` if
+/// fetching or updating fails, `CrudError::Forbidden`, `CrudError::UnprocessableEntity`, or
+/// `CrudError::LifecycleHookError` if a lifecycle hook rejects the operation or fails,
+/// `CrudError::CriticalValidationErrors` if delta validation finds critical violations, or
+/// `CrudError::DeleteValidations`/`CrudError::SaveValidations` if stored violations cannot be
+/// updated.
 #[tracing::instrument(level = "info", skip(context, request))]
 pub async fn update_one<R: CrudResource>(
     request: RequestContext<R::Auth>,
@@ -104,7 +102,7 @@ pub async fn update_one<R: CrudResource>(
         return Err(CrudError::CriticalValidationErrors {
             violations: PartialSerializableAggregateViolations::from(
                 partial_validation_results,
-                Some(serializable_id.clone()),
+                Some(&serializable_id),
             ),
         });
     }
@@ -153,7 +151,7 @@ pub async fn update_one<R: CrudResource>(
     // Build the partial validation result for response and broadcast.
     let partial = PartialSerializableAggregateViolations::from(
         partial_validation_results,
-        Some(serializable_id.clone()),
+        Some(&serializable_id),
     );
 
     let partial_serializable_validations: PartialSerializableValidations =

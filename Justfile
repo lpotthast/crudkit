@@ -8,9 +8,9 @@ default:
 sort:
   cargo sort . -w -g
 
-# Run `cargo fmt` for the workspace.
+# Run `cargo fmt` for the workspace members. `--all` would also reformat path dependencies such as `../leptonic`.
 fmt:
-  cargo fmt --all
+  cargo fmt
 
 leptosfmt:
   cargo install leptosfmt
@@ -39,3 +39,11 @@ upgrade: # "-" prefix allows for non-zero status codes!
 # Run `cargo clippy --tests -- -Dclippy::all -Dclippy::pedantic` for the workspace.
 clippy: # "-" prefix allows for non-zero status codes!
   -cargo clippy --tests -- -Dclippy::all -Dclippy::pedantic
+
+# Run the full-stack example (`examples/full-stack`) with `cargo leptos serve`. Serves http://127.0.0.1:3000.
+example:
+  cd examples/full-stack && cargo leptos serve
+
+# Build the full-stack example (SSR server and hydrate WASM bundle) without running it.
+example-check:
+  cd examples/full-stack && cargo leptos build

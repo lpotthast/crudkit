@@ -1,7 +1,7 @@
 //! Storage-agnostic data traits for CRUD operations.
 //!
 //! These traits define the core abstractions for models and fields without
-//! coupling to any specific storage backend (like SeaORM).
+//! coupling to any specific storage backend (like `SeaORM`).
 //!
 //! # Marker Trait Convention
 //!
@@ -35,7 +35,7 @@ use std::hash::Hash;
 /// This is the backend's model trait. Its bounds are a superset of `crudkit_core::Model`,
 /// meaning any type implementing this trait also satisfies the core Model trait bounds.
 ///
-/// Each model type (ReadModel, CreateModel, UpdateModel) implements this
+/// Each model type (`ReadModel`, `CreateModel`, `UpdateModel`) implements this
 /// trait with its own Field enum for typed field access.
 pub trait Model: Clone + Debug + Send + Sync + 'static {
     /// The field enum for this model, providing typed access to field values.
@@ -48,14 +48,14 @@ pub trait Model: Clone + Debug + Send + Sync + 'static {
 /// - Field name access (for serialization, query building, condition parsing)
 /// - Mapping between string field names and typed field variants
 ///
-/// **Comparison with `crudkit_web::FieldAccess<T>`:**
+/// **Comparison with `crudkit_web::model::FieldAccess<T>`:**
 /// - `Field` (this trait) provides **metadata** - it answers "what is this field's name?"
 /// - `FieldAccess<T>` provides **value access** - it answers "what is the value of this field
 ///   on a given entity?" and "how do I update it?"
 ///
 /// The distinction exists because:
 /// - Backend code needs field names for SQL query generation, but doesn't need value access
-///   at the trait level (SeaORM handles that via its `ModelTrait`).
+///   at the trait level (`SeaORM` handles that via its `ModelTrait`).
 /// - Frontend code needs both field names (via `Named` supertrait) AND value access for
 ///   building reactive forms.
 ///
@@ -81,6 +81,10 @@ pub trait FieldLookup: Sized {
 /// Each field knows how to convert a `ConditionClauseValue` to its expected type.
 pub trait ConditionValueConverter {
     /// Convert a condition clause value to a typed Value for this field.
+    ///
+    /// # Errors
+    ///
+    /// Returns a human-readable reason if `value` cannot be converted to this field's type.
     fn convert_condition_value(&self, value: ConditionClauseValue) -> Result<Value, String>;
 }
 

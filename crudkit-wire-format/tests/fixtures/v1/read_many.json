@@ -1,0 +1,7 @@
+{
+  "wire_format_version": 1,
+  "limit": 10,
+  "skip": 20,
+  "order_by": { "last_name": "asc", "first_name": "desc" },
+  "condition": null
+}

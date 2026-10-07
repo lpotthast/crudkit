@@ -17,9 +17,9 @@ use std::borrow::Cow;
 ///
 /// # Validation Methods
 ///
-/// - `validate_create`: Validates a CreateModel before insertion
+/// - `validate_create`: Validates a `CreateModel` before insertion
 /// - `validate_model`: Validates a Model (after insert, or existing entity)
-/// - `validate_updated`: Validates an update by comparing old Model with new UpdateModel
+/// - `validate_updated`: Validates an update by comparing old Model with new `UpdateModel`
 ///
 /// # Example
 ///
@@ -58,7 +58,7 @@ pub trait EntityValidator<R: CrudResource>: Send + Sync {
     /// Increment when the validation logic changes to invalidate old results.
     fn version(&self) -> u32;
 
-    /// Validate a CreateModel before insertion.
+    /// Validate a `CreateModel` before insertion.
     ///
     /// Called during create operations before the entity is persisted.
     fn validate_create(
@@ -76,7 +76,7 @@ pub trait EntityValidator<R: CrudResource>: Send + Sync {
         Violations::empty()
     }
 
-    /// Validate an update by comparing the old Model with the UpdateModel.
+    /// Validate an update by comparing the old Model with the `UpdateModel`.
     ///
     /// Override this to implement delta validation that considers the change being made.
     /// By default, this returns no violations.
@@ -103,6 +103,8 @@ pub trait EntityValidator<R: CrudResource>: Send + Sync {
 /// - Ensuring unique constraints across entities
 /// - Validating referential integrity
 /// - Checking aggregate totals or counts
+// `async_trait` marks the boxed futures it returns `#[must_use]`, which they already are.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait AggregateValidator<R: CrudResource>: Send + Sync {
     /// Returns the unique name of this validator.

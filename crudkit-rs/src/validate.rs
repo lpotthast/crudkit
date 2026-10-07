@@ -10,7 +10,7 @@ use crudkit_core::validation::validator::ValidatorInfo;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU8, Ordering};
 
-/// Run entity validation on a CreateModel using all registered validators.
+/// Run entity validation on a `CreateModel` using all registered validators.
 pub fn run_entity_validation<R: CrudResource>(
     validators: &[Arc<dyn EntityValidator<R>>],
     create_model: &R::CreateModel,
@@ -43,7 +43,7 @@ pub fn run_model_validation<R: CrudResource>(
 }
 
 /// Run delta validation using all registered validators.
-/// Compares old Model state with new UpdateModel to detect violations.
+/// Compares old Model state with new `UpdateModel` to detect violations.
 pub fn run_delta_validation<R: CrudResource>(
     validators: &[Arc<dyn EntityValidator<R>>],
     old_model: &R::Model,
@@ -64,7 +64,7 @@ pub fn run_delta_validation<R: CrudResource>(
 /// Ensures only one validation runs at a time, with at most one pending run.
 #[derive(Debug)]
 pub struct GlobalValidationState {
-    /// State machine: IDLE (0), RUNNING (1), or RUNNING_WITH_PENDING (2).
+    /// State machine: IDLE (0), RUNNING (1), or `RUNNING_WITH_PENDING` (2).
     state: AtomicU8,
 }
 
@@ -79,6 +79,7 @@ impl Default for GlobalValidationState {
 }
 
 impl GlobalValidationState {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             state: AtomicU8::new(VALIDATION_IDLE),

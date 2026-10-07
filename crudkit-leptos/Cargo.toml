@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 build = "build.rs"
 
+[features]
+ssr = ["leptonic/ssr"]
+hydrate = ["leptonic/hydrate"]
+
 [dependencies]
 crudkit-core = { path = "../crudkit-core" }
 crudkit-core-macros = { path = "../crudkit-core-macros" }
@@ -12,10 +16,10 @@ crudkit-web-macros = { path = "../crudkit-web-macros" }
 
 dyn-clone = "1.0.20"
 indexmap = { version = "2.12.1", features = ["serde"] }
-leptonic = { version = "0.5.0", git = "https://github.com/lpotthast/leptonic", branch = "migrate-to-leptos-0.8", features = ["tiptap"] }
+icondata = "0.7.0"
+leptonic = { path = "../../leptonic/leptonic", default-features = false, features = ["atoms"] }
 leptos = "0.8.15"
 serde = { version = "1.0.228", features = ["derive"] }
-# TODO: Only required to handle TipTap content. Can we get rid of this?
 serde_json = { version = "1.0.148", features = ["raw_value"] }
 time = { version = "0.3.44", features = [
     "macros",
@@ -29,10 +33,17 @@ uuid = { version = "1.19.0", features = ["js", "v4", "v7", "serde"] }
 anyhow = "1.0.100"
 cargo_toml = "0.22.3"
 crudkit-leptos-theme = { path = "../crudkit-leptos-theme" }
-lazy_static = "1.5.0"
 
 [dev-dependencies]
 assertr = "0.6.0"
+typetag = "0.2.21"
 
+# Dependencies of the native hook tests and their `test_support` module.
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
-any_spawner = { version = "0.3.0", features = ["futures-executor"] }
+any_spawner = "0.3.0"
+async-trait = "0.1.89"
+futures = { version = "0.3.31", features = ["executor"] }
+http = "1.4.0"
+# Leptos only runs effects in client builds; tests need them too.
+reactive_graph = { version = "0.2.15", features = ["effects"] }
+reqwest = { version = "0.13.2", default-features = false, features = ["json"] }

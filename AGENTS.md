@@ -24,23 +24,29 @@ low-level implementation details.
 
 ## Workspace Boundaries
 
-This is a Rust 2024 Cargo workspace with 12 crates:
+This is a Rust 2024 Cargo workspace with 13 crates:
 
-- `crudkit-core` contains contracts shared across backend and frontend; its macro support lives in
-  `crudkit-core-macro-util` and `crudkit-core-macros`.
+- `crudkit-wire-format` contains the versioned wire format (`v1` with `*V1` types) and nothing else.
+- `crudkit-core` contains contracts shared across backend and frontend and the conversions to and from the wire format;
+  its macro support lives in `crudkit-core-macro-util` and `crudkit-core-macros`.
 - `crudkit-rs` owns storage-neutral backend CRUD behavior; backend derives live in `crudkit-rs-macros` and
   `crudkit-rs-macros-core`.
 - `crudkit-sea-orm` adapts backend contracts to SeaORM; SeaORM-specific derives live in `crudkit-sea-orm-macros`.
 - `crudkit-web` owns platform-neutral web models, layouts, type erasure, and data providers; its derives live in
   `crudkit-web-macros`.
-- `crudkit-leptos` owns Leptos components and mounted instance behavior.
+- `crudkit-leptos` owns instance configuration (`config`), mounted instance behavior (`instance`), and Leptos hooks,
+  atoms, and components. It builds on the hooks and atoms of Leptonic's `hooks` branch (a path dependency on
+  `../leptonic/leptonic`) and never on Leptonic's themed components.
 - `crudkit-leptos-theme` owns CrudKit's SCSS sources and generated-asset inputs.
 
 Keep dependencies pointed from concrete integrations toward abstract contracts. In particular:
 
-- Put cross-layer serialized contracts in `crudkit-core`.
+- Put serialized client-server contracts in a version module of `crudkit-wire-format`, and shared internal contracts
+  plus their wire conversions in `crudkit-core`. Never change a released wire version in place; add a new one.
 - Keep storage-neutral behavior in `crudkit-rs` and ORM-specific behavior in `crudkit-sea-orm`.
-- Keep platform-neutral frontend behavior in `crudkit-web` and Leptos-specific behavior in `crudkit-leptos`.
+- Keep platform-neutral frontend behavior in `crudkit-web` and Leptos-specific behavior in `crudkit-leptos`. Within
+  `crudkit-leptos`, put behavior in hooks and keep built-in components free of behavior that applications could not
+  reach through those hooks.
 - Keep runtime traits authoritative; derive macros generate implementations of those traits rather than inventing a
   parallel contract.
 - Change SCSS in `crudkit-leptos-theme`, not in generated copies inside consuming applications.
@@ -85,6 +91,9 @@ For a gating lint run, invoke Clippy directly:
 ```bash
 cargo clippy --tests -- -Dclippy::all -Dclippy::pedantic
 ```
+
+`examples/full-stack` is a separate Cargo workspace: a SQLite-backed, server-rendered CrudKit application. Run it with
+`just example` and build it with `just example-check` when changing frontend behavior or the theme.
 
 The current `just clippy` recipe allows a nonzero exit status, so its exit code alone does not prove that linting
 passed. Use `just leptosfmt` when Leptos component formatting is relevant.

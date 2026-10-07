@@ -1,6 +1,10 @@
+use crate::field::{FieldOptions, Label};
 use crate::model::{DynCreateField, DynUpdateField, ErasedCreateField, ErasedUpdateField};
-use crate::{FieldOptions, Label, TabId};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
+
+/// Identifies a tab of a layout.
+pub type TabId = Cow<'static, str>;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Layout {

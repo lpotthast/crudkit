@@ -145,7 +145,7 @@ pub struct ReadRequest<R: CrudResource> {
     /// Filter condition for the query.
     ///
     /// In `before_read`, this can be modified to implement row-level security
-    /// by adding additional conditions (e.g., filtering by tenant_id or user ownership).
+    /// by adding additional conditions (e.g., filtering by `tenant_id` or user ownership).
     pub condition: Option<Condition>,
 }
 
@@ -158,9 +158,9 @@ pub struct ReadRequest<R: CrudResource> {
 pub enum ReadResult<R: CrudResource> {
     /// Result of a count operation.
     Count(u64),
-    /// Result of a read_one operation.
+    /// Result of a `read_one` operation.
     One(R::ReadModel),
-    /// Result of a read_many operation.
+    /// Result of a `read_many` operation.
     Many(Vec<R::ReadModel>),
 }
 
@@ -171,11 +171,11 @@ pub enum ReadResult<R: CrudResource> {
 /// Discriminant for delete operation type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeleteOperation {
-    /// Deleting by explicit ID (delete_by_id endpoint)
+    /// Deleting by explicit ID (`delete_by_id` endpoint)
     ById,
-    /// Deleting one entity by query (delete_one endpoint)
+    /// Deleting one entity by query (`delete_one` endpoint)
     One,
-    /// Deleting multiple entities by query (delete_many endpoint)
+    /// Deleting multiple entities by query (`delete_many` endpoint)
     Many,
 }
 
@@ -188,12 +188,12 @@ pub enum DeleteOperation {
 pub struct DeleteRequest<R: CrudResource> {
     /// The type of delete operation being performed.
     pub operation: DeleteOperation,
-    /// Number of entities to skip (for delete_one).
+    /// Number of entities to skip (for `delete_one`).
     pub skip: Option<u64>,
-    /// Ordering specification (for delete_one).
+    /// Ordering specification (for `delete_one`).
     pub order_by: Option<IndexMap<R::ModelField, Order>>,
     /// Filter condition used to select the entity.
-    /// For delete_by_id, this is the condition derived from the ID.
+    /// For `delete_by_id`, this is the condition derived from the ID.
     pub condition: Option<Condition>,
 }
 
@@ -213,7 +213,7 @@ pub struct UpdateRequest {
 /// Lifecycle hooks for CRUD operations.
 ///
 /// Implement this trait to add custom logic before and after create, read, update, and delete
-/// operations. Hooks operate on storage-agnostic DTOs (CreateModel, UpdateModel, Model).
+/// operations. Hooks operate on storage-agnostic DTOs (`CreateModel`, `UpdateModel`, Model).
 ///
 /// # Error Handling
 ///
@@ -261,7 +261,7 @@ pub trait CrudLifetime<R: CrudResource> {
     // Read Hooks
     // =========================================================================
 
-    /// Called before any read operation (read_count, read_one, read_many).
+    /// Called before any read operation (`read_count`, `read_one`, `read_many`).
     ///
     /// # Use Cases
     /// - **Row-level security**: Modify `read_request.condition` to add tenant/user filters
@@ -377,83 +377,83 @@ pub enum NoopError {}
 impl<R: CrudResource> CrudLifetime<R> for NoopLifetimeHooks {
     type Error = NoopError;
 
-    async fn before_read(
+    fn before_read(
         _read_request: &mut ReadRequest<R>,
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>> {
-        Ok(data)
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send {
+        std::future::ready(Ok(data))
     }
 
-    async fn after_read(
+    fn after_read(
         _read_request: &ReadRequest<R>,
         _read_result: &mut ReadResult<R>,
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>> {
-        Ok(data)
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send {
+        std::future::ready(Ok(data))
     }
 
-    async fn before_create(
+    fn before_create(
         _create_model: &mut R::CreateModel,
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>> {
-        Ok(data)
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send {
+        std::future::ready(Ok(data))
     }
 
-    async fn after_create(
+    fn after_create(
         _create_model: &R::CreateModel,
         _model: &R::Model,
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>> {
-        Ok(data)
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send {
+        std::future::ready(Ok(data))
     }
 
-    async fn before_update(
+    fn before_update(
         _existing: &R::Model,
         _update_model: &mut R::UpdateModel,
         _update_request: &UpdateRequest,
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>> {
-        Ok(data)
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send {
+        std::future::ready(Ok(data))
     }
 
-    async fn after_update(
+    fn after_update(
         _update_model: &R::UpdateModel,
         _model: &R::Model,
         _update_request: &UpdateRequest,
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>> {
-        Ok(data)
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send {
+        std::future::ready(Ok(data))
     }
 
-    async fn before_delete(
+    fn before_delete(
         _model: &R::Model,
         _delete_request: &DeleteRequest<R>,
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>> {
-        Ok(data)
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send {
+        std::future::ready(Ok(data))
     }
 
-    async fn after_delete(
+    fn after_delete(
         _model: &R::Model,
         _delete_request: &DeleteRequest<R>,
         _context: &R::Context,
         _request: RequestContext<R::Auth>,
         data: R::HookData,
-    ) -> Result<R::HookData, HookError<Self::Error>> {
-        Ok(data)
+    ) -> impl Future<Output = Result<R::HookData, HookError<Self::Error>>> + Send {
+        std::future::ready(Ok(data))
     }
 }

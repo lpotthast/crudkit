@@ -1,17 +1,25 @@
 [data-theme="dark"] {
-  --crudkit-instance-header-color: var(--std-text-bright);
-  --crudkit-instance-header-bg-color: #1a1a1a;
-  //--crudkit-instance-body-bg-color: #343434;
-  --crudkit-instance-body-bg-color: transparent;
-  --crudkit-instance-collapsible-body-content-margin: 0.75em;
+  --crudkit-text: #e6edf3;
+  --crudkit-text-muted: #8d96a0;
+  --crudkit-background: #0d1117;
+  --crudkit-surface: #161b22;
+  --crudkit-surface-raised: #1c2128;
+  --crudkit-border: #30363d;
+  --crudkit-hover: #21262d;
+  --crudkit-selected: #12263f;
+  --crudkit-focus: #4493f8;
 
-  --crudkit-field-label-color: #aaaaaa;
+  --crudkit-primary: #1f6feb;
+  --crudkit-primary-text: #ffffff;
+  --crudkit-success: #238636;
+  --crudkit-success-text: #ffffff;
+  --crudkit-warning: #9e6a03;
+  --crudkit-warning-text: #ffffff;
+  --crudkit-danger: #da3633;
+  --crudkit-danger-text: #ffffff;
+  --crudkit-secondary: #21262d;
+  --crudkit-secondary-text: #e6edf3;
 
-  // LEPTONIC OVERRIDES
-
-  // Input
-  --input-padding: 00.5em 2em 0.5em 0;
-  --input-border: none;
-  --input-border-bottom: 1px solid rgb(255 255 255 / 15%); // TODO make work
-  --input-border-radius: 0;
+  --crudkit-backdrop: rgba(1, 4, 9, 0.7);
+  --crudkit-shadow: 0 8px 24px rgba(1, 4, 9, 0.6);
 }

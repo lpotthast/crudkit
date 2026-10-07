@@ -1,9 +1,10 @@
-@use "../components/helper";
-
-@use "../components/instance";
-@use "../components/pagination";
-@use "../components/nav";
-@use "../components/input";
-@use "../components/field-label";
-@use "../components/field";
+// Presentation of CrudKit's DOM contract: `crudkit-*` classes and `data-*` state attributes.
+@use "../components/base";
+@use "../components/button";
+@use "../components/toolbar";
 @use "../components/table";
+@use "../components/pagination";
+@use "../components/select";
+@use "../components/form";
+@use "../components/dialog";
+@use "../components/notifications";

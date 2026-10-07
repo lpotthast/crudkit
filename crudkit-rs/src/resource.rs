@@ -1,8 +1,8 @@
 //! Core resource trait defining the shape of CRUD resources.
 //!
 //! This module is storage-agnostic - it defines resources in terms of
-//! ReadModel, CreateModel, and UpdateModel without coupling to any
-//! specific storage backend like SeaORM.
+//! `ReadModel`, `CreateModel`, and `UpdateModel` without coupling to any
+//! specific storage backend like `SeaORM`.
 
 use crate::{
     auth::{AuthExtractor, CrudAuthPolicy},
@@ -41,9 +41,9 @@ pub trait CrudResourceContext {}
 /// Central trait defining a CRUD resource.
 ///
 /// This trait is storage-agnostic and defines resources in terms of:
-/// - **ReadModel**: The model returned from read queries (may come from a SQL view)
-/// - **CreateModel**: The DTO used to create new entities
-/// - **UpdateModel**: The DTO used to update existing entities
+/// - **`ReadModel`**: The model returned from read queries (may come from a SQL view)
+/// - **`CreateModel`**: The DTO used to create new entities
+/// - **`UpdateModel`**: The DTO used to update existing entities
 ///
 /// Each model has an associated Field type for typed field access.
 ///
@@ -77,7 +77,6 @@ pub trait CrudResource: Sized + Debug {
     type ReadModelField: Field
         + FieldLookup
         + ConditionValueConverter
-        + DeserializeOwned
         + Eq
         + Hash
         + Clone
@@ -131,7 +130,7 @@ pub trait CrudResource: Sized + Debug {
     ///
     /// This is the "real" entity that gets stored. It's used in lifecycle hooks
     /// for validation and in the repository for fetch/delete operations.
-    /// Unlike ReadModel (which may be a view), this represents the actual table.
+    /// Unlike `ReadModel` (which may be a view), this represents the actual table.
     type Model: Model<Field = Self::ModelField>
         + HasId<Id = Self::Id>
         + Serialize
@@ -147,7 +146,6 @@ pub trait CrudResource: Sized + Debug {
     type ModelField: Field
         + FieldLookup
         + ConditionValueConverter
-        + DeserializeOwned
         + Eq
         + Hash
         + Clone

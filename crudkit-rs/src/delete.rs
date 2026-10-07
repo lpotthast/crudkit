@@ -5,10 +5,7 @@
 //! - `delete_one`: Delete a single entity matching a condition (first match).
 //! - `delete_many`: Delete multiple entities matching a condition (all matches).
 
-use indexmap::IndexMap;
-use serde::Deserialize;
 use std::sync::Arc;
-use utoipa::ToSchema;
 
 use crate::data::HasId;
 use crate::validate::{run_global_validation, run_model_validation};
@@ -20,10 +17,11 @@ use crate::{
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
 };
-use crudkit_core::condition::{Condition, TryIntoAllEqualCondition};
+use crudkit_core::condition::{TryIntoAllEqualCondition, merge_conditions};
 use crudkit_core::id::{Id, SerializableId};
+use crudkit_core::request::{DeleteById, DeleteMany, DeleteOne};
 use crudkit_core::validation::PartialSerializableAggregateViolations;
-use crudkit_core::{Deleted, DeletedMany, Order};
+use crudkit_core::{Deleted, DeletedMany};
 
 /// Maximum memory budget per batch (in bytes).
 const BATCH_MEMORY_BUDGET: usize = 50_000_000;
@@ -54,33 +52,15 @@ const fn calculate_batch_size<M>() -> u64 {
     }
 }
 
-/// Request body for deleting by ID.
-#[derive(Debug, ToSchema, Deserialize)]
-pub struct DeleteById {
-    /// The serializable ID of the entity to delete.
-    pub id: SerializableId,
-}
-
-/// Request body for deleting one entity by condition.
-#[derive(Debug, ToSchema, Deserialize)]
-pub struct DeleteOne<R: CrudResource> {
-    /// Number of entities to skip.
-    pub skip: Option<u64>,
-    /// Ordering specification.
-    #[schema(value_type = Option<Object>, example = json!({"id": Order::Asc}))]
-    pub order_by: Option<IndexMap<R::ModelField, Order>>,
-    /// Filter condition.
-    pub condition: Option<Condition>,
-}
-
-/// Request body for deleting many entities.
-#[derive(Debug, ToSchema, Deserialize)]
-pub struct DeleteMany {
-    /// Filter condition.
-    pub condition: Option<Condition>,
-}
-
-/// Delete a single entity by its ID.
+/// Delete a single entity by its ID, within the request's optional condition.
+///
+/// # Errors
+///
+/// Returns `CrudError::IntoCondition` if the ID cannot be turned into a condition,
+/// `CrudError::NotFound` if no entity with that ID matches the condition, `CrudError::Repository` if fetching or deleting
+/// fails, `CrudError::Forbidden`, `CrudError::UnprocessableEntity`, or
+/// `CrudError::LifecycleHookError` if a lifecycle hook rejects the operation or fails, or
+/// `CrudError::CriticalValidationErrors` if validation blocks the deletion.
 #[tracing::instrument(level = "info", skip(context, request))]
 pub async fn delete_by_id<R: CrudResource>(
     request: RequestContext<R::Auth>,
@@ -93,10 +73,11 @@ pub async fn delete_by_id<R: CrudResource>(
         .into_entries()
         .try_into_all_equal_condition()
         .map_err(|err| CrudError::IntoCondition { source: err })?;
+    let condition = merge_conditions(Some(id_condition), body.condition);
 
     let model = context
         .repository
-        .fetch_one(None, None, None, Some(&id_condition))
+        .fetch_one(None, None, None, condition.as_ref())
         .await
         .map_err(|err| CrudError::Repository {
             reason: Arc::new(err),
@@ -107,7 +88,7 @@ pub async fn delete_by_id<R: CrudResource>(
         operation: DeleteOperation::ById,
         skip: None,
         order_by: None,
-        condition: Some(id_condition),
+        condition,
     };
 
     execute_single_delete(model, &delete_request, &context, &request).await?;
@@ -120,11 +101,18 @@ pub async fn delete_by_id<R: CrudResource>(
 }
 
 /// Delete a single entity matching a condition.
+///
+/// # Errors
+///
+/// Returns `CrudError::NotFound` if no entity matches the condition, `CrudError::Repository` if
+/// fetching or deleting fails, `CrudError::Forbidden`, `CrudError::UnprocessableEntity`, or
+/// `CrudError::LifecycleHookError` if a lifecycle hook rejects the operation or fails, or
+/// `CrudError::CriticalValidationErrors` if validation blocks the deletion.
 #[tracing::instrument(level = "info", skip(context, request))]
 pub async fn delete_one<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
-    body: DeleteOne<R>,
+    body: DeleteOne<R::ModelField>,
 ) -> Result<Deleted, CrudError> {
     let model = context
         .repository
@@ -154,11 +142,6 @@ pub async fn delete_one<R: CrudResource>(
     Ok(Deleted {
         entities_affected: 1,
     })
-}
-
-/// Helper to convert SerializableId to JSON value for result reporting.
-fn id_to_json(id: &SerializableId) -> serde_json::Value {
-    serde_json::to_value(id).unwrap_or(serde_json::Value::Null)
 }
 
 /// Error type for single entity deletion, used internally to distinguish failure modes.
@@ -215,7 +198,7 @@ async fn execute_single_delete<R: CrudResource>(
             CrudError::CriticalValidationErrors {
                 violations: PartialSerializableAggregateViolations::from(
                     partial_validation_results,
-                    Some(serializable_id.clone()),
+                    Some(&serializable_id),
                 ),
             },
         ));
@@ -256,6 +239,12 @@ async fn execute_single_delete<R: CrudResource>(
 }
 
 /// Delete multiple entities matching a condition.
+///
+/// # Errors
+///
+/// Returns `CrudError::Repository` if fetching a batch of entities fails. Per-entity hook
+/// rejections, validation failures, and delete errors do not fail the operation; they are reported
+/// in the returned `DeletedMany`.
 #[tracing::instrument(level = "info", skip(context, request))]
 pub async fn delete_many<R: CrudResource>(
     request: RequestContext<R::Auth>,
@@ -296,84 +285,7 @@ pub async fn delete_many<R: CrudResource>(
         let already_deleted = result.deleted_count;
 
         for model in models {
-            let entity_id = model.id();
-            let serializable_id = entity_id.to_serializable_id();
-
-            // Run before_delete hook.
-            let hook_data = R::HookData::default();
-            let hook_data = match R::Lifetime::before_delete(
-                &model,
-                &delete_request,
-                &context.res_context,
-                request.clone(),
-                hook_data,
-            )
-            .await
-            {
-                Ok(data) => data,
-                Err(HookError::Forbidden { reason })
-                | Err(HookError::UnprocessableEntity { reason }) => {
-                    result.aborted.push((id_to_json(&serializable_id), reason));
-                    continue;
-                }
-                Err(HookError::Internal(err)) => {
-                    result.errors.push((
-                        id_to_json(&serializable_id),
-                        format!("Lifecycle error: {err}"),
-                    ));
-                    continue;
-                }
-            };
-
-            // Validate the entity.
-            let trigger = ValidationTrigger::CrudAction(ValidationContext {
-                action: CrudAction::Delete,
-                when: When::Before,
-            });
-            let partial_validation_results =
-                run_model_validation::<R>(&context.validators, &model, trigger);
-
-            if partial_validation_results.has_critical_violations() {
-                result.validation_failed.push(id_to_json(&serializable_id));
-                continue;
-            }
-
-            // Delete the entity.
-            let deleted_model = model.clone();
-            match context.repository.delete(model).await {
-                Ok(_delete_result) => {
-                    let _ = R::Lifetime::after_delete(
-                        &deleted_model,
-                        &delete_request,
-                        &context.res_context,
-                        request.clone(),
-                        hook_data,
-                    )
-                    .await;
-
-                    if let Err(e) = context
-                        .validation_result_repository
-                        .delete_all_of_entity(R::TYPE.name(), &entity_id)
-                        .await
-                    {
-                        tracing::warn!(
-                            "Failed to delete validation results for entity {entity_id:?}: {e:?}"
-                        );
-                    }
-
-                    collaboration::broadcast_deletion_event(&context, serializable_id.clone())
-                        .await;
-
-                    result.deleted_count += 1;
-                    result.deleted_ids.push(id_to_json(&serializable_id));
-                }
-                Err(err) => {
-                    result.errors.push((
-                        id_to_json(&serializable_id),
-                        format!("Delete error: {err:?}"),
-                    ));
-                }
-            }
+            delete_one_of_many(model, &delete_request, &context, &request, &mut result).await;
         }
 
         // If no entities were deleted in this batch, stop to avoid infinite loop.
@@ -385,4 +297,88 @@ pub async fn delete_many<R: CrudResource>(
     run_global_validation::<R>(&context).await;
 
     Ok(result)
+}
+
+/// Deletes `model` as part of a `delete_many` operation, recording the outcome in `result`.
+async fn delete_one_of_many<R: CrudResource>(
+    model: R::Model,
+    delete_request: &DeleteRequest<R>,
+    context: &Arc<CrudContext<R>>,
+    request: &RequestContext<R::Auth>,
+    result: &mut DeletedMany,
+) {
+    let entity_id = model.id();
+    let serializable_id = entity_id.to_serializable_id();
+
+    // Run before_delete hook.
+    let hook_data = R::HookData::default();
+    let hook_data = match R::Lifetime::before_delete(
+        &model,
+        delete_request,
+        &context.res_context,
+        request.clone(),
+        hook_data,
+    )
+    .await
+    {
+        Ok(data) => data,
+        Err(HookError::Forbidden { reason } | HookError::UnprocessableEntity { reason }) => {
+            result.aborted.push((serializable_id.clone(), reason));
+            return;
+        }
+        Err(HookError::Internal(err)) => {
+            result
+                .errors
+                .push((serializable_id.clone(), format!("Lifecycle error: {err}")));
+            return;
+        }
+    };
+
+    // Validate the entity.
+    let trigger = ValidationTrigger::CrudAction(ValidationContext {
+        action: CrudAction::Delete,
+        when: When::Before,
+    });
+    let partial_validation_results =
+        run_model_validation::<R>(&context.validators, &model, trigger);
+
+    if partial_validation_results.has_critical_violations() {
+        result.validation_failed.push(serializable_id.clone());
+        return;
+    }
+
+    // Delete the entity.
+    let deleted_model = model.clone();
+    match context.repository.delete(model).await {
+        Ok(_delete_result) => {
+            let _ = R::Lifetime::after_delete(
+                &deleted_model,
+                delete_request,
+                &context.res_context,
+                request.clone(),
+                hook_data,
+            )
+            .await;
+
+            if let Err(e) = context
+                .validation_result_repository
+                .delete_all_of_entity(R::TYPE.name(), &entity_id)
+                .await
+            {
+                tracing::warn!(
+                    "Failed to delete validation results for entity {entity_id:?}: {e:?}"
+                );
+            }
+
+            collaboration::broadcast_deletion_event(context, serializable_id.clone()).await;
+
+            result.deleted_count += 1;
+            result.deleted_ids.push(serializable_id.clone());
+        }
+        Err(err) => {
+            result
+                .errors
+                .push((serializable_id.clone(), format!("Delete error: {err:?}")));
+        }
+    }
 }
