@@ -4,7 +4,7 @@ use crudkit_core_macro_util::{
     ValueKindExt, classify_base_type, path_to_string, strip_option_path,
 };
 use darling::{FromDeriveInput, FromField, ast};
-use proc_macro_error::abort;
+use proc_macro_error2::abort;
 use proc_macro_type_name::ToTypeName;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote};

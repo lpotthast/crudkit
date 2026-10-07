@@ -53,10 +53,11 @@ impl Error for DuplicateCrudViewError {}
 
 /// Maps open [`CrudView`] names to renderers.
 ///
-/// A default registry contains CrudKit's table, create, read, and edit
-/// renderers. [`Self::register`] rejects duplicate names; use [`Self::replace`]
-/// when overriding a built-in or replacing an application renderer is
-/// intentional.
+/// With the `components` feature, a default registry contains CrudKit's table,
+/// create, read, and edit renderers. Without it, a default registry is empty and
+/// the application registers a renderer for every view it opens.
+/// [`Self::register`] rejects duplicate names; use [`Self::replace`] when
+/// overriding a built-in or replacing an application renderer is intentional.
 ///
 /// ```no_run
 /// # use crudkit_leptos::prelude::*;
@@ -95,13 +96,20 @@ impl fmt::Debug for CrudViewRegistry {
     }
 }
 
-impl CrudViewRegistry {
-    pub(crate) fn empty() -> Self {
-        Self {
+impl Default for CrudViewRegistry {
+    fn default() -> Self {
+        #[cfg_attr(not(feature = "components"), allow(unused_mut))]
+        let mut registry = Self {
             renderers: HashMap::new(),
-        }
+        };
+        #[cfg(feature = "components")]
+        crate::components::register_builtin_views(&mut registry);
+        registry
     }
+}
 
+impl CrudViewRegistry {
+    #[cfg(feature = "components")]
     pub(crate) fn insert_default(
         &mut self,
         name: &'static str,

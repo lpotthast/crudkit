@@ -5,45 +5,48 @@ edition = "2024"
 build = "build.rs"
 
 [features]
+default = ["components"]
+# The built-in, opinionated UI (`crudkit_leptos::components`): the components themselves, the default view and field
+# renderers, the notification region, their icons, and the generated theme they are styled with. Without it, the hooks,
+# atoms, configuration, and instance runtime remain, and applications render every view and field themselves.
+components = ["leptonic/atoms", "dep:icondata", "dep:anyhow", "dep:cargo_toml", "dep:crudkit-leptos-theme"]
 ssr = ["leptonic/ssr"]
 hydrate = ["leptonic/hydrate"]
 
 [dependencies]
-crudkit-core = { path = "../crudkit-core" }
-crudkit-core-macros = { path = "../crudkit-core-macros" }
-crudkit-web = { path = "../crudkit-web" }
-crudkit-web-macros = { path = "../crudkit-web-macros" }
+crudkit-core = { path = "../crudkit-core", default-features = false }
+crudkit-core-macros = { path = "../crudkit-core-macros", default-features = false }
+crudkit-web = { path = "../crudkit-web", default-features = false }
+crudkit-web-macros = { path = "../crudkit-web-macros", default-features = false }
 
-dyn-clone = "1.0.20"
-indexmap = { version = "2.12.1", features = ["serde"] }
-icondata = "0.7.0"
-leptonic = { path = "../../leptonic/leptonic", default-features = false, features = ["atoms"] }
-leptos = "0.8.15"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = { version = "1.0.148", features = ["raw_value"] }
-time = { version = "0.3.44", features = [
-    "macros",
-    "local-offset", # TODO: Describe why this feature is required.
-    "wasm-bindgen",
-] }
-tracing = "0.1.44"
-uuid = { version = "1.19.0", features = ["js", "v4", "v7", "serde"] }
+indexmap = { version = "2.14.2", default-features = false, features = ["serde", "std"] }
+icondata = { version = "0.7.0", default-features = false, features = ["bootstrap-icons"], optional = true }
+# The `Icon` type of the configuration and the `CrudIcon` atom, without any icon set.
+icondata_core = { version = "0.1.0", default-features = false }
+leptonic = { path = "../../leptonic/leptonic", default-features = false, features = ["hooks"] }
+leptos = { version = "0.8.22", default-features = false }
+serde = { version = "1.0.229", default-features = false, features = ["alloc", "derive"] }
+serde_json = { version = "1.0.151", default-features = false, features = ["alloc"] }
+time = { version = "0.3.55", default-features = false, features = ["formatting", "parsing"] }
+tracing = { version = "0.1.44", default-features = false }
+uuid = { version = "1.27.0", default-features = false, features = ["js", "v4"] }
 
+# Only used to generate the theme of the `components` feature.
 [build-dependencies]
-anyhow = "1.0.100"
-cargo_toml = "0.22.3"
-crudkit-leptos-theme = { path = "../crudkit-leptos-theme" }
+anyhow = { version = "1.0.104", default-features = false, optional = true }
+cargo_toml = { version = "1.0.1", default-features = false, optional = true }
+crudkit-leptos-theme = { path = "../crudkit-leptos-theme", default-features = false, optional = true }
 
 [dev-dependencies]
-assertr = "0.6.0"
-typetag = "0.2.21"
+assertr = { version = "0.7.1", default-features = false }
+typetag = { version = "0.2.23", default-features = false }
 
 # Dependencies of the native hook tests and their `test_support` module.
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
-any_spawner = "0.3.0"
-async-trait = "0.1.89"
-futures = { version = "0.3.31", features = ["executor"] }
-http = "1.4.0"
+any_spawner = { version = "0.3.0", default-features = false }
+async-trait = { version = "0.1.92", default-features = false }
+futures = { version = "0.3.34", default-features = false, features = ["executor"] }
+http = { version = "1.5.0", default-features = false }
 # Leptos only runs effects in client builds; tests need them too.
-reactive_graph = { version = "0.2.15", features = ["effects"] }
-reqwest = { version = "0.13.2", default-features = false, features = ["json"] }
+reactive_graph = { version = "0.2.15", default-features = false, features = ["effects"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["json"] }

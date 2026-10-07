@@ -3,7 +3,7 @@ use crudkit_core_macro_util::{
     strip_option_path, to_pascal_case,
 };
 use darling::{FromDeriveInput, FromField, ast};
-use proc_macro_error::abort;
+use proc_macro_error2::abort;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{DeriveInput, spanned::Spanned};

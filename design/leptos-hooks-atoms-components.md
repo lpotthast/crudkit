@@ -45,7 +45,7 @@ Applications do not need Leptonic's `Root`. Builds need `--cfg=web_sys_unstable_
 | `use_crud_delete`             | `CrudDeleteState`: pending deletions, bound to the calling view's navigation | instance                  |
 | `use_crud_leave_confirmation` | `CrudLeaveConfirmation` hosted by the instance                               | instance                  |
 | `use_crud_actions`            | `CrudActionsState`: available, requested, and executing actions              | calling view              |
-| `use_crud_notifier`           | `CrudNotifier` provided by the application or the manager                    | application               |
+| `use_crud_notifier`           | `CrudNotifier` provided by the application, logging otherwise                | application               |
 
 Conventions:
 
@@ -153,12 +153,20 @@ therefore created inside the row's children; `use_crud_table_row` returns the ro
 
 ## Notifications
 
-CrudKit describes user feedback as `CrudNotification { kind, title, message }` and hands it to the nearest
-`CrudNotifier`. Applications route notifications into their own notification system with `provide_crud_notifier`
-above their `CrudInstanceMgr`. `CrudNotificationQueue` keeps the shown notifications, removes each after a configurable
-time, and feeds itself through its `notifier`; applications render its `entries` in their own markup. Otherwise the
-manager provides a queue and renders it as `CrudNotificationRegion`, a polite live region. Outside of a manager,
-notifications are logged.
+CrudKit describes user feedback as `CrudNotification { kind, title, message, origin }` and hands it to the nearest
+`CrudNotifier`. Notifications go to one application-wide sink: the application provides a notifier once at its root
+with `provide_crud_notifier`, and every instance reports to it, whatever its depth on the page. Neither instances nor
+the manager render notifications. Without a provided notifier, notifications are logged as warnings.
+
+An instance captures the nearest notifier when it mounts and names itself as the `origin` (`CrudNotificationOrigin`:
+instance id, instance name, and resource name) of everything emitted through it: deletions, failed saves, and action
+outcomes. Notifications emitted outside of an instance have no origin, and an origin set by the emitter is kept. The
+origin lets the one sink group, filter, or place notifications per instance or resource. A notifier provided further
+down still overrides the root one for its subtree.
+
+`CrudNotificationQueue` keeps the shown notifications, removes each after a configurable time, and feeds itself through
+its `notifier`; applications render its `entries` in their own markup, or render it once for the whole page as
+`CrudNotificationRegion`, a polite live region.
 
 ## Testing
 

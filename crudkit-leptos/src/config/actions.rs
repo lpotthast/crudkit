@@ -73,7 +73,7 @@ pub struct CrudEntityAction {
     /// Label of the action's button.
     pub name: String,
     /// Icon shown before the name.
-    pub icon: Option<icondata::Icon>,
+    pub icon: Option<icondata_core::Icon>,
     /// Meaning of the action, from which renderers derive its presentation.
     pub intent: CrudActionIntent,
     /// Kinds of views offering the action.
@@ -150,7 +150,7 @@ pub struct CrudAction {
     /// Label of the action's button.
     pub name: String,
     /// Icon shown before the name.
-    pub icon: Option<icondata::Icon>,
+    pub icon: Option<icondata_core::Icon>,
     /// Meaning of the action, from which renderers derive its presentation.
     pub intent: CrudActionIntent,
     /// Performs the action. Invoked when the action executes.

@@ -11,7 +11,7 @@
 //! - `CkActionPayload` - Implements `ActionPayload` and `ErasedActionPayload` traits
 
 use proc_macro::TokenStream;
-use proc_macro_error::proc_macro_error;
+use proc_macro_error2::proc_macro_error;
 use syn::{DeriveInput, Error, parse_macro_input};
 
 mod derives;

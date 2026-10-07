@@ -4,31 +4,24 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# Pin regex to a version that implements std::error::Error on regex::Error (sea-orm-cli 0.12.x compat).
-regex = "1.9"
-crudkit-core = { path = "../crudkit-core" }
-crudkit-core-macros = { path = "../crudkit-core-macros" }
-crudkit-rs = { path = "../crudkit-rs" }
-crudkit-rs-macros = { path = "../crudkit-rs-macros" }
-crudkit-sea-orm-macros = { path = "../crudkit-sea-orm-macros" }
-crudkit-wire-format = { path = "../crudkit-wire-format" }
+crudkit-core = { path = "../crudkit-core", default-features = false }
+crudkit-core-macros = { path = "../crudkit-core-macros", default-features = false }
+crudkit-rs = { path = "../crudkit-rs", default-features = false }
+crudkit-rs-macros = { path = "../crudkit-rs-macros", default-features = false }
+crudkit-sea-orm-macros = { path = "../crudkit-sea-orm-macros", default-features = false }
+crudkit-wire-format = { path = "../crudkit-wire-format", default-features = false }
 
-async-trait = "0.1.88"
-error-stack = "0.6.0"
-indexmap = { version = "2.12.1", features = ["serde"] }
-sea-orm = { version = "0.12.15", features = [
-    "debug-print",
-    "runtime-tokio-rustls",
-    "sqlx",
-    "sqlx-postgres",
-] }
-sea-orm-migration = { version = "0.12.15" }
-sea-query = { version = "0.30.7" }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.140"
-snafu = { version = "0.8.9", features = ["backtrace"] }
-thiserror = "2.0.12"
-time = { version = "0.3.44" }
-tracing = "0.1.44"
-utoipa = { version = "5.4.0", features = ["time", "uuid"] }
-uuid = { version = "1.19.0", features = ["v4", "v7", "serde"] }
+async-trait = { version = "0.1.92", default-features = false }
+error-stack = { version = "0.8.0", default-features = false }
+indexmap = { version = "2.14.2", default-features = false, features = ["serde", "std"] }
+sea-orm = { version = "2.0.4", default-features = false, features = ["macros", "with-json", "with-time", "with-uuid"] }
+sea-orm-migration = { version = "2.0.4", default-features = false }
+sea-query = { version = "1.0.2", default-features = false }
+serde = { version = "1.0.229", default-features = false, features = ["alloc", "derive"] }
+serde_json = { version = "1.0.151", default-features = false, features = ["alloc"] }
+snafu = { version = "0.9.2", default-features = false, features = ["std"] }
+thiserror = { version = "2.0.21", default-features = false }
+time = { version = "0.3.55", default-features = false, features = ["serde", "std"] }
+tracing = { version = "0.1.44", default-features = false }
+utoipa = { version = "6.0.0", default-features = false }
+uuid = { version = "1.27.0", default-features = false }

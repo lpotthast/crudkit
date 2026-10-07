@@ -14,6 +14,6 @@ categories = ["gui"]
 keywords = ["leptos", "crudkit", "styling", "theme", "css"]
 
 [dependencies]
-include_dir = "0.7.3"
-anyhow = "1.0.95"
-indoc = "2.0.5"
+include_dir = { version = "0.7.4", default-features = false }
+anyhow = { version = "1.0.104", default-features = false }
+indoc = { version = "2.0.7", default-features = false }

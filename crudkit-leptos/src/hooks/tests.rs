@@ -377,6 +377,19 @@ fn confirmed_deletions_are_sent_and_reported() {
         CrudNotificationKind::Success,
         CrudNotificationKind::Success,
     ]);
+    // The instance names itself as the origin of what it reports.
+    let origins = notifications
+        .lock()
+        .expect("lock")
+        .iter()
+        .map(|notification| {
+            notification
+                .origin
+                .as_ref()
+                .map(|origin| (origin.instance_name, origin.resource_name.clone()))
+        })
+        .collect::<Vec<_>>();
+    assert_that!(origins).is_equal_to(vec![Some(("items", "items".to_owned())); 2]);
 }
 
 #[test]

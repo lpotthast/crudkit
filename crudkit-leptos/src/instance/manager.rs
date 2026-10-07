@@ -2,9 +2,6 @@
 
 #![deny(missing_docs)]
 
-use crate::components::notifications::CrudNotificationRegion;
-use crate::hooks::notify::CrudNotificationQueue;
-use crate::hooks::notify::{CrudNotifier, provide_crud_notifier};
 use crate::instance::{
     CrudNavigationScope, provide_enclosing_navigation_scope, use_enclosing_navigation_scope,
 };
@@ -131,17 +128,7 @@ pub fn CrudInstanceMgr(
         manager_navigation_scope(navigation_scope, use_enclosing_navigation_scope());
     provide_context(manager_context(navigation_scope));
     provide_enclosing_navigation_scope(navigation_scope);
-
-    // Show notifications unless the application or an outer manager routes them elsewhere.
-    let region = use_context::<CrudNotifier>().is_none().then(|| {
-        let queue = CrudNotificationQueue::default();
-        provide_crud_notifier(queue.notifier());
-        view! { <CrudNotificationRegion queue /> }
-    });
-    view! {
-        {children()}
-        {region}
-    }
+    children()
 }
 
 pub(crate) fn manager_context(navigation_scope: CrudNavigationScope) -> CrudInstanceMgrContext {

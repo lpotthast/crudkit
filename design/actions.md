@@ -58,7 +58,8 @@ executing state.
 Completion carries `Result<CrudActionAftermath, CrudActionAftermath>`. The current instance handler
 applies the same aftermath fields to both branches:
 
-- optionally emit a `CrudNotification` through the instance's `CrudNotifier`;
+- optionally emit a `CrudNotification` through the instance's `CrudNotifier`, which names the instance as its
+  `origin` unless the notification already has one;
 - optionally trigger instance data reload.
 
 The `Ok`/`Err` distinction is currently available to the callback protocol but does not change built-in

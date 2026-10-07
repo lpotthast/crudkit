@@ -18,10 +18,10 @@ fn main() {
     let field_b = FooIdField::IdB(1337);
 
     use crudkit_core::id::IdField;
-    assert_that(field_a.name()).is_equal_to("id_a");
-    assert_that(field_b.name()).is_equal_to("id_b");
+    assert_that!(field_a.name()).is_equal_to("id_a");
+    assert_that!(field_b.name()).is_equal_to("id_b");
 
     use crudkit_core::id::IdValue;
-    assert_that(field_a.to_value()).is_equal_to(IdValue::I64(-1337));
-    assert_that(field_b.to_value()).is_equal_to(IdValue::I64(1337));
+    assert_that!(field_a.to_value()).is_equal_to(IdValue::I64(-1337));
+    assert_that!(field_b.to_value()).is_equal_to(IdValue::I64(1337));
 }

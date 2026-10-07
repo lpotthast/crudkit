@@ -103,7 +103,7 @@ pub async fn create_read_view(
 ) -> Result<(), DbErr> {
     manager
         .get_connection()
-        .execute(build_create_read_view_stmt(
+        .execute_raw(build_create_read_view_stmt(
             table_name,
             resource_name,
             id_fields,
@@ -165,7 +165,7 @@ pub async fn drop_read_view(
 ) -> Result<(), DbErr> {
     manager
         .get_connection()
-        .execute(build_drop_read_view_stmt(table_name))
+        .execute_raw(build_drop_read_view_stmt(table_name))
         .await
         .map(|_exec_result| ())
 }

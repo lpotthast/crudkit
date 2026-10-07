@@ -17,6 +17,9 @@ fn kind_name(kind: CrudNotificationKind) -> &'static str {
 }
 
 /// Lists the notifications of `queue` in a polite live region.
+///
+/// Render it once for the whole page, next to providing the queue's notifier with
+/// [`crate::hooks::notify::provide_crud_notifier`] at the application's root.
 #[component]
 pub fn CrudNotificationRegion(
     /// The queue whose entries are listed. Dismissing an entry removes it from the queue.
@@ -31,7 +34,7 @@ pub fn CrudNotificationRegion(
             <For
                 each=move || queue.entries.get()
                 key=|(id, _)| *id
-                children=move |(id, CrudNotification { kind, title, message })| {
+                children=move |(id, CrudNotification { kind, title, message, .. })| {
                     view! {
                         <div class="crudkit-notification" data-kind=kind_name(kind)>
                             <div class="crudkit-notification-title">{title}</div>

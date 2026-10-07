@@ -24,6 +24,8 @@ pub mod notifications;
 pub mod pagination;
 pub mod table_view;
 
+pub(crate) use builtin_views::register_builtin_views;
+
 /// Returns CrudKit's `class` of a component's root element together with the caller's `classes`.
 pub(crate) fn with_classes(class: &'static str, classes: Classes) -> Classes {
     Classes::from(class).merge(classes, MergeStrategy::default())

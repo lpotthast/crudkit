@@ -31,7 +31,7 @@ fn main() {
         name: "Alice".to_string(),
     };
     let user_id: UserId = user.id();
-    assert_that(user_id.user_id).is_equal_to(42);
+    assert_that!(user_id.user_id).is_equal_to(42);
 
     // Test composite ID fields.
     let entity = CompositeEntity {
@@ -40,6 +40,6 @@ fn main() {
         data: "test".to_string(),
     };
     let entity_id: CompositeEntityId = entity.id();
-    assert_that(entity_id.org_id).is_equal_to(100);
-    assert_that(entity_id.user_id).is_equal_to(42);
+    assert_that!(entity_id.org_id).is_equal_to(100);
+    assert_that!(entity_id.user_id).is_equal_to(42);
 }

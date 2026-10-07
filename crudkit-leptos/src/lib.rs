@@ -10,12 +10,14 @@
 //! - [`hooks`]: state hooks exposing CrudKit's behavior, and interaction hooks binding it to
 //!   Leptonic's accessible input and table hooks;
 //! - [`atoms`]: headless single-element components where CrudKit adds behavior;
-//! - [`components`]: the built-in, composed UI with `crudkit-*` classes.
+//! - [`components`]: the built-in, composed UI with `crudkit-*` classes, available with the
+//!   `components` feature (enabled by default).
 //!
 //! Next to these, [`config`] holds what applications declare, and [`instance`] the runtime of
 //! mounted instances.
 
 pub mod atoms;
+#[cfg(feature = "components")]
 pub mod components;
 pub mod config;
 pub mod hooks;
@@ -61,6 +63,7 @@ pub mod prelude {
     pub use crudkit_web::view::{CREATE_VIEW, EDIT_VIEW, READ_VIEW, TABLE_VIEW};
 
     pub use super::atoms::prelude::*;
+    #[cfg(feature = "components")]
     pub use super::components::prelude::*;
     pub use super::config::*;
     pub use super::hooks::*;

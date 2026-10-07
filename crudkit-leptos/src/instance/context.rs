@@ -9,14 +9,12 @@ use crate::config::{
 };
 use crate::hooks::delete::CrudDeleteState;
 use crate::hooks::form::CrudCreateActions;
-use crate::hooks::instance::use_crud_instance;
 use crate::hooks::leave::CrudLeaveConfirmation;
-use crate::hooks::notify::{CrudNotifier, use_crud_notifier};
+use crate::hooks::notify::{CrudNotificationOrigin, CrudNotifier, use_crud_notifier};
 use crate::hooks::texts::use_crud_texts;
 use crate::instance::{CrudInstanceMgrContext, InstanceState};
 use crate::instance::{
-    CrudNavigation, EnclosingNavigationScope, provide_enclosing_navigation_scope,
-    use_enclosing_navigation_scope,
+    CrudNavigation, provide_enclosing_navigation_scope, use_enclosing_navigation_scope,
 };
 use crudkit_core::Order;
 use crudkit_core::condition::{Condition, ConditionClause, ConditionElement};
@@ -26,7 +24,6 @@ use crudkit_web::list::toggle_order;
 use crudkit_web::list::{ItemsPerPage, PageNr};
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
-use leptos::context::Provider;
 use leptos::prelude::*;
 use std::collections::HashSet;
 use uuid::Uuid;
@@ -158,6 +155,8 @@ impl CrudInstanceContext {
     }
 
     /// Returns this context as seen by a view given its own `navigation` or `controls`.
+    // Used by the built-in views and the native hook tests.
+    #[cfg_attr(not(feature = "components"), allow(dead_code))]
     pub(crate) fn for_view(
         self,
         navigation: Option<CrudNavigation>,
@@ -403,7 +402,12 @@ pub(crate) fn create_instance_context(
 
     let controls = Signal::stored(static_config.read_value().builtin_view_controls);
     let default_config = StoredValue::new(config);
-    let notifier = use_crud_notifier();
+    // Every notification emitted through this instance names it as its origin.
+    let notifier = use_crud_notifier().with_origin(CrudNotificationOrigin {
+        instance_id: id,
+        instance_name: name,
+        resource_name: static_config.read_value().resource_name.clone(),
+    });
 
     let data_provider = Signal::derive(move || {
         DynCrudRestDataProvider::new(
@@ -475,11 +479,16 @@ pub(crate) fn provide_view_context(
 
 /// Renders `content` with the surrounding instance as seen by a view given its own `navigation`
 /// or `controls`, so the hooks, components, and nested instances in `content` use them too.
+#[cfg(feature = "components")]
 pub(crate) fn with_view_overrides<V: IntoView + 'static>(
     navigation: Option<CrudNavigation>,
     controls: Option<Signal<CrudBuiltinViewControls>>,
     content: impl FnOnce() -> V + Send + 'static,
 ) -> impl IntoView {
+    use crate::hooks::instance::use_crud_instance;
+    use crate::instance::EnclosingNavigationScope;
+    use leptos::context::Provider;
+
     let ctx = use_crud_instance().for_view(navigation, controls);
     view! {
         <Provider value=ctx>

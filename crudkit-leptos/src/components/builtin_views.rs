@@ -5,15 +5,12 @@ use crate::instance::CrudNavigation;
 use crudkit_web::view::{CREATE_VIEW, CrudView, EDIT_VIEW, READ_VIEW, TABLE_VIEW};
 use leptos::prelude::*;
 
-impl Default for CrudViewRegistry {
-    fn default() -> Self {
-        let mut registry = Self::empty();
-        registry.insert_default(TABLE_VIEW, render_table);
-        registry.insert_default(CREATE_VIEW, render_create);
-        registry.insert_default(READ_VIEW, render_read);
-        registry.insert_default(EDIT_VIEW, render_edit);
-        registry
-    }
+/// Registers CrudKit's table, create, read, and edit renderers.
+pub(crate) fn register_builtin_views(registry: &mut CrudViewRegistry) {
+    registry.insert_default(TABLE_VIEW, render_table);
+    registry.insert_default(CREATE_VIEW, render_create);
+    registry.insert_default(READ_VIEW, render_read);
+    registry.insert_default(EDIT_VIEW, render_edit);
 }
 
 fn validate(view: &CrudView, subject_required: bool) -> Result<(), String> {

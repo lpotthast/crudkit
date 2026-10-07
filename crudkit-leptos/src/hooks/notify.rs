@@ -2,6 +2,7 @@
 
 use leptos::prelude::*;
 use std::time::Duration;
+use uuid::Uuid;
 
 /// Severity of a [`CrudNotification`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -28,10 +29,30 @@ pub struct CrudNotification {
     pub title: String,
     /// Message body.
     pub message: String,
+    /// The instance that emitted the notification, set by CrudKit for every notification emitted
+    /// through an instance, including action outcomes. `None` for notifications emitted outside of
+    /// an instance.
+    pub origin: Option<CrudNotificationOrigin>,
+}
+
+/// The CrudKit instance that emitted a [`CrudNotification`].
+///
+/// Lets one application-wide notifier group, filter, or place notifications by instance or
+/// resource.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CrudNotificationOrigin {
+    /// Volatile identifier of the instance's mount, see
+    /// [`CrudInstanceContext::id`](crate::instance::CrudInstanceContext::id).
+    pub instance_id: Uuid,
+    /// Name of the instance, see
+    /// [`CrudInstanceContext::name`](crate::instance::CrudInstanceContext::name).
+    pub instance_name: &'static str,
+    /// Name of the instance's resource on the wire.
+    pub resource_name: String,
 }
 
 impl CrudNotification {
-    /// Creates a notification.
+    /// Creates a notification without an origin.
     pub fn new(
         kind: CrudNotificationKind,
         title: impl Into<String>,
@@ -41,6 +62,7 @@ impl CrudNotification {
             kind,
             title: title.into(),
             message: message.into(),
+            origin: None,
         }
     }
 
@@ -86,24 +108,41 @@ impl CrudNotifier {
     pub fn notify(&self, notification: CrudNotification) {
         self.notify.run(notification);
     }
+
+    /// Returns a notifier forwarding to this one, setting `origin` on notifications that have
+    /// none.
+    pub(crate) fn with_origin(self, origin: CrudNotificationOrigin) -> Self {
+        Self::new(move |mut notification: CrudNotification| {
+            if notification.origin.is_none() {
+                notification.origin = Some(origin.clone());
+            }
+            self.notify(notification);
+        })
+    }
 }
 
 /// Makes `notifier` the destination of CrudKit notifications for the current owner and its
 /// descendants.
+///
+/// Provide one notifier at the application's root, e.g. the notifier of a
+/// [`CrudNotificationQueue`] rendered once for the whole page. Every instance, at any depth, then
+/// reports to it, and [`CrudNotification::origin`] tells the instances apart. A notifier provided
+/// further down overrides the root one for its subtree.
 pub fn provide_crud_notifier(notifier: CrudNotifier) {
     provide_context(notifier);
 }
 
 /// Returns the nearest provided [`CrudNotifier`].
 ///
-/// [`crate::instance::CrudInstanceMgr`] provides one showing notifications in a
-/// [`crate::components::notifications::CrudNotificationRegion`], unless the application provided
-/// its own. Outside of a manager, notifications are only logged.
+/// Without a provided notifier, notifications are logged as warnings.
 #[must_use]
 pub fn use_crud_notifier() -> CrudNotifier {
     use_context::<CrudNotifier>().unwrap_or_else(|| {
         CrudNotifier::new(|notification: CrudNotification| {
-            tracing::info!(?notification, "CrudKit notification without a notifier");
+            tracing::warn!(
+                ?notification,
+                "CrudKit notification without a notifier; provide one with `provide_crud_notifier`"
+            );
         })
     })
 }
@@ -169,5 +208,48 @@ impl CrudNotificationQueue {
     pub fn notifier(&self) -> CrudNotifier {
         let this = *self;
         CrudNotifier::new(move |notification| this.push(notification))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assertr::prelude::*;
+    use leptos::reactive::owner::Owner;
+    use std::sync::{Arc, Mutex};
+
+    fn origin(instance_name: &'static str) -> CrudNotificationOrigin {
+        CrudNotificationOrigin {
+            instance_id: Uuid::new_v4(),
+            instance_name,
+            resource_name: "clubs".to_owned(),
+        }
+    }
+
+    #[test]
+    fn instance_notifiers_annotate_notifications_without_overriding_an_origin() {
+        Owner::new().with(|| {
+            let received = Arc::new(Mutex::new(Vec::<CrudNotification>::new()));
+            let recorded = received.clone();
+            let sink = CrudNotifier::new(move |notification| {
+                recorded.lock().expect("lock").push(notification);
+            });
+            let instance = origin("clubs-table");
+            let nested = origin("nested");
+            let notifier = sink.with_origin(instance.clone());
+
+            notifier.notify(CrudNotification::info("Saved", "The club was saved."));
+            let mut preset = CrudNotification::error("Failed", "The club was not saved.");
+            preset.origin = Some(nested.clone());
+            notifier.notify(preset);
+
+            let origins = received
+                .lock()
+                .expect("lock")
+                .iter()
+                .map(|notification| notification.origin.clone())
+                .collect::<Vec<_>>();
+            assert_that!(origins).is_equal_to(vec![Some(instance), Some(nested)]);
+        });
     }
 }

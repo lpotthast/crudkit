@@ -9,7 +9,7 @@ use leptos::prelude::*;
 #[component]
 pub fn CrudIcon(
     /// The icon to render.
-    icon: icondata::Icon,
+    icon: icondata_core::Icon,
     /// Classes of the `<svg>` element.
     #[prop(into, optional)]
     classes: Classes,

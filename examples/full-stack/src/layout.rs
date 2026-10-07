@@ -1,4 +1,6 @@
-use crudkit_leptos::prelude::CrudInstanceMgr;
+use crudkit_leptos::prelude::{
+    CrudInstanceMgr, CrudNotificationQueue, CrudNotificationRegion, provide_crud_notifier,
+};
 use leptos::prelude::*;
 use leptos_router::components::{A, Outlet};
 
@@ -6,8 +8,14 @@ use leptos_router::components::{A, Outlet};
 ///
 /// All pages render below one `CrudInstanceMgr`, which registers mounted instances (required for parent/child
 /// instances) and owns the navigation scope used for dirty-form guards.
+///
+/// CrudKit's notifications of every page go to one queue, rendered once for the whole page. Marauder pages route
+/// theirs into their own toasts instead.
 #[component]
 pub fn MainLayout() -> impl IntoView {
+    let notifications = CrudNotificationQueue::default();
+    provide_crud_notifier(notifications.notifier());
+
     view! {
         <header class="app-header">
             <span class="app-title">"CrudKit example"</span>
@@ -25,5 +33,6 @@ pub fn MainLayout() -> impl IntoView {
                 <Outlet/>
             </CrudInstanceMgr>
         </main>
+        <CrudNotificationRegion queue=notifications />
     }
 }

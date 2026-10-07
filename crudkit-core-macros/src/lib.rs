@@ -5,7 +5,7 @@
 
 use darling::{Error, FromDeriveInput, FromField, ast};
 use proc_macro::TokenStream;
-use proc_macro_error::{abort, proc_macro_error};
+use proc_macro_error2::{abort, proc_macro_error};
 use proc_macro_type_name::ToTypeName;
 use proc_macro2::Span;
 use quote::quote;

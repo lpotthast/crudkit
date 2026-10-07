@@ -57,7 +57,8 @@ impl<F: TypeErasedField> FieldRenderer<F> {
 ///
 /// A field is rendered with the renderer registered for it here, or otherwise with CrudKit's
 /// default renderer for its value kind, see [`Self::resolve`]. Fields of custom types have no
-/// default renderer and render a visible configuration error until one is registered.
+/// default renderer and render a visible configuration error until one is registered. Without the
+/// `components` feature, no field has a default renderer.
 #[derive(Debug, Clone)]
 pub struct FieldRendererRegistry<F: TypeErasedField> {
     pub(crate) reg: HashMap<F, FieldRenderer<F>>,
@@ -78,13 +79,34 @@ impl<F: TypeErasedField> FieldRendererRegistry<F> {
 
     /// Returns the renderer registered for `field`, or CrudKit's default renderer for its value
     /// kind.
+    ///
+    /// Without the `components` feature, an unregistered field resolves to a renderer showing a
+    /// visible configuration error.
     #[must_use]
     pub fn resolve(&self, field: &F) -> FieldRenderer<F> {
         self.reg
             .get(field)
             .cloned()
-            .unwrap_or_else(|| FieldRenderer::default_for(field.value_kind()))
+            .unwrap_or_else(|| default_renderer(field))
     }
+}
+
+#[cfg(feature = "components")]
+fn default_renderer<F: TypeErasedField>(field: &F) -> FieldRenderer<F> {
+    FieldRenderer::default_for(field.value_kind())
+}
+
+#[cfg(not(feature = "components"))]
+fn default_renderer<F: TypeErasedField>(_field: &F) -> FieldRenderer<F> {
+    FieldRenderer::new(|state: CrudFieldState<F>| {
+        let name = state.field.name().to_string();
+        tracing::error!(field = %name, "No CrudKit field renderer is registered");
+        view! {
+            <div class="crud-field-error" role="alert">
+                {format!("No field renderer is registered for the field '{name}'.")}
+            </div>
+        }
+    })
 }
 /// Collects per-field renderer overrides for a [`FieldRendererRegistry`].
 #[derive(Debug)]
