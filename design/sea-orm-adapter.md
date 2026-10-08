@@ -4,6 +4,11 @@
 `crudkit-rs` operations continue to use the application-level models from
 [Data Contracts](data-contracts.md).
 
+The adapter enables only the SeaORM features its code uses (macros and the JSON, time, and UUID column types). The
+application chooses the database: it enables a SeaORM driver (e.g. `sqlx-postgres` or `sqlx-sqlite`) and a runtime
+(e.g. `runtime-tokio-rustls`), and `debug-print` if it wants SQL statements logged. Without a driver,
+`Database::connect` fails at runtime with "no supporting driver". The read-view migration helpers emit PostgreSQL SQL.
+
 ## Resource Bridge
 
 `SeaOrmResource` extends `CrudResource` with two query surfaces:

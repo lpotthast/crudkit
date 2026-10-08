@@ -12,9 +12,10 @@ sort:
 fmt:
   cargo fmt
 
+# Format the `view!` macros of crudkit-leptos and the full-stack example with leptosfmt.
 leptosfmt:
   cargo install leptosfmt
-  leptosfmt ./crudkit-leptos/*
+  leptosfmt ./crudkit-leptos/src ./examples/full-stack/src
 
 # Run `cargo update`, updating dependencies to the latest non-breaking version.
 update:
@@ -24,9 +25,10 @@ update:
 check:
   cargo check
 
-# Run `cargo test` for the workspace.
+# Run `cargo test` for the workspace, then crudkit-leptos' markup tests, which render HTML with its `ssr` feature.
 test:
   cargo test
+  cargo test -p crudkit-leptos --features ssr --lib atoms::tests
 
 # Run `cargo upgrades`, checking if new crate versions including potentially breaking changes are available.
 upgrades: # "-" prefix allows for non-zero status codes!

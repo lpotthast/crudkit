@@ -1,6 +1,5 @@
 error: Option<T> types are not supported for ID fields
-
-         = help: ID fields must have concrete, non-optional values.
+       help: ID fields must have concrete, non-optional values.
        Supported ID field types:
          - Integers: i8, i16, i32, i64, i128, u8, u16, u32, u64, u128
          - Strings: String
@@ -12,8 +11,7 @@ error: Option<T> types are not supported for ID fields
          - Floating point types (f32, f64) are not supported (not Eq comparable)
          - Optional types (Option<T>) are not supported for ID fields
          - Use exact type paths as shown above
-
  --> tests/11-error-optional.rs:8:9
   |
 8 |     id: Option<i64>,
-  |         ^^^^^^
+  |         ^^^^^^^^^^^

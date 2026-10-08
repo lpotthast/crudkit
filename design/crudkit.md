@@ -9,8 +9,8 @@ application's workflow, authorization rules, route structure outside the generat
 
 ## Document Map
 
-- [Architecture](architecture.md) defines crate families, dependency direction, compile-time and runtime boundaries, and
-  ownership of application policy.
+- [Architecture](architecture.md) defines crate families, dependency direction, compile-time and runtime boundaries,
+  ownership of application policy, and the long-term decisions that shape CrudKit.
 - [Data Contracts](data-contracts.md) defines model roles, fields, values, identifiers, conditions, layout descriptions,
   and frontend type erasure.
 - [Derive Macros](derive-macros.md) defines generation ownership, shared code-generation rules, and the boundary between
@@ -27,12 +27,9 @@ application's workflow, authorization rules, route structure outside the generat
   nested resources, field rendering, context isolation, and reset behavior.
 - [Views, Navigation Scopes, and Dirty Guards](views-and-navigation.md) defines open view descriptions, renderer
   registration, accepted-view ownership, navigation attempts, return actions, dirty guards, and leave confirmation.
-- [Leptos Hooks, Atoms, and Components](leptos-hooks-atoms-components.md) defines the layering of `crudkit-leptos`,
-  its state hooks, and how built-in views and applications share them.
-- [Actions](actions.md) defines resource and entity actions, payload UI, execution state, completion, and
-  application-placed create-action outlets.
-- [Theming and Generated Assets](theming-and-generated-assets.md) defines the SCSS source, build-time generation,
-  disposable output boundary, and application-owned overrides.
+- [Leptos Hooks and Atoms](leptos-hooks-and-atoms.md) defines the layering of `crudkit-leptos`, its hooks, and the
+  atoms applications build their screens from.
+- [Actions](actions.md) defines resource and entity actions, payload UI, execution state, and completion.
 
 Each decision has one owning document. Other documents link to it instead of restating it.
 
@@ -40,7 +37,7 @@ Each decision has one owning document. Other documents link to it instead of res
 
 - Shared contracts are serializable where they cross a process or crate boundary.
 - Backend operations depend on storage abstractions; storage adapters translate them to a concrete ORM.
-- Built-in frontend behavior is a default that applications can compose or replace through explicit extension points.
+- The frontend ships behavior, not screens: applications compose atoms and hooks into their own markup and styles.
 - Runtime type erasure is introduced only where a non-generic host must render differently typed resources.
 - Recoverable runtime configuration failures should be visible in the UI and diagnostics. Violations of internal
   typed-configuration invariants may still fail fast.

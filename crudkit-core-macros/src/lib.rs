@@ -3,13 +3,12 @@
 // darling's derives generate redundant `continue` expressions in this crate's config types.
 #![allow(clippy::needless_continue)]
 
-use darling::{Error, FromDeriveInput, FromField, ast};
+use darling::{FromDeriveInput, FromField, ast};
 use proc_macro::TokenStream;
-use proc_macro_error2::{abort, proc_macro_error};
 use proc_macro_type_name::ToTypeName;
 use proc_macro2::Span;
-use quote::quote;
-use syn::{DeriveInput, Ident, parse_macro_input, spanned::Spanned};
+use quote::{ToTokens, quote};
+use syn::{DeriveInput, Ident, parse_macro_input};
 
 const SUPPORTED_TYPES_HELP: &str = indoc::indoc! {
     r"
@@ -23,8 +22,7 @@ const SUPPORTED_TYPES_HELP: &str = indoc::indoc! {
     Note:
       - Floating point types (f32, f64) are not supported (not Eq comparable)
       - Optional types (Option<T>) are not supported for ID fields
-      - Use exact type paths as shown above
-    "
+      - Use exact type paths as shown above"
 };
 
 /// Represents a supported ID field type.
@@ -128,21 +126,26 @@ struct IdFieldMetadata {
 
     /// The original field type (e.g., `i32`).
     ty: syn::Type,
+
+    /// The classification of `ty` as a supported ID field type.
+    kind: IdValueKind,
 }
 
 impl IdFieldMetadata {
-    fn from(field: &CkIdFieldConfig) -> Self {
+    fn new(field: &CkIdFieldConfig) -> syn::Result<Self> {
         let ident = field.get_ident().clone();
         let name = ident.to_string();
         let type_name = (&ident).to_type_ident(ident.span());
         let ty = field.get_type();
+        let kind = classify_id_type(ty)?;
 
-        IdFieldMetadata {
+        Ok(IdFieldMetadata {
             ident,
             name,
             type_name,
             ty: ty.clone(),
-        }
+            kind,
+        })
     }
 }
 
@@ -209,14 +212,15 @@ impl IdFieldMetadata {
 /// - Optional types (`Option<T>`) are not supported for ID fields.
 /// - Use exact type paths as shown above.
 #[proc_macro_derive(CkId, attributes(ck_id))]
-#[proc_macro_error]
 pub fn derive_ck_id(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
+    expand_ck_id(&ast)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
 
-    let input: CkIdInputConfig = match FromDeriveInput::from_derive_input(&ast) {
-        Ok(args) => args,
-        Err(err) => return Error::write_errors(err).into(),
-    };
+fn expand_ck_id(ast: &DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+    let input: CkIdInputConfig = FromDeriveInput::from_derive_input(ast)?;
 
     let id_fields = input
         .fields()
@@ -225,11 +229,13 @@ pub fn derive_ck_id(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     if id_fields.is_empty() {
-        abort!(
+        return Err(syn::Error::new(
             Span::call_site(),
-            "To derive CkId, at least one id field must exist.";
-            help = "A field is an id field if it is (a) named \"id\" or (b) annotated with `#[ck_id(id)]`, both marking the field as part of the entities id. Specify id fields or remove the derive, if no id fields can be defined for this entity.";
-        );
+            "To derive CkId, at least one id field must exist.\n\
+             help: A field is an id field if it is (a) named \"id\" or (b) annotated with \
+             `#[ck_id(id)]`, both marking the field as part of the entities id. Specify id fields \
+             or remove the derive, if no id fields can be defined for this entity.",
+        ));
     }
 
     let source_struct_name = &input.ident;
@@ -239,19 +245,18 @@ pub fn derive_ck_id(input: TokenStream) -> TokenStream {
 
     let field_metadata = id_fields
         .into_iter()
-        .map(IdFieldMetadata::from)
-        .collect::<Vec<_>>();
+        .map(IdFieldMetadata::new)
+        .collect::<syn::Result<Vec<_>>>()?;
 
     let id_struct = generate_id_struct(&id_struct_ident, &id_field_enum_ident, &field_metadata);
     let id_field_enum = generate_id_field_enum(&id_field_enum_ident, &field_metadata);
     let has_id_impl = generate_has_id_impl(source_struct_name, &id_struct_ident, &field_metadata);
 
-    quote! {
+    Ok(quote! {
         #id_struct
         #id_field_enum
         #has_id_impl
-    }
-    .into()
+    })
 }
 
 /// Generates the `*Id` struct with its `Display` and `crudkit_id::Id` implementations.
@@ -284,14 +289,13 @@ fn generate_id_struct(
         })
         .collect::<Vec<_>>();
 
-    let struct_display_format_str = format!(
-        "({})",
-        field_metadata
-            .iter()
-            .map(|it| format!("{}: {{}}", it.name))
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
+    // Shows the fields with their values (e.g. `user_id=1, org_id=2`), matching the `Display`
+    // output of `SerializableId`.
+    let struct_display_format_str = field_metadata
+        .iter()
+        .map(|it| format!("{}={{}}", it.name))
+        .collect::<Vec<_>>()
+        .join(", ");
     let struct_display_format_args = field_metadata
         .iter()
         .map(|it| {
@@ -311,7 +315,7 @@ fn generate_id_struct(
         .map(|it| {
             let ident = &it.ident;
             let name = &it.name;
-            let id_value_match = to_id_value_match_extraction(&it.ty);
+            let id_value_match = to_id_value_match_extraction(&it.kind);
             quote! {
                 let #ident = {
                     let crudkit_core::id::SerializableIdEntry { field_name: _, value } = id.entries().find(|entry| entry.field_name == #name)?;
@@ -442,17 +446,20 @@ fn generate_id_field_enum(
         .iter()
         .map(|it| {
             let type_name = &it.type_name;
-            let id_value_variant = to_id_value_variant(&it.ty);
+            let id_value_variant = to_id_value_variant(&it.kind);
             quote! { Self::#type_name(value) => #id_value_variant(value.clone()) }
         })
         .collect::<Vec<_>>();
 
-    // Match arms converting to `Display` write impl (e.g., `Self::UserId(value) => write!(f, "{}", value)`).
+    // Match arms converting to `Display` write impl, showing the field with its value
+    // (e.g., `Self::UserId(value) => write!(f, "user_id={}", value)`), matching the `Display`
+    // output of `SerializableIdEntry`.
     let self_variant_to_write_arms = field_metadata
         .iter()
         .map(|it| {
             let type_name = &it.type_name;
-            quote! { Self::#type_name(value) => f.write_fmt(format_args!("{}", value)) }
+            let format_str = format!("{}={{}}", it.name);
+            quote! { Self::#type_name(value) => f.write_fmt(format_args!(#format_str, value)) }
         })
         .collect::<Vec<_>>();
 
@@ -486,11 +493,11 @@ fn generate_id_field_enum(
     }
 }
 
-/// Returns the `IdValue` variant that must be used for the field of type `ty`.
+/// Returns the `IdValue` variant that must be used for a field of the given `kind`.
 ///
-/// For example: `crudkit_core::id::IdValue::I32` when `ty` is `i32`.
-fn to_id_value_variant(ty: &syn::Type) -> proc_macro2::TokenStream {
-    match classify_id_type(ty) {
+/// For example: `crudkit_core::id::IdValue::I32` when `kind` is `IdValueKind::I32`.
+fn to_id_value_variant(kind: &IdValueKind) -> proc_macro2::TokenStream {
+    match kind {
         IdValueKind::I8 => quote! { crudkit_core::id::IdValue::I8 },
         IdValueKind::I16 => quote! { crudkit_core::id::IdValue::I16 },
         IdValueKind::I32 => quote! { crudkit_core::id::IdValue::I32 },
@@ -509,12 +516,12 @@ fn to_id_value_variant(ty: &syn::Type) -> proc_macro2::TokenStream {
     }
 }
 
-/// Returns code to extract a value from `IdValue` for the field of type `ty`.
+/// Returns code to extract a value from `IdValue` for a field of the given `kind`.
 ///
 /// The generated code is a match expression that extracts the value from `value`.
 /// For example: `if let crudkit_core::id::IdValue::I64(x) = value { x.clone() } else { return None }`
-fn to_id_value_match_extraction(ty: &syn::Type) -> proc_macro2::TokenStream {
-    match classify_id_type(ty) {
+fn to_id_value_match_extraction(kind: &IdValueKind) -> proc_macro2::TokenStream {
+    match kind {
         IdValueKind::I8 => {
             quote! { if let crudkit_core::id::IdValue::I8(x) = value { x.clone() } else { return None } }
         }
@@ -590,63 +597,65 @@ fn path_to_string(path: &syn::Path) -> String {
 
 /// Classifies a type as one of the supported ID field types.
 ///
-/// Aborts with a helpful error if the type is not supported.
-fn classify_id_type(ty: &syn::Type) -> IdValueKind {
-    let span = ty.span();
+/// Returns an error with a helpful message if the type is not supported.
+fn classify_id_type(ty: &syn::Type) -> syn::Result<IdValueKind> {
+    let unsupported = |message: String| {
+        syn::Error::new_spanned(ty, format!("{message}\nhelp: {SUPPORTED_TYPES_HELP}"))
+    };
 
-    match ty {
-        syn::Type::Path(type_path) => {
-            let path = &type_path.path;
+    let syn::Type::Path(type_path) = ty else {
+        return Err(unsupported(format!(
+            "Expected a type path for ID field, found `{}`",
+            ty.to_token_stream()
+        )));
+    };
+    let path = &type_path.path;
 
-            // Reject Option<T> types early using the shared utility.
-            if is_option_path(path) {
-                abort!(
-                    span,
-                    "Option<T> types are not supported for ID fields";
-                    help = "ID fields must have concrete, non-optional values.\n{}", SUPPORTED_TYPES_HELP;
-                );
+    // Reject Option<T> types early.
+    if is_option_path(path) {
+        return Err(syn::Error::new_spanned(
+            ty,
+            format!(
+                "Option<T> types are not supported for ID fields\n\
+                 help: ID fields must have concrete, non-optional values.\n{SUPPORTED_TYPES_HELP}"
+            ),
+        ));
+    }
+
+    // Match primitives (single-segment paths).
+    if path.segments.len() == 1
+        && let Some(ident) = get_final_segment_ident(path)
+    {
+        match ident.to_string().as_str() {
+            "i8" => return Ok(IdValueKind::I8),
+            "i16" => return Ok(IdValueKind::I16),
+            "i32" => return Ok(IdValueKind::I32),
+            "i64" => return Ok(IdValueKind::I64),
+            "i128" => return Ok(IdValueKind::I128),
+            "u8" => return Ok(IdValueKind::U8),
+            "u16" => return Ok(IdValueKind::U16),
+            "u32" => return Ok(IdValueKind::U32),
+            "u64" => return Ok(IdValueKind::U64),
+            "u128" => return Ok(IdValueKind::U128),
+            "bool" => return Ok(IdValueKind::Bool),
+            "String" => return Ok(IdValueKind::String),
+            float @ ("f32" | "f64") => {
+                return Err(unsupported(format!(
+                    "{float} is not supported for ID fields (not Eq comparable)"
+                )));
             }
-
-            // Match primitives (single-segment paths).
-            if path.segments.len() == 1
-                && let Some(ident) = get_final_segment_ident(path)
-            {
-                match ident.to_string().as_str() {
-                    "i8" => return IdValueKind::I8,
-                    "i16" => return IdValueKind::I16,
-                    "i32" => return IdValueKind::I32,
-                    "i64" => return IdValueKind::I64,
-                    "i128" => return IdValueKind::I128,
-                    "u8" => return IdValueKind::U8,
-                    "u16" => return IdValueKind::U16,
-                    "u32" => return IdValueKind::U32,
-                    "u64" => return IdValueKind::U64,
-                    "u128" => return IdValueKind::U128,
-                    "bool" => return IdValueKind::Bool,
-                    "String" => return IdValueKind::String,
-                    "f32" => {
-                        abort!(span, "f32 is not supported for ID fields (not Eq comparable)"; help = SUPPORTED_TYPES_HELP;)
-                    }
-                    "f64" => {
-                        abort!(span, "f64 is not supported for ID fields (not Eq comparable)"; help = SUPPORTED_TYPES_HELP;)
-                    }
-                    _ => {}
-                }
-            }
-
-            // Match qualified types.
-            let path_str = path_to_string(path);
-            match path_str.as_str() {
-                "uuid::Uuid" => return IdValueKind::Uuid,
-                "time::PrimitiveDateTime" => return IdValueKind::PrimitiveDateTime,
-                "time::OffsetDateTime" => return IdValueKind::OffsetDateTime,
-                _ => {}
-            }
-
-            abort!(span, "Unsupported type '{}' for ID field", path_str; help = SUPPORTED_TYPES_HELP;);
+            _ => {}
         }
-        _ => {
-            abort!(span, "Expected a type path for ID field, found {:?}", ty; help = SUPPORTED_TYPES_HELP;);
-        }
+    }
+
+    // Match qualified types.
+    let path_str = path_to_string(path);
+    match path_str.as_str() {
+        "uuid::Uuid" => Ok(IdValueKind::Uuid),
+        "time::PrimitiveDateTime" => Ok(IdValueKind::PrimitiveDateTime),
+        "time::OffsetDateTime" => Ok(IdValueKind::OffsetDateTime),
+        _ => Err(unsupported(format!(
+            "Unsupported type '{path_str}' for ID field"
+        ))),
     }
 }

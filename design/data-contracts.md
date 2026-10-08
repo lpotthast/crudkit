@@ -127,9 +127,9 @@ through this converter yet.
 `FieldOptions`, a separator, or an enclosing group. Enclosures support plain groups, tabs, and cards. Create and update
 layouts use their own erased field types, preventing a field from the wrong model role from being inserted accidentally.
 
-`Layout` records a one- through four-column choice. `CrudFormLayout` exposes it as `data-columns` on each group, and
-the optional theme lays groups out accordingly; custom styles decide for themselves whether to honor it. Tabs, cards,
-separators, and child order are implemented.
+`Layout` records a one- through four-column choice. `CrudFormLayout` exposes it as `data-columns` on each
+`CrudFormGroup`; application styles decide whether and how to honor it. Tabs, cards, separators, and child order are
+implemented.
 
 ## Frontend Type Erasure
 

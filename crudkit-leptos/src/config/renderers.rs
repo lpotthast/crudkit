@@ -10,8 +10,8 @@ use std::sync::Arc;
 /// Renders one field of type `F`.
 ///
 /// The renderer receives the field's [`CrudFieldState`]. The same state is also provided as
-/// context, so components rendered by the renderer can use [`crate::hooks::field::use_crud_field`]
-/// and the input hooks in [`crate::hooks::inputs`].
+/// context, so the atoms and hooks rendered by the renderer bind to the field, e.g.
+/// [`CrudTextField`](crate::atoms::CrudTextField) or [`crate::hooks::field::use_crud_field`].
 pub struct FieldRenderer<F: TypeErasedField> {
     render: Arc<dyn Fn(CrudFieldState<F>) -> AnyView + Send + Sync>,
 }
@@ -40,86 +40,52 @@ impl<F: TypeErasedField> FieldRenderer<F> {
 
     /// Renders the field described by `state`.
     ///
-    /// The renderer runs in its own reactive owner with `state` provided as context, so the input
-    /// hooks work inside it and contexts it provides do not reach sibling fields.
+    /// The renderer runs once, in its own reactive owner with `state` provided as context, so the
+    /// input hooks work inside it and contexts it provides do not reach sibling fields. Signals it
+    /// reads while running are not tracked: a renderer showing changing values reads them in the
+    /// view it returns.
     #[must_use]
     pub fn render(&self, state: CrudFieldState<F>) -> AnyView {
         let render = self.render.clone();
         (move || {
-            provide_context(state.clone());
-            render(state.clone())
+            untrack(|| {
+                crate::hooks::field::provide_field(&state);
+                render(state.clone())
+            })
         })
         .into_any()
     }
 }
 
-/// Per-field renderer overrides of an instance.
+/// Per-field renderer overrides of an instance. Empty by default.
 ///
-/// A field is rendered with the renderer registered for it here, or otherwise with CrudKit's
-/// default renderer for its value kind, see [`Self::resolve`]. Fields of custom types have no
-/// default renderer and render a visible configuration error until one is registered. Without the
-/// `components` feature, no field has a default renderer.
+/// A field is rendered with the renderer registered for it here, or otherwise with the markup the
+/// application chose for its input kind (see [`CrudFieldControl`](crate::atoms::CrudFieldControl)).
+///
+/// ```no_run
+/// # crudkit_leptos::__doc_example!();
+/// # fn renderers() -> FieldRendererRegistry<DynReadField> {
+/// FieldRendererRegistry::default().register(
+///     ReadClub::Name,
+///     FieldRenderer::new(|_| view! { <strong><CrudFieldValue/></strong> }),
+/// )
+/// # }
+/// # fn main() {}
+/// ```
 #[derive(Debug, Clone)]
 pub struct FieldRendererRegistry<F: TypeErasedField> {
     pub(crate) reg: HashMap<F, FieldRenderer<F>>,
 }
-impl<F: TypeErasedField> FieldRendererRegistry<F> {
-    /// Starts an empty registry. Building it without registrations yields a registry that
-    /// resolves every field to its default renderer.
-    #[must_use]
-    pub fn builder() -> FieldRendererRegistryBuilder<F> {
-        FieldRendererRegistryBuilder::new()
-    }
 
-    /// Returns the renderer registered for `field`, if any.
-    #[must_use]
-    pub fn get(&self, field: &F) -> Option<&FieldRenderer<F>> {
-        self.reg.get(field)
-    }
-
-    /// Returns the renderer registered for `field`, or CrudKit's default renderer for its value
-    /// kind.
-    ///
-    /// Without the `components` feature, an unregistered field resolves to a renderer showing a
-    /// visible configuration error.
-    #[must_use]
-    pub fn resolve(&self, field: &F) -> FieldRenderer<F> {
-        self.reg
-            .get(field)
-            .cloned()
-            .unwrap_or_else(|| default_renderer(field))
-    }
-}
-
-#[cfg(feature = "components")]
-fn default_renderer<F: TypeErasedField>(field: &F) -> FieldRenderer<F> {
-    FieldRenderer::default_for(field.value_kind())
-}
-
-#[cfg(not(feature = "components"))]
-fn default_renderer<F: TypeErasedField>(_field: &F) -> FieldRenderer<F> {
-    FieldRenderer::new(|state: CrudFieldState<F>| {
-        let name = state.field.name().to_string();
-        tracing::error!(field = %name, "No CrudKit field renderer is registered");
-        view! {
-            <div class="crud-field-error" role="alert">
-                {format!("No field renderer is registered for the field '{name}'.")}
-            </div>
-        }
-    })
-}
-/// Collects per-field renderer overrides for a [`FieldRendererRegistry`].
-#[derive(Debug)]
-pub struct FieldRendererRegistryBuilder<F: TypeErasedField> {
-    reg: HashMap<F, FieldRenderer<F>>,
-}
-impl<F: TypeErasedField> FieldRendererRegistryBuilder<F> {
-    fn new() -> Self {
+impl<F: TypeErasedField> Default for FieldRendererRegistry<F> {
+    fn default() -> Self {
         Self {
             reg: HashMap::new(),
         }
     }
+}
 
+impl<F: TypeErasedField> FieldRendererRegistry<F> {
     /// Registers `renderer` for `field`, replacing an earlier registration of the same field.
     #[must_use]
     pub fn register(mut self, field: impl Into<F>, renderer: FieldRenderer<F>) -> Self {
@@ -127,9 +93,9 @@ impl<F: TypeErasedField> FieldRendererRegistryBuilder<F> {
         self
     }
 
-    /// Finishes the registry.
+    /// Returns the renderer registered for `field`, if any.
     #[must_use]
-    pub fn build(self) -> FieldRendererRegistry<F> {
-        FieldRendererRegistry { reg: self.reg }
+    pub fn get(&self, field: &F) -> Option<&FieldRenderer<F>> {
+        self.reg.get(field)
     }
 }

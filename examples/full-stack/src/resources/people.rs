@@ -1,13 +1,13 @@
 //! The `people` resource.
 
-use super::{Ui, disabled_field_options, field_options, header, id_header};
+use super::{disabled_field_options, field_options, header, id_header};
 use crate::api::{api_base_url, executor};
 use crate::models::person::{CreatePerson, CrudPersonResource, Person, ReadPerson};
 use crudkit_leptos::prelude::*;
 use indexmap::indexmap;
 
 /// Configuration of a `people` instance. Used standalone and nested below a club.
-pub fn person_config(ui: Ui) -> CrudInstanceConfig {
+pub fn person_config() -> CrudInstanceConfig {
     CrudInstanceConfig {
         list_columns: vec![
             id_header(ReadPerson::Id),
@@ -19,7 +19,7 @@ pub fn person_config(ui: Ui) -> CrudInstanceConfig {
             header(ReadPerson::CreatedAt, "Created at"),
             header(ReadPerson::HasValidationErrors, "Validation"),
         ],
-        create_elements: CreateElements::Custom(vec![Elem::Enclosing(Enclosing::Card(Group {
+        create_elements: vec![Elem::Enclosing(Enclosing::Card(Group {
             layout: Layout::default(),
             children: vec![
                 Elem::create_field(CreatePerson::FirstName, field_options("First name")),
@@ -28,7 +28,7 @@ pub fn person_config(ui: Ui) -> CrudInstanceConfig {
                 Elem::create_field(CreatePerson::YearOfBirth, field_options("Year of birth")),
                 Elem::create_field(CreatePerson::ClubId, field_options("Club")),
             ],
-        }))]),
+        }))],
         // Tabs keep their selection while switching between reading and editing a person.
         elements: vec![
             Elem::Enclosing(Enclosing::Card(Group {
@@ -65,9 +65,10 @@ pub fn person_config(ui: Ui) -> CrudInstanceConfig {
         order_by: indexmap! {
             ReadPerson::Id.into() => Order::Asc,
         },
-        read_field_renderer: FieldRendererRegistry::builder()
-            .register(ReadPerson::HasValidationErrors, ui.validation_status_renderer())
-            .build(),
+        read_field_renderer: FieldRendererRegistry::default().register(
+            ReadPerson::HasValidationErrors,
+            crate::ui::validation_status_renderer(),
+        ),
         ..CrudInstanceConfig::new::<CrudPersonResource>(api_base_url(), executor())
     }
 }

@@ -408,6 +408,45 @@ impl_dyn_field!(DynCreateField, ErasedCreateField, DynCreateModel);
 impl_dyn_field!(DynReadField, ErasedReadField, DynReadModel);
 impl_dyn_field!(DynUpdateField, ErasedUpdateField, DynUpdateModel);
 
+/// A field of a create, read, or update model, convertible into the type-erased field of its
+/// model's kind.
+///
+/// The `CkField` derive implements it for every field enum: a field of a create model converts
+/// into a [`DynCreateField`], one of a read model into a [`DynReadField`], and one of an update
+/// model into a [`DynUpdateField`]. This lets generic code, e.g. a form field component taking
+/// `Club::Name`, find the state of the matching form by type.
+pub trait IntoDynField: Clone + Send + Sync + 'static {
+    /// The type-erased field type of this field's model kind.
+    type Dyn: TypeErasedField;
+
+    /// Converts this field into its type-erased form.
+    fn into_dyn(self) -> Self::Dyn;
+}
+
+impl IntoDynField for DynCreateField {
+    type Dyn = Self;
+
+    fn into_dyn(self) -> Self {
+        self
+    }
+}
+
+impl IntoDynField for DynReadField {
+    type Dyn = Self;
+
+    fn into_dyn(self) -> Self {
+        self
+    }
+}
+
+impl IntoDynField for DynUpdateField {
+    type Dyn = Self;
+
+    fn into_dyn(self) -> Self {
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

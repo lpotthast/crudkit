@@ -54,7 +54,7 @@ console_error_panic_hook = "0.1.7"
 # Lucide icons, rendered through `leptos_icons`.
 icondata = { version = "0.7.0", default-features = false, features = ["lucide"] }
 indexmap = "2.14.2"
-# Leptonic's field atoms, used by a custom field renderer.
+# Leptonic's atoms (fields, select, modal, dialog, toasts), composed with CrudKit's atoms.
 leptonic = { path = "../../../leptonic/leptonic", default-features = false, features = ["atoms"] }
 leptos = "0.8.22"
 leptos_icons = "0.7.1"
@@ -99,10 +99,6 @@ utoipa = { version = "6.0.0", features = ["time", "uuid"], optional = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
 getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
-
-[package.metadata.crudkit]
-# CrudKit's build script generates its theme into `{style-dir}/crudkit`.
-style-dir = "style"
 
 [package.metadata.leptos]
 output-name = "full-stack"

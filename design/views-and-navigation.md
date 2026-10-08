@@ -30,7 +30,7 @@ Applications may define any stable name and payload. Typed payload helpers seria
 application data without requiring CrudKit to know the concrete type. An entity-oriented custom view sets
 `subject` so nested instances can resolve a parent entity without recognizing its view name.
 
-CrudKit's built-in descriptions are:
+CrudKit's standard descriptions are:
 
 | Constructor | Stable name | Subject |
 | --- | --- | --- |
@@ -39,32 +39,30 @@ CrudKit's built-in descriptions are:
 | `CrudView::read(id)` | `crudkit.read` | `id` |
 | `CrudView::edit(id)` | `crudkit.edit` | `id` |
 
-The default renderers reject payloads; read and edit require a subject; table and create reject one.
-Replacing a built-in name with a custom renderer also transfers payload and subject
-validation responsibility to that renderer.
+Renderers registered for them with the registry's typed methods reject payloads; read and edit require a subject;
+table and create reject one. Registering a standard name with `register` or `replace` instead transfers payload and
+subject validation responsibility to that renderer.
 
 ## Renderer Registry and Hosting
 
-A default `CrudViewRegistry` registers the four built-in component renderers in the same map and dispatch
-path used for application renderers. Each entry is only a renderer. Built-in renderers validate their own
-descriptions and read the mounted `CrudInstanceContext` when invoked. There is no separate built-in host,
-mount-time binding step, validator registry, renderer enum, or kind dispatch.
+A `CrudViewRegistry` is empty by default; CrudKit ships no views. Applications register the views they render in
+one map and dispatch path. Each entry is only a renderer. There is no separate host, mount-time binding step,
+validator registry, renderer enum, or kind dispatch.
 
-- `register(name, renderer)` adds a custom view and rejects an occupied name.
-- `replace(name, renderer)` deliberately replaces an application renderer or built-in.
-- `render(view, navigation)` invokes the resolved renderer with exactly the supplied navigation.
+- `table`, `create`, `read`, and `edit` register a standard view; `read` and `edit` renderers receive the subject id.
+- `register(name, renderer)` adds an application-defined view, which receives the opened `CrudView`, and rejects an
+  occupied name.
+- `replace(name, renderer)` deliberately replaces any renderer.
 
-Unknown names and malformed built-in descriptions produce a visible `role="alert"` region and a tracing
-error. They do not silently select another view. Built-in renderers require the context supplied by
-`CrudInstance`; invoking one outside an instance violates the rendering contract.
+Unknown names and standard descriptions with the wrong subject or a payload produce a visible `role="alert"` region
+and a tracing error. They do not silently select another view.
 
-`CrudInstance` calls the registry in a child owner with private navigation for the accepted view.
-That owner provides a `CrudInstanceContext` containing the same navigation, so built-in and custom
-renderers observe identical navigation through both the renderer argument and context. The view's navigation
-scope also becomes the enclosing navigation scope of everything the view renders (see
-[Navigation Scope Hierarchy and Dirty Guards](#navigation-scope-hierarchy-and-dirty-guards)). A custom renderer
-that directly calls `registry.render` controls the navigation it passes; direct composition does not create
-another child navigation scope or provide an instance context.
+`CrudViewOutlet` renders the accepted view in a child owner with private navigation for it. That owner provides a
+`CrudInstanceContext` containing the same navigation, so renderers, hooks, and atoms observe it through
+`use_crud_navigation`; renderers take no navigation argument. The view's navigation scope also becomes the enclosing
+navigation scope of everything the view renders (see
+[Navigation Scope Hierarchy and Dirty Guards](#navigation-scope-hierarchy-and-dirty-guards)). An outlet given another
+navigation, such as a child navigation, renders that navigation's views the same way.
 
 The registry is configuration-time state for a mounted instance. It is cloned once and is not reactive.
 
@@ -193,23 +191,20 @@ owns the mounted-instance lifetime contract.
 
 ## Built-In Behavior
 
-Table-row activation navigates to edit. Explicit row action buttons can navigate to read or edit, and the
-list create action navigates to create.
+Table-row activation follows the table's `CrudRowAction` (read, edit, nothing, or a callback). `CrudReadButton` and
+`CrudEditButton` navigate to read or edit, and `CrudCreateButton` navigates to create.
 
-Read and edit return buttons call `return_from_current()` and use return-oriented behavior rather than
-assuming the destination is a list. Create and edit register their drafts through `guard`; they do not own
-separate signals for pending navigation attempts or leave confirmations. Instance reset also creates a navigation
-attempt.
+`CrudReturnButton` calls `return_from_current()` and uses return-oriented behavior rather than assuming the destination
+is a list. Create and edit forms register their drafts through `guard`; they do not own separate signals for pending
+navigation attempts or leave confirmations. Instance reset also creates a navigation attempt.
 
-`CrudBuiltinViewControls` governs controls in create, read, and edit. It does not govern the table's create
-or row-action controls.
+A form's `CrudSaveFollowUp` can, after a successful save:
 
-Create follow-up configuration can:
-
-- open the built-in edit view for the created entity;
-- resolve the new ID to an arbitrary view;
-- perform the configured return;
-- keep the current create view mounted.
+- open the edit view of the saved entity (`Edit`, the create form's default);
+- resolve the saved entity's ID to an arbitrary view (`View`);
+- perform the configured return (`Return`);
+- open a fresh create view (`CreateAnother`);
+- stay (`Stay`, the edit form's default).
 
 ## Committed Persistence Follow-Ups
 
@@ -224,5 +219,5 @@ the just-completed save would immediately prompt again.
   reload;
 - mass deletion stays in the accepted view and reloads data.
 
-`CrudCreateSaveTarget::Stay` is different: it performs no navigation and does not reset the mounted create
-input or dirty comparison. A later navigation may therefore still see that draft as dirty.
+`CrudSaveFollowUp::Stay` performs no navigation. A create form then starts a fresh draft from the default model, so it
+is clean again; an edit form takes the saved entity as its new baseline.

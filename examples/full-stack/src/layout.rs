@@ -1,38 +1,21 @@
-use crudkit_leptos::prelude::{
-    CrudInstanceMgr, CrudNotificationQueue, CrudNotificationRegion, provide_crud_notifier,
-};
+use crate::ui;
+use crudkit_leptos::prelude::*;
 use leptos::prelude::*;
-use leptos_router::components::{A, Outlet};
+use leptos_router::components::Outlet;
 
-/// Navigation bar plus the routed page.
+/// The application frame around the routed page.
 ///
 /// All pages render below one `CrudInstanceMgr`, which registers mounted instances (required for parent/child
 /// instances) and owns the navigation scope used for dirty-form guards.
-///
-/// CrudKit's notifications of every page go to one queue, rendered once for the whole page. Marauder pages route
-/// theirs into their own toasts instead.
 #[component]
 pub fn MainLayout() -> impl IntoView {
-    let notifications = CrudNotificationQueue::default();
-    provide_crud_notifier(notifications.notifier());
+    provide_crud_texts(CrudUiTexts::english());
 
     view! {
-        <header class="app-header">
-            <span class="app-title">"CrudKit example"</span>
-            <nav class="app-nav">
-                <span class="app-nav-group">"Built-in UI"</span>
-                <A href="/builtin/clubs">"Clubs"</A>
-                <A href="/builtin/people">"People"</A>
-                <span class="app-nav-group">"Custom UI"</span>
-                <A href="/custom/clubs">"Clubs"</A>
-                <A href="/custom/people">"People"</A>
-            </nav>
-        </header>
-        <main class="app-content">
+        <ui::Shell>
             <CrudInstanceMgr>
-                <Outlet/>
+                <Outlet />
             </CrudInstanceMgr>
-        </main>
-        <CrudNotificationRegion queue=notifications />
+        </ui::Shell>
     }
 }

@@ -3,6 +3,7 @@
 use crate::config::CrudUiTexts;
 use crate::hooks::instance::use_crud_instance;
 use crate::hooks::notify::{CrudNotification, CrudNotifier};
+use crate::hooks::texts::with_texts;
 use crate::instance::{CommittedReturnDestination, CrudNavigation};
 use crudkit_core::condition::{Condition, condition_matching_any_id, merge_conditions};
 use crudkit_core::id::SerializableId;
@@ -44,11 +45,10 @@ impl CrudDeleteState {
         data_provider: Signal<DynCrudRestDataProvider>,
         reload: Callback<()>,
         notifier: CrudNotifier,
-        texts: Arc<CrudUiTexts>,
+        texts: Signal<CrudUiTexts>,
         navigation: CrudNavigation,
         scope: Signal<Option<Condition>>,
     ) -> Self {
-        let texts = StoredValue::new(texts);
         let pending = RwSignal::new(None::<(DynReadOrUpdateModel, CrudNavigation)>);
         let pending_many = RwSignal::new(None::<Arc<Vec<DynReadModel>>>);
 
@@ -67,7 +67,9 @@ impl CrudDeleteState {
                         })
                         .await;
                     pending.set(None);
-                    notifier.notify(texts.with_value(|texts| delete_notification(texts, &result)));
+                    notifier.notify(with_texts(texts, |texts| {
+                        delete_notification(texts, &result)
+                    }));
                     // The requesting view may have been unmounted while the request was in flight.
                     if result.is_err() || navigation.is_disposed() {
                         return;
@@ -106,8 +108,11 @@ impl CrudDeleteState {
                         }
                     };
                 pending_many.set(None);
-                notifier.notify(texts.with_value(|texts| delete_many_notification(texts, &result)));
-                reload.run(());
+                notifier.notify(with_texts(texts, |texts| {
+                    delete_many_notification(texts, &result)
+                }));
+                // The instance may have been unmounted while the request was in flight.
+                reload.try_run(());
             }
         });
 

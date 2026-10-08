@@ -9,16 +9,16 @@ each side separately, so both sides must evolve together.
 
 `impl_add_crud_routes!(Resource, name)` creates one module and eight routes below a caller-supplied root:
 
-| Path suffix | Request | Success body |
-| --- | --- | --- |
-| `/{resource}/crud/v1/read-count` | `ReadCountV1` | `ReadCountResponseV1` |
-| `/{resource}/crud/v1/read-one` | `ReadOneV1` | `ReadOneResponseV1<ReadModel>` |
-| `/{resource}/crud/v1/read-many` | `ReadManyV1` | `ReadManyResponseV1<ReadModel>` |
-| `/{resource}/crud/v1/create-one` | `CreateOneV1<CreateModel>` | `SavedV1<Model>` |
-| `/{resource}/crud/v1/update-one` | `UpdateOneV1<UpdateModel>` | `SavedV1<Model>` |
-| `/{resource}/crud/v1/delete-by-id` | `DeleteByIdV1` | `DeletedV1` |
-| `/{resource}/crud/v1/delete-one` | `DeleteOneV1` | `DeletedV1` |
-| `/{resource}/crud/v1/delete-many` | `DeleteManyV1` | `DeletedManyV1` |
+| Path suffix                        | Request                    | Success body                    |
+|------------------------------------|----------------------------|---------------------------------|
+| `/{resource}/crud/v1/read-count`   | `ReadCountV1`              | `ReadCountResponseV1`           |
+| `/{resource}/crud/v1/read-one`     | `ReadOneV1`                | `ReadOneResponseV1<ReadModel>`  |
+| `/{resource}/crud/v1/read-many`    | `ReadManyV1`               | `ReadManyResponseV1<ReadModel>` |
+| `/{resource}/crud/v1/create-one`   | `CreateOneV1<CreateModel>` | `SavedV1<Model>`                |
+| `/{resource}/crud/v1/update-one`   | `UpdateOneV1<UpdateModel>` | `SavedV1<Model>`                |
+| `/{resource}/crud/v1/delete-by-id` | `DeleteByIdV1`             | `DeletedV1`                     |
+| `/{resource}/crud/v1/delete-one`   | `DeleteOneV1`              | `DeletedV1`                     |
+| `/{resource}/crud/v1/delete-many`  | `DeleteManyV1`             | `DeletedManyV1`                 |
 
 Every failure, on every route, answers with an `ErrorResponseV1`; see [Error Translation](#error-translation).
 
@@ -125,15 +125,15 @@ Server-side hooks or repository constraints must enforce security-sensitive scop
 Every failed request answers with an `ErrorResponseV1` body. Its `error` is tagged by `kind`, and the generated
 routes pair each kind with an HTTP status:
 
-| Kind | Status | Meaning |
-| --- | --- | --- |
-| `bad_request` | 400 | malformed body, unknown field, or unsupported condition |
-| `unauthorized` | 401 | required authentication missing |
-| `forbidden` | 403 | lifecycle authorization rejection |
-| `not_found` | 404 | selected entity not found |
-| `unprocessable_entity` | 422 | lifecycle business rejection |
-| `critical_validation_errors` | 422 | critical validation; the body carries the violations |
-| `internal_server_error` | 500 | repository, lifecycle-internal, or validation-storage failure |
+| Kind                         | Status | Meaning                                                       |
+|------------------------------|--------|---------------------------------------------------------------|
+| `bad_request`                | 400    | malformed body, unknown field, or unsupported condition       |
+| `unauthorized`               | 401    | required authentication missing                               |
+| `forbidden`                  | 403    | lifecycle authorization rejection                             |
+| `not_found`                  | 404    | selected entity not found                                     |
+| `unprocessable_entity`       | 422    | lifecycle business rejection                                  |
+| `critical_validation_errors` | 422    | critical validation; the body carries the violations          |
+| `internal_server_error`      | 500    | repository, lifecycle-internal, or validation-storage failure |
 
 A request body that axum cannot deserialize, including one of another wire format version, becomes `bad_request`
 instead of axum's plain-text rejection. Internal failures are logged with their detailed `CrudError`; generated 500

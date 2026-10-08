@@ -4,11 +4,11 @@
 
 pub mod api;
 pub mod app;
-pub mod marauder;
 pub mod layout;
 pub mod models;
 pub mod pages;
 pub mod resources;
+pub mod ui;
 
 #[cfg(feature = "ssr")]
 pub mod server;

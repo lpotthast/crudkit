@@ -3,10 +3,9 @@ use crudkit_core_macro_util::{
     strip_option_path, to_pascal_case,
 };
 use darling::{FromDeriveInput, FromField, ast};
-use proc_macro_error2::abort;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
-use syn::{DeriveInput, spanned::Spanned};
+use quote::{ToTokens, quote};
+use syn::DeriveInput;
 
 use super::model_type::ModelType;
 
@@ -26,47 +25,44 @@ struct ClassifiedType {
 
 impl ClassifiedType {
     /// Classifies a type from a `syn::Type`.
-    fn from_syn_type(ty: &syn::Type) -> Self {
-        let span = ty.span();
-
+    fn from_syn_type(ty: &syn::Type) -> syn::Result<Self> {
         // Handle unit type `()` specially.
         if let syn::Type::Tuple(syn::TypeTuple { elems, .. }) = ty
             && elems.is_empty()
         {
-            return ClassifiedType {
+            return Ok(ClassifiedType {
                 kind: ValueKind::Void,
                 is_optional: false,
                 is_ordered_float: false,
-            };
+            });
         }
 
         // Extract path from type.
         let path = match ty {
             syn::Type::Path(type_path) => &type_path.path,
             other => {
-                abort!(
-                    span,
-                    "crudkit: derive-field: Unsupported type {:?}. Expected a path type.",
-                    other
-                );
+                return Err(syn::Error::new_spanned(
+                    other,
+                    format!(
+                        "crudkit: derive-field: Unsupported type `{}`. Expected a path type.",
+                        other.to_token_stream()
+                    ),
+                ));
             }
         };
 
         // Check if this is Option<T> and extract the inner type if so.
         let (inner_path_str, is_optional) = match strip_option_path(path) {
-            Some(inner_ty) => {
-                // Convert the inner type to a path string for classification.
-                let inner_str = match inner_ty {
-                    syn::Type::Path(tp) => path_to_string(&tp.path),
-                    other => {
-                        abort!(
-                            span,
-                            "crudkit: derive-field: Option inner type {:?} is not a path type.",
-                            other
-                        );
-                    }
-                };
-                (inner_str, true)
+            // Convert the inner type to a path string for classification.
+            Some(syn::Type::Path(tp)) => (path_to_string(&tp.path), true),
+            Some(other) => {
+                return Err(syn::Error::new_spanned(
+                    other,
+                    format!(
+                        "crudkit: derive-field: Option inner type `{}` is not a path type.",
+                        other.to_token_stream()
+                    ),
+                ));
             }
             None => (path_to_string(path), false),
         };
@@ -74,11 +70,11 @@ impl ClassifiedType {
         let kind = classify_base_type(&inner_path_str);
         let is_ordered_float = is_ordered_float(&inner_path_str);
 
-        ClassifiedType {
+        Ok(ClassifiedType {
             kind,
             is_optional,
             is_ordered_float,
-        }
+        })
     }
 
     /// Returns the appropriate `Value` variant name for this type.
@@ -104,7 +100,7 @@ struct CkFieldConfig {
 
 impl CkFieldConfig {
     /// Returns the classified type for this field.
-    pub fn classified_type(&self) -> ClassifiedType {
+    pub fn classified_type(&self) -> syn::Result<ClassifiedType> {
         ClassifiedType::from_syn_type(&self.ty)
     }
 }
@@ -132,20 +128,23 @@ impl CkFieldInputReceiver {
 }
 
 /// Generates the `get_value` match arms for `CrudFieldValueTrait`.
-fn generate_get_value_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> TokenStream {
+fn generate_get_value_arm(
+    field: &CkFieldConfig,
+    field_enum_ident: &Ident,
+) -> syn::Result<TokenStream> {
     let field_ident = field.ident.as_ref().expect("Expected named field!");
     let field_name = field_ident.to_string();
     let pascal_case = to_pascal_case(&field_name);
     let field_name_as_type_ident = Ident::new(pascal_case.as_str(), Span::call_site());
 
-    let classified = field.classified_type();
+    let classified = field.classified_type()?;
 
     // Generate the full value expression including the Value:: wrapper.
     let value_expr = generate_get_value_expr(field_ident, classified);
 
-    quote! {
+    Ok(quote! {
         #field_enum_ident::#field_name_as_type_ident => #value_expr
-    }
+    })
 }
 
 /// Generates the full expression to get a field's value as a `Value`.
@@ -234,44 +233,55 @@ fn generate_get_value_expr(field_ident: &Ident, classified: ClassifiedType) -> T
 }
 
 /// Generates the `set_value` match arms for `CrudFieldValueTrait`.
-fn generate_set_value_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> TokenStream {
+fn generate_set_value_arm(
+    field: &CkFieldConfig,
+    field_enum_ident: &Ident,
+) -> syn::Result<TokenStream> {
     let field_ident = field.ident.as_ref().expect("Expected named field!");
     let field_name = field_ident.to_string();
     let pascal_case = to_pascal_case(&field_name);
     let field_name_as_type_ident = Ident::new(pascal_case.as_str(), Span::call_site());
 
-    let classified = field.classified_type();
+    let classified = field.classified_type()?;
 
     // Generate the assignment expression for setting the field value.
     let take_op = generate_set_value_expr(field_ident, classified);
 
-    quote! {
+    Ok(quote! {
         #field_enum_ident::#field_name_as_type_ident => #take_op
-    }
+    })
 }
 
 /// Generates the `value_kind` match arm for a field.
-fn generate_value_kind_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> TokenStream {
+fn generate_value_kind_arm(
+    field: &CkFieldConfig,
+    field_enum_ident: &Ident,
+) -> syn::Result<TokenStream> {
     let field_ident = field.ident.as_ref().expect("Expected named field!");
     let field_name = field_ident.to_string();
     let pascal_case = to_pascal_case(&field_name);
     let field_name_as_type_ident = Ident::new(pascal_case.as_str(), Span::call_site());
 
-    let classified = field.classified_type();
+    let classified = field.classified_type()?;
     let kind_variant = classified.kind.value_variant_ident();
 
-    quote! { #field_enum_ident::#field_name_as_type_ident => crudkit_core::ValueKind::#kind_variant }
+    Ok(
+        quote! { #field_enum_ident::#field_name_as_type_ident => crudkit_core::ValueKind::#kind_variant },
+    )
 }
 
 /// Generates the `is_optional` match arm for a field.
-fn generate_is_optional_arm(field: &CkFieldConfig, field_enum_ident: &Ident) -> TokenStream {
+fn generate_is_optional_arm(
+    field: &CkFieldConfig,
+    field_enum_ident: &Ident,
+) -> syn::Result<TokenStream> {
     let field_ident = field.ident.as_ref().expect("Expected named field!");
     let field_name = field_ident.to_string();
     let pascal_case = to_pascal_case(&field_name);
     let field_name_as_type_ident = Ident::new(pascal_case.as_str(), Span::call_site());
 
-    let is_optional = field.classified_type().is_optional;
-    quote! { #field_enum_ident::#field_name_as_type_ident => #is_optional }
+    let is_optional = field.classified_type()?.is_optional;
+    Ok(quote! { #field_enum_ident::#field_name_as_type_ident => #is_optional })
 }
 
 /// Generates the expression to set a field's value from a `Value`.
@@ -390,7 +400,7 @@ pub fn expand_derive_field(input: &DeriveInput) -> syn::Result<TokenStream> {
         .model
         .gen_erased_field_impl(&field_name, name);
 
-    let field_value_trait_impl = generate_field_access_impl(fields, name, &field_name);
+    let field_value_trait_impl = generate_field_access_impl(fields, name, &field_name)?;
 
     Ok(quote! {
         impl #name {
@@ -493,10 +503,11 @@ fn generate_field_access_impl(
     fields: &ast::Fields<CkFieldConfig>,
     name: &Ident,
     field_name: &Ident,
-) -> TokenStream {
+) -> syn::Result<TokenStream> {
     let get_field_value_arms = fields
         .iter()
-        .map(|field| generate_get_value_arm(field, field_name));
+        .map(|field| generate_get_value_arm(field, field_name))
+        .collect::<syn::Result<Vec<_>>>()?;
     let get_value_impl = if fields.is_empty() {
         quote! { panic!("Cannot get value. Zero fields available! Should be unreachable. Source-crate: crudkit-web-macros") }
     } else {
@@ -509,7 +520,8 @@ fn generate_field_access_impl(
 
     let set_field_value_arms = fields
         .iter()
-        .map(|field| generate_set_value_arm(field, field_name));
+        .map(|field| generate_set_value_arm(field, field_name))
+        .collect::<syn::Result<Vec<_>>>()?;
     let set_value_impl = if fields.is_empty() {
         quote! { panic!("Cannot set value. Zero fields available! Should be unreachable. Source-crate: crudkit-web-macros") }
     } else {
@@ -523,7 +535,8 @@ fn generate_field_access_impl(
     // Generate value_kind and is_optional match arms.
     let value_kind_arms = fields
         .iter()
-        .map(|field| generate_value_kind_arm(field, field_name));
+        .map(|field| generate_value_kind_arm(field, field_name))
+        .collect::<syn::Result<Vec<_>>>()?;
     let value_kind_impl = if fields.is_empty() {
         quote! { crudkit_core::ValueKind::Void }
     } else {
@@ -536,7 +549,8 @@ fn generate_field_access_impl(
 
     let is_optional_arms = fields
         .iter()
-        .map(|field| generate_is_optional_arm(field, field_name));
+        .map(|field| generate_is_optional_arm(field, field_name))
+        .collect::<syn::Result<Vec<_>>>()?;
     let is_optional_impl = if fields.is_empty() {
         quote! { false }
     } else {
@@ -547,7 +561,7 @@ fn generate_field_access_impl(
         }
     };
 
-    quote! {
+    Ok(quote! {
         impl crudkit_web::model::FieldAccess<#name> for #field_name {
             fn value(&self, entity: &#name) -> crudkit_core::Value {
                 #get_value_impl
@@ -565,5 +579,5 @@ fn generate_field_access_impl(
                 #is_optional_impl
             }
         }
-    }
+    })
 }

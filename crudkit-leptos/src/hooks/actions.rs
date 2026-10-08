@@ -1,7 +1,7 @@
 //! Resource and entity actions.
 
 use crate::config::{
-    CrudAction, CrudEntityAction, CrudEntityViewKind, EntityActionInput, EntityActionViewInput,
+    CrudAction, CrudActionCompletion, CrudEntityAction, EntityActionInput, EntityActionViewInput,
     ResourceActionInput, ResourceActionViewInput,
 };
 use crate::hooks::instance::use_crud_instance;
@@ -50,7 +50,7 @@ impl std::fmt::Debug for CrudActionHandle {
 ///
 /// Panics when called outside of a CrudKit instance.
 #[must_use]
-pub fn use_crud_actions() -> CrudActionsState {
+pub fn use_crud_actions_state() -> CrudActionsState {
     CrudActionsState {
         instance: use_crud_instance(),
         requested: RwSignal::new(Vec::new()),
@@ -124,25 +124,6 @@ impl CrudActionsState {
         }
     }
 
-    /// Returns the instance's resource actions.
-    #[must_use]
-    pub fn resource_actions(&self) -> Vec<CrudAction> {
-        self.instance.static_config.read_value().actions.clone()
-    }
-
-    /// Returns the instance's entity actions available in `state`.
-    #[must_use]
-    pub fn entity_actions(&self, state: CrudEntityViewKind) -> Vec<CrudEntityAction> {
-        self.instance
-            .static_config
-            .read_value()
-            .entity_actions
-            .iter()
-            .filter(|action| action.valid_in.contains(&state))
-            .cloned()
-            .collect()
-    }
-
     /// Requests `action_id`, showing its view.
     pub fn request(&self, action_id: ActionId) {
         tracing::debug!(action_id, "request_action");
@@ -190,18 +171,15 @@ impl CrudActionsState {
         });
     }
 
-    /// Marks `action_id` as executing and returns the callback reporting its outcome.
-    fn start(
-        &self,
-        action_id: ActionId,
-    ) -> Callback<Result<crate::config::CrudActionAftermath, crate::config::CrudActionAftermath>>
-    {
+    /// Marks `action_id` as executing and returns the completion reporting its outcome. The
+    /// completion only updates signals and notifies, which is safe after this state is disposed.
+    fn start(&self, action_id: ActionId) -> CrudActionCompletion {
         // The user accepted the request. The action is no longer requested.
         self.requested.update(|actions| remove(actions, action_id));
         self.executing.update(|actions| actions.push(action_id));
 
         let this = *self;
-        Callback::new(move |outcome| {
+        CrudActionCompletion::new(move |outcome| {
             tracing::debug!(?outcome, "action finished");
             this.executing.update(|actions| remove(actions, action_id));
             this.instance.handle_action_outcome(outcome);

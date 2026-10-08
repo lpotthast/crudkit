@@ -15,7 +15,6 @@ path = "tests/progress.rs"
 crudkit-core-macro-util = { path = "../crudkit-core-macro-util", default-features = false }
 
 darling = { workspace = true }
-proc-macro-error2 = { workspace = true }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }

@@ -1,6 +1,7 @@
 //! Tab selection of field layouts.
 
 use crate::hooks::instance::use_crud_instance;
+use crate::hooks::table::dom_safe;
 use crudkit_web::layout::TabId;
 use leptonic::hooks::Key;
 use leptos::prelude::*;
@@ -34,12 +35,19 @@ pub fn use_crud_tab_selection(tabs: Vec<TabId>) -> UseCrudTabSelectionReturn {
                     .or_else(|| tabs.first().cloned())
                     .unwrap_or_default()
             });
-            Key::from(selected.into_owned())
+            tab_key(&selected)
         }),
         set_selected_key: Callback::new(move |key: Key| {
-            if let Some(tab) = key.as_str() {
-                tabs.with_value(|tabs| ctx.select_tab(tabs, TabId::Owned(tab.to_owned())));
-            }
+            tabs.with_value(|tabs| {
+                if let Some(tab) = tabs.iter().find(|tab| tab_key(tab) == key) {
+                    ctx.select_tab(tabs, tab.clone());
+                }
+            });
         }),
     }
+}
+
+/// Returns the key of the tab `id` in a tabs collection: `id` encoded for use in element ids.
+pub(crate) fn tab_key(id: &TabId) -> Key {
+    Key::from(dom_safe(id))
 }

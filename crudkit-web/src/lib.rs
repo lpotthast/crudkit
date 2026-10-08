@@ -97,6 +97,7 @@ pub mod prelude {
     pub use super::model::DynUpdateModel;
 
     // Other model types.
+    pub use super::model::IntoDynField;
     pub use super::model::TypeErasedField;
 
     pub use super::layout::Elem;

@@ -10,6 +10,7 @@
 // selection state. CrudKit's atoms still add DOM-safe keys and instance-specific row behavior.
 
 use crate::config::Header;
+use crate::hooks::field::{CrudRowFields, use_crud_row_fields};
 use crate::hooks::list::CrudListState;
 use crudkit_core::Order;
 use crudkit_web::prelude::*;
@@ -17,8 +18,9 @@ use leptonic::hooks::Key;
 use leptonic::hooks::collections::{CollectionOptions, Selection, SelectionOptions};
 use leptonic::hooks::{
     DisabledBehavior, GridFocusMode, KeyboardNavigationBehavior, SelectionMode, SortDescriptor,
-    SortDirection, TableCollection, TableData, TableOptions, UseGridProps, UseTableInput,
-    UseTableReturn, UseTableStateInput, use_table, use_table_state,
+    SortDirection, TableCollection, TableData, TableOptions, UseFocusVisibleInput, UseGridProps,
+    UseTableInput, UseTableReturn, UseTableStateInput, use_focus_visible, use_table,
+    use_table_state,
 };
 use leptonic::utils::{CapturedElement, ValueBinding};
 use leptos::prelude::*;
@@ -28,41 +30,81 @@ use std::sync::Arc;
 /// Key of the column holding row actions.
 pub(crate) const ACTIONS_COLUMN: &str = "crudkit-actions";
 
-/// A column of a CrudKit table.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum CrudTableColumn {
-    /// The column showing `field`, one of the table's [`Header`]s.
-    Field(DynReadField),
-    /// The trailing column holding row actions.
-    Actions,
-}
-
-impl CrudTableColumn {
-    /// Returns the column's key in Leptonic's table collection.
-    #[must_use]
-    pub fn key(&self) -> Key {
-        match self {
-            Self::Field(field) => column_key(field),
-            Self::Actions => Key::from(ACTIONS_COLUMN),
-        }
-    }
-}
-
-impl From<DynReadField> for CrudTableColumn {
-    fn from(field: DynReadField) -> Self {
-        Self::Field(field)
-    }
-}
-
-/// Returns the table rendered by the surrounding [`crate::atoms::table::CrudTable`].
+/// Returns the table rendered by the surrounding [`CrudTable`](crate::atoms::CrudTable).
 ///
 /// # Panics
 ///
 /// Panics when called outside of a `CrudTable`.
 #[must_use]
 pub fn use_crud_table_data() -> CrudTableData {
+    expect_crud_table_data("use_crud_table_data")
+}
+
+/// Returns the table surrounding `atom`.
+///
+/// # Panics
+///
+/// Panics when `atom` is rendered outside of a `CrudTable`.
+pub(crate) fn expect_crud_table_data(atom: &'static str) -> CrudTableData {
     use_context::<CrudTableData>()
-        .expect("`use_crud_table_data` must be called inside a `CrudTable`")
+        .unwrap_or_else(|| panic!("`{atom}` must be rendered inside a `CrudTable`"))
+}
+
+/// The row of the surrounding [`CrudTableRows`](crate::atoms::CrudTableRows) iteration. Provided
+/// as an `Option`, so that an instance can hide it from its descendants.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RowEntity {
+    pub(crate) key: StoredValue<Key>,
+    /// The row's entity, following reloads.
+    pub(crate) entity: Memo<DynReadModel>,
+    /// The entity's fields, shared by the row's cells.
+    pub(crate) fields: CrudRowFields,
+}
+
+impl RowEntity {
+    /// Creates the row of `key` in `table`, which shows `entity` until the table's rows change.
+    pub(crate) fn new(table: &CrudTableData, key: Key, entity: DynReadModel) -> Self {
+        let rows = table.rows;
+        let row_key = key.clone();
+        // A removed row keeps its last entity until it is disposed.
+        let entity = Memo::new(move |previous: Option<&DynReadModel>| {
+            rows.with(|rows| {
+                rows.iter()
+                    .find(|(key, _)| *key == row_key)
+                    .map(|(_, entity)| entity.clone())
+            })
+            .or_else(|| previous.cloned())
+            .unwrap_or_else(|| entity.clone())
+        });
+        Self {
+            key: StoredValue::new(key),
+            entity,
+            fields: use_crud_row_fields(entity),
+        }
+    }
+}
+
+/// Returns the row of the surrounding [`CrudTableRows`](crate::atoms::CrudTableRows) iteration,
+/// for `atom`.
+///
+/// # Panics
+///
+/// Panics outside of a row.
+pub(crate) fn use_row_entity(atom: &'static str) -> RowEntity {
+    use_context::<Option<RowEntity>>()
+        .flatten()
+        .unwrap_or_else(|| panic!("`{atom}` must be rendered inside a row of `CrudTableRows`"))
+}
+
+/// Returns the entity of the surrounding [`CrudTableRow`](crate::atoms::CrudTableRow): the
+/// instance's read model. It changes when a reload brings a changed version of the entity.
+///
+/// # Panics
+///
+/// Panics when called outside of a row of [`CrudTableRows`](crate::atoms::CrudTableRows).
+#[must_use]
+pub fn use_crud_table_row() -> Signal<DynReadModel> {
+    use_row_entity("use_crud_table_row").entity.into()
 }
 
 /// Input of [`use_crud_table`].
@@ -77,7 +119,9 @@ pub struct UseCrudTableInput {
     /// Whether a trailing column holds row actions.
     pub with_actions: Signal<bool>,
     /// Accessible name of the table.
-    pub aria_label: Option<String>,
+    pub aria_label: MaybeProp<String>,
+    /// Ids of elements naming the table, e.g. a heading.
+    pub aria_labelledby: Option<String>,
     /// Called when a row is activated, e.g. by pressing it while nothing is selected.
     pub on_row_action: Option<Callback<DynReadModel>>,
 }
@@ -101,15 +145,8 @@ pub struct CrudTableData {
     pub rows: Memo<Vec<(Key, DynReadModel)>>,
     /// The data columns.
     pub columns: Signal<Vec<Header>>,
-}
-
-impl CrudTableData {
-    /// Returns the cell key of `column` in `row`.
-    #[must_use]
-    pub fn cell_key(&self, row: &Key, column: &Key) -> Option<Key> {
-        self.collection
-            .with_untracked(|t| t.column(column).map(|column| Key::cell(row, column.index)))
-    }
+    /// Whether focus rings should be visible, i.e. the user navigates with the keyboard.
+    pub focus_visible: Signal<bool>,
 }
 
 /// Returns the table key of a column showing `field`.
@@ -118,21 +155,27 @@ pub(crate) fn column_key(field: &DynReadField) -> Key {
     Key::from(dom_safe(&field.name()))
 }
 
-/// Returns the table key of the row showing `entity`.
+/// Returns the table key of the row showing `entity`: the values of its ID, each encoded and joined
+/// by `-`. The ID fields are the same for all entities of a resource, so their values alone tell the
+/// entities apart, and encoding escapes `-` within a value.
 #[must_use]
 pub(crate) fn row_key(entity: &DynReadModel) -> Key {
-    // The display form of an ID renders all of its components, so distinct IDs get distinct keys.
-    Key::from(dom_safe(&entity.id().to_string()))
+    let values = entity
+        .id()
+        .entries()
+        .map(|entry| dom_safe(&entry.value.to_string()))
+        .collect::<Vec<_>>();
+    Key::from(values.join("-"))
 }
 
-/// Encodes `value` injectively into `[A-Za-z0-9_-]`.
+/// Encodes `value` injectively into `[A-Za-z0-9_]`, leaving `-` free as a separator.
 ///
 /// Leptonic derives element IDs and selectors from collection keys, so keys must not contain quotes,
 /// brackets, or similar characters.
-fn dom_safe(value: &str) -> String {
+pub(crate) fn dom_safe(value: &str) -> String {
     let mut encoded = String::with_capacity(value.len());
     for character in value.chars() {
-        if character.is_ascii_alphanumeric() || character == '-' {
+        if character.is_ascii_alphanumeric() {
             encoded.push(character);
         } else {
             // Writing to a `String` cannot fail.
@@ -151,6 +194,7 @@ pub fn use_crud_table(input: UseCrudTableInput) -> UseCrudTableReturn {
         selectable,
         with_actions,
         aria_label,
+        aria_labelledby,
         on_row_action,
     } = input;
 
@@ -211,8 +255,8 @@ pub fn use_crud_table(input: UseCrudTableInput) -> UseCrudTableReturn {
         state,
         element: CapturedElement::new(),
         id: None,
-        aria_label: aria_label.into(),
-        aria_labelledby: None,
+        aria_label,
+        aria_labelledby,
         keyboard_delegate: None,
         options: CollectionOptions::default(),
         keyboard_navigation_behavior: KeyboardNavigationBehavior::default(),
@@ -234,6 +278,8 @@ pub fn use_crud_table(input: UseCrudTableInput) -> UseCrudTableReturn {
             collection,
             rows,
             columns,
+            focus_visible: use_focus_visible(UseFocusVisibleInput::default())
+                .focus_should_be_visible,
         },
     }
 }
@@ -254,7 +300,6 @@ fn table_rows(list: &CrudListState) -> Memo<Vec<(Key, DynReadModel)>> {
     })
 }
 
-/// Builds the table's columns and rows.
 /// Binds the table's sort descriptor to the primary ordering of `list`.
 fn sort_binding(
     list: &CrudListState,
@@ -286,6 +331,7 @@ fn sort_binding(
     )
 }
 
+/// Builds the table's columns and rows.
 fn table_collection(
     columns: Signal<Vec<Header>>,
     rows: Memo<Vec<(Key, DynReadModel)>>,
@@ -345,12 +391,8 @@ mod tests {
 
     #[test]
     fn dom_safe_keys_contain_only_safe_characters_and_stay_distinct() {
-        let key = dom_safe(r#"[["id",{"I64":1}]]"#);
-        assert_that!(
-            key.chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
-        )
-        .is_true();
+        let key = dom_safe(r#"[["id",{"I64":-1}]]"#);
+        assert_that!(key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')).is_true();
         assert_that!(dom_safe("a b")).is_not_equal_to(dom_safe("a_b"));
         assert_that!(dom_safe("created_at")).is_equal_to("created_5f_at".to_owned());
     }

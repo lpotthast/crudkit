@@ -19,11 +19,21 @@ impl ModelType {
         }
     }
 
-    /// Generates the `ErasedField` trait impl.
+    /// Generates the `ErasedField` trait impl, and the `IntoDynField` impl naming the field's
+    /// type-erased field type.
     pub fn gen_erased_field_impl(self, field_name: &Ident, model_name: &Ident) -> TokenStream {
         let trait_name = self.erased_field_trait();
         let dyn_model = self.dyn_model_type();
+        let dyn_field = self.dyn_field_type();
         quote! {
+            impl crudkit_web::model::IntoDynField for #field_name {
+                type Dyn = crudkit_web::model::#dyn_field;
+
+                fn into_dyn(self) -> crudkit_web::model::#dyn_field {
+                    crudkit_web::model::#dyn_field::from(self)
+                }
+            }
+
             #[typetag::serde]
             impl crudkit_web::model::#trait_name for #field_name {
                 fn set_value(&self, model: &mut crudkit_web::model::#dyn_model, value: crudkit_core::Value) {
@@ -51,6 +61,17 @@ impl ModelType {
                 ModelType::Create => "ErasedCreateField",
                 ModelType::Read => "ErasedReadField",
                 ModelType::Update => "ErasedUpdateField",
+            },
+            proc_macro2::Span::call_site(),
+        )
+    }
+
+    fn dyn_field_type(self) -> Ident {
+        Ident::new(
+            match self {
+                ModelType::Create => "DynCreateField",
+                ModelType::Read => "DynReadField",
+                ModelType::Update => "DynUpdateField",
             },
             proc_macro2::Span::call_site(),
         )

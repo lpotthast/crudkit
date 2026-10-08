@@ -16,5 +16,5 @@ pub struct Foo {
 fn main() {
     let id_a = FooIdField::IdA(42);
 
-    assert_that!(id_a.to_string()).is_equal_to("42".to_string());
+    assert_that!(id_a.to_string()).is_equal_to("id_a=42".to_string());
 }

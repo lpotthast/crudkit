@@ -1,14 +1,13 @@
 //! Mounted CrudKit instance registration and navigation composition.
 
-#![deny(missing_docs)]
-
 use crate::instance::{
-    CrudNavigationScope, provide_enclosing_navigation_scope, use_enclosing_navigation_scope,
+    CrudNavigationScope, EnclosingNavigationScope, use_enclosing_navigation_scope,
 };
 use crudkit_web::view::CrudView;
+use leptos::context::Provider;
 use leptos::prelude::*;
 
-/// Reactive state published for one mounted [`crate::components::instance::CrudInstance`].
+/// Reactive state published for one mounted [`CrudInstance`](crate::instance::CrudInstance).
 #[derive(Debug, Clone)]
 pub struct InstanceState {
     /// Stable lookup name supplied by the mounted instance.
@@ -126,9 +125,11 @@ pub fn CrudInstanceMgr(
 ) -> impl IntoView {
     let navigation_scope =
         manager_navigation_scope(navigation_scope, use_enclosing_navigation_scope());
-    provide_context(manager_context(navigation_scope));
-    provide_enclosing_navigation_scope(navigation_scope);
-    children()
+    view! {
+        <Provider value=manager_context(navigation_scope)>
+            <Provider value=EnclosingNavigationScope(navigation_scope)>{children()}</Provider>
+        </Provider>
+    }
 }
 
 pub(crate) fn manager_context(navigation_scope: CrudNavigationScope) -> CrudInstanceMgrContext {

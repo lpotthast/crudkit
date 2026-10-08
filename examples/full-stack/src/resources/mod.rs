@@ -1,29 +1,10 @@
-//! Instance configurations shared by both UI variants of the example.
+//! Instance configurations of the example's resources.
 
 use crudkit_leptos::prelude::*;
 use std::borrow::Cow;
 
 pub mod clubs;
 pub mod people;
-
-/// How an instance is rendered.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Ui {
-    /// CrudKit's built-in views, styled by CrudKit's theme.
-    Builtin,
-    /// The application's own views, built on CrudKit's hooks and atoms (see [`crate::marauder`]).
-    Custom,
-}
-
-impl Ui {
-    /// Returns the renderer of read-model `bool` fields meaning "validation errors exist".
-    pub fn validation_status_renderer(self) -> FieldRenderer<DynReadField> {
-        match self {
-            Self::Builtin => FieldRenderer::for_validation_status(),
-            Self::Custom => crate::marauder::validation_status_renderer(),
-        }
-    }
-}
 
 pub(crate) fn header(field: impl ErasedReadField, display_name: &'static str) -> Header {
     Header::showing(

@@ -1,191 +1,30 @@
 //! Tests of the state hooks against an in-memory CrudKit server.
 
-use crate::config::{
-    CreateElements, CrudBuiltinViewControls, CrudInstanceConfig, FieldRendererRegistry,
-};
+use crate::config::CrudInstanceConfig;
 use crate::hooks::form::{
     CrudSaveFollowUp, UseCrudCreateFormInput, UseCrudEditFormInput, use_crud_create_form,
     use_crud_edit_form,
 };
-use crate::hooks::list::use_crud_list;
+use crate::hooks::instance::use_crud_navigation;
+use crate::hooks::list::use_crud_list_state;
 use crate::hooks::notify::{
     CrudNotification, CrudNotificationKind, CrudNotifier, provide_crud_notifier,
 };
-use crate::instance::{
-    CrudInstanceContext, ProvideCrudInstanceInput, provide_crud_instance, provide_view_context,
-};
+use crate::instance::{provide_crud_instance, provide_view_context};
 use crate::prelude::*;
+use crate::test_support::items::*;
 use crate::test_support::{CrudTestResponse, CrudTestServer, settle, with_crud_manager};
 use assertr::prelude::*;
-use indexmap::IndexMap;
 use leptos::prelude::*;
 use leptos::reactive::owner::Owner;
-use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-
-#[derive(Clone, PartialEq, Eq, Debug, CkId, CkField, CkResource, Serialize, Deserialize)]
-#[ck_resource(resource_name = "items")]
-#[ck_field(model = Update)]
-pub struct Item {
-    pub id: i64,
-    pub name: String,
-}
-
-#[derive(Clone, PartialEq, Eq, Debug, Default, CkField, Serialize, Deserialize)]
-#[ck_field(model = Create)]
-pub struct CreateItem {
-    pub name: String,
-}
-
-impl ErasedIdentifiable for CreateItem {
-    fn id(&self) -> SerializableId {
-        panic!("Create models are not identifiable!")
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Debug, CkId, CkField, Serialize, Deserialize)]
-#[ck_field(model = Read)]
-pub struct ReadItem {
-    pub id: i64,
-    pub name: String,
-}
-
-impl From<ReadItem> for Item {
-    fn from(read: ReadItem) -> Self {
-        Self {
-            id: read.id,
-            name: read.name,
-        }
-    }
-}
-
-/// Serves CrudKit's REST routes for items from memory, through a [`CrudTestServer`].
-#[derive(Debug)]
-struct FakeServer {
-    http: Arc<CrudTestServer>,
-}
-
-impl FakeServer {
-    fn with_items(count: i64) -> Arc<Self> {
-        let items = Mutex::new(
-            (1..=count)
-                .map(|id| ReadItem {
-                    id,
-                    name: format!("item {id}"),
-                })
-                .collect::<Vec<_>>(),
-        );
-        Arc::new(Self {
-            http: CrudTestServer::new(move |request| {
-                CrudTestResponse::json(respond(&items, &request.operation, &request.body))
-            }),
-        })
-    }
-
-    fn requests_to(&self, operation: &str) -> Vec<serde_json::Value> {
-        self.http.requests_to(operation)
-    }
-}
-
-/// Answers `operation` like CrudKit's server, on `items`.
-fn respond(
-    items: &Mutex<Vec<ReadItem>>,
-    operation: &str,
-    body: &serde_json::Value,
-) -> serde_json::Value {
-    let items = items.lock().expect("lock");
-    let saved = |name: &serde_json::Value| {
-        serde_json::json!({
-            "wire_format_version": 1,
-            "entity": { "id": 99, "name": name },
-            "violations": { "general": null, "create": null, "by_entity": [] },
-        })
-    };
-    match operation {
-        "read-count" => serde_json::json!({ "wire_format_version": 1, "count": items.len() }),
-        "read-many" => {
-            let skip =
-                usize::try_from(body["skip"].as_u64().unwrap_or_default()).unwrap_or(usize::MAX);
-            let limit =
-                usize::try_from(body["limit"].as_u64().unwrap_or(u64::MAX)).unwrap_or(usize::MAX);
-            serde_json::json!({
-                "wire_format_version": 1,
-                "entities": items.iter().skip(skip).take(limit).collect::<Vec<_>>(),
-            })
-        }
-        "read-one" => serde_json::json!({ "wire_format_version": 1, "entity": items.first() }),
-        "create-one" => saved(&body["entity"]["name"]),
-        // Lets tests make a save fail: the response does not deserialize.
-        "update-one" if body["entity"]["name"] == "reject" => {
-            serde_json::json!({ "rejected": true })
-        }
-        // Like a real server, normalize what is stored.
-        "update-one" => serde_json::json!({
-            "wire_format_version": 1,
-            "entity": {
-                "id": body["entity"]["id"],
-                "name": body["entity"]["name"].as_str().map(str::trim),
-            },
-            "violations": { "general": null, "create": null, "by_entity": [] },
-        }),
-        "delete-by-id" => serde_json::json!({ "wire_format_version": 1, "entities_affected": 1 }),
-        "delete-many" => serde_json::json!({
-            "wire_format_version": 1,
-            "deleted_count": 2,
-            "deleted_ids": [],
-            "aborted": [],
-            "validation_failed": [],
-            "errors": [],
-        }),
-        other => panic!("unexpected operation {other}"),
-    }
-}
-
-fn config(server: &Arc<FakeServer>) -> CrudInstanceConfig {
-    CrudInstanceConfig {
-        api_base_url: "http://test.local/api".to_owned(),
-        initial_view: CrudView::table(),
-        list_columns: Vec::new(),
-        create_elements: CreateElements::None,
-        elements: Vec::new(),
-        order_by: IndexMap::default(),
-        items_per_page: ItemsPerPage(2),
-        page_nr: PageNr::first(),
-        base_condition: None,
-        resource_name: "items".to_owned(),
-        reqwest_executor: server.http.executor(),
-        model_handler: ModelHandler::new::<CreateItem, ReadItem, Item>(),
-        actions: Vec::new(),
-        entity_actions: Vec::new(),
-        builtin_view_controls: CrudBuiltinViewControls::default(),
-        view_registry: None,
-        read_field_renderer: FieldRendererRegistry::builder().build(),
-        create_field_renderer: FieldRendererRegistry::builder().build(),
-        update_field_renderer: FieldRendererRegistry::builder().build(),
-    }
-}
-
-/// Mounts an instance backed by `server` and runs `test` inside it.
-fn with_instance(server: &Arc<FakeServer>, test: impl FnOnce(CrudInstanceContext)) {
-    with_crud_manager(|| {
-        let ctx = provide_crud_instance(ProvideCrudInstanceInput::new("items", config(server)));
-        test(ctx);
-    });
-}
-
-fn item(id: i64) -> DynReadModel {
-    DynReadModel::from(ReadItem {
-        id,
-        name: format!("item {id}"),
-    })
-}
 
 #[test]
 fn list_loads_pages_and_clamps_the_page_when_the_page_size_grows() {
     let server = FakeServer::with_items(5);
     with_instance(&server, |_ctx| {
-        let list = use_crud_list();
+        let list = use_crud_list_state();
         settle();
         assert_that!(list.rows.get_untracked().loaded().map(|rows| rows.len()))
             .is_equal_to(Some(2));
@@ -206,10 +45,26 @@ fn list_loads_pages_and_clamps_the_page_when_the_page_size_grows() {
 }
 
 #[test]
+fn pages_beyond_the_last_one_move_to_the_last_page() {
+    let server = FakeServer::with_items(5);
+    with_instance(&server, |_ctx| {
+        let list = use_crud_list_state();
+        settle();
+
+        // E.g. after deletions elsewhere, or a page restored from an earlier visit.
+        list.pagination.set_page(PageNr(9));
+        settle();
+        assert_that!(list.pagination.page.get_untracked()).is_equal_to(PageNr(3));
+        assert_that!(list.rows.get_untracked().loaded().map(|rows| rows.len()))
+            .is_equal_to(Some(1));
+    });
+}
+
+#[test]
 fn selection_drops_entities_that_are_no_longer_displayed() {
     let server = FakeServer::with_items(5);
     with_instance(&server, |_ctx| {
-        let list = use_crud_list();
+        let list = use_crud_list_state();
         settle();
         list.selection.toggle_all();
         assert_that!(list.selection.all_selected.get_untracked()).is_true();
@@ -228,7 +83,7 @@ fn selection_drops_entities_that_are_no_longer_displayed() {
 fn ordering_toggles_are_sent_with_the_next_request() {
     let server = FakeServer::with_items(3);
     with_instance(&server, |_ctx| {
-        let list = use_crud_list();
+        let list = use_crud_list_state();
         settle();
         list.ordering
             .toggle(DynReadField::from(ReadItemField::Name), false);
@@ -284,7 +139,7 @@ fn create_form_tracks_changes_and_opens_the_created_entity() {
 
         // A draft with rejected input is not saved, because it does not reflect what the user sees.
         assert_that!(create.can_save.get_untracked()).is_false();
-        create.save.run(CrudSaveFollowUp::Default);
+        create.save.run(CrudSaveFollowUp::Edit);
         settle();
         assert_that!(server.requests_to("create-one")).is_empty();
 
@@ -293,7 +148,7 @@ fn create_form_tracks_changes_and_opens_the_created_entity() {
             Ok(Value::String("new".to_owned())),
         );
         assert_that!(create.can_save.get_untracked()).is_true();
-        create.save.run(CrudSaveFollowUp::Default);
+        create.save.run(CrudSaveFollowUp::Edit);
         settle();
         let request = server
             .requests_to("create-one")
@@ -311,7 +166,7 @@ fn edit_form_loads_saves_and_resets_its_dirty_state() {
     let server = FakeServer::with_items(1);
     with_instance(&server, |_ctx| {
         let id = item(1).id();
-        let edit = use_crud_edit_form(UseCrudEditFormInput::new(id));
+        let edit = use_crud_edit_form(edit_input(id));
         settle();
         assert_that!(edit.entity.get_untracked().loaded().is_some()).is_true();
         assert_that!(edit.form.is_dirty.get_untracked()).is_false();
@@ -343,7 +198,7 @@ fn confirmed_deletions_are_sent_and_reported() {
         provide_crud_notifier(CrudNotifier::new(move |notification| {
             recorded.lock().expect("lock").push(notification);
         }));
-        provide_crud_instance(ProvideCrudInstanceInput::new("items", config(&server)));
+        provide_crud_instance(instance_input("items", config(&server)));
 
         let deletion = crate::hooks::delete::use_crud_delete();
         deletion.request(item(2));
@@ -396,7 +251,7 @@ fn confirmed_deletions_are_sent_and_reported() {
 fn editing_a_loaded_form_does_not_renotify_readiness() {
     let server = FakeServer::with_items(1);
     with_instance(&server, |_ctx| {
-        let edit = use_crud_edit_form(UseCrudEditFormInput::new(item(1).id()));
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
         settle();
         let notifications = Arc::new(Mutex::new(0_usize));
         let counter = notifications.clone();
@@ -422,7 +277,7 @@ fn editing_a_loaded_form_does_not_renotify_readiness() {
 fn saving_continues_from_the_servers_version_of_the_entity() {
     let server = FakeServer::with_items(1);
     with_instance(&server, |_ctx| {
-        let edit = use_crud_edit_form(UseCrudEditFormInput::new(item(1).id()));
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
         settle();
         let name = DynUpdateField::from(ItemField::Name);
         edit.form
@@ -489,43 +344,62 @@ fn tab_groups_remember_their_selection_independently() {
 }
 
 #[test]
-fn failed_saves_are_notified_unless_quiet() {
-    for (quiet, expected_notifications) in [(false, 1), (true, 0)] {
+fn saves_notify_the_outcomes_they_are_asked_to() {
+    let cases = [
+        (
+            "reject",
+            CrudSaveNotifications::All,
+            Some(CrudNotificationKind::Error),
+        ),
+        (
+            "reject",
+            CrudSaveNotifications::Failures,
+            Some(CrudNotificationKind::Error),
+        ),
+        ("reject", CrudSaveNotifications::None, None),
+        (
+            "accept",
+            CrudSaveNotifications::All,
+            Some(CrudNotificationKind::Success),
+        ),
+        ("accept", CrudSaveNotifications::Failures, None),
+    ];
+    for (name, notifications, expected) in cases {
         let server = FakeServer::with_items(1);
-        let notifications = Arc::new(Mutex::new(Vec::<CrudNotification>::new()));
+        let recorded = Arc::new(Mutex::new(Vec::<CrudNotification>::new()));
         let failures = Arc::new(Mutex::new(0));
         with_crud_manager(|| {
-            let recorded = notifications.clone();
+            let sink = recorded.clone();
             provide_crud_notifier(CrudNotifier::new(move |notification| {
-                recorded.lock().expect("lock").push(notification);
+                sink.lock().expect("lock").push(notification);
             }));
-            provide_crud_instance(ProvideCrudInstanceInput::new("items", config(&server)));
+            provide_crud_instance(instance_input("items", config(&server)));
 
             let failed = failures.clone();
             let edit = use_crud_edit_form(UseCrudEditFormInput {
                 on_save_failed: Some(Callback::new(move |_| *failed.lock().expect("lock") += 1)),
-                quiet,
-                ..UseCrudEditFormInput::new(item(1).id())
+                notifications,
+                ..edit_input(item(1).id())
             });
             settle();
             edit.form.set_field(
                 DynUpdateField::from(ItemField::Name),
-                Ok(Value::String("reject".to_owned())),
+                Ok(Value::String(name.to_owned())),
             );
             edit.save.run(CrudSaveFollowUp::Stay);
             settle();
         });
 
-        let notifications = notifications.lock().expect("lock");
-        assert_that!(notifications.len()).is_equal_to(expected_notifications);
-        assert_that!(
-            notifications
-                .iter()
-                .all(|it| it.kind == CrudNotificationKind::Error)
-        )
-        .is_true();
-        // The application's callback runs either way.
-        assert_that!(*failures.lock().expect("lock")).is_equal_to(1);
+        let kinds = recorded
+            .lock()
+            .expect("lock")
+            .iter()
+            .map(|notification| notification.kind)
+            .collect::<Vec<_>>();
+        assert_that!(kinds).is_equal_to(expected.into_iter().collect::<Vec<_>>());
+        // The application's callback runs whether or not a failure is notified.
+        let expected_failures = usize::from(name == "reject");
+        assert_that!(*failures.lock().expect("lock")).is_equal_to(expected_failures);
     }
 }
 
@@ -533,10 +407,10 @@ fn failed_saves_are_notified_unless_quiet() {
 fn edit_forms_report_their_status_and_save_violations() {
     let server = FakeServer::with_items(1);
     with_instance(&server, |_ctx| {
-        let edit = use_crud_edit_form(UseCrudEditFormInput::new(item(1).id()));
-        assert_that!(edit.status.get_untracked()).is_equal_to(CrudEntityStatus::Loading);
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
+        assert_that!(edit.status.get_untracked()).is_equal_to(CrudEntityLoadStatus::Loading);
         settle();
-        assert_that!(edit.status.get_untracked()).is_equal_to(CrudEntityStatus::Ready);
+        assert_that!(edit.status.get_untracked()).is_equal_to(CrudEntityLoadStatus::Ready);
         assert_that!(edit.violations.get_untracked().is_none()).is_true();
 
         edit.form.set_field(
@@ -552,7 +426,7 @@ fn edit_forms_report_their_status_and_save_violations() {
     with_instance(&empty, |_ctx| {
         let read = use_crud_read(item(1).id());
         settle();
-        assert_that!(read.status.get_untracked()).is_equal_to(CrudEntityStatus::NotFound);
+        assert_that!(read.status.get_untracked()).is_equal_to(CrudEntityLoadStatus::NotFound);
     });
 }
 
@@ -574,7 +448,7 @@ fn notifications_of_failed_deletion(
         provide_crud_notifier(CrudNotifier::new(move |notification| {
             recorded.lock().expect("lock").push(notification);
         }));
-        provide_crud_instance(ProvideCrudInstanceInput::new("items", config(&server)));
+        provide_crud_instance(instance_input("items", config(&server)));
         let deletion = crate::hooks::delete::use_crud_delete();
         deletion.request(item(1));
         deletion.confirm();
@@ -641,7 +515,7 @@ fn deletions_stay_within_the_instance_scope() {
             base_condition: Some(scope),
             ..config(&server)
         };
-        provide_crud_instance(ProvideCrudInstanceInput::new("items", config));
+        provide_crud_instance(instance_input("items", config));
         let deletion = crate::hooks::delete::use_crud_delete();
         deletion.request(item(2));
         deletion.confirm();
@@ -668,19 +542,19 @@ fn deletions_stay_within_the_instance_scope() {
 fn leaving_a_view_asks_about_drafts_of_instances_nested_in_it() {
     let server = FakeServer::with_items(1);
     with_crud_manager(|| {
-        let parent =
-            provide_crud_instance(ProvideCrudInstanceInput::new("parents", config(&server)));
+        let parent = provide_crud_instance(instance_input("parents", config(&server)));
         let edited = CrudView::edit(item(1).id());
         parent.navigation.navigate(edited.clone());
 
         // The parent's edit view, which renders a nested instance holding a draft.
         let view_owner = Owner::new();
         view_owner.with(|| {
-            let view_navigation = provide_view_context(&parent, parent.navigation);
+            provide_view_context(&parent, parent.navigation);
+            let view_navigation = use_crud_navigation();
             // Kept alive like a mounted component; dropping an owner cleans it up.
             let nested_owner = Owner::new();
             nested_owner.with(|| {
-                provide_crud_instance(ProvideCrudInstanceInput::new("children", config(&server)));
+                provide_crud_instance(instance_input("children", config(&server)));
                 let create = use_crud_create_form(UseCrudCreateFormInput::default());
                 create.form.set_field(
                     DynCreateField::from(CreateItemField::Name),
@@ -728,7 +602,7 @@ fn only_deleting_the_shown_entity_returns_from_the_view() {
 }
 
 #[test]
-fn forms_follow_the_navigation_and_controls_given_to_their_view() {
+fn forms_follow_the_navigation_of_their_view() {
     let server = FakeServer::with_items(0);
     with_instance(&server, |ctx| {
         let drawer = ctx.navigation.child(CrudView::create());
@@ -737,19 +611,11 @@ fn forms_follow_the_navigation_and_controls_given_to_their_view() {
         drawer.return_with(move || {
             counted.fetch_add(1, Ordering::SeqCst);
         });
-        let controls = CrudBuiltinViewControls {
-            create_save_target: CrudCreateSaveTarget::Return,
-            ..CrudBuiltinViewControls::default()
-        };
 
         Owner::new().with(|| {
-            provide_context(ctx.for_view(Some(drawer), Some(Signal::stored(controls))));
+            // As the outlet does for a rendered view.
+            crate::instance::provide_view_context(&ctx, drawer);
             let create = use_crud_create_form(UseCrudCreateFormInput::default());
-            assert_that!(matches!(
-                create.actions.controls.get_untracked().create_save_target,
-                CrudCreateSaveTarget::Return
-            ))
-            .is_true();
             create.form.set_field(
                 DynCreateField::from(CreateItemField::Name),
                 Ok(Value::String("new".to_owned())),
@@ -760,11 +626,116 @@ fn forms_follow_the_navigation_and_controls_given_to_their_view() {
             assert_that!(returns.load(Ordering::SeqCst)).is_equal_to(0);
             use_crud_leave_confirmation().cancel();
 
-            // Saving performs the given controls' follow-up on the given navigation.
-            create.save.run(CrudSaveFollowUp::Default);
+            // Saving returns on the view's navigation.
+            create.save.run(CrudSaveFollowUp::Return);
             settle();
             assert_that!(returns.load(Ordering::SeqCst)).is_equal_to(1);
             assert_that!(ctx.navigation.current().get_untracked()).is_equal_to(CrudView::table());
         });
     });
+}
+
+#[test]
+fn row_fields_follow_their_entity() {
+    let server = FakeServer::with_items(1);
+    with_instance(&server, |_ctx| {
+        let entity = RwSignal::new(item(1));
+        let fields = use_crud_row_fields(entity);
+        let name = DynReadField::from(ReadItemField::Name);
+        assert_that!(
+            fields
+                .value(&name)
+                .and_then(|value| value.as_string().cloned())
+        )
+        .is_equal_to(Some("item 1".to_owned()));
+
+        entity.set(DynReadModel::from(ReadItem {
+            id: 1,
+            name: "renamed".to_owned(),
+        }));
+        settle();
+
+        assert_that!(
+            fields
+                .value(&name)
+                .and_then(|value| value.as_string().cloned())
+        )
+        .is_equal_to(Some("renamed".to_owned()));
+    });
+}
+
+#[test]
+fn rows_are_keyed_by_their_id_values() {
+    assert_that!(crate::hooks::table::row_key(&item(4)).as_str()).is_equal_to(Some("4"));
+}
+
+#[test]
+fn creating_another_from_a_create_form_starts_a_fresh_draft_in_place() {
+    let server = FakeServer::with_items(0);
+    with_instance(&server, |ctx| {
+        let create = use_crud_create_form(UseCrudCreateFormInput::default());
+        let name = DynCreateField::from(CreateItemField::Name);
+        create
+            .form
+            .set_field(name.clone(), Ok(Value::String("first".to_owned())));
+        let view_before = ctx.navigation.current().get_untracked();
+        create.save.run(CrudSaveFollowUp::CreateAnother);
+        settle();
+
+        assert_that!(server.requests_to("create-one").len()).is_equal_to(1);
+        assert_that!(create.form.is_dirty.get_untracked()).is_false();
+        assert_that!(ctx.navigation.current().get_untracked()).is_equal_to(view_before);
+    });
+}
+
+#[test]
+fn reloading_keeps_unsaved_changes_of_the_entity() {
+    let server = FakeServer::with_items(1);
+    with_instance(&server, |ctx| {
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
+        settle();
+        let name = DynUpdateField::from(ItemField::Name);
+        edit.form
+            .set_field(name.clone(), Ok(Value::String("unsaved".to_owned())));
+
+        ctx.reload();
+        settle();
+
+        assert_that!(server.requests_to("read-one").len()).is_equal_to(2);
+        assert_that!(edit.form.is_dirty.get_untracked()).is_true();
+        assert_that!(
+            edit.form
+                .field(&name)
+                .and_then(|field| field.get_untracked().as_string().cloned())
+        )
+        .is_equal_to(Some("unsaved".to_owned()));
+    });
+}
+
+#[test]
+fn deletions_finishing_after_their_instance_unmounted_are_still_reported() {
+    let server = FakeServer::with_items(3);
+    let notifications = Arc::new(Mutex::new(Vec::<CrudNotification>::new()));
+    with_crud_manager(|| {
+        let recorded = notifications.clone();
+        provide_crud_notifier(CrudNotifier::new(move |notification| {
+            recorded.lock().expect("lock").push(notification);
+        }));
+        let instance = Owner::new();
+        instance.with(|| {
+            provide_crud_instance(instance_input("items", config(&server)));
+            let deletion = crate::hooks::delete::use_crud_delete();
+            deletion.request(item(2));
+            deletion.confirm();
+            deletion.request_many(Arc::new(vec![item(1)]));
+            deletion.confirm_many();
+        });
+        // The instance unmounts while both requests are in flight.
+        drop(instance);
+        settle();
+    });
+
+    assert_that!(server.requests_to("delete-by-id").len()).is_equal_to(1);
+    assert_that!(server.requests_to("delete-many").len()).is_equal_to(1);
+    assert_that!(notifications.lock().expect("lock").len()).is_equal_to(2);
 }

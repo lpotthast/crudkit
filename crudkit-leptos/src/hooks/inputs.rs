@@ -1,14 +1,19 @@
 //! Bindings between a rendered field and Leptonic's input atoms.
 //!
-//! Each hook reads the [`CrudFieldState`] of the field being rendered and returns the value, the
+//! Each hook reads the [`CrudFieldBinding`] of the field being rendered and returns the value, the
 //! setter, and the flags for one Leptonic field atom, named after the atom's props. Input reported
-//! through the setter updates the form's draft and the field's reactive value. Optional fields map an empty input to `Value::Null`.
+//! through the setter updates the form's draft and the field's reactive value. Optional fields map
+//! an empty input to `Value::Null`.
 
-use crate::hooks::field::{CrudFieldState, use_crud_field};
+use crate::config::CrudUiTexts;
+use crate::hooks::field::{CrudFieldBinding, use_crud_field_binding};
 use crudkit_core::{TimeDuration, Value, ValueKind};
+use crudkit_web::field::DateTimeDisplay;
 use crudkit_web::field::FieldMode;
 use crudkit_web::prelude::*;
-use crudkit_web::value_format::{DurationParts, format_date_time_input, parse_date_time_input};
+use crudkit_web::value_format::{
+    DurationParts, format_date_time, format_date_time_input, parse_date_time_input,
+};
 use leptonic::utils::NumberValue;
 use leptos::prelude::*;
 use std::fmt;
@@ -20,11 +25,11 @@ use time::format_description::well_known::Rfc3339;
 pub struct CrudInputProps {
     /// DOM id for the input element.
     pub id: String,
-    /// Label from the layout, if any.
-    pub label: Option<String>,
+    /// The field's label: the one its layout gives, else its name.
+    pub label: String,
     /// Whether the input is disabled by its layout options.
     pub is_disabled: Signal<bool>,
-    /// Whether the input only presents its value.
+    /// Whether the input only presents its value: in display mode, and while the form saves.
     pub is_read_only: Signal<bool>,
     /// Whether a value is required.
     pub is_required: Signal<bool>,
@@ -34,16 +39,18 @@ pub struct CrudInputProps {
     pub error: Signal<Option<String>>,
 }
 
-fn input_props<F: TypeErasedField>(field: &CrudFieldState<F>) -> CrudInputProps {
+fn input_props(field: &CrudFieldBinding) -> CrudInputProps {
     let is_disabled = field.options.disabled;
-    let is_read_only = field.mode != FieldMode::Editable;
-    let is_required = !field.is_optional();
+    let is_display_only = field.mode != FieldMode::Editable;
+    let is_saving = field.is_saving;
+    let is_required = !field.is_optional;
     let error = field.error;
     CrudInputProps {
         id: field.dom_id.clone(),
-        label: field.options.label.as_ref().map(|label| label.name.clone()),
+        label: field.label(),
         is_disabled: Signal::stored(is_disabled),
-        is_read_only: Signal::stored(is_read_only),
+        // Read-only rather than disabled while saving, so the input keeps its focus.
+        is_read_only: Signal::derive(move || is_display_only || is_saving.get()),
         is_required: Signal::stored(is_required),
         is_invalid: Signal::derive(move || error.read().is_some()),
         error,
@@ -213,12 +220,12 @@ pub struct UseCrudTextInputReturn {
 ///
 /// # Panics
 ///
-/// Panics when called outside of a field renderer for fields of type `F`.
+/// Panics when called outside of a field, see [`use_crud_field_binding`].
 #[must_use]
-pub fn use_crud_text_input<F: TypeErasedField>(codec: CrudTextCodec) -> UseCrudTextInputReturn {
-    let field = use_crud_field::<F>();
+pub fn use_crud_text_input(codec: CrudTextCodec) -> UseCrudTextInputReturn {
+    let field = use_crud_field_binding();
     let props = input_props(&field);
-    let is_optional = field.is_optional();
+    let is_optional = field.is_optional;
     let value = field.value;
     let set = field.set;
     let CrudTextCodec { format, parse } = codec;
@@ -254,6 +261,50 @@ pub fn use_crud_text_input<F: TypeErasedField>(codec: CrudTextCodec) -> UseCrudT
         value: text.into(),
         set_value,
         props,
+    }
+}
+
+/// Formats `value` as text for display, e.g. in a table cell or a read-only view.
+///
+/// Numbers show their digits, booleans [`CrudUiTexts::yes`] or [`CrudUiTexts::no`], date-times
+/// without offset follow `date_time_display`, lists their formatted elements separated by commas,
+/// and everything else the text its input shows. Absent values (`Null` and the unit value) are
+/// empty.
+#[must_use]
+pub fn format_crud_value(
+    value: &Value,
+    date_time_display: DateTimeDisplay,
+    texts: &CrudUiTexts,
+) -> String {
+    match value {
+        Value::Null | Value::Void(()) => String::new(),
+        Value::Bool(true) => texts.yes.to_string(),
+        Value::Bool(false) => texts.no.to_string(),
+        Value::U8(it) => it.to_string(),
+        Value::U16(it) => it.to_string(),
+        Value::U32(it) => it.to_string(),
+        Value::U64(it) => it.to_string(),
+        Value::U128(it) => it.to_string(),
+        Value::I8(it) => it.to_string(),
+        Value::I16(it) => it.to_string(),
+        Value::I32(it) => it.to_string(),
+        Value::I64(it) => it.to_string(),
+        Value::I128(it) => it.to_string(),
+        Value::F32(it) => it.to_string(),
+        Value::F64(it) => it.to_string(),
+        Value::String(it) => it.clone(),
+        // A single line, unlike the pretty-printed JSON of its input.
+        Value::Json(it) => it.to_string(),
+        Value::Uuid(_) => (CrudTextCodec::uuid().format)(value),
+        Value::PrimitiveDateTime(it) => format_date_time(*it, date_time_display),
+        Value::OffsetDateTime(_) => (CrudTextCodec::offset_date_time().format)(value),
+        Value::Duration(_) => (CrudTextCodec::duration().format)(value),
+        Value::Array(values) => values
+            .iter()
+            .map(|value| format_crud_value(value, date_time_display, texts))
+            .collect::<Vec<_>>()
+            .join(", "),
+        Value::Other(other) => format!("{other:?}"),
     }
 }
 
@@ -404,12 +455,12 @@ pub struct UseCrudNumberInputReturn<T: CrudNumber> {
 ///
 /// # Panics
 ///
-/// Panics when called outside of a field renderer for fields of type `F`.
+/// Panics when called outside of a field, see [`use_crud_field_binding`].
 #[must_use]
-pub fn use_crud_number_input<F: TypeErasedField, T: CrudNumber>() -> UseCrudNumberInputReturn<T> {
-    let field = use_crud_field::<F>();
+pub fn use_crud_number_input<T: CrudNumber>() -> UseCrudNumberInputReturn<T> {
+    let field = use_crud_field_binding();
     let props = input_props(&field);
-    let is_optional = field.is_optional();
+    let is_optional = field.is_optional;
     let value = field.value;
     let set = field.set;
     UseCrudNumberInputReturn {
@@ -440,10 +491,10 @@ pub struct UseCrudToggleInputReturn {
 ///
 /// # Panics
 ///
-/// Panics when called outside of a field renderer for fields of type `F`.
+/// Panics when called outside of a field, see [`use_crud_field_binding`].
 #[must_use]
-pub fn use_crud_toggle_input<F: TypeErasedField>() -> UseCrudToggleInputReturn {
-    let field = use_crud_field::<F>();
+pub fn use_crud_toggle_input() -> UseCrudToggleInputReturn {
+    let field = use_crud_field_binding();
     let props = input_props(&field);
     let value = field.value;
     let set = field.set;

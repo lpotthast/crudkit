@@ -12,7 +12,6 @@
 //! - `CkUpdateModel` - Generates an `UpdateModel` struct with trait implementations
 
 use proc_macro::TokenStream;
-use proc_macro_error2::proc_macro_error;
 use syn::{DeriveInput, Error, parse_macro_input};
 
 mod derives;
@@ -33,7 +32,6 @@ mod derives;
 /// - `#[ck_id(id)]` - Mark field as part of primary key
 /// - `#[ck_field(convert_ccv = "fn_name")]` - Custom condition value converter function
 #[proc_macro_derive(CkField, attributes(ck_field, ck_id))]
-#[proc_macro_error]
 pub fn derive_field(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     derives::expand_derive_field(&input)

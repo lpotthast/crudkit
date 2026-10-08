@@ -1,29 +1,14 @@
-//! Registry of built-in and application-defined CrudKit views.
+//! Registry of the views an instance can show.
 
-#![deny(missing_docs)]
-
-use crate::instance::CrudNavigation;
-use crudkit_web::view::CrudView;
+use crudkit_core::id::SerializableId;
+use crudkit_web::view::{CREATE_VIEW, CrudView, EDIT_VIEW, READ_VIEW, TABLE_VIEW};
 use leptos::prelude::*;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
 
-type ViewRenderer = Arc<dyn Fn(CrudView, CrudNavigation) -> AnyView + Send + Sync + 'static>;
-
-#[derive(Clone)]
-struct RegisteredRenderer {
-    renderer: ViewRenderer,
-}
-
-impl RegisteredRenderer {
-    fn new(renderer: impl Fn(CrudView, CrudNavigation) -> AnyView + Send + Sync + 'static) -> Self {
-        Self {
-            renderer: Arc::new(renderer),
-        }
-    }
-}
+type ViewRenderer = Arc<dyn Fn(CrudView) -> AnyView + Send + Sync + 'static>;
 
 /// Returned when registering a view name that is already present.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,41 +36,36 @@ impl fmt::Display for DuplicateCrudViewError {
 
 impl Error for DuplicateCrudViewError {}
 
-/// Maps open [`CrudView`] names to renderers.
+/// Maps the names of [`CrudView`]s to the markup rendering them.
 ///
-/// With the `components` feature, a default registry contains CrudKit's table,
-/// create, read, and edit renderers. Without it, a default registry is empty and
-/// the application registers a renderer for every view it opens.
-/// [`Self::register`] rejects duplicate names; use [`Self::replace`] when
-/// overriding a built-in or replacing an application renderer is intentional.
+/// An instance's [`CrudViewOutlet`](crate::instance::CrudViewOutlet) renders the current view
+/// with the renderer registered for its name. A view finds its instance and navigation in context,
+/// e.g. through [`use_crud_instance`](crate::hooks::use_crud_instance).
+///
+/// The four standard views are registered with [`Self::table`], [`Self::create`], [`Self::read`],
+/// and [`Self::edit`]. These check that a view is opened with the subject it needs (an entity id
+/// for `read` and `edit`, none otherwise) and without a payload, and render a visible error
+/// otherwise. Application-defined views are added with [`Self::register`]. A default registry is
+/// empty; opening a view without a renderer shows a visible error.
 ///
 /// ```no_run
 /// # use crudkit_leptos::prelude::*;
 /// # use leptos::prelude::*;
-/// let mut registry = CrudViewRegistry::default();
-/// registry.register("app.audit", |view, navigation| {
-///     let title = view
-///         .typed_payload::<String>()
-///         .unwrap_or_else(|_| "Audit".to_owned());
-///     view! {
-///         <section>
-///             <h2>{title}</h2>
-///             <button on:click=move |_| navigation.return_from_current()>"Return"</button>
-///         </section>
-///     }
-///     .into_any()
-/// }).expect("the view name is unique");
-///
-/// let navigation = CrudNavigation::new(CrudView::table());
-/// navigation.navigate(
-///     CrudView::new("app.audit")
-///         .with_typed_payload("Entity history".to_owned())
-///         .expect("payload serializes"),
-/// );
+/// let mut registry = CrudViewRegistry::default()
+///     .table(|| view! { <p>"All entities"</p> })
+///     .edit(|id: SerializableId| view! { <p>{format!("Editing {id:?}")}</p> });
+/// registry
+///     .register("app.audit", |view: CrudView| {
+///         let title = view
+///             .typed_payload::<String>()
+///             .unwrap_or_else(|_| "Audit".to_owned());
+///         view! { <h2>{title}</h2> }
+///     })
+///     .expect("the view name is unique");
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CrudViewRegistry {
-    renderers: HashMap<String, RegisteredRenderer>,
+    renderers: HashMap<String, ViewRenderer>,
 }
 
 impl fmt::Debug for CrudViewRegistry {
@@ -96,175 +76,225 @@ impl fmt::Debug for CrudViewRegistry {
     }
 }
 
-impl Default for CrudViewRegistry {
-    fn default() -> Self {
-        #[cfg_attr(not(feature = "components"), allow(unused_mut))]
-        let mut registry = Self {
-            renderers: HashMap::new(),
-        };
-        #[cfg(feature = "components")]
-        crate::components::register_builtin_views(&mut registry);
-        registry
-    }
-}
-
 impl CrudViewRegistry {
-    #[cfg(feature = "components")]
-    pub(crate) fn insert_default(
-        &mut self,
-        name: &'static str,
-        renderer: impl Fn(CrudView, CrudNavigation) -> AnyView + Send + Sync + 'static,
-    ) {
-        let previous = self
-            .renderers
-            .insert(name.to_owned(), RegisteredRenderer::new(renderer));
-        debug_assert!(previous.is_none(), "default renderer names must be unique");
+    /// Renders the list view ([`CrudView::table`]) with `render`.
+    #[must_use]
+    pub fn table<V: IntoView + 'static>(
+        self,
+        render: impl Fn() -> V + Send + Sync + 'static,
+    ) -> Self {
+        self.with_standard(TABLE_VIEW, move |view| {
+            check_without_subject(&view)?;
+            Ok(render().into_any())
+        })
     }
 
-    /// Registers a new application-defined view renderer.
+    /// Renders the create view ([`CrudView::create`]) with `render`.
+    #[must_use]
+    pub fn create<V: IntoView + 'static>(
+        self,
+        render: impl Fn() -> V + Send + Sync + 'static,
+    ) -> Self {
+        self.with_standard(CREATE_VIEW, move |view| {
+            check_without_subject(&view)?;
+            Ok(render().into_any())
+        })
+    }
+
+    /// Renders the read view of an entity ([`CrudView::read`]) with `render`, given its id.
+    #[must_use]
+    pub fn read<V: IntoView + 'static>(
+        self,
+        render: impl Fn(SerializableId) -> V + Send + Sync + 'static,
+    ) -> Self {
+        self.with_standard(READ_VIEW, move |view| {
+            Ok(render(entity_subject(view)?).into_any())
+        })
+    }
+
+    /// Renders the edit view of an entity ([`CrudView::edit`]) with `render`, given its id.
+    #[must_use]
+    pub fn edit<V: IntoView + 'static>(
+        self,
+        render: impl Fn(SerializableId) -> V + Send + Sync + 'static,
+    ) -> Self {
+        self.with_standard(EDIT_VIEW, move |view| {
+            Ok(render(entity_subject(view)?).into_any())
+        })
+    }
+
+    /// Registers the standard view `name`, rendered by `render` unless the opened view does not
+    /// fit it, which shows a visible error instead.
+    fn with_standard(
+        mut self,
+        name: &'static str,
+        render: impl Fn(CrudView) -> Result<AnyView, String> + Send + Sync + 'static,
+    ) -> Self {
+        self.renderers.insert(
+            name.to_owned(),
+            Arc::new(move |view: CrudView| {
+                render(view).unwrap_or_else(|message| {
+                    view! { <ViewError view=name.to_owned() message /> }.into_any()
+                })
+            }),
+        );
+        self
+    }
+
+    /// Registers the renderer of the application-defined view `name`. It receives the opened
+    /// [`CrudView`], with its subject and payload.
     ///
     /// # Errors
     ///
-    /// Returns [`DuplicateCrudViewError`] when `name` is already occupied,
-    /// including by one of CrudKit's reserved built-in views.
-    pub fn register(
+    /// Returns [`DuplicateCrudViewError`] when `name` already has a renderer.
+    pub fn register<V: IntoView + 'static>(
         &mut self,
         name: impl Into<String>,
-        renderer: impl Fn(CrudView, CrudNavigation) -> AnyView + Send + Sync + 'static,
+        render: impl Fn(CrudView) -> V + Send + Sync + 'static,
     ) -> Result<(), DuplicateCrudViewError> {
         let name = name.into();
         if self.renderers.contains_key(&name) {
             return Err(DuplicateCrudViewError { name });
         }
-        self.renderers
-            .insert(name, RegisteredRenderer::new(renderer));
+        self.replace(name, render);
         Ok(())
     }
 
-    /// Deliberately installs or replaces a renderer, including a built-in one.
-    ///
-    /// Replacing a built-in also transfers payload and subject validation to
-    /// the replacement renderer.
-    pub fn replace(
+    /// Installs or replaces the renderer of the view `name`.
+    pub fn replace<V: IntoView + 'static>(
         &mut self,
         name: impl Into<String>,
-        renderer: impl Fn(CrudView, CrudNavigation) -> AnyView + Send + Sync + 'static,
+        render: impl Fn(CrudView) -> V + Send + Sync + 'static,
     ) {
-        self.renderers
-            .insert(name.into(), RegisteredRenderer::new(renderer));
+        self.renderers.insert(
+            name.into(),
+            Arc::new(move |view: CrudView| render(view).into_any()),
+        );
     }
 
-    /// Renders a registered view using the supplied scoped navigation.
-    ///
-    /// This can be called by custom renderers to compose registered views in a
-    /// drawer, panel, or other application-owned host. Missing registrations
-    /// render a visible alert instead of invoking a fallback renderer.
-    ///
-    /// # Panics
-    ///
-    /// CrudKit's built-in renderers require the
-    /// [`CrudInstanceContext`](crate::instance::CrudInstanceContext) that
-    /// [`crate::components::instance::CrudInstance`] provides. Rendering a built-in
-    /// outside an instance violates that invariant and panics.
-    #[must_use]
-    pub fn render(&self, view: CrudView, navigation: CrudNavigation) -> AnyView {
-        let registered = match self.renderer_for(&view.name) {
-            Ok(renderer) => renderer,
-            Err(message) => return render_error(&view.name, message),
-        };
-
-        (registered.renderer)(view, navigation)
-    }
-
-    fn renderer_for(&self, name: &str) -> Result<RegisteredRenderer, String> {
-        self.renderers
-            .get(name)
-            .cloned()
-            .ok_or_else(|| format!("No CrudKit renderer is registered for `{name}`"))
+    /// Renders `view` with its registered renderer, or a visible error when it has none.
+    pub(crate) fn render(&self, view: CrudView) -> AnyView {
+        if let Some(render) = self.renderers.get(&view.name) {
+            render(view)
+        } else {
+            let message = format!("No CrudKit renderer is registered for `{}`", view.name);
+            view! { <ViewError view=view.name message /> }.into_any()
+        }
     }
 }
 
-pub(crate) fn render_error(name: &str, message: String) -> AnyView {
-    tracing::error!(view = name, error = %message, "Could not render CrudKit view");
+/// Checks that a standard view without an entity has neither a subject nor a payload.
+fn check_without_subject(view: &CrudView) -> Result<(), String> {
+    check_without_payload(view)?;
+    if view.subject.is_some() {
+        return Err(format!(
+            "The view `{}` does not accept an entity subject",
+            view.name
+        ));
+    }
+    Ok(())
+}
+
+/// Returns the entity subject of a standard view of an entity, which has no payload.
+fn entity_subject(view: CrudView) -> Result<SerializableId, String> {
+    check_without_payload(&view)?;
+    view.subject
+        .ok_or_else(|| format!("The view `{}` requires an entity subject", view.name))
+}
+
+/// Checks that a standard view has no payload.
+fn check_without_payload(view: &CrudView) -> Result<(), String> {
+    if view.payload.is_null() {
+        Ok(())
+    } else {
+        Err(format!(
+            "The view `{}` does not accept a payload",
+            view.name
+        ))
+    }
+}
+
+/// A visible error in place of the view named `view`, explained by `message`.
+#[component]
+fn ViewError(view: String, message: String) -> impl IntoView {
+    tracing::error!(view, error = %message, "Could not render CrudKit view");
     view! {
-        <div class="crud-view-error" role="alert">
+        <div class="crudkit-ViewError" role="alert">
             {message}
         </div>
     }
-    .into_any()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use assertr::prelude::*;
-    use crudkit_web::view::TABLE_VIEW;
     use leptos::reactive::owner::Owner;
-    use std::sync::atomic::{AtomicBool, Ordering};
-
-    fn renderer(_: CrudView, _: CrudNavigation) -> AnyView {
-        ().into_any()
-    }
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
     fn duplicate_registration_is_rejected_and_replace_is_explicit() {
         let mut registry = CrudViewRegistry::default();
         registry
-            .register("example.custom", renderer)
+            .register("example.custom", |_: CrudView| ())
             .expect("first registration should work");
         let duplicate = registry
-            .register("example.custom", renderer)
+            .register("example.custom", |_: CrudView| ())
             .expect_err("duplicate should fail");
         assert_that!(duplicate.name()).is_equal_to("example.custom");
 
-        registry.replace("example.custom", renderer);
-        registry.replace(TABLE_VIEW, renderer);
+        registry.replace("example.custom", |_: CrudView| ());
+        let mut registry = registry.table(|| ());
+        assert_that!(registry.register(TABLE_VIEW, |_: CrudView| ()).is_err()).is_true();
     }
 
     #[test]
-    fn unknown_views_are_rejected() {
-        let registry = CrudViewRegistry::default();
-        assert_that!(registry.renderer_for("example.unknown").is_err()).is_true();
-    }
-
-    #[test]
-    fn custom_views_use_the_same_renderer_path_as_defaults() {
-        let owner = Owner::new();
-        owner.with(|| {
-            let mut registry = CrudViewRegistry::default();
-            let rendered = Arc::new(AtomicBool::new(false));
-            let rendered_by_view = rendered.clone();
+    fn views_render_with_their_registered_renderer() {
+        Owner::new().with(|| {
+            let rendered = Arc::new(AtomicUsize::new(0));
+            let (custom, edit) = (rendered.clone(), rendered.clone());
+            let mut registry = CrudViewRegistry::default().edit(move |_| {
+                edit.fetch_add(1, Ordering::SeqCst);
+            });
             registry
-                .register("example.custom", move |_, _| {
-                    rendered_by_view.store(true, Ordering::SeqCst);
-                    ().into_any()
+                .register("example.custom", move |_: CrudView| {
+                    custom.fetch_add(10, Ordering::SeqCst);
                 })
                 .expect("custom view should register");
-            let navigation = CrudNavigation::new(CrudView::table());
 
-            let _ = registry.render(CrudView::new("example.custom"), navigation);
-            assert_that!(rendered.load(Ordering::SeqCst)).is_true();
+            let _ = registry.render(CrudView::new("example.custom"));
+            let _ = registry.render(CrudView::edit(SerializableId(Vec::new())));
+            let _ = registry.render(CrudView::new("example.unknown"));
+            assert_that!(rendered.load(Ordering::SeqCst)).is_equal_to(11);
         });
     }
 
     #[test]
-    fn application_replacements_override_builtin_renderers_and_validation() {
-        let owner = Owner::new();
-        owner.with(|| {
-            let mut registry = CrudViewRegistry::default();
-            let replacement_rendered = Arc::new(AtomicBool::new(false));
-            let replacement_rendered_by_view = replacement_rendered.clone();
-            registry.replace(TABLE_VIEW, move |_, _| {
-                replacement_rendered_by_view.store(true, Ordering::SeqCst);
-                ().into_any()
+    fn standard_views_require_their_subject_and_no_payload() {
+        Owner::new().with(|| {
+            let rendered = Arc::new(AtomicUsize::new(0));
+            let (table, edit) = (rendered.clone(), rendered.clone());
+            let registry = CrudViewRegistry::default()
+                .table(move || {
+                    table.fetch_add(1, Ordering::SeqCst);
+                })
+                .edit(move |_| {
+                    edit.fetch_add(1, Ordering::SeqCst);
+                });
+
+            let _ = registry.render(CrudView::new(EDIT_VIEW));
+            let _ = registry.render(CrudView::table().with_payload(serde_json::json!({})));
+            let _ = registry.render(CrudView {
+                subject: Some(SerializableId(Vec::new())),
+                ..CrudView::table()
             });
+            assert_that!(rendered.load(Ordering::SeqCst)).is_equal_to(0);
 
-            let _ = registry.render(
-                CrudView::table().with_payload(serde_json::json!({})),
-                CrudNavigation::new(CrudView::table()),
-            );
-
-            assert_that!(replacement_rendered.load(Ordering::SeqCst)).is_true();
+            let _ = registry.render(CrudView::table());
+            assert_that!(rendered.load(Ordering::SeqCst)).is_equal_to(1);
         });
+        assert_that!(check_without_subject(&CrudView::create()).is_ok()).is_true();
+        assert_that!(entity_subject(CrudView::edit(SerializableId(Vec::new()))).is_ok()).is_true();
+        assert_that!(entity_subject(CrudView::new(EDIT_VIEW)).is_err()).is_true();
     }
 }

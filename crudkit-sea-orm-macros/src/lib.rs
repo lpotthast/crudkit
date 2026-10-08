@@ -2,7 +2,6 @@
 #![allow(clippy::needless_continue)]
 
 use proc_macro::TokenStream;
-use proc_macro_error2::proc_macro_error;
 use syn::{DeriveInput, Error, parse_macro_input};
 
 mod derives;
@@ -90,7 +89,6 @@ pub fn derive_sea_orm_update_model(input: TokenStream) -> TokenStream {
 ///
 /// - `#[ck_validation_model(id)]` - Mark field as part of the parent entity's primary key
 #[proc_macro_derive(CkValidationModel, attributes(ck_validation_model))]
-#[proc_macro_error]
 pub fn derive_validation_model(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     derives::expand_derive_validation_model(&input)

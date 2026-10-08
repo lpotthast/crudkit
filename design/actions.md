@@ -3,16 +3,17 @@
 CrudKit actions let applications attach behavior and optional UI to a resource or entity without adding
 domain-specific operations to the CRUD engine.
 
-Create/save/navigation controls supplied by CrudKit itself are built-in controls. This document concerns
-application actions and the outlet used to relocate create controls.
+Saving, deleting, and navigating are CrudKit's own operations, bound to atoms such as `CrudSaveButton`. This document
+concerns application actions.
 
 ## Resource and Entity Actions
 
 `CrudAction` operates on the resource as a whole. `CrudEntityAction` operates on one current `UpdateModel`
 and declares whether it is valid in create, update, or read state.
 
-The state enum includes create, but the built-in create view does not currently mount `CrudActionButtons`.
-Declaring an entity action valid for create therefore does not expose it through the built-in UI.
+`CrudEntityActions` renders the actions valid in the surrounding form's kind. The state enum includes create, but
+entity actions act on an update model, which a create form does not have yet: in a create form their buttons stay
+disabled.
 
 An entity action receives the current update model, including unsaved edits. CrudKit does not save that
 model before invoking the action. The action decides whether the current draft is input, whether
@@ -38,7 +39,7 @@ An action with a view first marks itself requested and calls the application ren
 - for entity actions, the current optional model state.
 
 The application may render a modal, drawer, confirmation panel, or input form. CrudKit owns
-requested/executing bookkeeping, not the presentation. `use_crud_actions` exposes that bookkeeping, the configured
+requested/executing bookkeeping, not the presentation. `use_crud_actions_state` exposes that bookkeeping, the configured
 actions, and their execution to custom views.
 
 `DynActionPayload` stores an application payload behind the object-safe `ErasedActionPayload` trait; the typed
@@ -62,7 +63,7 @@ applies the same aftermath fields to both branches:
   `origin` unless the notification already has one;
 - optionally trigger instance data reload.
 
-The `Ok`/`Err` distinction is currently available to the callback protocol but does not change built-in
+The `Ok`/`Err` distinction is currently available to the callback protocol but does not change CrudKit's
 aftermath handling. Domain-specific success or failure presentation should be encoded in the provided
 notification or surrounding application UI.
 
@@ -72,21 +73,5 @@ surface directly.
 
 `CrudActionsState::bind_resource_action` and `bind_entity_action` return a `CrudActionHandle` for custom buttons: its
 `press` requests an action that has a view and executes one without, `is_disabled` covers execution and missing entity
-input, and `view` is the action's view to render next to the button. The built-in action buttons use the same handles.
-
-## Application-Placed Create Controls
-
-`CrudBuiltinViewControls::create_actions_placement` chooses whether built-in create controls render inline. Every
-mounted create form, built-in or custom, publishes its `CrudCreateActions` (save, `can_save`, navigation, and controls)
-through `CrudInstanceContext::create_actions`.
-
-With `CrudActionsPlacement::External`, `CrudActionsOutlet` can render a selected `CrudActionSlot` in an
-application-chosen location. Current slots divide create controls into primary, navigation, and toolbar
-groups.
-
-The outlet accepts an optional `CrudInstanceContext`, which lets a parent capture the context through
-`on_context_created` and place the controls outside the instance's DOM position. Leaving the create view
-clears the published controls.
-
-Despite the generalized names `CrudActionsPlacement` and `CrudActionsOutlet`, the published action bundle is still
-create-view-specific.
+input, and `view` is the action's view to render next to the button. `CrudActionButton` and `CrudEntityActionButton`
+use the same handles: they render a Leptonic `Button` and the action's view, an overlay, after it.

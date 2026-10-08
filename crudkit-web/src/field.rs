@@ -33,9 +33,10 @@ impl Default for HeaderOptions {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DateTimeDisplay {
     IsoUtc,
+    #[default]
     LocalizedLocal,
 }
 

@@ -2,7 +2,7 @@
 //! and texts.
 //!
 //! Configuration is plain data. Mounting it creates an [`crate::instance`]; CrudKit's hooks and
-//! components read it from there.
+//! atoms read it from there.
 
 mod actions;
 mod instance;

@@ -3,11 +3,12 @@ use crate::prelude::*;
 use crudkit_web::prelude::*;
 use leptos::prelude::*;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 /// The kind of view an entity action is offered in.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum CrudEntityViewKind {
-    /// A create view, editing a new entity. The built-in create view shows no entity actions.
+    /// A create form, editing a new entity, which has no entity to act on yet.
     Create,
     /// An edit view, editing an existing entity.
     Update,
@@ -41,13 +42,43 @@ pub struct EntityActionViewInput {
     pub execute: Callback<Option<DynActionPayload>>,
 }
 
+/// Reports the outcome of an action. Must be run exactly once, after the action finished. Until
+/// then, the action counts as executing and its buttons are disabled.
+///
+/// Unlike a Leptos `Callback`, it stays valid when the view that started the action is gone, so
+/// an action may finish after the user left the view.
+#[derive(Clone)]
+pub struct CrudActionCompletion(
+    Arc<dyn Fn(Result<CrudActionAftermath, CrudActionAftermath>) + Send + Sync>,
+);
+
+impl CrudActionCompletion {
+    pub(crate) fn new(
+        complete: impl Fn(Result<CrudActionAftermath, CrudActionAftermath>) + Send + Sync + 'static,
+    ) -> Self {
+        Self(Arc::new(complete))
+    }
+
+    /// Reports `outcome`. Both variants apply their aftermath; the variant records whether the
+    /// action succeeded.
+    pub fn run(&self, outcome: Result<CrudActionAftermath, CrudActionAftermath>) {
+        (self.0)(outcome);
+    }
+}
+
+impl Debug for CrudActionCompletion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CrudActionCompletion")
+            .finish_non_exhaustive()
+    }
+}
+
 /// The concrete data to perform a resource action with.
 pub struct ResourceActionInput {
     /// The payload produced by the action's view, or `None` for actions without a view.
     pub payload: Option<DynActionPayload>,
-    /// Reports the action's outcome. Must be run exactly once, after the action finished. Until
-    /// then, the action counts as executing and its buttons are disabled.
-    pub and_then: Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
+    /// Reports the action's outcome, see [`CrudActionCompletion`].
+    pub and_then: CrudActionCompletion,
 }
 
 /// The concrete data to perform an entity-action with.
@@ -59,8 +90,8 @@ pub struct EntityActionInput {
     /// A payload for this action.
     pub payload: Option<DynActionPayload>,
 
-    /// This callback should be run after the action was performed to tell the system its outcome.
-    pub and_then: Callback<Result<CrudActionAftermath, CrudActionAftermath>>,
+    /// Reports the action's outcome, see [`CrudActionCompletion`].
+    pub and_then: CrudActionCompletion,
 }
 
 /// An application action operating on one entity, offered in the views listed in `valid_in`.

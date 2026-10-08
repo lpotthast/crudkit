@@ -6,7 +6,6 @@
       <sourceFolder url="file://$MODULE_DIR$/crudkit-core-macros/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crudkit-core-macros/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crudkit-core/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/crudkit-leptos-theme/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crudkit-leptos/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crudkit-rs-macros-core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crudkit-rs-macros/src" isTestSource="false" />

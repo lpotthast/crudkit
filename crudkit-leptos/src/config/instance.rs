@@ -3,7 +3,6 @@ use crate::config::FieldRendererRegistry;
 use crate::config::{CrudAction, CrudEntityAction};
 use crudkit_core::Order;
 use crudkit_core::condition::Condition;
-use crudkit_core::id::SerializableId;
 use crudkit_web::field::HeaderOptions;
 use crudkit_web::http::ReqwestExecutor;
 use crudkit_web::list::{ItemsPerPage, PageNr};
@@ -42,7 +41,7 @@ impl From<(DynReadField, HeaderOptions)> for Header {
     }
 }
 
-/// Configuration of one mounted [`CrudInstance`](crate::components::instance::CrudInstance).
+/// Configuration of one mounted [`CrudInstance`](crate::instance::CrudInstance).
 ///
 /// The first group of fields seeds the instance's reactive state when it mounts and is restored
 /// by [`CrudInstanceContext::reset`](crate::instance::CrudInstanceContext::reset) where
@@ -79,15 +78,15 @@ pub struct CrudInstanceConfig {
     pub reqwest_executor: Arc<dyn ReqwestExecutor>,
     /// Type-erased access to the resource's concrete create, read, and update models.
     pub model_handler: ModelHandler,
-    /// Actions operating on the resource as a whole, offered by the list view.
+    /// Actions operating on the resource as a whole, offered by
+    /// [`CrudResourceActions`](crate::atoms::CrudResourceActions).
     pub actions: Vec<CrudAction>,
-    /// Actions operating on the current entity, offered by the views their valid states allow.
+    /// Actions operating on the current entity, offered by
+    /// [`CrudEntityActions`](crate::atoms::CrudEntityActions) in the forms their valid states
+    /// allow.
     pub entity_actions: Vec<CrudEntityAction>,
-    /// Visibility and follow-up behavior for controls in CrudKit's built-in views.
-    pub builtin_view_controls: CrudBuiltinViewControls,
-    /// Built-in replacements and application-defined view renderers for this instance. Defaults
-    /// to the registry provided with [`crate::hooks::views::provide_crud_view_registry`],
-    /// or CrudKit's built-in views.
+    /// The renderers of this instance's views. Defaults to the registry provided with
+    /// [`crate::hooks::views::provide_crud_view_registry`], else an empty registry.
     pub view_registry: Option<CrudViewRegistry>,
     /// Renderer overrides for read-model fields, used by list cells and
     /// [`use_crud_row_fields`](crate::hooks::use_crud_row_fields).
@@ -123,7 +122,7 @@ impl CrudInstanceConfig {
             api_base_url: api_base_url.into(),
             initial_view: CrudView::default(),
             list_columns: Vec::new(),
-            create_elements: CreateElements::None,
+            create_elements: Vec::new(),
             elements: Vec::new(),
             order_by: IndexMap::new(),
             items_per_page: ItemsPerPage::default(),
@@ -134,11 +133,10 @@ impl CrudInstanceConfig {
             model_handler: ModelHandler::new::<R::CreateModel, R::ReadModel, R::UpdateModel>(),
             actions: Vec::new(),
             entity_actions: Vec::new(),
-            builtin_view_controls: CrudBuiltinViewControls::default(),
             view_registry: None,
-            read_field_renderer: FieldRendererRegistry::builder().build(),
-            create_field_renderer: FieldRendererRegistry::builder().build(),
-            update_field_renderer: FieldRendererRegistry::builder().build(),
+            read_field_renderer: FieldRendererRegistry::default(),
+            create_field_renderer: FieldRendererRegistry::default(),
+            update_field_renderer: FieldRendererRegistry::default(),
         }
     }
 
@@ -161,7 +159,6 @@ impl CrudInstanceConfig {
                 model_handler: self.model_handler,
                 actions: self.actions,
                 entity_actions: self.entity_actions,
-                builtin_view_controls: self.builtin_view_controls,
                 view_registry: self
                     .view_registry
                     .or_else(use_context::<CrudViewRegistry>)
@@ -195,104 +192,10 @@ pub(crate) struct CrudStaticInstanceConfig {
     pub model_handler: ModelHandler,
     pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction>,
-    pub builtin_view_controls: CrudBuiltinViewControls,
     pub view_registry: CrudViewRegistry,
     pub read_field_renderer: FieldRendererRegistry<DynReadField>,
     pub create_field_renderer: FieldRendererRegistry<DynCreateField>,
     pub update_field_renderer: FieldRendererRegistry<DynUpdateField>,
-}
-
-/// Follow-up performed after a successful create operation.
-#[derive(Debug, Clone, Copy)]
-pub enum CrudCreateSaveTarget {
-    /// Open the built-in edit view for the created entity.
-    EditView,
-    /// Resolve the created id to an arbitrary view.
-    View(Callback<SerializableId, CrudView>),
-    /// Perform the navigation object's configured return action.
-    Return,
-    /// Keep the create view mounted.
-    Stay,
-}
-
-impl CrudCreateSaveTarget {
-    /// Opens one fixed view after creation.
-    #[must_use]
-    pub fn view(view: CrudView) -> Self {
-        Self::View(Callback::new(move |_| view.clone()))
-    }
-
-    /// Builds the destination from the created entity id.
-    pub fn dynamic(callback: impl Fn(SerializableId) -> CrudView + Send + Sync + 'static) -> Self {
-        Self::View(Callback::new(callback))
-    }
-}
-
-/// Placement of CrudKit action controls relative to the built-in form.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum CrudActionsPlacement {
-    /// Render controls inside the built-in form.
-    Inline,
-    /// Publish controls through an application-placed actions outlet.
-    External,
-}
-
-/// Controls which buttons CrudKit's built-in views render.
-#[derive(Debug, Clone, Copy)]
-// Each flag toggles one independent control, so the flags do not form a state machine.
-#[allow(clippy::struct_excessive_bools)]
-pub struct CrudBuiltinViewControls {
-    /// Whether create and edit views show the primary save button.
-    pub show_save: bool,
-    /// Whether create and edit views show the save-and-return button.
-    pub show_save_and_back: bool,
-    /// Whether the create view shows the save-and-create-another button.
-    pub show_save_and_new: bool,
-    /// Whether table, read, and edit views show delete controls.
-    pub show_delete: bool,
-    /// Whether read and edit views show the configured return action.
-    pub show_return: bool,
-    /// Follow-up performed after a successful create operation.
-    pub create_save_target: CrudCreateSaveTarget,
-    /// Placement of create action controls.
-    pub create_actions_placement: CrudActionsPlacement,
-}
-
-impl CrudBuiltinViewControls {
-    /// Returns controls suitable for a single entity embedded in an application-owned host.
-    #[must_use]
-    pub fn embedded_single_entity() -> Self {
-        Self {
-            show_save: true,
-            show_save_and_back: false,
-            show_save_and_new: false,
-            show_delete: false,
-            show_return: false,
-            create_save_target: CrudCreateSaveTarget::Return,
-            create_actions_placement: CrudActionsPlacement::Inline,
-        }
-    }
-
-    /// Sets where create action controls are rendered.
-    #[must_use]
-    pub fn with_create_actions_placement(mut self, placement: CrudActionsPlacement) -> Self {
-        self.create_actions_placement = placement;
-        self
-    }
-}
-
-impl Default for CrudBuiltinViewControls {
-    fn default() -> Self {
-        Self {
-            show_save: true,
-            show_save_and_back: true,
-            show_save_and_new: true,
-            show_delete: true,
-            show_return: true,
-            create_save_target: CrudCreateSaveTarget::EditView,
-            create_actions_placement: CrudActionsPlacement::Inline,
-        }
-    }
 }
 
 /// Scopes a nested instance to the entity shown by another instance under the same manager.
@@ -314,11 +217,5 @@ pub struct CrudParentConfig {
 /// Layout of the edit and read views: a sequence of fields, separators, and enclosing groups.
 pub type UpdateElements = Vec<Elem<DynUpdateField>>;
 
-/// Layout of the create view.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum CreateElements {
-    /// No layout. The built-in create view shows a "no fields" message instead of a form.
-    None,
-    /// A sequence of fields, separators, and enclosing groups.
-    Custom(Vec<Elem<DynCreateField>>),
-}
+/// Layout of the create view: a sequence of fields, separators, and enclosing groups.
+pub type CreateElements = Vec<Elem<DynCreateField>>;

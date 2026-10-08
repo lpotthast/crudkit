@@ -49,6 +49,8 @@ source of identity.
 
 Frontend `CkField` is role-aware: create, read, and update models receive distinct erased field traits. It generates
 model field enumeration, typed get/set behavior, `ValueKind`, optionality, and erased wrappers used by `CrudInstance`.
+It also implements `IntoDynField` for the field enum, naming its erased field type (`DynCreateField`, `DynReadField`,
+or `DynUpdateField`), so that `crudkit-leptos`' `CrudField` atom binds a typed field to the matching form.
 
 Optional Rust fields map absence to `Value::Null`; they do not generate optional `Value` variants. Unsupported custom
 types classify as `Other` and require application rendering or conversion behavior.

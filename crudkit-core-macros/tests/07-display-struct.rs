@@ -16,5 +16,5 @@ pub struct Foo {
 fn main() {
     let id = FooId { id_a: 1, id_b: 2 };
 
-    assert_that!(id.to_string()).is_equal_to("(id_a: 1, id_b: 2)".to_string());
+    assert_that!(id.to_string()).is_equal_to("id_a=1, id_b=2".to_string());
 }

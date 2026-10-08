@@ -1,12 +1,11 @@
 //! Create, edit, and read forms.
 
-use crate::config::CrudUiTexts;
-use crate::config::{CrudBuiltinViewControls, CrudCreateSaveTarget};
+use crate::config::{CrudEntityViewKind, CrudUiTexts};
 use crate::hooks::field::CrudFieldMap;
 use crate::hooks::field::{ReactiveField, reactive_fields};
 use crate::hooks::instance::use_crud_instance;
 use crate::hooks::notify::{CrudNotification, CrudNotifier};
-use crate::hooks::texts::use_crud_texts;
+use crate::hooks::texts::{use_crud_texts, with_texts};
 use crate::instance::CrudInstanceContext;
 use crate::instance::CrudNavigation;
 use crudkit_core::condition::{TryIntoAllEqualCondition, merge_conditions};
@@ -18,23 +17,126 @@ use crudkit_web::load_state::LoadState;
 use crudkit_web::prelude::*;
 use crudkit_web::view::CrudView;
 use leptos::prelude::*;
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::Arc;
 
 /// What happens after an entity was saved successfully.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy)]
 pub enum CrudSaveFollowUp {
-    /// The configured default: the instance's `create_save_target` after creating, staying after
-    /// editing.
-    #[default]
-    Default,
-    /// Keep the current view.
+    /// Keep the current view. An edit form goes on editing the saved entity, a create form starts
+    /// a fresh draft.
     Stay,
-    /// Perform the navigation's return action.
+    /// Return from the current view, see [`CrudNavigation::return_from_current`].
     Return,
-    /// Open a fresh create view.
+    /// Open the saved entity in the edit view. After editing, this stays.
+    Edit,
+    /// Start another entity: a create form starts a fresh draft, an edit form opens a create view.
     CreateAnother,
+    /// Open the view returned for the saved entity's id.
+    View(Callback<SerializableId, CrudView>),
+}
+
+impl CrudSaveFollowUp {
+    /// Performs this follow-up on `navigation` after a form of `kind` saved the entity `id`.
+    /// `stay` runs for [`Self::Stay`], and where the form already shows what the follow-up asks
+    /// for: [`Self::Edit`] in an edit form, [`Self::CreateAnother`] in a create form.
+    fn perform(
+        self,
+        navigation: CrudNavigation,
+        id: SerializableId,
+        kind: CrudEntityViewKind,
+        stay: impl Fn(),
+    ) {
+        match self {
+            Self::Stay => stay(),
+            Self::Edit if kind == CrudEntityViewKind::Update => stay(),
+            Self::CreateAnother if kind == CrudEntityViewKind::Create => stay(),
+            Self::Return => {
+                navigation.return_committed();
+            }
+            Self::Edit => {
+                navigation.navigate_committed(CrudView::edit(id));
+            }
+            Self::CreateAnother => {
+                navigation.navigate_committed(CrudView::create());
+            }
+            Self::View(resolve) => {
+                navigation.navigate_committed(resolve.run(id));
+            }
+        }
+    }
+}
+
+/// The form surrounding the caller: a [`CrudCreateForm`](crate::atoms::CrudCreateForm),
+/// [`CrudEditForm`](crate::atoms::CrudEditForm), or [`CrudDetails`](crate::atoms::CrudDetails).
+///
+/// Read it with [`use_crud_form`], e.g. to render a form's status, dirty state, or save controls
+/// in markup the atoms do not cover.
+#[derive(Clone, Copy)]
+pub struct CrudFormHandle {
+    /// Whether the form creates, edits, or shows an entity.
+    pub kind: CrudEntityViewKind,
+    /// Whether the form's entity is shown. Always ready in create forms.
+    pub status: Signal<CrudEntityLoadStatus>,
+    /// Whether the form holds unsaved changes.
+    pub is_dirty: Signal<bool>,
+    /// Whether some field holds input that could not be read, which keeps the form from saving.
+    pub has_errors: Signal<bool>,
+    /// Whether a save request is in flight.
+    pub is_saving: Signal<bool>,
+    /// Whether the form can be saved now.
+    pub can_save: Signal<bool>,
+    /// Saves the form, then performs the given follow-up. `None` in details, which do not save.
+    pub save: Option<Callback<CrudSaveFollowUp>>,
+    /// Non-critical validation violations the server reported for the last successful save, if
+    /// any. Always `None` in details.
+    pub violations: Signal<Option<PartialSerializableAggregateViolations>>,
+    /// What saving does when the saving control does not say, e.g. on submit.
+    pub follow_up: CrudSaveFollowUp,
+    /// The shown entity including unsaved changes, which entity actions act on. `None` in create
+    /// forms and while the entity loads.
+    pub draft: Signal<Option<DynUpdateModel>>,
+    /// The `TypeId` of the form's field type, e.g. `DynCreateField`.
+    pub(crate) field_type: TypeId,
+    /// Whether the form is a `<form>` element, which its save button submits. A form nested in
+    /// another one is not.
+    pub(crate) submits: bool,
+}
+
+impl fmt::Debug for CrudFormHandle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CrudFormHandle")
+            .field("kind", &self.kind)
+            .field("follow_up", &self.follow_up)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Returns the surrounding form.
+///
+/// # Panics
+///
+/// Panics when called outside of a form, or inside an instance nested in a form.
+#[must_use]
+pub fn use_crud_form() -> CrudFormHandle {
+    try_use_crud_form().expect("`use_crud_form` must be called inside a CrudKit form")
+}
+
+/// Returns the surrounding form, unless an instance lies in between.
+pub(crate) fn try_use_crud_form() -> Option<CrudFormHandle> {
+    use_context::<Option<CrudFormHandle>>().flatten()
+}
+
+/// Returns the form surrounding `atom`.
+///
+/// # Panics
+///
+/// Panics when `atom` is rendered outside of a form, or inside an instance nested in a form.
+pub(crate) fn expect_crud_form(atom: &'static str) -> CrudFormHandle {
+    try_use_crud_form().unwrap_or_else(|| {
+        panic!("`{atom}` must be rendered inside a CrudKit form, e.g. a `CrudEditForm`")
+    })
 }
 
 /// Draft state of a form editing one entity, with one [`ReactiveField`] per field.
@@ -59,6 +161,9 @@ pub struct CrudFormState<F: TypeErasedField> {
     /// Whether some field holds input that could not be converted into a value. Such a draft is
     /// not saved, because it does not reflect what the user sees.
     pub has_errors: Signal<bool>,
+    /// Whether a save request is in flight. Fields are read-only meanwhile, so that the saved
+    /// entity, which becomes the form's new state, cannot overwrite input made during the request.
+    pub is_saving: Signal<bool>,
 }
 
 // Deriving `Clone` and `Copy` would require `F: Clone` and `F: Copy`. The handle is `Copy` for every
@@ -79,7 +184,7 @@ impl<F: TypeErasedField> fmt::Debug for CrudFormState<F> {
 }
 
 impl<F: TypeErasedField> CrudFormState<F> {
-    fn new() -> Self {
+    fn new(is_saving: Signal<bool>) -> Self {
         let draft = RwSignal::new(None::<F::Model>);
         let baseline = RwSignal::new(None::<F::Model>);
         let errors = RwSignal::new(HashMap::new());
@@ -100,6 +205,7 @@ impl<F: TypeErasedField> CrudFormState<F> {
             // A memo, so that views keyed on readiness do not re-render on every draft change.
             is_ready: Memo::new(move |_| draft.read().is_some()).into(),
             has_errors: Memo::new(move |_| !errors.read().is_empty()).into(),
+            is_saving,
         }
     }
 
@@ -151,6 +257,11 @@ impl<F: TypeErasedField> CrudFormState<F> {
         self.input_errors.update(HashMap::clear);
     }
 
+    /// Makes `model` the version the draft is compared against, keeping the draft and its input.
+    fn rebase(&self, model: F::Model) {
+        self.baseline.set(Some(model));
+    }
+
     /// Replaces draft, baseline, and field values with `model`, keeping the existing reactive
     /// values, so that rendered fields update in place.
     fn sync(&self, model: F::Model, fields: HashMap<F, ReactiveField>) {
@@ -170,15 +281,27 @@ impl<F: TypeErasedField> CrudFormState<F> {
     }
 }
 
+/// Which outcomes of saving a form notify the user, through the instance's [`CrudNotifier`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum CrudSaveNotifications {
+    /// Successes and failures.
+    #[default]
+    All,
+    /// Failures only, e.g. when the application reports successes itself.
+    Failures,
+    /// None.
+    None,
+}
+
 /// Input of [`use_crud_create_form`].
 #[derive(Debug, Clone, Default)]
 pub struct UseCrudCreateFormInput {
-    /// Called after the entity was created.
+    /// Called after the entity was created, while the form is mounted.
     pub on_saved: Option<Callback<Saved<DynUpdateModel>>>,
-    /// Called when creating the entity failed.
+    /// Called when creating the entity failed, while the form is mounted.
     pub on_save_failed: Option<Callback<RequestError>>,
-    /// Suppresses the error notification that is otherwise sent when creating the entity fails.
-    pub quiet: bool,
+    /// Which outcomes notify the user. Notifications are sent even when the form is gone by then.
+    pub notifications: CrudSaveNotifications,
 }
 
 /// Output of [`use_crud_create_form`].
@@ -192,34 +315,14 @@ pub struct UseCrudCreateFormReturn {
     pub is_saving: Signal<bool>,
     /// Whether [`Self::save`] is currently allowed. An unchanged default draft may be saved.
     pub can_save: Signal<bool>,
-    /// The save controls this form publishes to its instance, see [`CrudCreateActions`].
-    pub actions: CrudCreateActions,
     /// Non-critical validation violations reported by the last successful save, if any.
     pub violations: Signal<Option<PartialSerializableAggregateViolations>>,
-}
-
-/// The save controls of a mounted create form.
-///
-/// While a create form is mounted, it publishes these through
-/// [`CrudInstanceContext::create_actions`], so applications can place the save buttons outside of
-/// the form, e.g. in a page header.
-#[derive(Debug, Clone, Copy)]
-pub struct CrudCreateActions {
-    /// Creates the drafted entity, then performs the given follow-up.
-    pub save: Callback<CrudSaveFollowUp>,
-    /// Whether saving is currently allowed.
-    pub can_save: Signal<bool>,
-    /// Navigation of the create view, e.g. for a return button.
-    pub navigation: CrudNavigation,
-    /// The instance's built-in view controls, e.g. which save follow-ups to offer.
-    pub controls: Signal<CrudBuiltinViewControls>,
 }
 
 /// Creates a form for a new entity of the surrounding instance.
 ///
 /// The draft starts from the create model's default, with the parent reference filled in for nested
-/// instances. A changed draft guards the current navigation. While mounted, the form publishes its
-/// save controls to the instance.
+/// instances. A changed draft guards the current navigation.
 ///
 /// # Panics
 ///
@@ -231,14 +334,15 @@ pub fn use_crud_create_form(input: UseCrudCreateFormInput) -> UseCrudCreateFormR
     let UseCrudCreateFormInput {
         on_saved,
         on_save_failed,
-        quiet,
+        notifications,
     } = input;
     let ctx = use_crud_instance();
     let navigation = ctx.navigation;
-    let texts = StoredValue::new(use_crud_texts());
     let violations = RwSignal::new(None::<PartialSerializableAggregateViolations>);
 
-    let form = CrudFormState::<DynCreateField>::new();
+    let save_action = create_action(&ctx, notifications);
+    let is_saving: Signal<bool> = save_action.pending().into();
+    let form = CrudFormState::<DynCreateField>::new(is_saving);
     let default_model = default_create_model(&ctx);
     let fields = reactive_fields(
         ctx.static_config
@@ -248,8 +352,6 @@ pub fn use_crud_create_form(input: UseCrudCreateFormInput) -> UseCrudCreateFormR
     );
     form.load(default_model, fields);
     navigation.guard(form.is_dirty);
-
-    let save_action = create_action(&ctx);
 
     let save_result = save_action.value();
     let reset = move || {
@@ -262,6 +364,7 @@ pub fn use_crud_create_form(input: UseCrudCreateFormInput) -> UseCrudCreateFormR
         );
         form.sync(model, fields);
     };
+    // The outcome was already notified by the request. The form applies it while it is mounted.
     Effect::new(move |_prev| {
         let Some((result, follow_up)) = save_result.get() else {
             return;
@@ -275,22 +378,16 @@ pub fn use_crud_create_form(input: UseCrudCreateFormInput) -> UseCrudCreateFormR
                 if let Some(on_saved) = on_saved {
                     on_saved.run(saved);
                 }
-                follow_up_after_create(&ctx, follow_up, id, reset);
+                follow_up.perform(ctx.navigation, id, CrudEntityViewKind::Create, reset);
             }
             Err(request_error) => {
-                tracing::warn!("Could not create entity due to error: {request_error}");
-                let failure = SaveFailure {
-                    notifier: ctx.notifier,
-                    texts,
-                    quiet,
-                    on_save_failed,
-                };
-                failure.report(request_error, |texts| texts.create_failed.as_ref());
+                if let Some(on_save_failed) = on_save_failed {
+                    on_save_failed.run(request_error);
+                }
             }
         });
     });
 
-    let is_saving: Signal<bool> = save_action.pending().into();
     let save = Callback::new(move |follow_up: CrudSaveFollowUp| {
         if let Some(draft) = savable_draft(form) {
             save_action.dispatch((draft, follow_up));
@@ -298,60 +395,19 @@ pub fn use_crud_create_form(input: UseCrudCreateFormInput) -> UseCrudCreateFormR
     });
 
     let can_save = Signal::derive(move || !is_saving.get() && !form.has_errors.get());
-    let actions = CrudCreateActions {
-        save,
-        can_save,
-        navigation,
-        controls: Signal::derive(move || ctx.builtin_view_controls()),
-    };
-    ctx.set_create_actions(Some(actions));
-    on_cleanup(move || ctx.set_create_actions(None));
 
     UseCrudCreateFormReturn {
         form,
         save,
         is_saving,
         can_save,
-        actions,
         violations: violations.into(),
-    }
-}
-
-/// Performs `follow_up` after creating the entity `id`. `reset` starts a fresh draft.
-fn follow_up_after_create(
-    ctx: &CrudInstanceContext,
-    follow_up: CrudSaveFollowUp,
-    id: SerializableId,
-    reset: impl Fn(),
-) {
-    let navigation = ctx.navigation;
-    match follow_up {
-        CrudSaveFollowUp::Default => match ctx.builtin_view_controls().create_save_target {
-            CrudCreateSaveTarget::EditView => {
-                navigation.navigate_committed(CrudView::edit(id));
-            }
-            CrudCreateSaveTarget::View(resolve) => {
-                navigation.navigate_committed(resolve.run(id));
-            }
-            CrudCreateSaveTarget::Return => {
-                navigation.return_committed();
-            }
-            // The entity exists now. Staying offers a fresh draft for the next one.
-            CrudCreateSaveTarget::Stay => reset(),
-        },
-        CrudSaveFollowUp::Stay => reset(),
-        CrudSaveFollowUp::Return => {
-            navigation.return_committed();
-        }
-        CrudSaveFollowUp::CreateAnother => {
-            navigation.navigate_committed(CrudView::create());
-        }
     }
 }
 
 /// Whether an edited or displayed entity can be shown.
 #[derive(Debug, Clone, PartialEq)]
-pub enum CrudEntityStatus {
+pub enum CrudEntityLoadStatus {
     /// The entity is being loaded, or its field values are being prepared.
     Loading,
     /// The entity is loaded and the form holds its field values.
@@ -366,13 +422,13 @@ pub enum CrudEntityStatus {
 fn entity_status<F: TypeErasedField>(
     entity: Signal<LoadState<DynUpdateModel>>,
     form: CrudFormState<F>,
-) -> Signal<CrudEntityStatus> {
+) -> Signal<CrudEntityLoadStatus> {
     // A memo, so that views keyed on the status re-render only when it changes.
     Memo::new(move |_| match &*entity.read() {
-        LoadState::Loaded(_) if form.is_ready.get() => CrudEntityStatus::Ready,
-        LoadState::Loading | LoadState::Loaded(_) => CrudEntityStatus::Loading,
-        LoadState::NotFound => CrudEntityStatus::NotFound,
-        LoadState::Failed(error) => CrudEntityStatus::Failed(error.clone()),
+        LoadState::Loaded(_) if form.is_ready.get() => CrudEntityLoadStatus::Ready,
+        LoadState::Loading | LoadState::Loaded(_) => CrudEntityLoadStatus::Loading,
+        LoadState::NotFound => CrudEntityLoadStatus::NotFound,
+        LoadState::Failed(error) => CrudEntityLoadStatus::Failed(error.clone()),
     })
     .into()
 }
@@ -383,12 +439,15 @@ type SaveOutcome = (
     CrudSaveFollowUp,
 );
 
-/// Creates the action sending create requests for the instance of `ctx`.
+/// Creates the action sending create requests for the instance of `ctx`. It notifies the outcome
+/// as `notifications` ask, also when the form is gone by then.
 // TODO: Can we get rid of new_local?
 fn create_action(
     ctx: &CrudInstanceContext,
+    notifications: CrudSaveNotifications,
 ) -> Action<(DynCreateModel, CrudSaveFollowUp), SaveOutcome> {
     let ctx = *ctx;
+    let notify = SaveNotifier::new(&ctx, notifications);
     Action::new_local(
         move |(create_model, follow_up): &(DynCreateModel, CrudSaveFollowUp)| {
             let entity = create_model.clone();
@@ -396,18 +455,26 @@ fn create_action(
             let data_provider = ctx.data_provider.get_untracked();
             async move {
                 let result = data_provider.create_one(CreateOne { entity }).await;
+                notify.outcome(
+                    &result,
+                    |texts| &texts.created,
+                    |texts| &texts.create_failed,
+                );
                 (result, follow_up)
             }
         },
     )
 }
 
-/// Creates the action sending update requests for the entity `id` of the instance of `ctx`.
+/// Creates the action sending update requests for the entity `id` of the instance of `ctx`. It
+/// notifies the outcome as `notifications` ask, also when the form is gone by then.
 fn update_action(
     ctx: &CrudInstanceContext,
     id: Signal<SerializableId>,
+    notifications: CrudSaveNotifications,
 ) -> Action<(DynUpdateModel, CrudSaveFollowUp), SaveOutcome> {
     let ctx = *ctx;
+    let notify = SaveNotifier::new(&ctx, notifications);
     Action::new_local(
         move |(entity, follow_up): &(DynUpdateModel, CrudSaveFollowUp)| {
             let entity = entity.clone();
@@ -416,52 +483,72 @@ fn update_action(
             let id = id.get_untracked();
             let base_condition = ctx.base_condition.get_untracked();
             async move {
-                let id_condition = match id.0.into_iter().try_into_all_equal_condition() {
-                    Ok(condition) => condition,
-                    Err(e) => {
-                        return (
-                            Err(RequestError::InvalidRequest(format!(
-                                "ID contains unsupported field types: {e:?}"
-                            ))),
-                            follow_up,
-                        );
+                let result = match id.0.into_iter().try_into_all_equal_condition() {
+                    Ok(id_condition) => {
+                        data_provider
+                            .update_one(UpdateOne {
+                                entity,
+                                condition: merge_conditions(base_condition, Some(id_condition)),
+                            })
+                            .await
                     }
+                    Err(e) => Err(RequestError::InvalidRequest(format!(
+                        "ID contains unsupported field types: {e:?}"
+                    ))),
                 };
-                let result = data_provider
-                    .update_one(UpdateOne {
-                        entity,
-                        condition: merge_conditions(base_condition, Some(id_condition)),
-                    })
-                    .await;
+                notify.outcome(&result, |texts| &texts.saved, |texts| &texts.update_failed);
                 (result, follow_up)
             }
         },
     )
 }
 
-/// Reports a failed save: as a notification unless `quiet`, and to `on_save_failed`.
-struct SaveFailure {
+/// Notifies the outcomes of save requests through the instance's notifier.
+#[derive(Clone, Copy)]
+struct SaveNotifier {
     notifier: CrudNotifier,
-    texts: StoredValue<Arc<CrudUiTexts>>,
-    quiet: bool,
-    on_save_failed: Option<Callback<RequestError>>,
+    texts: Signal<CrudUiTexts>,
+    notifications: CrudSaveNotifications,
 }
 
-impl SaveFailure {
-    fn report(self, error: RequestError, message: fn(&CrudUiTexts) -> &str) {
-        if !self.quiet {
-            let (title, message) = self.texts.with_value(|texts| {
-                (
-                    texts.error.to_string(),
-                    format!("{} {error}", message(texts)),
-                )
-            });
-            self.notifier
-                .notify(CrudNotification::error(title, message));
+impl SaveNotifier {
+    fn new(ctx: &CrudInstanceContext, notifications: CrudSaveNotifications) -> Self {
+        Self {
+            notifier: ctx.notifier,
+            texts: use_crud_texts(),
+            notifications,
         }
-        if let Some(on_save_failed) = self.on_save_failed {
-            on_save_failed.run(error);
-        }
+    }
+
+    /// Notifies `result` with the message `saved` or `failed`, as the notifications ask.
+    fn outcome<T>(
+        self,
+        result: &Result<T, RequestError>,
+        saved: fn(&CrudUiTexts) -> &str,
+        failed: fn(&CrudUiTexts) -> &str,
+    ) {
+        let notification = match result {
+            Ok(_) if self.notifications == CrudSaveNotifications::All => {
+                with_texts(self.texts, |texts| {
+                    CrudNotification::success(texts.save.to_string(), saved(texts))
+                })
+            }
+            Err(error) if self.notifications != CrudSaveNotifications::None => {
+                tracing::warn!(%error, "could not save the entity");
+                with_texts(self.texts, |texts| {
+                    CrudNotification::error(
+                        texts.error.to_string(),
+                        format!("{} {error}", failed(texts)),
+                    )
+                })
+            }
+            Ok(_) => return,
+            Err(error) => {
+                tracing::warn!(%error, "could not save the entity");
+                return;
+            }
+        };
+        self.notifier.notify(notification);
     }
 }
 
@@ -517,24 +604,12 @@ fn default_create_model(ctx: &CrudInstanceContext) -> DynCreateModel {
 pub struct UseCrudEditFormInput {
     /// ID of the edited entity.
     pub id: Signal<SerializableId>,
-    /// Called after the entity was saved.
+    /// Called after the entity was saved, while the form is mounted.
     pub on_saved: Option<Callback<Saved<DynUpdateModel>>>,
-    /// Called when saving the entity failed.
+    /// Called when saving the entity failed, while the form is mounted.
     pub on_save_failed: Option<Callback<RequestError>>,
-    /// Suppresses the error notification that is otherwise sent when saving the entity fails.
-    pub quiet: bool,
-}
-
-impl UseCrudEditFormInput {
-    /// Creates an input editing the entity identified by `id`.
-    pub fn new(id: impl Into<Signal<SerializableId>>) -> Self {
-        Self {
-            id: id.into(),
-            on_saved: None,
-            on_save_failed: None,
-            quiet: false,
-        }
-    }
+    /// Which outcomes notify the user. Notifications are sent even when the form is gone by then.
+    pub notifications: CrudSaveNotifications,
 }
 
 /// Output of [`use_crud_edit_form`].
@@ -542,11 +617,12 @@ impl UseCrudEditFormInput {
 pub struct UseCrudEditFormReturn {
     /// The entity as loaded from the server.
     pub entity: Signal<LoadState<DynUpdateModel>>,
-    /// Whether the entity can be shown, see [`CrudEntityStatus`].
-    pub status: Signal<CrudEntityStatus>,
+    /// Whether the entity can be shown, see [`CrudEntityLoadStatus`].
+    pub status: Signal<CrudEntityLoadStatus>,
     /// Non-critical validation violations reported by the last successful save, if any.
     pub violations: Signal<Option<PartialSerializableAggregateViolations>>,
-    /// The draft of the edited entity. Reset whenever the entity (re)loads.
+    /// The draft of the edited entity. Reset whenever the entity (re)loads, unless it holds
+    /// unsaved changes of that entity.
     pub form: CrudFormState<DynUpdateField>,
     /// Saves the draft, then performs the given follow-up.
     pub save: Callback<CrudSaveFollowUp>,
@@ -575,21 +651,21 @@ pub fn use_crud_edit_form(input: UseCrudEditFormInput) -> UseCrudEditFormReturn 
         id,
         on_saved,
         on_save_failed,
-        quiet,
+        notifications,
     } = input;
     let ctx = use_crud_instance();
     let navigation = ctx.navigation;
-    let texts = StoredValue::new(use_crud_texts());
     let violations = RwSignal::new(None::<PartialSerializableAggregateViolations>);
 
     let entity = use_entity(&ctx, id);
-    let form = CrudFormState::<DynUpdateField>::new();
+    let save_action = update_action(&ctx, id, notifications);
+    let is_saving: Signal<bool> = save_action.pending().into();
+    let form = CrudFormState::<DynUpdateField>::new(is_saving);
     load_into_form(&ctx, entity, form);
     navigation.guard(form.is_dirty);
 
-    let save_action = update_action(&ctx, id);
-
     let save_result = save_action.value();
+    // The outcome was already notified by the request. The form applies it while it is mounted.
     Effect::new(move |_prev| {
         let Some((result, follow_up)) = save_result.get() else {
             return;
@@ -606,43 +682,31 @@ pub fn use_crud_edit_form(input: UseCrudEditFormInput) -> UseCrudEditFormReturn 
                         .model_handler
                         .update_model_values(&saved.entity),
                 );
+                let saved_id = saved.entity.id();
                 form.sync(saved.entity.clone(), fields);
                 if let Some(on_saved) = on_saved {
                     on_saved.run(saved);
                 }
-                match follow_up {
-                    CrudSaveFollowUp::Default | CrudSaveFollowUp::Stay => {}
-                    CrudSaveFollowUp::Return => {
-                        navigation.return_committed();
-                    }
-                    CrudSaveFollowUp::CreateAnother => {
-                        navigation.navigate_committed(CrudView::create());
-                    }
-                }
+                follow_up.perform(navigation, saved_id, CrudEntityViewKind::Update, || {});
             }
             Err(request_error) => {
-                tracing::warn!("Could not update entity due to error: {request_error}");
-                let failure = SaveFailure {
-                    notifier: ctx.notifier,
-                    texts,
-                    quiet,
-                    on_save_failed,
-                };
-                failure.report(request_error, |texts| texts.update_failed.as_ref());
+                if let Some(on_save_failed) = on_save_failed {
+                    on_save_failed.run(request_error);
+                }
             }
         });
     });
 
-    let is_saving: Signal<bool> = save_action.pending().into();
     let is_dirty = form.is_dirty;
     let save = Callback::new(move |follow_up: CrudSaveFollowUp| {
         if let Some(draft) = savable_draft(form) {
             save_action.dispatch((draft, follow_up));
         }
     });
+    // Deletes the entity as loaded: the draft may hold unsaved changes, even of its ID fields.
     let delete = Callback::new(move |()| {
-        if let Some(draft) = form.draft.get_untracked() {
-            ctx.deletion.for_navigation(navigation).request(draft);
+        if let Some(entity) = entity.get_untracked().into_loaded() {
+            ctx.deletion.for_navigation(navigation).request(entity);
         }
     });
 
@@ -657,7 +721,7 @@ pub fn use_crud_edit_form(input: UseCrudEditFormInput) -> UseCrudEditFormReturn 
             !is_saving.get() && is_dirty.get() && !form.has_errors.get()
         }),
         delete,
-        can_delete: Signal::derive(move || !is_saving.get() && form.draft.read().is_some()),
+        can_delete: Signal::derive(move || !is_saving.get() && entity.read().loaded().is_some()),
     }
 }
 
@@ -666,8 +730,8 @@ pub fn use_crud_edit_form(input: UseCrudEditFormInput) -> UseCrudEditFormReturn 
 pub struct UseCrudReadReturn {
     /// The entity as loaded from the server.
     pub entity: Signal<LoadState<DynUpdateModel>>,
-    /// Whether the entity can be shown, see [`CrudEntityStatus`].
-    pub status: Signal<CrudEntityStatus>,
+    /// Whether the entity can be shown, see [`CrudEntityLoadStatus`].
+    pub status: Signal<CrudEntityLoadStatus>,
     /// Reactive values of the entity's fields. Not meant to be edited.
     pub form: CrudFormState<DynUpdateField>,
     /// Asks the user to confirm deleting the entity.
@@ -686,7 +750,7 @@ pub fn use_crud_read(id: impl Into<Signal<SerializableId>>) -> UseCrudReadReturn
     let navigation = ctx.navigation;
 
     let entity = use_entity(&ctx, id.into());
-    let form = CrudFormState::<DynUpdateField>::new();
+    let form = CrudFormState::<DynUpdateField>::new(Signal::stored(false));
     load_into_form(&ctx, entity, form);
 
     let delete = Callback::new(move |()| {
@@ -744,6 +808,10 @@ fn use_entity(
 }
 
 /// Resets `form` to every newly loaded version of `entity`.
+///
+/// A reload of the entity the form holds unsaved changes of keeps those changes: the reloaded
+/// version only becomes what they are compared against. Discarding them is up to the user, e.g.
+/// by leaving the view.
 fn load_into_form(
     ctx: &CrudInstanceContext,
     entity: Signal<LoadState<DynUpdateModel>>,
@@ -752,6 +820,14 @@ fn load_into_form(
     let ctx = *ctx;
     Effect::new(move |_prev| {
         if let LoadState::Loaded(model) = entity.get() {
+            let edits_this_entity = form.is_dirty.get_untracked()
+                && form.draft.with_untracked(|draft| {
+                    draft.as_ref().is_some_and(|draft| draft.id() == model.id())
+                });
+            if edits_this_entity {
+                form.rebase(model);
+                return;
+            }
             let fields = reactive_fields(
                 ctx.static_config
                     .read_value()

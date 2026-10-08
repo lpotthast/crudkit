@@ -50,8 +50,6 @@
 //! drawer.return_from_current();
 //! ```
 
-#![deny(missing_docs)]
-
 use crudkit_web::navigation::{
     AttemptResult, NavigationStateMachine, PendingEffect, ROOT_SCOPE, ScopeId,
 };

@@ -3,6 +3,7 @@
 use crate::hooks::instance::use_crud_instance;
 use crate::instance::CrudInstanceContext;
 use crudkit_core::Order;
+use crudkit_web::http::RequestError;
 use crudkit_web::list::{self, ItemsPerPage, PageNr, PageOptions, Selection};
 use crudkit_web::load_state::LoadState;
 use crudkit_web::prelude::*;
@@ -20,6 +21,8 @@ pub struct CrudListState {
     pub rows: Signal<LoadState<Arc<Vec<DynReadModel>>>>,
     /// Whether the current page contains at least one entity.
     pub has_rows: Signal<bool>,
+    /// Whether the list shows rows, or why not.
+    pub status: Signal<CrudListLoadStatus>,
     /// Total number of entities matching the instance's base condition, once known.
     pub item_count: Signal<Option<u64>>,
     /// Paging of the list.
@@ -30,16 +33,50 @@ pub struct CrudListState {
     pub selection: CrudSelectionState,
 }
 
+/// Whether a list shows rows, or why not.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CrudListLoadStatus {
+    /// The current page is being loaded.
+    Loading,
+    /// The current page holds entities.
+    Ready,
+    /// The current page holds no entities.
+    Empty,
+    /// Loading the current page failed.
+    Failed(RequestError),
+}
+
+/// Returns the list of the surrounding [`CrudList`](crate::atoms::CrudList).
+///
+/// # Panics
+///
+/// Panics when called outside of a `CrudList`.
+#[must_use]
+pub fn use_crud_list() -> CrudListState {
+    expect_crud_list("use_crud_list")
+}
+
+/// Returns the list surrounding `atom`.
+///
+/// # Panics
+///
+/// Panics when `atom` is rendered outside of a `CrudList`.
+pub(crate) fn expect_crud_list(atom: &'static str) -> CrudListState {
+    use_context::<CrudListState>()
+        .unwrap_or_else(|| panic!("`{atom}` must be rendered inside a `CrudList`"))
+}
+
 /// Creates the state of a list of entities of the surrounding instance.
 ///
-/// Each call loads data independently and owns its own selection, so call it once per mounted
-/// list and share the returned `Copy` handle, e.g. through context.
+/// Each call loads data independently and owns its own selection. [`CrudList`](crate::atoms::CrudList)
+/// calls it once and provides the list to the atoms inside; call it directly only for lists
+/// rendered without atoms.
 ///
 /// # Panics
 ///
 /// Panics when called outside of a CrudKit instance.
 #[must_use]
-pub fn use_crud_list() -> CrudListState {
+pub fn use_crud_list_state() -> CrudListState {
     let ctx = use_crud_instance();
 
     // TODO: Do not use LocalResource, allow loading on the server.
@@ -82,15 +119,33 @@ pub fn use_crud_list() -> CrudListState {
 
     let has_rows =
         Signal::derive(move || rows.read().loaded().is_some_and(|rows| !rows.is_empty()));
+    let status = Memo::new(move |_| match &*rows.read() {
+        LoadState::Loaded(rows) if !rows.is_empty() => CrudListLoadStatus::Ready,
+        LoadState::Loaded(_) | LoadState::NotFound => CrudListLoadStatus::Empty,
+        LoadState::Loading => CrudListLoadStatus::Loading,
+        LoadState::Failed(err) => CrudListLoadStatus::Failed(err.clone()),
+    });
 
     CrudListState {
         rows: rows.into(),
         has_rows,
+        status: status.into(),
         item_count,
         pagination: CrudPaginationState::new(&ctx, item_count),
         ordering: CrudOrderingState { ctx },
         selection: CrudSelectionState::new(rows.into()),
     }
+}
+
+/// The entities a page shows, e.g. for "21–30 of 57".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CrudPageRange {
+    /// The one-based position of the page's first entity.
+    pub first: u64,
+    /// The one-based position of the page's last entity.
+    pub last: u64,
+    /// The number of all entities.
+    pub total: u64,
 }
 
 /// Paging of a list. Page and page size are owned by the instance.
@@ -118,7 +173,7 @@ impl CrudPaginationState {
         let page_count = Signal::derive(move || {
             list::page_count(item_count.get().unwrap_or_default(), items_per_page.get())
         });
-        Self {
+        let this = Self {
             ctx: *ctx,
             page,
             items_per_page,
@@ -128,7 +183,15 @@ impl CrudPaginationState {
             items_per_page_options: Signal::derive(move || {
                 ItemsPerPage::options_including(items_per_page.get())
             }),
-        }
+        };
+        // Deleting entities, here or elsewhere, can leave the current page beyond the last one.
+        Effect::new(move || {
+            page.track();
+            if let Some(item_count) = item_count.get() {
+                this.clamp_page(item_count, items_per_page.get_untracked());
+            }
+        });
+        this
     }
 
     /// Shows `page`.
@@ -140,12 +203,33 @@ impl CrudPaginationState {
     pub fn set_items_per_page(&self, items_per_page: ItemsPerPage) {
         self.ctx.set_items_per_page(items_per_page);
         if let Some(item_count) = self.item_count.get_untracked() {
-            let current = self.page.get_untracked();
-            let clamped = current.clamp_to(list::page_count(item_count, items_per_page));
-            if clamped != current {
-                self.ctx.set_page(clamped);
-            }
+            self.clamp_page(item_count, items_per_page);
         }
+    }
+
+    /// Moves to the last page, if the current one lies beyond the pages of `item_count` entities.
+    fn clamp_page(&self, item_count: u64, items_per_page: ItemsPerPage) {
+        let current = self.page.get_untracked();
+        let clamped = current.clamp_to(list::page_count(item_count, items_per_page));
+        if clamped != current {
+            self.ctx.set_page(clamped);
+        }
+    }
+
+    /// Returns the entities shown on the current page, once the total is known and not zero.
+    /// Tracks the page, page size, and total.
+    #[must_use]
+    pub fn range(&self) -> Option<CrudPageRange> {
+        let total = self.item_count.get().filter(|total| *total > 0)?;
+        let per_page = self.items_per_page.get().0;
+        // The page moves into the page range asynchronously; until then, show the last page.
+        let page = self.page.get().clamp_to(self.page_count.get());
+        let first = page.0.saturating_sub(1) * per_page + 1;
+        Some(CrudPageRange {
+            first,
+            last: (first + per_page - 1).min(total),
+            total,
+        })
     }
 
     /// Returns whether a page before the current one exists.

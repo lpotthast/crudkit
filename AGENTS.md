@@ -12,7 +12,7 @@ architectural and behavioral decisions:
 - `design/backend-operations.md`, `design/http-and-data-providers.md`, `design/sea-orm-adapter.md`, and
   `design/validation-and-collaboration.md` cover storage-neutral operations and integration boundaries.
 - `design/instances-and-composition.md`, `design/views-and-navigation.md`, `design/actions.md`, and
-  `design/theming-and-generated-assets.md` cover frontend composition and interaction contracts.
+  `design/leptos-hooks-and-atoms.md` cover frontend composition and interaction contracts.
 
 Read the owning document before changing a contract. Changes to serialization, operation ordering, storage,
 rendering composition, reactive ownership, navigation, validation, or error behavior must update the owning design
@@ -24,7 +24,7 @@ low-level implementation details.
 
 ## Workspace Boundaries
 
-This is a Rust 2024 Cargo workspace with 13 crates:
+This is a Rust 2024 Cargo workspace with 12 crates:
 
 - `crudkit-wire-format` contains the versioned wire format (`v1` with `*V1` types) and nothing else.
 - `crudkit-core` contains contracts shared across backend and frontend and the conversions to and from the wire format;
@@ -34,10 +34,10 @@ This is a Rust 2024 Cargo workspace with 13 crates:
 - `crudkit-sea-orm` adapts backend contracts to SeaORM; SeaORM-specific derives live in `crudkit-sea-orm-macros`.
 - `crudkit-web` owns platform-neutral web models, layouts, type erasure, and data providers; its derives live in
   `crudkit-web-macros`.
-- `crudkit-leptos` owns instance configuration (`config`), mounted instance behavior (`instance`), and Leptos hooks,
-  atoms, and components. It builds on the hooks and atoms of Leptonic's `hooks` branch (a path dependency on
-  `../leptonic/leptonic`) and never on Leptonic's themed components.
-- `crudkit-leptos-theme` owns CrudKit's SCSS sources and generated-asset inputs.
+- `crudkit-leptos` owns instance configuration (`config`), mounted instance behavior (`instance`), and the Leptos
+  hooks and headless atoms applications build their screens from. It builds on the hooks and atoms of Leptonic's
+  `hooks` branch (a path dependency on `../leptonic/leptonic`) and never on Leptonic's themed components. CrudKit
+  ships no prebuilt screens and no styles.
 
 Keep dependencies pointed from concrete integrations toward abstract contracts. In particular:
 
@@ -45,11 +45,10 @@ Keep dependencies pointed from concrete integrations toward abstract contracts. 
   plus their wire conversions in `crudkit-core`. Never change a released wire version in place; add a new one.
 - Keep storage-neutral behavior in `crudkit-rs` and ORM-specific behavior in `crudkit-sea-orm`.
 - Keep platform-neutral frontend behavior in `crudkit-web` and Leptos-specific behavior in `crudkit-leptos`. Within
-  `crudkit-leptos`, put behavior in hooks and keep built-in components free of behavior that applications could not
-  reach through those hooks.
+  `crudkit-leptos`, put behavior in hooks and keep atoms free of behavior that applications could not reach through
+  those hooks. Atoms follow Leptonic's atom guardrails, see `design/leptos-hooks-and-atoms.md`.
 - Keep runtime traits authoritative; derive macros generate implementations of those traits rather than inventing a
   parallel contract.
-- Change SCSS in `crudkit-leptos-theme`, not in generated copies inside consuming applications.
 
 ## Architectural Invariants
 
@@ -93,7 +92,9 @@ cargo clippy --tests -- -Dclippy::all -Dclippy::pedantic
 ```
 
 `examples/full-stack` is a separate Cargo workspace: a SQLite-backed, server-rendered CrudKit application. Run it with
-`just example` and build it with `just example-check` when changing frontend behavior or the theme.
+`just example` and build it with `just example-check` when changing frontend behavior or the example's stylesheets.
+`just test` also runs crudkit-leptos' markup tests, which need its `ssr` feature
+(`cargo test -p crudkit-leptos --features ssr --lib atoms::tests`).
 
 The current `just clippy` recipe allows a nonzero exit status, so its exit code alone does not prove that linting
 passed. Use `just leptosfmt` when Leptos component formatting is relevant.

@@ -2,14 +2,8 @@
 name = "crudkit-leptos"
 version = "0.1.0"
 edition = "2024"
-build = "build.rs"
 
 [features]
-default = ["components"]
-# The built-in, opinionated UI (`crudkit_leptos::components`): the components themselves, the default view and field
-# renderers, the notification region, their icons, and the generated theme they are styled with. Without it, the hooks,
-# atoms, configuration, and instance runtime remain, and applications render every view and field themselves.
-components = ["leptonic/atoms", "dep:icondata", "dep:anyhow", "dep:cargo_toml", "dep:crudkit-leptos-theme"]
 ssr = ["leptonic/ssr"]
 hydrate = ["leptonic/hydrate"]
 
@@ -20,22 +14,15 @@ crudkit-web = { path = "../crudkit-web", default-features = false }
 crudkit-web-macros = { path = "../crudkit-web-macros", default-features = false }
 
 indexmap = { version = "2.14.2", default-features = false, features = ["serde", "std"] }
-icondata = { version = "0.7.0", default-features = false, features = ["bootstrap-icons"], optional = true }
-# The `Icon` type of the configuration and the `CrudIcon` atom, without any icon set.
+# The `Icon` type of action configurations and the `CrudIcon` atom, without any icon set.
 icondata_core = { version = "0.1.0", default-features = false }
-leptonic = { path = "../../leptonic/leptonic", default-features = false, features = ["hooks"] }
+leptonic = { path = "../../leptonic/leptonic", default-features = false, features = ["atoms", "hooks"] }
 leptos = { version = "0.8.22", default-features = false }
 serde = { version = "1.0.229", default-features = false, features = ["alloc", "derive"] }
 serde_json = { version = "1.0.151", default-features = false, features = ["alloc"] }
 time = { version = "0.3.55", default-features = false, features = ["formatting", "parsing"] }
 tracing = { version = "0.1.44", default-features = false }
 uuid = { version = "1.27.0", default-features = false, features = ["js", "v4"] }
-
-# Only used to generate the theme of the `components` feature.
-[build-dependencies]
-anyhow = { version = "1.0.104", default-features = false, optional = true }
-cargo_toml = { version = "1.0.1", default-features = false, optional = true }
-crudkit-leptos-theme = { path = "../crudkit-leptos-theme", default-features = false, optional = true }
 
 [dev-dependencies]
 assertr = { version = "0.7.1", default-features = false }

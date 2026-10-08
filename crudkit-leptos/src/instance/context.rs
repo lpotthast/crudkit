@@ -1,14 +1,11 @@
 //! The context of a mounted instance: its configuration, list state, and pending interactions.
 
-#![deny(missing_docs)]
-
-use crate::config::CrudActionAftermath;
 use crate::config::{
-    CreateElements, CrudBuiltinViewControls, CrudInstanceConfig, CrudMutableInstanceConfig,
-    CrudParentConfig, CrudStaticInstanceConfig, FieldRendererRegistry, Header, UpdateElements,
+    CreateElements, CrudInstanceConfig, CrudMutableInstanceConfig, CrudParentConfig,
+    CrudStaticInstanceConfig, FieldRendererRegistry, Header, UpdateElements,
 };
+use crate::config::{CrudAction, CrudActionAftermath, CrudEntityAction, CrudEntityViewKind};
 use crate::hooks::delete::CrudDeleteState;
-use crate::hooks::form::CrudCreateActions;
 use crate::hooks::leave::CrudLeaveConfirmation;
 use crate::hooks::notify::{CrudNotificationOrigin, CrudNotifier, use_crud_notifier};
 use crate::hooks::texts::use_crud_texts;
@@ -30,8 +27,8 @@ use uuid::Uuid;
 
 /// Shared runtime state for one mounted instance.
 ///
-/// [`crate::components::instance::CrudInstance`], [`crate::instance::CrudInstanceProvider`], and
-/// [`crate::instance::provide_crud_instance`] provide this value to descendant components.
+/// [`CrudInstance`](crate::instance::CrudInstance) and [`crate::instance::provide_crud_instance`]
+/// provide this value to their descendants.
 /// Copies refer to the same arena-owned signals and stored values. A copy is never immediately an
 /// independent state snapshot.
 ///
@@ -42,8 +39,8 @@ pub struct CrudInstanceContext {
     /// Volatile identifier for this mount.
     pub id: Uuid,
 
-    /// Stable instance name used by [`CrudInstanceMgrContext`] lookups.
-    /// Provided by the user. Required to be unique across the entire application.
+    /// Stable instance name used by [`CrudInstanceMgrContext`] lookups. Provided by the
+    /// application, and unique among the instances of its manager.
     pub name: &'static str,
 
     default_config: StoredValue<CrudMutableInstanceConfig>,
@@ -86,22 +83,18 @@ pub struct CrudInstanceContext {
     /// Navigation attempts awaiting confirmation to discard unsaved input.
     pub(crate) leave_confirmation: CrudLeaveConfirmation,
 
+    /// The confirmation dialogs mounted for this instance.
+    pub(crate) dialogs: MountedDialogs,
+
     /// Token changed by [`Self::reload`] to refresh server-provided data.
     pub reload: ReadSignal<Uuid>,
     set_reload: WriteSignal<Uuid>,
-
-    create_actions: ReadSignal<Option<CrudCreateActions>>,
-    set_create_actions: WriteSignal<Option<CrudCreateActions>>,
 
     /// The selected tab of every tab group the user selected a tab in. See [`Self::selected_tab`].
     selected_tabs: RwSignal<HashSet<TabId>>,
 
     /// Destination of notifications emitted by this instance.
     pub notifier: CrudNotifier,
-
-    /// Controls of the built-in views, as given to the current view. See
-    /// [`Self::builtin_view_controls`].
-    controls: Signal<CrudBuiltinViewControls>,
 }
 
 impl CrudInstanceContext {
@@ -147,28 +140,6 @@ impl CrudInstanceContext {
             .clone()
     }
 
-    /// Returns the controls of the built-in views: the instance's configuration, unless the
-    /// current view was given its own. Tracks changes.
-    #[must_use]
-    pub fn builtin_view_controls(&self) -> CrudBuiltinViewControls {
-        self.controls.get()
-    }
-
-    /// Returns this context as seen by a view given its own `navigation` or `controls`.
-    // Used by the built-in views and the native hook tests.
-    #[cfg_attr(not(feature = "components"), allow(dead_code))]
-    pub(crate) fn for_view(
-        self,
-        navigation: Option<CrudNavigation>,
-        controls: Option<Signal<CrudBuiltinViewControls>>,
-    ) -> Self {
-        Self {
-            navigation: navigation.unwrap_or(self.navigation),
-            controls: controls.unwrap_or(self.controls),
-            ..self
-        }
-    }
-
     /// Returns the name of the resource on the wire.
     #[must_use]
     pub fn resource_name(&self) -> String {
@@ -185,7 +156,6 @@ impl CrudInstanceContext {
         self.set_items_per_page.set(items_per_page);
     }
 
-    // TODO: Why is this here and CrudInstanceConfig#update_order_by exists?
     /// Applies an ordering interaction for `field`.
     ///
     /// The interaction toggles the field between ascending and descending. It
@@ -230,10 +200,9 @@ impl CrudInstanceContext {
         });
     }
 
-    // TODO: Other functions do not take a . Should the instance provide its  to store it in this context? Would allow everyone to have access.
     /// Applies the shared UI effects from an action result.
     ///
-    /// Both success and failure aftermaths may publish a toast or reload the
+    /// Both success and failure aftermaths may send a notification or reload the
     /// instance. The `Result` variant records the action outcome; the contained
     /// [`CrudActionAftermath`] defines the UI effects in either case.
     pub fn handle_action_outcome(&self, outcome: Result<CrudActionAftermath, CrudActionAftermath>) {
@@ -255,19 +224,27 @@ impl CrudInstanceContext {
         }
     }
 
+    /// Returns the instance's resource actions.
+    #[must_use]
+    pub fn resource_actions(&self) -> Vec<CrudAction> {
+        self.static_config.read_value().actions.clone()
+    }
+
+    /// Returns the instance's entity actions available in views of `kind`.
+    #[must_use]
+    pub fn entity_actions(&self, kind: CrudEntityViewKind) -> Vec<CrudEntityAction> {
+        self.static_config
+            .read_value()
+            .entity_actions
+            .iter()
+            .filter(|action| action.valid_in.contains(&kind))
+            .cloned()
+            .collect()
+    }
+
     /// Changes the reload token so data-dependent views fetch current server state.
     pub fn reload(&self) {
         self.set_reload.set(Uuid::new_v4());
-    }
-
-    /// Returns the save controls of the mounted create form, if any. Tracks changes.
-    #[must_use]
-    pub fn create_actions(&self) -> Option<CrudCreateActions> {
-        self.create_actions.get()
-    }
-
-    pub(crate) fn set_create_actions(&self, actions: Option<CrudCreateActions>) {
-        self.set_create_actions.set(actions);
     }
 
     /// Reset this instance to its default configuration.
@@ -284,7 +261,6 @@ impl CrudInstanceContext {
         self.set_current_page.set(default.page);
         self.set_items_per_page.set(default.items_per_page);
         self.set_order_by.set(default.order_by.clone());
-        self.set_create_actions.set(None);
         self.navigation
             .navigate_committed(default.initial_view.clone());
     }
@@ -297,7 +273,7 @@ impl CrudInstanceContext {
 pub struct ProvideCrudInstanceInput {
     /// Stable name used to register the instance with its manager.
     pub name: &'static str,
-    /// Resource, view, renderer, control, and request configuration.
+    /// Resource, view, renderer, and request configuration.
     pub config: CrudInstanceConfig,
     /// Parent-resource relationship used to scope child data.
     pub parent: Option<CrudParentConfig>,
@@ -305,20 +281,7 @@ pub struct ProvideCrudInstanceInput {
     pub navigation: Option<CrudNavigation>,
 }
 
-impl ProvideCrudInstanceInput {
-    /// Creates an input mounting `config` as `name`.
-    #[must_use]
-    pub fn new(name: &'static str, config: CrudInstanceConfig) -> Self {
-        Self {
-            name,
-            config,
-            parent: None,
-            navigation: None,
-        }
-    }
-}
-
-/// Mounts an instance like [`crate::instance::CrudInstanceProvider`] and provides its context in
+/// Mounts an instance like [`CrudInstance`](crate::instance::CrudInstance) and provides its context in
 /// the current reactive owner, e.g. in an application's own provider component or in tests.
 ///
 /// The context reaches everything rendered by the calling component. Call it in a component that
@@ -339,6 +302,7 @@ pub fn provide_crud_instance(input: ProvideCrudInstanceInput) -> CrudInstanceCon
     let ctx = create_instance_context(name, config, parent, navigation, None);
     provide_context(ctx);
     provide_enclosing_navigation_scope(ctx.navigation.scope());
+    crate::atoms::provide_instance_boundary();
     ctx
 }
 
@@ -397,10 +361,8 @@ pub(crate) fn create_instance_context(
     let (create_elements, _set_create_elements) = signal(config.create_elements.clone());
     let (update_elements, _set_update_elements) = signal(config.elements.clone());
     let (reload, set_reload) = signal(Uuid::new_v4());
-    let (create_actions, set_create_actions) = signal(None::<CrudCreateActions>);
     let selected_tabs = RwSignal::new(HashSet::new());
 
-    let controls = Signal::stored(static_config.read_value().builtin_view_controls);
     let default_config = StoredValue::new(config);
     // Every notification emitted through this instance names it as its origin.
     let notifier = use_crud_notifier().with_origin(CrudNotificationOrigin {
@@ -426,6 +388,9 @@ pub(crate) fn create_instance_context(
         base_condition,
     );
 
+    let dialogs = MountedDialogs::default();
+    dialogs.report_unanswered(deletion, leave_confirmation);
+
     let ctx = CrudInstanceContext {
         id,
         name,
@@ -448,13 +413,11 @@ pub(crate) fn create_instance_context(
         base_condition,
         deletion,
         leave_confirmation,
+        dialogs,
         reload,
         set_reload,
-        create_actions,
-        set_create_actions,
         selected_tabs,
         notifier,
-        controls,
     };
     if let Some(on_context_created) = on_context_created {
         on_context_created.run(ctx);
@@ -462,39 +425,74 @@ pub(crate) fn create_instance_context(
     ctx
 }
 
+/// The number of mounted confirmation dialogs of an instance, per kind of confirmation.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct MountedDialogs {
+    pub(crate) delete: StoredValue<usize>,
+    pub(crate) delete_many: StoredValue<usize>,
+    pub(crate) leave: StoredValue<usize>,
+}
+
+impl Default for MountedDialogs {
+    fn default() -> Self {
+        Self {
+            delete: StoredValue::new(0),
+            delete_many: StoredValue::new(0),
+            leave: StoredValue::new(0),
+        }
+    }
+}
+
+impl MountedDialogs {
+    /// Reports confirmations of `deletion` and `leave_confirmation` that become pending while no
+    /// dialog asking for them is mounted.
+    fn report_unanswered(
+        self,
+        deletion: CrudDeleteState,
+        leave_confirmation: CrudLeaveConfirmation,
+    ) {
+        report_unanswered(
+            Signal::derive(move || deletion.pending.read().is_some()),
+            self.delete,
+            "CrudDeleteDialog",
+        );
+        report_unanswered(
+            Signal::derive(move || deletion.pending_many.read().is_some()),
+            self.delete_many,
+            "CrudDeleteManyDialog",
+        );
+        report_unanswered(leave_confirmation.is_pending, self.leave, "CrudLeaveDialog");
+    }
+
+    /// Counts a dialog in `mounted` until the calling owner is cleaned up.
+    pub(crate) fn register(mounted: StoredValue<usize>) {
+        mounted.update_value(|count| *count += 1);
+        on_cleanup(move || mounted.update_value(|count| *count -= 1));
+    }
+}
+
+/// Reports a confirmation that becomes pending while no `dialog` is mounted to ask for it. The
+/// user could not answer it, and whatever waits for it, e.g. leaving a view, would wait forever.
+fn report_unanswered(is_pending: Signal<bool>, mounted: StoredValue<usize>, dialog: &'static str) {
+    Effect::new(move || {
+        if is_pending.get() && mounted.get_value() == 0 {
+            tracing::error!(
+                dialog,
+                "a confirmation is pending, but no dialog asking for it is mounted; render it next \
+                 to the instance's view outlet"
+            );
+        }
+    });
+}
+
 /// Provides `context` to a view rendered with `navigation`, in a navigation scope of its own.
-/// Returns the view's navigation.
-pub(crate) fn provide_view_context(
-    context: &CrudInstanceContext,
-    navigation: CrudNavigation,
-) -> CrudNavigation {
+pub(crate) fn provide_view_context(context: &CrudInstanceContext, navigation: CrudNavigation) {
     let navigation = navigation.scoped();
     provide_context(CrudInstanceContext {
         navigation,
         ..*context
     });
     provide_enclosing_navigation_scope(navigation.scope());
-    navigation
-}
-
-/// Renders `content` with the surrounding instance as seen by a view given its own `navigation`
-/// or `controls`, so the hooks, components, and nested instances in `content` use them too.
-#[cfg(feature = "components")]
-pub(crate) fn with_view_overrides<V: IntoView + 'static>(
-    navigation: Option<CrudNavigation>,
-    controls: Option<Signal<CrudBuiltinViewControls>>,
-    content: impl FnOnce() -> V + Send + 'static,
-) -> impl IntoView {
-    use crate::hooks::instance::use_crud_instance;
-    use crate::instance::EnclosingNavigationScope;
-    use leptos::context::Provider;
-
-    let ctx = use_crud_instance().for_view(navigation, controls);
-    view! {
-        <Provider value=ctx>
-            <Provider value=EnclosingNavigationScope(ctx.navigation.scope())>{content()}</Provider>
-        </Provider>
-    }
 }
 
 /// Condition restricting entities to those referencing the current parent entity.

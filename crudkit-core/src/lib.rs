@@ -341,6 +341,36 @@ impl Value {
         matches!(self, Self::Null)
     }
 
+    /// Returns the kind of this value.
+    #[must_use]
+    pub fn kind(&self) -> ValueKind {
+        match self {
+            Self::Null => ValueKind::Null,
+            Self::Void(()) => ValueKind::Void,
+            Self::Bool(_) => ValueKind::Bool,
+            Self::U8(_) => ValueKind::U8,
+            Self::U16(_) => ValueKind::U16,
+            Self::U32(_) => ValueKind::U32,
+            Self::U64(_) => ValueKind::U64,
+            Self::U128(_) => ValueKind::U128,
+            Self::I8(_) => ValueKind::I8,
+            Self::I16(_) => ValueKind::I16,
+            Self::I32(_) => ValueKind::I32,
+            Self::I64(_) => ValueKind::I64,
+            Self::I128(_) => ValueKind::I128,
+            Self::F32(_) => ValueKind::F32,
+            Self::F64(_) => ValueKind::F64,
+            Self::String(_) => ValueKind::String,
+            Self::Json(_) => ValueKind::Json,
+            Self::Uuid(_) => ValueKind::Uuid,
+            Self::PrimitiveDateTime(_) => ValueKind::PrimitiveDateTime,
+            Self::OffsetDateTime(_) => ValueKind::OffsetDateTime,
+            Self::Duration(_) => ValueKind::Duration,
+            Self::Array(_) => ValueKind::Array,
+            Self::Other(_) => ValueKind::Other,
+        }
+    }
+
     // === Copy accessors (primitives) ===
 
     impl_as! {
@@ -515,4 +545,19 @@ pub struct DeletedMany {
 
     /// IDs of entities that failed due to other errors, with the error message.
     pub errors: Vec<(SerializableId, String)>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assertr::prelude::*;
+
+    #[test]
+    fn values_report_their_kind() {
+        assert_that!(Value::Null.kind()).is_equal_to(ValueKind::Null);
+        assert_that!(Value::Void(()).kind()).is_equal_to(ValueKind::Void);
+        assert_that!(Value::I64(1).kind()).is_equal_to(ValueKind::I64);
+        assert_that!(Value::String("club".to_owned()).kind()).is_equal_to(ValueKind::String);
+        assert_that!(Value::Array(Vec::new()).kind()).is_equal_to(ValueKind::Array);
+    }
 }

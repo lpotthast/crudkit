@@ -1,5 +1,6 @@
 //! User notifications emitted by CrudKit and application actions.
 
+use leptonic::hooks::{ToastOptions, ToastQueue};
 use leptos::prelude::*;
 use std::time::Duration;
 use uuid::Uuid;
@@ -89,11 +90,13 @@ impl CrudNotification {
 
 /// Destination of [`CrudNotification`]s.
 ///
-/// Provide one with [`provide_crud_notifier`] to route CrudKit's notifications into an
-/// application's own notification system.
+/// Provide one with [`provide_crud_notifier`]: typically [`Self::toasts`], or [`Self::new`] to route
+/// CrudKit's notifications into an application's own notification system.
 #[derive(Debug, Clone, Copy)]
 pub struct CrudNotifier {
     notify: Callback<CrudNotification>,
+    /// The origin given to notifications without one, see [`Self::with_origin`].
+    origin: Option<StoredValue<CrudNotificationOrigin>>,
 }
 
 impl CrudNotifier {
@@ -101,33 +104,67 @@ impl CrudNotifier {
     pub fn new(notify: impl Fn(CrudNotification) + Send + Sync + 'static) -> Self {
         Self {
             notify: Callback::new(notify),
+            origin: None,
         }
     }
 
+    /// Creates a notifier showing notifications as toasts of `queue`, e.g. rendered with
+    /// Leptonic's `ToastRegion` and `Toast` atoms.
+    ///
+    /// Successes and information close after five seconds. Warnings and errors stay until closed,
+    /// so they cannot be missed.
+    #[must_use]
+    pub fn toasts(queue: ToastQueue<CrudNotification>) -> Self {
+        Self::new(move |notification: CrudNotification| {
+            let timeout = match notification.kind {
+                CrudNotificationKind::Success | CrudNotificationKind::Info => {
+                    Some(Duration::from_secs(5))
+                }
+                CrudNotificationKind::Warning | CrudNotificationKind::Error => None,
+            };
+            queue.add(
+                notification,
+                ToastOptions {
+                    timeout,
+                    ..ToastOptions::default()
+                },
+            );
+        })
+    }
+
     /// Emits `notification`.
-    pub fn notify(&self, notification: CrudNotification) {
-        self.notify.run(notification);
+    ///
+    /// Requests may complete after the component that started them is gone, e.g. an instance
+    /// unmounted while deleting. Their notifications are still delivered, without an origin once
+    /// the instance is gone, and dropped with a warning once the notifier itself is gone.
+    pub fn notify(&self, mut notification: CrudNotification) {
+        if notification.origin.is_none() {
+            notification.origin = self.origin.and_then(|origin| origin.try_get_value());
+        }
+        if self.notify.try_run(notification).is_none() {
+            tracing::warn!(
+                "dropped a CrudKit notification emitted after its notifier was disposed"
+            );
+        }
     }
 
     /// Returns a notifier forwarding to this one, setting `origin` on notifications that have
-    /// none.
+    /// none. The origin lives as long as the calling owner, e.g. an instance.
     pub(crate) fn with_origin(self, origin: CrudNotificationOrigin) -> Self {
-        Self::new(move |mut notification: CrudNotification| {
-            if notification.origin.is_none() {
-                notification.origin = Some(origin.clone());
-            }
-            self.notify(notification);
-        })
+        Self {
+            notify: self.notify,
+            origin: Some(StoredValue::new(origin)),
+        }
     }
 }
 
 /// Makes `notifier` the destination of CrudKit notifications for the current owner and its
 /// descendants.
 ///
-/// Provide one notifier at the application's root, e.g. the notifier of a
-/// [`CrudNotificationQueue`] rendered once for the whole page. Every instance, at any depth, then
-/// reports to it, and [`CrudNotification::origin`] tells the instances apart. A notifier provided
-/// further down overrides the root one for its subtree.
+/// Provide one notifier at the application's root, e.g. [`CrudNotifier::toasts`] of a toast queue
+/// rendered once for the whole page. Every instance, at any depth, then reports to it, and
+/// [`CrudNotification::origin`] tells the instances apart. A notifier provided further down
+/// overrides the root one for its subtree.
 pub fn provide_crud_notifier(notifier: CrudNotifier) {
     provide_context(notifier);
 }
@@ -145,70 +182,6 @@ pub fn use_crud_notifier() -> CrudNotifier {
             );
         })
     })
-}
-
-/// Identifies a notification in a [`CrudNotificationQueue`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CrudNotificationId(u64);
-
-/// The notifications currently shown. Each disappears after a while unless dismissed earlier.
-///
-/// Feed it with [`Self::notifier`], e.g. through [`provide_crud_notifier`], and render
-/// [`Self::entries`] in any markup. CrudKit's `CrudNotificationRegion` is one such rendering.
-#[derive(Debug, Clone, Copy)]
-pub struct CrudNotificationQueue {
-    /// The shown notifications, oldest first.
-    pub entries: Signal<Vec<(CrudNotificationId, CrudNotification)>>,
-    writable: RwSignal<Vec<(CrudNotificationId, CrudNotification)>>,
-    next_id: StoredValue<u64>,
-    visible_for: Duration,
-}
-
-impl Default for CrudNotificationQueue {
-    /// Creates a queue showing notifications for six seconds.
-    fn default() -> Self {
-        Self::new(Duration::from_secs(6))
-    }
-}
-
-impl CrudNotificationQueue {
-    /// Creates an empty queue showing each notification for `visible_for`.
-    #[must_use]
-    pub fn new(visible_for: Duration) -> Self {
-        let writable = RwSignal::new(Vec::new());
-        Self {
-            entries: writable.read_only().into(),
-            writable,
-            next_id: StoredValue::new(0),
-            visible_for,
-        }
-    }
-
-    /// Shows `notification`.
-    pub fn push(&self, notification: CrudNotification) {
-        let id = CrudNotificationId(self.next_id.get_value());
-        self.next_id
-            .update_value(|next| *next = next.wrapping_add(1));
-        self.writable
-            .update(|entries| entries.push((id, notification)));
-        let this = *self;
-        set_timeout(move || this.dismiss(id), self.visible_for);
-    }
-
-    /// Removes the notification `id`.
-    pub fn dismiss(&self, id: CrudNotificationId) {
-        // The queue may already be disposed when a timeout fires after unmounting.
-        _ = self
-            .writable
-            .try_update(|entries| entries.retain(|(entry, _)| *entry != id));
-    }
-
-    /// Returns a notifier showing notifications in this queue.
-    #[must_use]
-    pub fn notifier(&self) -> CrudNotifier {
-        let this = *self;
-        CrudNotifier::new(move |notification| this.push(notification))
-    }
 }
 
 #[cfg(test)]

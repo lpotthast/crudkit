@@ -3,44 +3,131 @@
 #![deny(missing_docs)]
 #![recursion_limit = "512"]
 
-//! CrudKit's Leptos frontend.
-//!
-//! Layering, following Leptonic's hooks branch:
-//!
-//! - [`hooks`]: state hooks exposing CrudKit's behavior, and interaction hooks binding it to
-//!   Leptonic's accessible input and table hooks;
-//! - [`atoms`]: headless single-element components where CrudKit adds behavior;
-//! - [`components`]: the built-in, composed UI with `crudkit-*` classes, available with the
-//!   `components` feature (enabled by default).
-//!
-//! Next to these, [`config`] holds what applications declare, and [`instance`] the runtime of
-//! mounted instances.
+#![doc = include_str!("../docs/guide.md")]
 
 pub mod atoms;
-#[cfg(feature = "components")]
-pub mod components;
 pub mod config;
 pub mod hooks;
 pub mod instance;
 #[cfg(all(test, not(target_family = "wasm")))]
 mod test_support;
 
-/*
-* Reexport common modules.
-* This allows the user to only
-*
-* - `use crudkit_leptos::prelude::*` and
-* - derive all common proc macros
-*
-* without the need to add more use declaration or
-* to manually depend on other crud crates such as "crudkit_id",
-* which are required for many derive macro implementations.
-*/
+// Re-exported, so that applications can `use crudkit_leptos::prelude::*` and use CrudKit's derive
+// macros, whose generated code refers to these crates, without depending on them directly.
 pub use crudkit_core;
 pub use crudkit_web;
 
+/// Defines the `clubs` and `players` resources used by the examples of the crate documentation.
+/// Not part of the API.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __doc_example {
+    () => {
+        use ::leptos::prelude::*;
+        use ::serde::{Deserialize, Serialize};
+        use $crate::prelude::*;
+
+        #[derive(
+            Clone, PartialEq, Eq, Debug, CkId, CkField, CkResource, Serialize, Deserialize,
+        )]
+        #[ck_resource(resource_name = "clubs")]
+        #[ck_field(model = Update)]
+        pub struct Club {
+            pub id: i64,
+            pub name: String,
+            #[serde(skip_deserializing)]
+            pub players: (),
+        }
+
+        #[derive(Clone, PartialEq, Eq, Debug, Default, CkField, Serialize, Deserialize)]
+        #[ck_field(model = Create)]
+        pub struct CreateClub {
+            pub name: String,
+        }
+
+        impl ErasedIdentifiable for CreateClub {
+            fn id(&self) -> SerializableId {
+                unreachable!("create models have no id")
+            }
+        }
+
+        #[derive(Clone, PartialEq, Eq, Debug, CkId, CkField, Serialize, Deserialize)]
+        #[ck_field(model = Read)]
+        pub struct ReadClub {
+            pub id: i64,
+            pub name: String,
+        }
+
+        impl From<ReadClub> for Club {
+            fn from(read: ReadClub) -> Self {
+                Self {
+                    id: read.id,
+                    name: read.name,
+                    players: (),
+                }
+            }
+        }
+
+        fn club_config() -> CrudInstanceConfig {
+            CrudInstanceConfig::new::<CrudClubResource>(
+                "/api",
+                ::std::sync::Arc::new($crate::crudkit_web::http::NewClientPerRequestExecutor),
+            )
+        }
+
+        #[derive(
+            Clone, PartialEq, Eq, Debug, CkId, CkField, CkResource, Serialize, Deserialize,
+        )]
+        #[ck_resource(resource_name = "players")]
+        #[ck_field(model = Update)]
+        pub struct Player {
+            pub id: i64,
+            pub name: String,
+            pub club_id: i64,
+        }
+
+        #[derive(Clone, PartialEq, Eq, Debug, Default, CkField, Serialize, Deserialize)]
+        #[ck_field(model = Create)]
+        pub struct CreatePlayer {
+            pub name: String,
+            pub club_id: i64,
+        }
+
+        impl ErasedIdentifiable for CreatePlayer {
+            fn id(&self) -> SerializableId {
+                unreachable!("create models have no id")
+            }
+        }
+
+        #[derive(Clone, PartialEq, Eq, Debug, CkId, CkField, Serialize, Deserialize)]
+        #[ck_field(model = Read)]
+        pub struct ReadPlayer {
+            pub id: i64,
+            pub name: String,
+            pub club_id: i64,
+        }
+
+        impl From<ReadPlayer> for Player {
+            fn from(read: ReadPlayer) -> Self {
+                Self {
+                    id: read.id,
+                    name: read.name,
+                    club_id: read.club_id,
+                }
+            }
+        }
+
+        fn player_config() -> CrudInstanceConfig {
+            CrudInstanceConfig::new::<CrudPlayerResource>(
+                "/api",
+                ::std::sync::Arc::new($crate::crudkit_web::http::NewClientPerRequestExecutor),
+            )
+        }
+    };
+}
+
 /// Common imports of CrudKit applications: the shared contracts, derive macros, and the public
-/// types, hooks, atoms, and components of this crate.
+/// types, hooks, and atoms of this crate.
 pub mod prelude {
     pub use crudkit_core;
     pub use crudkit_core::collaboration;
@@ -62,9 +149,7 @@ pub mod prelude {
     pub use crudkit_web::http::ReqwestExecutor;
     pub use crudkit_web::view::{CREATE_VIEW, EDIT_VIEW, READ_VIEW, TABLE_VIEW};
 
-    pub use super::atoms::prelude::*;
-    #[cfg(feature = "components")]
-    pub use super::components::prelude::*;
+    pub use super::atoms::*;
     pub use super::config::*;
     pub use super::hooks::*;
     pub use super::instance::*;

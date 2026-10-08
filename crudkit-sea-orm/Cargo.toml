@@ -24,4 +24,3 @@ thiserror = { version = "2.0.21", default-features = false }
 time = { version = "0.3.55", default-features = false, features = ["serde", "std"] }
 tracing = { version = "0.1.44", default-features = false }
 utoipa = { version = "6.0.0", default-features = false }
-uuid = { version = "1.27.0", default-features = false }

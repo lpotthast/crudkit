@@ -87,6 +87,29 @@ pub enum IdValue {
     OffsetDateTime(time::OffsetDateTime),
 }
 
+/// Shows the bare value, e.g. `4` or `2024-01-05 10:30:00.0`.
+impl Display for IdValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::I8(value) => Display::fmt(value, f),
+            Self::I16(value) => Display::fmt(value, f),
+            Self::I32(value) => Display::fmt(value, f),
+            Self::I64(value) => Display::fmt(value, f),
+            Self::I128(value) => Display::fmt(value, f),
+            Self::U8(value) => Display::fmt(value, f),
+            Self::U16(value) => Display::fmt(value, f),
+            Self::U32(value) => Display::fmt(value, f),
+            Self::U64(value) => Display::fmt(value, f),
+            Self::U128(value) => Display::fmt(value, f),
+            Self::Bool(value) => Display::fmt(value, f),
+            Self::String(value) => f.pad(value),
+            Self::Uuid(value) => Display::fmt(value, f),
+            Self::PrimitiveDateTime(value) => Display::fmt(value, f),
+            Self::OffsetDateTime(value) => Display::fmt(value, f),
+        }
+    }
+}
+
 /// A field of an entity ID.
 ///
 /// The derive functionality automatically implements this trait for a (also) derived enum
@@ -155,9 +178,16 @@ impl SerializableId {
     }
 }
 
+/// Shows the ID's fields with their values, e.g. `id=4` or `club_id=4, season=2024`.
 impl Display for SerializableId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{self:?}"))
+        for (index, entry) in self.0.iter().enumerate() {
+            if index > 0 {
+                f.write_str(", ")?;
+            }
+            Display::fmt(entry, f)?;
+        }
+        Ok(())
     }
 }
 
@@ -178,9 +208,10 @@ impl From<(String, IdValue)> for SerializableIdEntry {
     }
 }
 
+/// Shows the field with its value, e.g. `club_id=4`.
 impl Display for SerializableIdEntry {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{self:?}"))
+        write!(f, "{}={}", self.field_name, self.value)
     }
 }
 
@@ -215,5 +246,41 @@ impl Id for SerializableId {
         Self: Sized,
     {
         Some(id.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assertr::prelude::*;
+
+    #[test]
+    fn ids_display_their_fields_and_values() {
+        let id = SerializableId(vec![
+            SerializableIdEntry {
+                field_name: "club_id".to_owned(),
+                value: IdValue::I64(4),
+            },
+            SerializableIdEntry {
+                field_name: "season".to_owned(),
+                value: IdValue::String("2024".to_owned()),
+            },
+        ]);
+        assert_that!(id.to_string()).is_equal_to("club_id=4, season=2024".to_owned());
+    }
+
+    #[test]
+    fn id_entries_display_their_field_and_value() {
+        let entry = SerializableIdEntry {
+            field_name: "season".to_owned(),
+            value: IdValue::String("2024".to_owned()),
+        };
+        assert_that!(entry.to_string()).is_equal_to("season=2024".to_owned());
+    }
+
+    #[test]
+    fn string_id_values_respect_width_and_fill() {
+        let value = IdValue::String("ab".to_owned());
+        assert_that!(format!("{value:*>4}")).is_equal_to("**ab".to_owned());
     }
 }
