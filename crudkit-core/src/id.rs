@@ -5,11 +5,9 @@
 
 use dyn_clone::DynClone;
 use dyn_eq::DynEq;
-use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
-use utoipa::ToSchema;
 
 pub mod prelude {
     pub use super::DynIdentifiable;
@@ -23,8 +21,8 @@ pub mod prelude {
 
 /// Trait for models that have an identifier.
 ///
-/// Not all models have an ID - CreateModel typically doesn't since the ID
-/// is generated during insertion. ReadModel and UpdateModel should implement this.
+/// Not all models have an ID - `CreateModel` typically doesn't since the ID
+/// is generated during insertion. `ReadModel` and `UpdateModel` should implement this.
 pub trait HasId {
     /// The ID type for this model.
     type Id: Id + Clone + Send + Sync + 'static;
@@ -68,7 +66,7 @@ pub type DynIdentifiable = Arc<dyn ErasedIdentifiable>;
 /// All variants must implement `Eq` for proper comparability!
 /// This constraint excludes options like floats as parts of primary keys.
 /// We might use the `ordered-float` create in the future to relax this constraint.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum IdValue {
     I8(i8),
     I16(i16),
@@ -87,6 +85,29 @@ pub enum IdValue {
     // TODO: Relax lock-on on `time` crate through feature-gate?
     PrimitiveDateTime(time::PrimitiveDateTime),
     OffsetDateTime(time::OffsetDateTime),
+}
+
+/// Shows the bare value, e.g. `4` or `2024-01-05 10:30:00.0`.
+impl Display for IdValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::I8(value) => Display::fmt(value, f),
+            Self::I16(value) => Display::fmt(value, f),
+            Self::I32(value) => Display::fmt(value, f),
+            Self::I64(value) => Display::fmt(value, f),
+            Self::I128(value) => Display::fmt(value, f),
+            Self::U8(value) => Display::fmt(value, f),
+            Self::U16(value) => Display::fmt(value, f),
+            Self::U32(value) => Display::fmt(value, f),
+            Self::U64(value) => Display::fmt(value, f),
+            Self::U128(value) => Display::fmt(value, f),
+            Self::Bool(value) => Display::fmt(value, f),
+            Self::String(value) => f.pad(value),
+            Self::Uuid(value) => Display::fmt(value, f),
+            Self::PrimitiveDateTime(value) => Display::fmt(value, f),
+            Self::OffsetDateTime(value) => Display::fmt(value, f),
+        }
+    }
 }
 
 /// A field of an entity ID.
@@ -144,8 +165,7 @@ pub trait Id:
 /// The first tuple element stores a field name.
 ///
 /// The type of resource or model this ID belongs to is not encoded in this datastructure.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)]
-#[schema(value_type = Vec<Object>)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SerializableId(pub Vec<SerializableIdEntry>);
 
 impl SerializableId {
@@ -158,14 +178,20 @@ impl SerializableId {
     }
 }
 
+/// Shows the ID's fields with their values, e.g. `id=4` or `club_id=4, season=2024`.
 impl Display for SerializableId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{self:?}"))
+        for (index, entry) in self.0.iter().enumerate() {
+            if index > 0 {
+                f.write_str(", ")?;
+            }
+            Display::fmt(entry, f)?;
+        }
+        Ok(())
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ToSchema, Serialize, Deserialize)]
-#[serde(into = "(String, IdValue)", from = "(String, IdValue)")]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SerializableIdEntry {
     pub field_name: String,
     pub value: IdValue,
@@ -182,9 +208,10 @@ impl From<(String, IdValue)> for SerializableIdEntry {
     }
 }
 
+/// Shows the field with its value, e.g. `club_id=4`.
 impl Display for SerializableIdEntry {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{self:?}"))
+        write!(f, "{}={}", self.field_name, self.value)
     }
 }
 
@@ -228,19 +255,32 @@ mod tests {
     use assertr::prelude::*;
 
     #[test]
-    fn serialize_and_deserialize_serializable_id() {
-        let entries = vec![SerializableIdEntry {
-            field_name: "foo".to_string(),
-            value: IdValue::I32(1),
-        }];
-        let serializable_id = SerializableId(entries);
+    fn ids_display_their_fields_and_values() {
+        let id = SerializableId(vec![
+            SerializableIdEntry {
+                field_name: "club_id".to_owned(),
+                value: IdValue::I64(4),
+            },
+            SerializableIdEntry {
+                field_name: "season".to_owned(),
+                value: IdValue::String("2024".to_owned()),
+            },
+        ]);
+        assert_that!(id.to_string()).is_equal_to("club_id=4, season=2024".to_owned());
+    }
 
-        let json = serde_json::to_string(&serializable_id).unwrap();
+    #[test]
+    fn id_entries_display_their_field_and_value() {
+        let entry = SerializableIdEntry {
+            field_name: "season".to_owned(),
+            value: IdValue::String("2024".to_owned()),
+        };
+        assert_that!(entry.to_string()).is_equal_to("season=2024".to_owned());
+    }
 
-        assert_that(&json).is_equal_to(r#"[["foo",{"I32":1}]]"#);
-
-        let deserialized: SerializableId = serde_json::from_str(json.as_str()).unwrap();
-
-        assert_that(deserialized).is_equal_to(serializable_id);
+    #[test]
+    fn string_id_values_respect_width_and_fill() {
+        let value = IdValue::String("ab".to_owned());
+        assert_that!(format!("{value:*>4}")).is_equal_to("**ab".to_owned());
     }
 }

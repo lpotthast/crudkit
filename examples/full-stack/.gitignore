@@ -1,0 +1,4 @@
+/target
+
+# SQLite database created on first start.
+/data.sqlite*

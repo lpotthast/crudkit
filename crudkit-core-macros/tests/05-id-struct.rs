@@ -19,8 +19,8 @@ fn main() {
     use crudkit_core::id::Id;
 
     let expected = vec![FooIdField::IdA(1), FooIdField::IdB(2)];
-    assert_that(id.fields()).is_equal_to(expected.clone());
-    assert_that(id.fields_iter().collect::<Vec<_>>()).is_equal_to(expected);
+    assert_that!(id.fields()).is_equal_to(expected.clone());
+    assert_that!(id.fields_iter().collect::<Vec<_>>()).is_equal_to(expected);
 
     use crudkit_core::id::IdField;
 
@@ -29,5 +29,5 @@ fn main() {
             .map(|field| (field.name().to_owned(), field.to_value()).into())
             .collect(),
     );
-    assert_that(id.to_serializable_id()).is_equal_to(expected);
+    assert_that!(id.to_serializable_id()).is_equal_to(expected);
 }

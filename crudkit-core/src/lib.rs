@@ -8,6 +8,8 @@
 //! - **`id`**: Type-safe entity identifiers with composite primary key support
 //! - **`resource`**: Resource naming types
 //! - **`condition`**: Query filtering DSL
+//! - **`request`**: Internal representation of the requests of the generated CRUD routes
+//! - **`wire_v1`**: Conversions to and from version 1 of the wire format (`crudkit-wire-format`)
 //! - **`validation`**: Entity validation framework with severity levels
 //! - **`collaboration`**: Types for multi-user collaboration via WebSocket
 //!
@@ -18,8 +20,10 @@
 pub mod collaboration;
 pub mod condition;
 pub mod id;
+pub mod request;
 pub mod resource;
 pub mod validation;
+pub mod wire_v1;
 
 // Re-export commonly used types at crate root.
 pub use id::{HasId, Id, IdField, IdValue, SerializableId, SerializableIdEntry};
@@ -35,7 +39,6 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 use std::hash::Hash;
 use time::format_description::well_known::Rfc3339;
-use utoipa::ToSchema;
 use utoipa::openapi::Type;
 
 // ============================================================================
@@ -85,22 +88,10 @@ pub trait Model: Clone + Debug + Send + Sync + 'static {
     type Field: Clone + Debug + Send + Sync + 'static;
 }
 
-#[derive(Default, PartialEq, Eq, Hash, Clone, Copy, Debug, ToSchema, Serialize, Deserialize)]
+#[derive(Default, PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub enum Order {
     #[default]
-    #[serde(rename(
-        serialize = "asc",
-        deserialize = "asc",
-        deserialize = "ascending",
-        deserialize = "Asc"
-    ))]
     Asc,
-    #[serde(rename(
-        serialize = "desc",
-        deserialize = "desc",
-        deserialize = "descending",
-        deserialize = "Desc"
-    ))]
     Desc,
 }
 
@@ -163,7 +154,10 @@ impl Serialize for TimeDuration {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_i64(self.0.whole_microseconds() as i64)
+        let micros = i64::try_from(self.0.whole_microseconds()).map_err(|_| {
+            serde::ser::Error::custom("duration exceeds the range of i64 microseconds")
+        })?;
+        serializer.serialize_i64(micros)
     }
 }
 
@@ -342,8 +336,39 @@ macro_rules! impl_expect {
 
 impl Value {
     /// Returns true if this value is Null.
+    #[must_use]
     pub fn is_null(&self) -> bool {
         matches!(self, Self::Null)
+    }
+
+    /// Returns the kind of this value.
+    #[must_use]
+    pub fn kind(&self) -> ValueKind {
+        match self {
+            Self::Null => ValueKind::Null,
+            Self::Void(()) => ValueKind::Void,
+            Self::Bool(_) => ValueKind::Bool,
+            Self::U8(_) => ValueKind::U8,
+            Self::U16(_) => ValueKind::U16,
+            Self::U32(_) => ValueKind::U32,
+            Self::U64(_) => ValueKind::U64,
+            Self::U128(_) => ValueKind::U128,
+            Self::I8(_) => ValueKind::I8,
+            Self::I16(_) => ValueKind::I16,
+            Self::I32(_) => ValueKind::I32,
+            Self::I64(_) => ValueKind::I64,
+            Self::I128(_) => ValueKind::I128,
+            Self::F32(_) => ValueKind::F32,
+            Self::F64(_) => ValueKind::F64,
+            Self::String(_) => ValueKind::String,
+            Self::Json(_) => ValueKind::Json,
+            Self::Uuid(_) => ValueKind::Uuid,
+            Self::PrimitiveDateTime(_) => ValueKind::PrimitiveDateTime,
+            Self::OffsetDateTime(_) => ValueKind::OffsetDateTime,
+            Self::Duration(_) => ValueKind::Duration,
+            Self::Array(_) => ValueKind::Array,
+            Self::Other(_) => ValueKind::Other,
+        }
     }
 
     // === Copy accessors (primitives) ===
@@ -377,6 +402,7 @@ impl Value {
 
     // === Date/time accessors with String parsing fallback ===
 
+    #[must_use]
     pub fn as_primitive_date_time(&self) -> Option<time::PrimitiveDateTime> {
         match self {
             Self::PrimitiveDateTime(v) => Some(*v),
@@ -385,6 +411,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn as_offset_date_time(&self) -> Option<time::OffsetDateTime> {
         match self {
             Self::OffsetDateTime(v) => Some(*v),
@@ -429,6 +456,12 @@ impl Value {
         Array, &Vec<Value>;
     }
 
+    /// Returns the custom value of a `Value::Other`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is not `Value::Other`.
+    #[must_use]
     pub fn expect_other(&self) -> &dyn FieldValue {
         self.as_other().expect("Value is not Other").as_ref()
     }
@@ -437,8 +470,11 @@ impl Value {
 
     /// Verifies that all elements in a Value array are of the same type.
     ///
-    /// Returns `Ok(())` if the slice is empty or all elements have the same discriminant.
-    /// Returns `Err(index)` with the index of the first element that differs from the first.
+    /// An empty slice is homogeneous.
+    ///
+    /// # Errors
+    ///
+    /// Returns the index of the first element whose variant differs from the first element's.
     pub fn verify_array_homogeneity(values: &[Value]) -> Result<(), usize> {
         let Some(first) = values.first() else {
             return Ok(());
@@ -460,14 +496,13 @@ impl Value {
 /// Successful save result.
 ///
 /// Returned when an entity is successfully created or updated.
-#[derive(Debug, Clone, ToSchema, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Saved<T> {
     /// The saved entity.
     pub entity: T,
 
     /// Non-critical validation violations (warnings) associated with this entity.
     /// Empty if no violations exist.
-    #[schema(value_type = Object)]
     pub violations: PartialSerializableAggregateViolations,
 }
 
@@ -481,7 +516,7 @@ impl<T> Saved<T> {
 /// Successful delete result.
 ///
 /// Returned when entities are successfully deleted.
-#[derive(Debug, Clone, ToSchema, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Deleted {
     /// Number of entities that were deleted.
     pub entities_affected: u64,
@@ -494,26 +529,22 @@ pub struct Deleted {
 ///
 /// Note: IDs are represented as `serde_json::Value` to avoid circular dependencies.
 /// They are serialized `SerializableId` values.
-#[derive(Debug, Clone, ToSchema, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct DeletedMany {
     /// Number of successfully deleted entities.
     pub deleted_count: u64,
 
     /// IDs of successfully deleted entities.
-    #[schema(value_type = Vec<Object>)]
-    pub deleted_ids: Vec<serde_json::Value>,
+    pub deleted_ids: Vec<SerializableId>,
 
     /// IDs of entities where deletion was aborted by a lifecycle hook, with the abort reason.
-    #[schema(value_type = Vec<Object>)]
-    pub aborted: Vec<(serde_json::Value, String)>,
+    pub aborted: Vec<(SerializableId, String)>,
 
     /// IDs of entities that failed validation (critical validation errors prevented deletion).
-    #[schema(value_type = Vec<Object>)]
-    pub validation_failed: Vec<serde_json::Value>,
+    pub validation_failed: Vec<SerializableId>,
 
     /// IDs of entities that failed due to other errors, with the error message.
-    #[schema(value_type = Vec<Object>)]
-    pub errors: Vec<(serde_json::Value, String)>,
+    pub errors: Vec<(SerializableId, String)>,
 }
 
 #[cfg(test)]
@@ -522,67 +553,11 @@ mod tests {
     use assertr::prelude::*;
 
     #[test]
-    fn delete_many_result_serializes_correctly() {
-        let result = DeletedMany {
-            deleted_count: 2,
-            deleted_ids: vec![
-                serde_json::json!([["id", {"I64": 1}]]),
-                serde_json::json!([["id", {"I64": 2}]]),
-            ],
-            aborted: vec![],
-            validation_failed: vec![],
-            errors: vec![],
-        };
-
-        let _json = serde_json::to_string(&result).expect("serialization should succeed");
-    }
-
-    #[test]
-    fn delete_many_result_deserializes_correctly() {
-        let json = r#"{
-            "deleted_count": 3,
-            "deleted_ids": [[["id", {"I64": 1}]], [["id", {"I64": 2}]], [["id", {"I64": 3}]]],
-            "aborted": [],
-            "validation_failed": [[["id", {"I64": 4}]]],
-            "errors": [[[["id", {"I64": 5}]], "Database error"]]
-        }"#;
-
-        let result: DeletedMany =
-            serde_json::from_str(json).expect("deserialization should succeed");
-
-        assert_that(result.deleted_count).is_equal_to(3);
-        assert_that(result.deleted_ids.len()).is_equal_to(3);
-        assert_that(result.aborted.len()).is_equal_to(0);
-        assert_that(result.validation_failed.len()).is_equal_to(1);
-        assert_that(result.errors.len()).is_equal_to(1);
-    }
-
-    #[test]
-    fn delete_many_result_with_partial_failures() {
-        let result = DeletedMany {
-            deleted_count: 1,
-            deleted_ids: vec![serde_json::json!([["id", {"I64": 1}]])],
-            aborted: vec![(
-                serde_json::json!([["id", {"I64": 2}]]),
-                "Entity is referenced elsewhere".to_string(),
-            )],
-            validation_failed: vec![serde_json::json!([["id", {"I64": 3}]])],
-            errors: vec![(
-                serde_json::json!([["id", {"I64": 4}]]),
-                "Database connection lost".to_string(),
-            )],
-        };
-
-        // Round-trip test
-        let json = serde_json::to_string(&result).expect("serialization should succeed");
-        let deserialized: DeletedMany =
-            serde_json::from_str(&json).expect("deserialization should succeed");
-
-        assert_that(deserialized.deleted_count).is_equal_to(result.deleted_count);
-        assert_that(deserialized.deleted_ids.len()).is_equal_to(result.deleted_ids.len());
-        assert_that(deserialized.aborted.len()).is_equal_to(result.aborted.len());
-        assert_that(deserialized.validation_failed.len())
-            .is_equal_to(result.validation_failed.len());
-        assert_that(deserialized.errors.len()).is_equal_to(result.errors.len());
+    fn values_report_their_kind() {
+        assert_that!(Value::Null.kind()).is_equal_to(ValueKind::Null);
+        assert_that!(Value::Void(()).kind()).is_equal_to(ValueKind::Void);
+        assert_that!(Value::I64(1).kind()).is_equal_to(ValueKind::I64);
+        assert_that!(Value::String("club".to_owned()).kind()).is_equal_to(ValueKind::String);
+        assert_that!(Value::Array(Vec::new()).kind()).is_equal_to(ValueKind::Array);
     }
 }

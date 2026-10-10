@@ -1,11 +1,10 @@
 //! Validator information types.
 
-use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
 /// Information about a validator, including its name and version.
 /// Uses `Cow` to support both borrowed static strings and owned strings.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub struct ValidatorInfo<'a> {
     pub validator_name: Cow<'a, str>,
     pub validator_version: u32,
@@ -24,6 +23,7 @@ impl<'a> ValidatorInfo<'a> {
     }
 
     /// Create a new `ValidatorInfo` with an owned string.
+    #[must_use]
     pub fn new_owned(name: String, version: u32) -> ValidatorInfo<'static> {
         ValidatorInfo {
             validator_name: Cow::Owned(name),
@@ -32,6 +32,7 @@ impl<'a> ValidatorInfo<'a> {
     }
 
     /// Convert to an owned version.
+    #[must_use]
     pub fn into_owned(self) -> OwnedValidatorInfo {
         ValidatorInfo {
             validator_name: Cow::Owned(self.validator_name.into_owned()),

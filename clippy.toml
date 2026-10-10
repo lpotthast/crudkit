@@ -1,0 +1,2 @@
+# Project and library names that are prose in documentation, not code identifiers.
+doc-valid-idents = ["CrudKit", "SeaORM", ".."]

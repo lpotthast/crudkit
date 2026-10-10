@@ -2,7 +2,7 @@ use darling::{FromDeriveInput, FromField, ast};
 use proc_macro2::TokenStream;
 use quote::quote;
 
-/// Field configuration shared between CkCreateModel and CkUpdateModel.
+/// Field configuration shared between `CkCreateModel` and `CkUpdateModel`.
 /// Each macro uses its own attribute namespace but the config is identical.
 #[derive(Debug, Clone, FromField)]
 #[darling(attributes(read_view))]
@@ -59,7 +59,11 @@ impl DeriveReadView {
         let ident = &self.ident;
         let table_name = &self.table_name;
 
-        let fields: Vec<Field> = self.fields().iter().map(|f| f.to_owned()).collect();
+        let fields: Vec<Field> = self
+            .fields()
+            .iter()
+            .map(std::borrow::ToOwned::to_owned)
+            .collect();
         let original_fields = generate_model_fields(fields.iter());
 
         // TODO: new attrs or forward original attrs?
@@ -102,7 +106,7 @@ impl DeriveReadView {
     }
 }
 
-pub fn expand_derive_read_view(input: syn::DeriveInput) -> syn::Result<TokenStream> {
-    let derive: DeriveReadView = FromDeriveInput::from_derive_input(&input)?;
+pub fn expand_derive_read_view(input: &syn::DeriveInput) -> syn::Result<TokenStream> {
+    let derive: DeriveReadView = FromDeriveInput::from_derive_input(input)?;
     Ok(derive.expand())
 }

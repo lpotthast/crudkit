@@ -62,9 +62,9 @@ The ordering below is observable and matters because there is no transaction aro
 - **Update:** fetch persisted model by condition → mutable `before_update` → validate old model plus update DTO →
   repository update → replace persisted validation state → broadcast partial validation result →
   `after_update` → broadcast update → run global-validation coordinator → return `Saved<Model>`.
-- **Delete by ID or one match:** fetch persisted model → `before_delete` → validate model → repository delete →
-  `after_delete` → best-effort validation cleanup → broadcast deletion → run global-validation coordinator →
-  return `Deleted`.
+- **Delete by ID or one match:** fetch the persisted model matching the ID and the optional request condition →
+  `before_delete` → validate model → repository delete → `after_delete` → best-effort validation cleanup →
+  broadcast deletion → run global-validation coordinator → return `Deleted`.
 - **Delete many:** repeatedly fetch a bounded batch → run before hook, validation, delete, after hook, cleanup, and
   notification per entity → classify per-entity outcomes → stop when empty or when a batch deletes nothing → run
   global-validation coordinator → return `DeletedMany`.

@@ -1,11 +1,11 @@
 use crudkit_core::validation::violation::Severity;
-use sea_orm::{DeriveActiveEnum, EnumIter};
+use sea_orm::{DeriveActiveEnum, EnumIter, sea_query::StringLen};
 use serde::{Deserialize, Serialize};
 
 pub mod unified;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, EnumIter, DeriveActiveEnum)]
-#[sea_orm(rs_type = "String", db_type = "String(Some(16))")]
+#[sea_orm(rs_type = "String", db_type = "String(StringLen::N(16))")]
 pub enum PersistedViolationSeverity {
     #[sea_orm(string_value = "MAJOR")]
     Major,

@@ -29,9 +29,35 @@ pub struct CrudView {
     /// Renderer-specific data, or JSON `null` when the view has no payload.
     #[serde(default)]
     pub payload: serde_json::Value,
-    /// Entity represented by the view, when parent-resource composition needs one.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Entity represented by the view, when parent-resource composition needs one. Serialized in
+    /// the explicit `SerializableIdV1` format.
+    #[serde(default, skip_serializing_if = "Option::is_none", with = "subject_v1")]
     pub subject: Option<SerializableId>,
+}
+
+/// Serializes a view's subject in the version 1 wire form of IDs.
+mod subject_v1 {
+    use crudkit_core::id::SerializableId;
+    use crudkit_wire_format::v1::SerializableIdV1;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    // Serde's `with` passes the field by reference.
+    #[allow(clippy::ref_option)]
+    pub(super) fn serialize<S: Serializer>(
+        subject: &Option<SerializableId>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        subject
+            .clone()
+            .map(SerializableIdV1::from)
+            .serialize(serializer)
+    }
+
+    pub(super) fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<SerializableId>, D::Error> {
+        Ok(Option::<SerializableIdV1>::deserialize(deserializer)?.map(SerializableId::from))
+    }
 }
 
 impl CrudView {
@@ -45,6 +71,7 @@ impl CrudView {
     }
 
     /// Sets an already serialized JSON payload.
+    #[must_use]
     pub fn with_payload(mut self, payload: serde_json::Value) -> Self {
         self.payload = payload;
         self
@@ -75,27 +102,32 @@ impl CrudView {
     }
 
     /// Marks the entity represented by this view.
+    #[must_use]
     pub fn with_subject(mut self, subject: SerializableId) -> Self {
         self.subject = Some(subject);
         self
     }
 
     /// Describes CrudKit's built-in table view.
+    #[must_use]
     pub fn table() -> Self {
         Self::new(TABLE_VIEW)
     }
 
     /// Describes CrudKit's built-in create view.
+    #[must_use]
     pub fn create() -> Self {
         Self::new(CREATE_VIEW)
     }
 
     /// Describes CrudKit's built-in read view for `id`.
+    #[must_use]
     pub fn read(id: SerializableId) -> Self {
         Self::new(READ_VIEW).with_subject(id)
     }
 
     /// Describes CrudKit's built-in edit view for `id`.
+    #[must_use]
     pub fn edit(id: SerializableId) -> Self {
         Self::new(EDIT_VIEW).with_subject(id)
     }
@@ -119,6 +151,13 @@ mod tests {
             field_name: "id".to_owned(),
             value: IdValue::I64(42),
         }])
+    }
+
+    #[test]
+    fn subject_serializes_as_a_version_1_id() {
+        let json = serde_json::to_value(CrudView::read(id())).expect("view should serialize");
+        assert_that!(json["subject"].clone())
+            .is_equal_to(serde_json::json!([["id", { "I64": 42 }]]));
     }
 
     #[test]

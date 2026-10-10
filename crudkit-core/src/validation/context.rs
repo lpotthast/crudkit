@@ -1,9 +1,7 @@
 //! Validation context types describing when and why validation runs.
 
-use serde::{Deserialize, Serialize};
-
 /// The CRUD action that triggered validation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CrudAction {
     Create,
     Read,
@@ -12,14 +10,14 @@ pub enum CrudAction {
 }
 
 /// Whether validation occurs before or after the CRUD action.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum When {
     Before,
     After,
 }
 
 /// Context describing when a CRUD action triggered validation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ValidationContext {
     /// The CRUD action that lead to the validation.
     pub action: CrudAction,
@@ -30,7 +28,7 @@ pub struct ValidationContext {
 }
 
 /// What triggered the validation run.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValidationTrigger {
     /// Validation triggered by a CRUD action.
     CrudAction(ValidationContext),

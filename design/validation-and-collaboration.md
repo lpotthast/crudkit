@@ -33,8 +33,9 @@ runs:
 - a result produced after persistence cannot roll the write back merely because it is critical.
 
 The last point is a current implementation constraint. Post-create model validation is not filtered to Major, so it
-can persist and return a Critical finding after insertion even though `Saved<T>` currently describes its contents as
-non-critical warnings.
+can persist and return a Critical finding after insertion even though `Saved<T>` (on the wire `SavedV1<T>`) currently
+describes its contents as non-critical warnings. Critical results that block an operation reach the client in the
+`critical_validation_errors` error body; see [HTTP and Data Providers](http-and-data-providers.md#error-translation).
 
 Current operation-specific handling is deliberately not uniform:
 
@@ -101,14 +102,18 @@ These types record an intended extension seam, not a guarantee that global valid
 
 ## Collaboration Protocol
 
-`CollaborationService` accepts typed `CollabMessage` values and may deliver them through WebSockets or another
-application transport. The abstraction is transport-neutral even where older source comments say “WebSocket.”
+`CollaborationService::broadcast` receives each message in its wire form, `CollabMessageV1`, ready to serialize for
+clients. It may deliver them through WebSockets or another application transport. The abstraction is
+transport-neutral even where older source comments say “WebSocket.” Operations build the internal `CollabMessage` and
+convert it at this boundary.
 
 Messages are notifications, not entity replication:
 
-- `EntityCreated` and `EntityUpdated` carry resource name, entity ID, and a validation-status boolean;
-- `EntityDeleted` carries resource name and entity ID;
-- partial and full validation messages carry the aggregate result shapes above;
+- every message carries `wire_format_version` and an `event` tagged by `kind`;
+- `entity_created` and `entity_updated` carry resource name, entity ID, and a validation-status boolean;
+- `entity_deleted` carries resource name and entity ID;
+- `partial_validation_result` and `full_validation_result` carry one entry per resource, sorted by resource name,
+  whose entity violations are lists rather than maps keyed by ID;
 - no message contains the complete entity model.
 
 Current emission order is:

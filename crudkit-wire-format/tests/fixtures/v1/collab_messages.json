@@ -1,0 +1,48 @@
+[
+  {
+    "wire_format_version": 1,
+    "event": { "kind": "entity_created", "resource_name": "people", "entity_id": [["id", { "I64": 28 }]], "with_validation_errors": true }
+  },
+  {
+    "wire_format_version": 1,
+    "event": { "kind": "entity_updated", "resource_name": "people", "entity_id": [["id", { "I64": 28 }]], "with_validation_errors": false }
+  },
+  {
+    "wire_format_version": 1,
+    "event": { "kind": "entity_deleted", "resource_name": "people", "entity_id": [["id", { "I64": 28 }]] }
+  },
+  {
+    "wire_format_version": 1,
+    "event": {
+      "kind": "partial_validation_result",
+      "resources": [
+        {
+          "resource_name": "people",
+          "violations": {
+            "general": null,
+            "create": null,
+            "by_entity": [
+              { "id": [["id", { "I64": 28 }]], "violations": [{ "severity": "major", "message": "Gender 'nargle' is unknown." }] }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "wire_format_version": 1,
+    "event": {
+      "kind": "full_validation_result",
+      "resources": [
+        { "resource_name": "clubs", "violations": { "general": [], "by_entity": [] } },
+        {
+          "resource_name": "people",
+          "violations": {
+            "general": [{ "severity": "critical", "message": "Too many Seekers." }],
+            "by_entity": [{ "id": [["id", { "I64": 28 }]], "violations": [] }]
+          }
+        }
+      ]
+    }
+  }
+]

@@ -1,58 +1,28 @@
-//! Type-erased data provider for runtime polymorphic CRUD operations.
+//! Type-erased client of the generated CRUD routes for runtime polymorphic CRUD operations.
 
-use crate::model::{DynCreateModel, DynUpdateModel, SerializableReadField};
-use crate::request::post_json;
-use crate::request_error::RequestError;
-use crate::reqwest_executor::ReqwestExecutor;
-use crudkit_core::condition::{Condition, merge_conditions};
-use crudkit_core::{Deleted, DeletedMany, Order};
-use indexmap::IndexMap;
-use serde::Serialize;
-use std::fmt::Debug;
+use crate::http::{CrudEndpoint, CrudOperation, RequestError, ReqwestExecutor};
+use crate::model::{DynCreateModel, DynReadField, DynReadModel, DynUpdateModel};
+use crate::model_handler::ModelHandler;
+use crudkit_core::condition::Condition;
+use crudkit_core::request::{
+    CreateOne, DeleteById, DeleteMany, ReadCount, ReadMany, ReadOne, UpdateOne,
+};
+use crudkit_core::{Deleted, DeletedMany, Saved};
+use crudkit_wire_format::v1::{
+    CreateOneV1, DeleteByIdV1, DeleteManyV1, DeletedManyV1, DeletedV1, ReadCountResponseV1,
+    ReadCountV1, ReadManyResponseV1, ReadManyV1, ReadOneResponseV1, ReadOneV1, SavedV1,
+    UpdateOneV1,
+};
 use std::sync::Arc;
 
-// Re-export shared types from data_provider
-pub use crate::data_provider::{DeleteById, ReadCount};
-
-#[derive(Debug, Serialize)]
-pub struct DynReadMany {
-    pub limit: Option<u64>,
-    pub skip: Option<u64>,
-    pub order_by: Option<IndexMap<SerializableReadField, Order>>,
-    pub condition: Option<Condition>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct DynReadOne {
-    pub skip: Option<u64>,
-    pub order_by: Option<IndexMap<SerializableReadField, Order>>,
-    pub condition: Option<Condition>,
-}
-
-/// Not `Serialize`, as we perform custom serialization of the model on use.
-#[derive(Debug)]
-pub struct DynCreateOne {
-    pub entity: DynCreateModel,
-}
-
-/// Not `Serialize`, as we perform custom serialization of the model on use.
-#[derive(Debug)]
-pub struct DynUpdateOne {
-    pub entity: DynUpdateModel,
-    pub condition: Option<Condition>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct DynDeleteMany {
-    pub condition: Option<Condition>,
-}
-
+/// Client of the generated CRUD routes of one resource whose model types are erased.
+///
+/// Its [`ModelHandler`] deserializes response entities into the resource's concrete models, so
+/// operations return erased models.
 #[derive(Debug, Clone)]
 pub struct DynCrudRestDataProvider {
-    api_base_url: String,
-    executor: Arc<dyn ReqwestExecutor>,
-    base_condition: Option<Condition>,
-    resource_name: String,
+    endpoint: CrudEndpoint,
+    models: ModelHandler,
 }
 
 impl DynCrudRestDataProvider {
@@ -60,185 +30,174 @@ impl DynCrudRestDataProvider {
         api_base_url: String,
         executor: Arc<dyn ReqwestExecutor>,
         resource_name: String,
+        models: ModelHandler,
     ) -> Self {
         Self {
-            api_base_url,
-            executor,
-            base_condition: None,
-            resource_name,
+            endpoint: CrudEndpoint::new(api_base_url, executor, resource_name),
+            models,
         }
     }
 
+    /// Sets the condition that narrows every operation except creation.
     pub fn set_base_condition(&mut self, condition: Option<Condition>) {
-        self.base_condition = condition;
+        self.endpoint.set_base_condition(condition);
     }
 
+    /// Counts the entities matching `read_count` and the base condition.
+    ///
+    /// # Errors
+    ///
+    /// Returns the [`RequestError`] describing why the request failed.
     pub async fn read_count(&self, mut read_count: ReadCount) -> Result<u64, RequestError> {
-        read_count.condition = merge_conditions(self.base_condition.clone(), read_count.condition);
-        crate::request::post(
-            format!(
-                "{}/{}/crud/read-count",
-                self.api_base_url, self.resource_name
-            ),
-            self.executor.as_ref(),
-            read_count,
-        )
-        .await
+        read_count.condition = self.endpoint.scoped(read_count.condition);
+        let response: ReadCountResponseV1 = self
+            .endpoint
+            .post(CrudOperation::ReadCount, ReadCountV1::from(read_count))
+            .await?;
+        Ok(response.count)
     }
 
+    /// Reads the entities matching `read_many` and the base condition.
+    ///
+    /// # Errors
+    ///
+    /// Returns the [`RequestError`] describing why the request failed.
     pub async fn read_many(
         &self,
-        mut read_many: DynReadMany,
-    ) -> Result<serde_json::Value, RequestError> {
-        read_many.condition = merge_conditions(self.base_condition.clone(), read_many.condition);
-        post_json(
-            format!(
-                "{}/{}/crud/read-many",
-                self.api_base_url, self.resource_name
-            ),
-            self.executor.as_ref(),
-            read_many,
-        )
-        .await
+        mut read_many: ReadMany<DynReadField>,
+    ) -> Result<Vec<DynReadModel>, RequestError> {
+        read_many.condition = self.endpoint.scoped(read_many.condition);
+        let response: ReadManyResponseV1<serde_json::Value> = self
+            .endpoint
+            .post(CrudOperation::ReadMany, ReadManyV1::from(read_many))
+            .await?;
+        response
+            .entities
+            .into_iter()
+            .map(|json| self.models.deserialize_read_model(json))
+            .collect::<Result<_, _>>()
+            .map_err(|err| RequestError::Deserialize(err.to_string()))
     }
 
+    /// Reads one entity matching `read_one` and the base condition, or `None` if no entity matched.
+    ///
+    /// # Errors
+    ///
+    /// Returns the [`RequestError`] describing why the request failed.
     pub async fn read_one(
         &self,
-        mut read_one: DynReadOne,
-    ) -> Result<serde_json::Value, RequestError> {
-        read_one.condition = merge_conditions(self.base_condition.clone(), read_one.condition);
-        post_json(
-            format!("{}/{}/crud/read-one", self.api_base_url, self.resource_name),
-            self.executor.as_ref(),
-            read_one,
-        )
-        .await
+        mut read_one: ReadOne<DynReadField>,
+    ) -> Result<Option<DynReadModel>, RequestError> {
+        read_one.condition = self.endpoint.scoped(read_one.condition);
+        let response: ReadOneResponseV1<serde_json::Value> = self
+            .endpoint
+            .post(CrudOperation::ReadOne, ReadOneV1::from(read_one))
+            .await?;
+        response
+            .entity
+            .map(|json| self.models.deserialize_read_model(json))
+            .transpose()
+            .map_err(|err| RequestError::Deserialize(err.to_string()))
     }
 
+    /// Creates a new entity, returning the saved entity as an update model.
+    ///
+    /// # Errors
+    ///
+    /// Returns `RequestError::InvalidRequest` if the erased entity cannot be serialized, or the
+    /// [`RequestError`] describing why the request failed.
     pub async fn create_one(
         &self,
-        create_one: DynCreateOne,
-    ) -> Result<serde_json::Value, RequestError> {
-        #[derive(Debug, Serialize)]
-        struct CreateOneDto {
-            entity: serde_json::Value,
-        }
-
-        let entity =
-            serialize_any_as_json_value_omitting_type_information(&create_one.entity.inner)
-                .map_err(|e| RequestError::BadRequest(format!("Serialization failed: {e}")))?;
-
-        post_json(
-            format!(
-                "{}/{}/crud/create-one",
-                self.api_base_url, self.resource_name
-            ),
-            self.executor.as_ref(),
-            CreateOneDto { entity },
-        )
-        .await
+        create_one: CreateOne<DynCreateModel>,
+    ) -> Result<Saved<DynUpdateModel>, RequestError> {
+        let entity = create_one
+            .entity
+            .to_untagged_json()
+            .map_err(|e| RequestError::InvalidRequest(e.to_string()))?;
+        let response: SavedV1<serde_json::Value> = self
+            .endpoint
+            .post(
+                CrudOperation::CreateOne,
+                CreateOneV1::from(CreateOne { entity }),
+            )
+            .await?;
+        self.saved(response.into())
     }
 
+    /// Updates the entity matching `update_one` and the base condition, returning the saved entity.
+    ///
+    /// # Errors
+    ///
+    /// Returns `RequestError::InvalidRequest` if the erased entity cannot be serialized, or the
+    /// [`RequestError`] describing why the request failed.
     pub async fn update_one(
         &self,
-        mut update_one: DynUpdateOne,
-    ) -> Result<serde_json::Value, RequestError> {
-        #[derive(Debug, Serialize)]
-        struct UpdateOneDto {
-            entity: serde_json::Value,
-            condition: Option<Condition>,
-        }
-
-        let entity =
-            serialize_any_as_json_value_omitting_type_information(&update_one.entity.inner)
-                .map_err(|e| RequestError::BadRequest(format!("Serialization failed: {e}")))?;
-
-        update_one.condition = merge_conditions(self.base_condition.clone(), update_one.condition);
-        post_json(
-            format!(
-                "{}/{}/crud/update-one",
-                self.api_base_url, self.resource_name
-            ),
-            self.executor.as_ref(),
-            UpdateOneDto {
-                entity,
-                condition: update_one.condition,
-            },
-        )
-        .await
+        update_one: UpdateOne<DynUpdateModel>,
+    ) -> Result<Saved<DynUpdateModel>, RequestError> {
+        let entity = update_one
+            .entity
+            .to_untagged_json()
+            .map_err(|e| RequestError::InvalidRequest(e.to_string()))?;
+        let response: SavedV1<serde_json::Value> = self
+            .endpoint
+            .post(
+                CrudOperation::UpdateOne,
+                UpdateOneV1::from(UpdateOne {
+                    entity,
+                    condition: self.endpoint.scoped(update_one.condition),
+                }),
+            )
+            .await?;
+        self.saved(response.into())
     }
 
-    pub async fn delete_by_id(&self, delete_by_id: DeleteById) -> Result<Deleted, RequestError> {
-        let json = post_json(
-            format!(
-                "{}/{}/crud/delete-by-id",
-                self.api_base_url, self.resource_name
-            ),
-            self.executor.as_ref(),
-            delete_by_id,
-        )
-        .await?;
-        serde_json::from_value(json).map_err(|e| RequestError::Deserialize(e.to_string()))
+    /// Deletes the entity with the given ID, if it also matches the request condition and the base
+    /// condition.
+    ///
+    /// # Errors
+    ///
+    /// Returns the [`RequestError`] describing why the request failed.
+    pub async fn delete_by_id(
+        &self,
+        mut delete_by_id: DeleteById,
+    ) -> Result<Deleted, RequestError> {
+        delete_by_id.condition = self.endpoint.scoped(delete_by_id.condition);
+        let response: DeletedV1 = self
+            .endpoint
+            .post(CrudOperation::DeleteById, DeleteByIdV1::from(delete_by_id))
+            .await?;
+        Ok(response.into())
     }
 
+    /// Deletes all entities matching `delete_many` and the base condition.
+    ///
+    /// # Errors
+    ///
+    /// Returns the [`RequestError`] describing why the request failed.
     pub async fn delete_many(
         &self,
-        mut delete_many: DynDeleteMany,
+        mut delete_many: DeleteMany,
     ) -> Result<DeletedMany, RequestError> {
-        delete_many.condition =
-            merge_conditions(self.base_condition.clone(), delete_many.condition);
-        let json = post_json(
-            format!(
-                "{}/{}/crud/delete-many",
-                self.api_base_url, self.resource_name
-            ),
-            self.executor.as_ref(),
-            delete_many,
-        )
-        .await?;
-        serde_json::from_value(json).map_err(|e| RequestError::Deserialize(e.to_string()))
+        delete_many.condition = self.endpoint.scoped(delete_many.condition);
+        let response: DeletedManyV1 = self
+            .endpoint
+            .post(CrudOperation::DeleteMany, DeleteManyV1::from(delete_many))
+            .await?;
+        Ok(response.into())
     }
-}
 
-// Serialization helpers for type-erased models
-
-#[allow(dead_code)]
-pub(crate) fn serialize_any_as_json(
-    data: &(impl erased_serde::Serialize + Debug),
-) -> Result<String, erased_serde::Error> {
-    let mut buf = Vec::new();
-    let json = &mut serde_json::Serializer::new(&mut buf);
-    let mut json_format = Box::new(<dyn erased_serde::Serializer>::erase(json));
-    data.erased_serialize(&mut json_format)?;
-    drop(json_format);
-    Ok(String::from_utf8_lossy(buf.as_slice()).to_string())
-}
-
-pub(crate) fn serialize_any_as_json_value_omitting_type_information(
-    data: &(impl erased_serde::Serialize + Debug),
-) -> Result<serde_json::Value, String> {
-    let value: serde_json::Value = erased_serde::serialize(data, serde_json::value::Serializer)
-        .map_err(|e| format!("Failed to serialize data: {e}"))?;
-
-    match value {
-        serde_json::Value::Object(object) if object.len() == 1 => object
-            .into_values()
-            .next()
-            .ok_or_else(|| "Expected single value in object but found none".to_string()),
-        serde_json::Value::Object(object) => Err(format!(
-            "Expected object with exactly 1 field, found {} fields",
-            object.len()
-        )),
-        other => Err(format!(
-            "Expected JSON object, found {}",
-            match other {
-                serde_json::Value::Null => "null",
-                serde_json::Value::Bool(_) => "boolean",
-                serde_json::Value::Number(_) => "number",
-                serde_json::Value::String(_) => "string",
-                serde_json::Value::Array(_) => "array",
-                serde_json::Value::Object(_) => unreachable!(),
-            }
-        )),
+    /// Deserializes the entity of a create or update response into an update model.
+    fn saved(
+        &self,
+        saved: Saved<serde_json::Value>,
+    ) -> Result<Saved<DynUpdateModel>, RequestError> {
+        let entity = self
+            .models
+            .deserialize_update_model(saved.entity)
+            .map_err(|err| RequestError::Deserialize(err.to_string()))?;
+        Ok(Saved {
+            entity,
+            violations: saved.violations,
+        })
     }
 }

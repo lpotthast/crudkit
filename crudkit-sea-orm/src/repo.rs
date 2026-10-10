@@ -1,4 +1,4 @@
-//! SeaORM repository implementation.
+//! `SeaORM` repository implementation.
 //!
 //! `SeaOrmRepo` implements crudkit-rs's `Repository` trait for resources that
 //! also implement `SeaOrmResource`.
@@ -28,18 +28,20 @@ pub struct SeaOrmRepo {
 }
 
 impl SeaOrmRepo {
-    /// Create a new SeaOrmRepo with the given database connection.
+    /// Create a new `SeaOrmRepo` with the given database connection.
+    #[must_use]
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self { db }
     }
 
     /// Get a reference to the database connection.
+    #[must_use]
     pub fn db(&self) -> &DatabaseConnection {
         &self.db
     }
 }
 
-/// Error type for SeaORM repository operations.
+/// Error type for `SeaORM` repository operations.
 #[derive(Debug, Snafu)]
 pub enum SeaOrmRepoError {
     #[snafu(display("SeaOrmRepoError: Database error."))]
@@ -57,6 +59,13 @@ pub enum SeaOrmRepoError {
     #[snafu(display("SeaOrmRepoError: Column '{column_name}' not found."))]
     UnknownColumnSpecified {
         column_name: String,
+        backtrace: Backtrace,
+    },
+
+    #[snafu(display("SeaOrmRepoError: Unsupported condition on column '{column_name}': {reason}"))]
+    UnsupportedCondition {
+        column_name: String,
+        reason: String,
         backtrace: Backtrace,
     },
 }

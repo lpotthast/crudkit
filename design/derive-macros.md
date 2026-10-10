@@ -36,6 +36,9 @@ Backend `CkField` generates one enum variant per field and implementations for:
 - lookup from a wire field name;
 - conversion from `ConditionClauseValue` to the field's expected `Value` kind.
 
+Both the backend and the frontend `CkField` rename every variant's serde representation to the field name, so a field
+enum serializes as the same name its `name()` returns.
+
 `#[ck_field(convert_ccv = "...")]` is the explicit escape hatch when the built-in conversion is insufficient. It changes
 query-value parsing and must remain consistent with the storage adapter's handling of the resulting `Value`.
 
@@ -46,6 +49,8 @@ source of identity.
 
 Frontend `CkField` is role-aware: create, read, and update models receive distinct erased field traits. It generates
 model field enumeration, typed get/set behavior, `ValueKind`, optionality, and erased wrappers used by `CrudInstance`.
+It also implements `IntoDynField` for the field enum, naming its erased field type (`DynCreateField`, `DynReadField`,
+or `DynUpdateField`), so that `crudkit-leptos`' `CrudField` atom binds a typed field to the matching form.
 
 Optional Rust fields map absence to `Value::Null`; they do not generate optional `Value` variants. Unsupported custom
 types classify as `Other` and require application rendering or conversion behavior.

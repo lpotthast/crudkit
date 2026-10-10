@@ -1,11 +1,9 @@
 //! Types used for sharing data between different users via WebSocket.
 
-use serde::{Deserialize, Serialize};
-
 use crate::id::SerializableId;
 use crate::validation::{FullSerializableValidations, PartialSerializableValidations};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum CollabMessage {
     /// An entity was created.
     /// Expect an additional `PartialValidationResult` soon.
@@ -29,7 +27,7 @@ pub enum CollabMessage {
     FullValidationResult(FullSerializableValidations),
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EntityCreated {
     pub resource_name: String,
     pub entity_id: SerializableId,
@@ -37,7 +35,7 @@ pub struct EntityCreated {
     pub with_validation_errors: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EntityUpdated {
     pub resource_name: String,
     pub entity_id: SerializableId,
@@ -45,7 +43,7 @@ pub struct EntityUpdated {
     pub with_validation_errors: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EntityDeleted {
     pub resource_name: String,
     pub entity_id: SerializableId,

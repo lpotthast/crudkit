@@ -5,7 +5,7 @@ use crate::validate::GlobalValidationState;
 use crate::validator::{AggregateValidator, EntityValidator};
 
 /// The context is made available to any crud operation.
-/// It may contain state relevant to its associated CrudResource.
+/// It may contain state relevant to its associated `CrudResource`.
 pub struct CrudContext<R: CrudResource> {
     pub res_context: Arc<R::Context>,
     pub repository: Arc<R::Repository>,

@@ -1,4 +1,4 @@
-//! SeaORM entity model for validation results.
+//! `SeaORM` entity model for validation results.
 //!
 //! This model stores validation results with the entity ID serialized as JSON,
 //! which allows for both simple and composite primary keys.
@@ -44,8 +44,14 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn to_validator_info(&self) -> ValidatorInfo<'_> {
-        ValidatorInfo::new(&self.validator_name, self.validator_version as u32)
+    /// Returns the validator that produced this record.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the stored validator version does not fit into a `u32`.
+    pub fn to_validator_info(&self) -> Result<ValidatorInfo<'_>, std::num::TryFromIntError> {
+        let validator_version = u32::try_from(self.validator_version)?;
+        Ok(ValidatorInfo::new(&self.validator_name, validator_version))
     }
 }
 

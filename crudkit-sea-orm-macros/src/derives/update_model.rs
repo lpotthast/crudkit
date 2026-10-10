@@ -1,11 +1,11 @@
-//! SeaORM-specific UpdateModel derive macro.
+//! SeaORM-specific `UpdateModel` derive macro.
 
 use crudkit_rs_macros_core::FieldInfo;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::DeriveInput;
 
-/// Generate SeaORM-specific ActiveModel update for UpdateModel.
+/// Generate SeaORM-specific `ActiveModel` update for `UpdateModel`.
 fn generate_sea_orm_update_model_impl(
     update_model_name: &proc_macro2::Ident,
     fields: &[FieldInfo],
@@ -44,15 +44,15 @@ fn generate_sea_orm_update_model_impl(
     }
 }
 
-/// Expand CkSeaOrmUpdateModel derive.
+/// Expand `CkSeaOrmUpdateModel` derive.
 ///
 /// Generates:
-/// - UpdateModel struct
-/// - Storage-agnostic trait implementations (CrudModel)
-/// - SeaORM-specific impls (UpdateModelTrait, UpdateActiveModelTrait)
-pub fn expand_derive_sea_orm_update_model(input: DeriveInput) -> syn::Result<TokenStream> {
-    let output = crudkit_rs_macros_core::generate_update_model(&input)
-        .map_err(|e| syn::Error::new_spanned(&input, e.to_string()))?;
+/// - `UpdateModel` struct
+/// - Storage-agnostic trait implementations (`CrudModel`)
+/// - SeaORM-specific impls (`UpdateModelTrait`, `UpdateActiveModelTrait`)
+pub fn expand_derive_sea_orm_update_model(input: &DeriveInput) -> syn::Result<TokenStream> {
+    let output = crudkit_rs_macros_core::generate_update_model(input)
+        .map_err(|e| syn::Error::new_spanned(input, e.to_string()))?;
 
     let struct_def = output.struct_def;
     let trait_impls = output.trait_impls;

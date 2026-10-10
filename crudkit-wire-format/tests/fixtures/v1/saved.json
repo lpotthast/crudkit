@@ -1,0 +1,17 @@
+{
+  "wire_format_version": 1,
+  "entity": { "id": 7, "first_name": "Ginny" },
+  "violations": {
+    "general": null,
+    "create": [],
+    "by_entity": [
+      {
+        "id": [["id", { "I64": 7 }]],
+        "violations": [
+          { "severity": "major", "message": "No position assigned." },
+          { "severity": "critical", "message": "Year of birth is in the future." }
+        ]
+      }
+    ]
+  }
+}

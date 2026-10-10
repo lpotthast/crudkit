@@ -15,11 +15,11 @@ use syn::DeriveInput;
 ///
 /// # Field Attributes
 ///
-/// - `#[ck_update_model(exclude)]` - Exclude field from UpdateModel
+/// - `#[ck_update_model(exclude)]` - Exclude field from `UpdateModel`
 /// - `#[ck_update_model(optional)]` - Wrap field in Option
-/// - `#[ck_update_model(use_default)]` - Use Default::default() for excluded fields (storage-specific)
-pub fn expand_derive_update_model(input: DeriveInput) -> syn::Result<TokenStream> {
-    let output = crudkit_rs_macros_core::generate_update_model(&input)?;
+/// - `#[ck_update_model(use_default)]` - Use `Default::default()` for excluded fields (storage-specific)
+pub fn expand_derive_update_model(input: &DeriveInput) -> syn::Result<TokenStream> {
+    let output = crudkit_rs_macros_core::generate_update_model(input)?;
 
     let struct_def = output.struct_def;
     let trait_impls = output.trait_impls;

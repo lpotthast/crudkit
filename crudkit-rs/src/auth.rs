@@ -39,7 +39,7 @@ impl<A: Clone + Send + Sync + 'static> Auth for A {}
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NoAuth;
 
-/// Request specific context passed to lifecycle hooks (before_create, after_create, etc.).
+/// Request specific context passed to lifecycle hooks (`before_create`, `after_create`, etc.).
 ///
 /// This struct contains authentication data allowing for custom authorization logic inside
 /// lifecycle hooks.
@@ -93,6 +93,7 @@ impl<A: Auth> RequestContext<A> {
     /// Create a new request context without authentication data.
     ///
     /// Use this for public operations where authentication is not required.
+    #[must_use]
     pub fn unauthenticated() -> Self {
         Self { auth: None }
     }
@@ -147,6 +148,14 @@ impl<R> RequiresAuth for axum_keycloak_auth::decode::KeycloakToken<R> where
 /// - Types implementing `RequiresAuth`: Requires Extension present, returns 401 if missing
 pub trait AuthExtractor: Auth + Sized {
     /// Extract auth from an optional Extension.
+    ///
+    /// # Errors
+    ///
+    /// Returns the response to send instead of handling the request when the required
+    /// authentication is missing. Implementations requiring authentication respond with 401
+    /// Unauthorized.
+    // Rejecting with a `Response` follows axum's extractor convention; the error path is rare.
+    #[allow(clippy::result_large_err)]
     fn extract(extension: Option<axum::Extension<Self>>) -> Result<Self, axum::response::Response>;
 }
 
@@ -244,22 +253,26 @@ pub enum AuthRequirement {
 ///
 /// For role-based authorization, implement checks in your [`CrudLifetime`] hooks.
 pub trait CrudAuthPolicy: Send + Sync + 'static {
-    /// Authorization requirement for read operations (count, read_one, read_many).
+    /// Authorization requirement for read operations (count, `read_one`, `read_many`).
+    #[must_use]
     fn read_requirement() -> AuthRequirement {
         AuthRequirement::None
     }
 
     /// Authorization requirement for create operations.
+    #[must_use]
     fn create_requirement() -> AuthRequirement {
         AuthRequirement::Authenticated
     }
 
     /// Authorization requirement for update operations.
+    #[must_use]
     fn update_requirement() -> AuthRequirement {
         AuthRequirement::Authenticated
     }
 
     /// Authorization requirement for delete operations.
+    #[must_use]
     fn delete_requirement() -> AuthRequirement {
         AuthRequirement::Authenticated
     }

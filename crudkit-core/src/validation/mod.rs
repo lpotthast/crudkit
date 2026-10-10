@@ -8,7 +8,6 @@ pub mod violation;
 
 pub use context::{CrudAction, ValidationContext, ValidationTrigger, When};
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::id::{Id, SerializableId};
@@ -17,18 +16,20 @@ use crate::validation::validator::OwnedValidatorInfo;
 use crate::validation::violation::{Severity, Violation, Violations};
 
 /// Violations for one entity.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct ViolationsByValidator {
     pub violations_by_validator: HashMap<OwnedValidatorInfo, Violations>,
 }
 
 impl ViolationsByValidator {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             violations_by_validator: HashMap::new(),
         }
     }
 
+    #[must_use]
     pub fn of(validator: OwnedValidatorInfo, violations: Violations) -> Self {
         let mut entity_violations = HashMap::new();
         entity_violations.insert(validator, violations);
@@ -58,15 +59,17 @@ impl ViolationsByValidator {
     pub fn drop_critical(&mut self) {
         self.violations_by_validator
             .iter_mut()
-            .for_each(|(_, violations)| violations.drop_critical())
+            .for_each(|(_, violations)| violations.drop_critical());
     }
 
+    #[must_use]
     pub fn number_of_violations(&self) -> usize {
         self.violations_by_validator
             .values()
             .fold(0usize, |acc, violations| acc + violations.len())
     }
 
+    #[must_use]
     pub fn has_violations(&self) -> bool {
         for violations in self.violations_by_validator.values() {
             if !violations.is_empty() {
@@ -76,6 +79,7 @@ impl ViolationsByValidator {
         false
     }
 
+    #[must_use]
     pub fn has_any_violations_of(&self, severity: Severity) -> bool {
         for violations in self.violations_by_validator.values() {
             for violation in violations.iter() {
@@ -87,6 +91,7 @@ impl ViolationsByValidator {
         false
     }
 
+    #[must_use]
     pub fn has_critical_violations(&self) -> bool {
         self.has_any_violations_of(Severity::Critical)
     }
@@ -104,6 +109,7 @@ pub struct ViolationsByEntity<I: Id> {
 }
 
 impl<I: Id> ViolationsByEntity<I> {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),
@@ -143,6 +149,7 @@ pub struct ResourceViolations<I: Id> {
 }
 
 impl<I: Id> ResourceViolations<I> {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             general: Violations::empty(),
@@ -165,6 +172,7 @@ pub struct ViolationsByResource {
 }
 
 impl ViolationsByResource {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),
@@ -212,7 +220,7 @@ pub fn into_serializable_validations(
 /// replace all previously known validation results.
 ///
 /// All violations must either target the resource or a specific entity.
-#[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct FullSerializableAggregateViolations {
     /// Violations targeting the resource as a whole. Not tied to a specific entity.
     pub general: Violations,
@@ -224,6 +232,7 @@ pub struct FullSerializableAggregateViolations {
 }
 
 impl FullSerializableAggregateViolations {
+    #[must_use]
     pub fn has_entity_or_general_violations(&self) -> bool {
         let has_general_violations = !self.general.is_empty();
         let has_entity_violations = !self.by_entity.is_empty()
@@ -235,14 +244,14 @@ impl FullSerializableAggregateViolations {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct PartialSerializableAggregateViolations {
     /// Violations targeting the resource as a whole. Not tied to a specific entity.
-    /// If Option::Empty, no information is present. In an Option::Some, the contained Vec must hold ALL violations for the resource at hand.
+    /// If `Option::Empty`, no information is present. In an `Option::Some`, the contained Vec must hold ALL violations for the resource at hand.
     pub general: Option<Violations>,
 
     /// Violations unrelated to any known entity.
-    /// If Option::Empty, no information is present. In an Option::Some, the contained Vec must hold ALL violations for the resource at hand.
+    /// If `Option::Empty`, no information is present. In an `Option::Some`, the contained Vec must hold ALL violations for the resource at hand.
     pub create: Option<Violations>,
 
     /// Violations targeting specific entities.
@@ -252,12 +261,13 @@ pub struct PartialSerializableAggregateViolations {
 }
 
 impl PartialSerializableAggregateViolations {
-    pub fn from(value: ViolationsByValidator, entity_id: Option<SerializableId>) -> Self {
+    #[must_use]
+    pub fn from(value: ViolationsByValidator, entity_id: Option<&SerializableId>) -> Self {
         let mut create = Option::<Violations>::None;
         let mut by_entity = HashMap::<SerializableId, Violations>::new();
 
         for (_validator, violations) in value.violations_by_validator {
-            if let Some(entity_id) = &entity_id {
+            if let Some(entity_id) = entity_id {
                 by_entity
                     .entry(entity_id.clone())
                     .or_default()
@@ -275,46 +285,18 @@ impl PartialSerializableAggregateViolations {
     }
 
     /// Returns true if there are no violations in any category.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
-        let general_empty = self.general.as_ref().is_none_or(|v| v.is_empty());
-        let create_empty = self.create.as_ref().is_none_or(|v| v.is_empty());
+        let general_empty = self
+            .general
+            .as_ref()
+            .is_none_or(violation::Violations::is_empty);
+        let create_empty = self
+            .create
+            .as_ref()
+            .is_none_or(violation::Violations::is_empty);
         let by_entity_empty =
             self.by_entity.is_empty() || self.by_entity.iter().all(|(_id, v)| v.is_empty());
         general_empty && create_empty && by_entity_empty
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::PartialSerializableAggregateViolations;
-    use super::violation::Violations;
-    use crate::id::{IdValue, SerializableId, SerializableIdEntry};
-    use crate::resource::ResourceName;
-    use assertr::prelude::*;
-    use std::collections::HashMap;
-
-    type PartialSerializableValidations =
-        HashMap<ResourceName, PartialSerializableAggregateViolations>;
-
-    #[test]
-    fn serialize_and_deserialize_serializable_id() {
-        let partial: PartialSerializableValidations = HashMap::from([(
-            ResourceName::new("foo"),
-            PartialSerializableAggregateViolations {
-                general: None,
-                create: None,
-                by_entity: vec![(
-                    SerializableId(vec![SerializableIdEntry {
-                        field_name: "bar".into(),
-                        value: IdValue::I32(1),
-                    }]),
-                    Violations::empty(),
-                )],
-            },
-        )]);
-
-        let json = serde_json::to_string(&partial).unwrap();
-
-        assert_that(&json).is_equal_to(r#"{"foo":{"general":null,"create":null,"by_entity":[[[["bar",{"I32":1}]],{"violations":[]}]]}}"#);
     }
 }

@@ -13,22 +13,14 @@ use crate::{
 
 use crudkit_core::Saved;
 use crudkit_core::id::Id;
+use crudkit_core::request::CreateOne;
 use crudkit_core::resource::ResourceName;
 use crudkit_core::validation::violation::Violations;
 use crudkit_core::validation::{
     PartialSerializableAggregateViolations, PartialSerializableValidations, ViolationsByEntity,
 };
 
-use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
-use utoipa::ToSchema;
-
-/// Request body for creating a single entity.
-#[derive(Debug, ToSchema, Deserialize)]
-pub struct CreateOne<T> {
-    /// The entity data to create.
-    pub entity: T,
-}
 
 /// Create a single entity.
 ///
@@ -43,6 +35,14 @@ pub struct CreateOne<T> {
 /// 7. Persist and broadcast any violations
 /// 8. Broadcast creation event
 /// 9. Trigger global validation
+///
+/// # Errors
+///
+/// Returns `CrudError::Forbidden`, `CrudError::UnprocessableEntity`, or
+/// `CrudError::LifecycleHookError` if a lifecycle hook rejects the operation or fails,
+/// `CrudError::CriticalValidationErrors` if pre-insert validation finds critical violations,
+/// `CrudError::Repository` if the insert fails, or `CrudError::SaveValidations` if post-insert
+/// violations cannot be persisted.
 #[tracing::instrument(level = "info", skip(context, request))]
 pub async fn create_one<R: CrudResource>(
     request: RequestContext<R::Auth>,
@@ -139,7 +139,7 @@ pub async fn create_one<R: CrudResource>(
 
     let partial = PartialSerializableAggregateViolations::from(
         violations_by_validator,
-        Some(serializable_id.clone()),
+        Some(&serializable_id),
     );
 
     if has_violations {

@@ -2,7 +2,7 @@
 //!
 //! The repository pattern abstracts away the underlying storage mechanism,
 //! allowing the CRUD operations to work with any backend that implements
-//! this trait (e.g., SeaORM, in-memory, mock implementations).
+//! this trait (e.g., `SeaORM`, in-memory, mock implementations).
 
 // TODO: Rename this module to `persistence` or `storage`.
 
@@ -24,7 +24,7 @@ impl<T: RepositoryError> RepositoryError for error_stack::Report<T> {}
 
 /// Storage-agnostic repository trait for CRUD operations.
 ///
-/// The repository takes DTOs (CreateModel, UpdateModel) directly and handles
+/// The repository takes DTOs (`CreateModel`, `UpdateModel`) directly and handles
 /// the conversion to storage-specific types internally. This keeps the CRUD
 /// operations decoupled from any specific storage backend.
 ///
@@ -37,7 +37,7 @@ pub trait Repository<R: CrudResource> {
 
     /// Insert a new entity from a create model.
     ///
-    /// The repository is responsible for converting the CreateModel to the
+    /// The repository is responsible for converting the `CreateModel` to the
     /// appropriate storage format and returning the persisted Model.
     fn insert(
         &self,
@@ -75,7 +75,7 @@ pub trait Repository<R: CrudResource> {
 
     /// Read a single entity through the read view.
     ///
-    /// Uses the ReadModel (which may be backed by a SQL view) for reading.
+    /// Uses the `ReadModel` (which may be backed by a SQL view) for reading.
     fn read_one(
         &self,
         limit: Option<u64>,
@@ -96,7 +96,7 @@ pub trait Repository<R: CrudResource> {
     /// Update an entity using the existing model and update data.
     ///
     /// The repository:
-    /// 1. Applies the UpdateModel changes to the existing Model
+    /// 1. Applies the `UpdateModel` changes to the existing Model
     /// 2. Persists the changes
     /// 3. Returns the updated Model
     fn update(
@@ -125,6 +125,8 @@ pub struct DeleteResult {
 }
 
 /// Trait for persisting validation results to a storage backend.
+// `async_trait` marks the boxed futures it returns `#[must_use]`, which they already are.
+#[allow(clippy::double_must_use)]
 #[async_trait]
 pub trait ValidationResultRepository {
     /// The error type for validation result operations.

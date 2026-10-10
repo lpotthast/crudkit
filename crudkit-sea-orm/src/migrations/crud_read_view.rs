@@ -10,7 +10,7 @@ use sea_orm_migration::{
 
 /// Describes a primary key field for SQL generation.
 pub struct IdFieldDef {
-    /// The column/field name (e.g., "id", "user_id").
+    /// The column/field name (e.g., "id", "`user_id`").
     pub name: &'static str,
     /// The `IdValue` type variant (e.g., "I64", "I32", "String", "Uuid").
     pub type_variant: &'static str,
@@ -103,7 +103,7 @@ pub async fn create_read_view(
 ) -> Result<(), DbErr> {
     manager
         .get_connection()
-        .execute(build_create_read_view_stmt(
+        .execute_raw(build_create_read_view_stmt(
             table_name,
             resource_name,
             id_fields,
@@ -140,7 +140,8 @@ pub fn build_create_read_view_stmt(
 }
 
 /// Build the JSON construction SQL for comparing entity IDs.
-/// Constructs a JSON array matching the `SerializableId` format: `[["field_name", {"TypeVariant": value}], ...]`
+/// Constructs a JSON array matching the stored `SerializableIdV1` format:
+/// `[["field_name", {"TypeVariant": value}], ...]`
 fn build_id_json_sql(id_fields: &[IdFieldDef]) -> String {
     let field_expressions: Vec<String> = id_fields
         .iter()
@@ -164,7 +165,7 @@ pub async fn drop_read_view(
 ) -> Result<(), DbErr> {
     manager
         .get_connection()
-        .execute(build_drop_read_view_stmt(table_name))
+        .execute_raw(build_drop_read_view_stmt(table_name))
         .await
         .map(|_exec_result| ())
 }
