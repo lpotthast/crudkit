@@ -2396,6 +2396,7 @@ checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
 [[package]]
 name = "leptonic"
 version = "0.5.0"
+source = "git+https://github.com/lpotthast/leptonic?branch=hooks#471884af5b56d1273d35f09529cb11dcfa47ff30"
 dependencies = [
  "anyhow",
  "atomic_enum",
@@ -2437,6 +2438,7 @@ dependencies = [
 [[package]]
 name = "leptonic-theme"
 version = "0.5.0"
+source = "git+https://github.com/lpotthast/leptonic?branch=hooks#471884af5b56d1273d35f09529cb11dcfa47ff30"
 dependencies = [
  "anyhow",
  "include_dir",

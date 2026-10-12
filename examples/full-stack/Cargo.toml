@@ -55,7 +55,7 @@ console_error_panic_hook = "0.1.7"
 icondata = { version = "0.7.0", default-features = false, features = ["lucide"] }
 indexmap = "2.14.2"
 # Leptonic's atoms (fields, select, modal, dialog, toasts), composed with CrudKit's atoms.
-leptonic = { path = "../../../leptonic/leptonic", default-features = false, features = ["atoms"] }
+leptonic = { git = "https://github.com/lpotthast/leptonic", branch = "hooks", default-features = false, features = ["atoms"] }
 leptos = "0.8.22"
 leptos_icons = "0.7.1"
 leptos_meta = "0.8.7"
