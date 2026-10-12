@@ -2,10 +2,10 @@
 
 use crate::ui::icon;
 use crudkit_leptos::prelude::*;
-use leptonic::atoms::prelude::{
+use leptonic::atoms::toast::{
     Toast, ToastCloseButton, ToastContent, ToastDescription, ToastRegion, ToastTitle,
 };
-use leptonic::hooks::ToastQueue;
+use leptonic::hooks::toast::ToastQueue;
 use leptos::prelude::*;
 use leptos_meta::Link;
 use leptos_router::components::A;

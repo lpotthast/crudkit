@@ -6,9 +6,9 @@ use crate::hooks::delete::use_crud_delete;
 use crate::hooks::instance::use_crud_instance;
 use crate::hooks::list::{CrudListLoadStatus, expect_crud_list, use_crud_list_state};
 use crate::hooks::texts::use_crud_texts;
-use leptonic::atoms::prelude::Button;
-use leptonic::utils::classes::{Classes, MergeStrategy};
-use leptonic::utils::styles::Styles;
+use leptonic::atoms::button::Button;
+use leptonic::leptos_classes::{Classes, MergeStrategy};
+use leptonic::leptos_styles::Styles;
 use leptos::context::Provider;
 use leptos::prelude::*;
 

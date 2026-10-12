@@ -2426,7 +2426,6 @@ dependencies = [
  "send_wrapper",
  "serde",
  "serde_json",
- "smallvec",
  "strum",
  "tracing",
  "wasm-bindgen",

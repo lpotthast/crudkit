@@ -1,6 +1,6 @@
 //! User notifications emitted by CrudKit and application actions.
 
-use leptonic::hooks::{ToastOptions, ToastQueue};
+use leptonic::hooks::toast::{ToastOptions, ToastQueue};
 use leptos::prelude::*;
 use std::time::Duration;
 use uuid::Uuid;

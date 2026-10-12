@@ -23,3 +23,6 @@ syn = { workspace = true }
 crudkit-web = { path = "../crudkit-web", default-features = false }
 serde = { version = "1.0.229", default-features = false, features = ["alloc", "derive"] }
 trybuild = { version = "1.0.121", default-features = false, features = ["diff"] }
+
+[lints]
+workspace = true

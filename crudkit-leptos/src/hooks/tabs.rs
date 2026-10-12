@@ -3,7 +3,7 @@
 use crate::hooks::instance::use_crud_instance;
 use crate::hooks::table::dom_safe;
 use crudkit_web::layout::TabId;
-use leptonic::hooks::Key;
+use leptonic::hooks::collections::Key;
 use leptos::prelude::*;
 
 /// Output of [`use_crud_tab_selection`]. Spread both onto Leptonic's `Tabs` atom.

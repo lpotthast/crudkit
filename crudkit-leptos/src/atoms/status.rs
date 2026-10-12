@@ -1,7 +1,7 @@
 //! The live region shared by the status atoms.
 
-use leptonic::utils::classes::Classes;
-use leptonic::utils::styles::Styles;
+use leptonic::leptos_classes::Classes;
+use leptonic::leptos_styles::Styles;
 use leptos::prelude::*;
 
 /// A `<div>` that is a polite live region (`role="status"`) whose content explains a status.

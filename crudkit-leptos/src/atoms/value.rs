@@ -4,8 +4,8 @@ use crate::hooks::inputs::format_crud_value;
 use crate::hooks::texts::use_crud_texts;
 use crudkit_core::{Value, ValueKind};
 use crudkit_web::field::DateTimeDisplay;
-use leptonic::utils::classes::{Classes, MergeStrategy};
-use leptonic::utils::styles::Styles;
+use leptonic::leptos_classes::{Classes, MergeStrategy};
+use leptonic::leptos_styles::Styles;
 use leptos::prelude::*;
 
 /// A `<span>` showing `value` as text, formatted by [`format_crud_value`].

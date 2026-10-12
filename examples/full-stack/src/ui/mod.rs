@@ -60,7 +60,11 @@ struct Noun {
 impl Noun {
     /// Returns `count` of the noun, e.g. "1 player" or "3 players".
     fn count(&self, count: usize) -> String {
-        let noun = if count == 1 { self.singular } else { self.plural };
+        let noun = if count == 1 {
+            self.singular
+        } else {
+            self.plural
+        };
         format!("{count} {noun}")
     }
 }

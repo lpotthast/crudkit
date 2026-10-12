@@ -4,7 +4,7 @@ use crate::hooks::instance::use_crud_instance;
 use crudkit_core::{Value, ValueKind};
 use crudkit_web::field::{FieldMode, FieldOptions};
 use crudkit_web::prelude::*;
-use leptonic::utils::id::use_id;
+use leptonic::use_id;
 use leptos::prelude::*;
 use std::collections::HashMap;
 use std::fmt;

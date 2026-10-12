@@ -2,8 +2,9 @@
 
 use crate::ui::{icon, use_noun};
 use crudkit_leptos::prelude::*;
-use leptonic::atoms::prelude::{Dialog, DialogDescription, DialogTitle, ModalContent};
-use leptonic::hooks::DialogRole;
+use leptonic::atoms::dialog::{Dialog, DialogDescription, DialogTitle};
+use leptonic::atoms::modal::ModalContent;
+use leptonic::hooks::dialog::DialogRole;
 use leptos::prelude::*;
 
 /// The content of a confirmation dialog.

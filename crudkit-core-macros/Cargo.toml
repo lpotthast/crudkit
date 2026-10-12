@@ -28,3 +28,6 @@ serde_json = { version = "1.0.151", default-features = false, features = ["alloc
 time = { version = "0.3.55", default-features = false, features = ["serde", "std"] }
 trybuild = { version = "1.0.121", default-features = false, features = ["diff"] }
 uuid = { version = "1.27.0", default-features = false, features = ["serde", "v4"] }
+
+[lints]
+workspace = true

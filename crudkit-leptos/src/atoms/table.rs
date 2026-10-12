@@ -20,17 +20,22 @@ use crate::hooks::texts::use_crud_texts;
 use crudkit_web::field::FieldOptions;
 use crudkit_web::prelude::*;
 use crudkit_web::view::CrudView;
-use leptonic::hooks::{
-    CellFocusMode, ColumnKind, IntoAttrs, Key, SortDirection, UseFocusRingInput,
-    UseFocusRingReturn, UseHoverInput, UseTableCellInput, UseTableCellReturn,
-    UseTableColumnHeaderInput, UseTableColumnHeaderReturn, UseTableRowInput, UseTableRowReturn,
-    UseTableSelectAllCheckboxInput, UseTableSelectionCheckboxInput, use_checkbox, use_focus_ring,
-    use_grid_row_group, use_hover, use_table_cell, use_table_column_header, use_table_header_row,
-    use_table_row, use_table_select_all_checkbox, use_table_selection_checkbox,
+use leptonic::IntoAttrs;
+use leptonic::flag;
+use leptonic::hooks::collections::Key;
+use leptonic::hooks::focus::{UseFocusRingInput, UseFocusRingReturn, use_focus_ring};
+use leptonic::hooks::form::use_checkbox;
+use leptonic::hooks::grid::{CellFocusMode, use_grid_row_group};
+use leptonic::hooks::interactions::{UseHoverInput, use_hover};
+use leptonic::hooks::table::{
+    ColumnKind, SortDirection, UseTableCellInput, UseTableCellReturn, UseTableColumnHeaderInput,
+    UseTableColumnHeaderReturn, UseTableRowInput, UseTableRowReturn,
+    UseTableSelectAllCheckboxInput, UseTableSelectionCheckboxInput, use_table_cell,
+    use_table_column_header, use_table_header_row, use_table_row, use_table_select_all_checkbox,
+    use_table_selection_checkbox,
 };
-use leptonic::utils::classes::{Classes, MergeStrategy};
-use leptonic::utils::data_attributes::flag;
-use leptonic::utils::styles::Styles;
+use leptonic::leptos_classes::{Classes, MergeStrategy};
+use leptonic::leptos_styles::Styles;
 use leptos::context::Provider;
 use leptos::prelude::*;
 use std::fmt;
@@ -474,6 +479,7 @@ pub fn CrudTableRow(
         is_pressed,
         allows_selection,
         has_action,
+        ..
     } = use_table_row(UseTableRowInput {
         table: table.data,
         key: key.get_value(),

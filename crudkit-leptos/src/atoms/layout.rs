@@ -8,11 +8,11 @@ use crate::hooks::form::expect_crud_form;
 use crate::hooks::tabs::{UseCrudTabSelectionReturn, tab_key, use_crud_tab_selection};
 use crudkit_web::layout::{Elem, Enclosing, Group, Layout, Tab as LayoutTab, TabId};
 use crudkit_web::prelude::*;
-use leptonic::atoms::prelude::Separator;
+use leptonic::atoms::separator::Separator;
 use leptonic::atoms::tabs::{Tab, TabList, TabPanel, Tabs};
-use leptonic::hooks::use_collection;
-use leptonic::utils::classes::{Classes, MergeStrategy};
-use leptonic::utils::styles::Styles;
+use leptonic::hooks::collections::use_collection;
+use leptonic::leptos_classes::{Classes, MergeStrategy};
+use leptonic::leptos_styles::Styles;
 use leptos::context::Provider;
 use leptos::prelude::*;
 

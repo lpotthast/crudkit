@@ -14,15 +14,17 @@ use crate::hooks::field::{CrudRowFields, use_crud_row_fields};
 use crate::hooks::list::CrudListState;
 use crudkit_core::Order;
 use crudkit_web::prelude::*;
-use leptonic::hooks::Key;
+use leptonic::hooks::collections::Key;
 use leptonic::hooks::collections::{CollectionOptions, Selection, SelectionOptions};
-use leptonic::hooks::{
-    DisabledBehavior, GridFocusMode, KeyboardNavigationBehavior, SelectionMode, SortDescriptor,
-    SortDirection, TableCollection, TableData, TableOptions, UseFocusVisibleInput, UseGridProps,
-    UseTableInput, UseTableReturn, UseTableStateInput, use_focus_visible, use_table,
-    use_table_state,
+use leptonic::hooks::collections::{DisabledBehavior, SelectionMode};
+use leptonic::hooks::focus::{UseFocusVisibleInput, use_focus_visible};
+use leptonic::hooks::grid::{GridFocusMode, UseGridProps};
+use leptonic::hooks::gridlist::KeyboardNavigationBehavior;
+use leptonic::hooks::table::{
+    SortDescriptor, SortDirection, TableCollection, TableData, UseTableInput, UseTableReturn,
+    UseTableStateInput, use_table, use_table_state,
 };
-use leptonic::utils::{CapturedElement, ValueBinding};
+use leptonic::{CapturedElement, ValueBinding};
 use leptos::prelude::*;
 use std::fmt::Write as _;
 use std::sync::Arc;
@@ -139,7 +141,7 @@ pub struct UseCrudTableReturn {
 pub struct CrudTableData {
     /// Leptonic's table data, required by the table part hooks.
     pub data: TableData,
-    /// The table's columns and rows.
+    /// The table's columns and rows, with the selection column while it is shown.
     pub collection: Memo<Arc<TableCollection>>,
     /// The displayed entities with their row keys, in display order.
     pub rows: Memo<Vec<(Key, DynReadModel)>>,
@@ -199,7 +201,7 @@ pub fn use_crud_table(input: UseCrudTableInput) -> UseCrudTableReturn {
     } = input;
 
     let rows = table_rows(&list);
-    let collection = table_collection(columns, rows, selectable, with_actions);
+    let collection = table_collection(columns, rows, with_actions);
 
     let entities_of = move |selection: &Selection| {
         rows.with_untracked(|rows| match selection {
@@ -225,6 +227,7 @@ pub fn use_crud_table(input: UseCrudTableInput) -> UseCrudTableReturn {
 
     let state = use_table_state(UseTableStateInput {
         table: collection,
+        show_selection_checkboxes: selectable,
         selection: SelectionOptions {
             selection_mode: Signal::derive(move || {
                 if selectable.get() {
@@ -241,6 +244,7 @@ pub fn use_crud_table(input: UseCrudTableInput) -> UseCrudTableReturn {
         default_sort_descriptor: None,
         sort_descriptor: Some(sort_descriptor),
         on_sort_change: None,
+        tree: None,
     });
 
     let entity_of_key = move |key: &Key| {
@@ -256,7 +260,7 @@ pub fn use_crud_table(input: UseCrudTableInput) -> UseCrudTableReturn {
         element: CapturedElement::new(),
         id: None,
         aria_label,
-        aria_labelledby,
+        aria_labelledby: aria_labelledby.into(),
         keyboard_delegate: None,
         options: CollectionOptions::default(),
         keyboard_navigation_behavior: KeyboardNavigationBehavior::default(),
@@ -274,8 +278,9 @@ pub fn use_crud_table(input: UseCrudTableInput) -> UseCrudTableReturn {
     UseCrudTableReturn {
         props,
         table: CrudTableData {
+            // The state's collection holds the selection column while it is shown.
+            collection: data.state.table,
             data,
-            collection,
             rows,
             columns,
             focus_visible: use_focus_visible(UseFocusVisibleInput::default())
@@ -335,39 +340,33 @@ fn sort_binding(
 fn table_collection(
     columns: Signal<Vec<Header>>,
     rows: Memo<Vec<(Key, DynReadModel)>>,
-    selectable: Signal<bool>,
     with_actions: Signal<bool>,
 ) -> Memo<Arc<TableCollection>> {
     Memo::new(move |_| {
         let columns = columns.get();
         let rows = rows.get();
         let with_actions = with_actions.get();
-        Arc::new(TableCollection::build_with(
-            TableOptions {
-                show_selection_checkboxes: selectable.get(),
-            },
-            |t| {
-                for Header { field, options } in &columns {
-                    let column = t.column(column_key(field), options.display_name.to_string());
-                    if options.ordering_allowed {
-                        column.allows_sorting();
+        Arc::new(TableCollection::build(|t| {
+            for Header { field, options } in &columns {
+                let column = t.column(column_key(field), options.display_name.to_string());
+                if options.ordering_allowed {
+                    column.allows_sorting();
+                }
+            }
+            if with_actions {
+                t.column(ACTIONS_COLUMN, "");
+            }
+            for (key, _) in &rows {
+                t.row(key.clone(), "", |r| {
+                    for _ in &columns {
+                        r.cell("");
                     }
-                }
-                if with_actions {
-                    t.column(ACTIONS_COLUMN, "");
-                }
-                for (key, _) in &rows {
-                    t.row(key.clone(), "", |r| {
-                        for _ in &columns {
-                            r.cell("");
-                        }
-                        if with_actions {
-                            r.cell("");
-                        }
-                    });
-                }
-            },
-        ))
+                    if with_actions {
+                        r.cell("");
+                    }
+                });
+            }
+        }))
     })
 }
 
