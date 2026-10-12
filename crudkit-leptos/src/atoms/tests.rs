@@ -8,7 +8,7 @@ use crate::test_support::items::{
 };
 use crate::test_support::with_crud_manager;
 use assertr::prelude::*;
-use leptonic::atoms::prelude::TabList;
+use leptonic::atoms::tabs::TabList;
 use leptos::prelude::*;
 
 /// Renders `view` to HTML inside a mounted `items` instance configured by `config`.

@@ -6,9 +6,9 @@ use crate::config::{CrudAction, CrudActionIntent, CrudEntityAction};
 use crate::hooks::actions::{CrudActionHandle, use_crud_actions_state};
 use crate::hooks::form::expect_crud_form;
 use crate::hooks::instance::use_crud_instance;
-use leptonic::atoms::prelude::Button;
-use leptonic::utils::classes::{Classes, MergeStrategy};
-use leptonic::utils::styles::Styles;
+use leptonic::atoms::button::Button;
+use leptonic::leptos_classes::{Classes, MergeStrategy};
+use leptonic::leptos_styles::Styles;
 use leptos::prelude::*;
 
 /// A [`CrudActionButton`] per resource action of the surrounding instance (its

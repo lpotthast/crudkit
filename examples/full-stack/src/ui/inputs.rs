@@ -1,7 +1,8 @@
 //! The app's field inputs: CrudKit's field atoms in the app's markup.
 
 use crudkit_leptos::prelude::*;
-use leptonic::atoms::prelude::{Input, TextArea};
+use leptonic::atoms::input::{Input, TextArea};
+use leptonic::atoms::switch::SwitchButton;
 use leptos::prelude::*;
 
 /// The input of the surrounding field: its configured renderer, else the app's markup for its kind.
@@ -38,9 +39,11 @@ pub fn FieldControl() -> impl IntoView {
             toggle=|| {
                 let label = use_crud_field_binding().label();
                 view! {
-                    <CrudSwitch classes="ui-switch">
-                        <span class="ui-switch-track" aria-hidden="true"></span>
-                        {label}
+                    <CrudSwitch>
+                        <SwitchButton classes="ui-switch">
+                            <span class="ui-switch-track" aria-hidden="true"></span>
+                            {label}
+                        </SwitchButton>
                     </CrudSwitch>
                 }
             }

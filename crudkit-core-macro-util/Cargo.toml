@@ -9,3 +9,6 @@ crudkit-core = { path = "../crudkit-core", default-features = false }
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true }
+
+[lints]
+workspace = true

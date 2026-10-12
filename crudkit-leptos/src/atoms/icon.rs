@@ -1,7 +1,7 @@
 //! Decorative icons.
 
-use leptonic::utils::classes::{Classes, MergeStrategy};
-use leptonic::utils::styles::Styles;
+use leptonic::leptos_classes::{Classes, MergeStrategy};
+use leptonic::leptos_styles::Styles;
 use leptos::prelude::*;
 
 /// Renders an `icondata` icon as an inline, decorative SVG.

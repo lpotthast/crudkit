@@ -7,10 +7,12 @@ use crate::hooks::instance::use_crud_instance;
 use crate::hooks::leave::use_crud_leave_confirmation;
 use crate::hooks::texts::use_crud_texts;
 use crate::instance::MountedDialogs;
-use leptonic::atoms::prelude::{Button, DialogDescription, DialogTitle, ModalBackdrop};
-use leptonic::utils::classes::{Classes, MergeStrategy};
-use leptonic::utils::heading_level::HeadingLevel;
-use leptonic::utils::styles::Styles;
+use leptonic::HeadingLevel;
+use leptonic::atoms::button::Button;
+use leptonic::atoms::dialog::{DialogDescription, DialogTitle};
+use leptonic::atoms::modal::ModalBackdrop;
+use leptonic::leptos_classes::{Classes, MergeStrategy};
+use leptonic::leptos_styles::Styles;
 use leptos::context::Provider;
 use leptos::prelude::*;
 

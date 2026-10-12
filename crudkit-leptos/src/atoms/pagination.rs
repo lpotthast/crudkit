@@ -4,11 +4,13 @@ use crate::atoms::content::content_or_default;
 use crate::hooks::list::expect_crud_list;
 use crate::hooks::texts::use_crud_texts;
 use crudkit_web::list::{ItemsPerPage, PageNr};
-use leptonic::atoms::prelude::{Button, ListBoxItem, Select};
-use leptonic::hooks::{Key, use_collection};
-use leptonic::utils::aria::AriaCurrent;
-use leptonic::utils::classes::{Classes, MergeStrategy};
-use leptonic::utils::styles::Styles;
+use leptonic::AriaCurrent;
+use leptonic::atoms::button::Button;
+use leptonic::atoms::listbox::ListBoxItem;
+use leptonic::atoms::select::Select;
+use leptonic::hooks::collections::{Key, use_collection};
+use leptonic::leptos_classes::{Classes, MergeStrategy};
+use leptonic::leptos_styles::Styles;
 use leptos::prelude::*;
 
 /// The `<nav>` holding the paging controls of the surrounding list, e.g.
@@ -262,12 +264,8 @@ pub fn CrudItemsPerPage(
             builder.item(option_key(option), option.0.to_string());
         }
     });
-    let value = Signal::derive(move || vec![option_key(pagination.items_per_page.get())]);
-    let set_value = move |keys: Vec<Key>| {
-        let selected = keys
-            .first()
-            .and_then(Key::as_str)
-            .and_then(|key| key.parse::<u64>().ok());
+    let value = Signal::derive(move || Some(pagination.items_per_page.get().0));
+    let set_value = move |selected: Option<u64>| {
         if let Some(items_per_page) = selected {
             pagination.set_items_per_page(ItemsPerPage(items_per_page));
         }
@@ -307,7 +305,7 @@ pub fn CrudItemsPerPageOptions(
 
 /// The key of the page size `option` in the `Select`'s collection.
 fn option_key(option: ItemsPerPage) -> Key {
-    Key::from(option.0.to_string())
+    Key::from(option.0)
 }
 
 #[cfg(test)]

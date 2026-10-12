@@ -88,7 +88,7 @@ cargo test -p crudkit-core test_name
 For a gating lint run, invoke Clippy directly:
 
 ```bash
-cargo clippy --tests -- -Dclippy::all -Dclippy::pedantic
+cargo clippy --workspace --tests
 ```
 
 `examples/full-stack` is a separate Cargo workspace: a SQLite-backed, server-rendered CrudKit application. Run it with

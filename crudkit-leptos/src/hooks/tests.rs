@@ -332,7 +332,7 @@ fn tab_groups_remember_their_selection_independently() {
         assert_that!(tabs.selected_key.get_untracked().as_str()).is_equal_to(Some("general"));
 
         tabs.set_selected_key
-            .run(leptonic::hooks::Key::from("contact"));
+            .run(leptonic::hooks::collections::Key::from("contact"));
         ctx.select_tab(&extras, TabId::from("history"));
         // Tabs outside of a group are ignored.
         ctx.select_tab(&details, TabId::from("history"));

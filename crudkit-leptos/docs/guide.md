@@ -309,7 +309,9 @@ Leptonic `Select` composed of Leptonic's select parts, whose options
 
 ```no_run
 # crudkit_leptos::__doc_example!();
-use leptonic::atoms::prelude::{Label, ListBox, SelectPopover, SelectTrigger, SelectValue};
+use leptonic::atoms::field::Label;
+use leptonic::atoms::listbox::ListBox;
+use leptonic::atoms::select::{SelectPopover, SelectTrigger, SelectValue};
 
 #[component]
 fn ListFooter() -> impl IntoView {
@@ -412,7 +414,7 @@ its fields itself (see [Fields](#fields)), and composes tabs from the same atoms
 
 ```no_run
 # crudkit_leptos::__doc_example!();
-use leptonic::atoms::prelude::TabList;
+use leptonic::atoms::tabs::TabList;
 
 #[component]
 fn ClubTabs() -> impl IntoView {
@@ -465,7 +467,7 @@ value, error, and state to the matching Leptonic field atom, and the application
 
 ```no_run
 # crudkit_leptos::__doc_example!();
-# use leptonic::atoms::prelude::Input;
+# use leptonic::atoms::input::Input;
 # #[component] fn NameField() -> impl IntoView { view! {
 <CrudField field=Club::Name>
     <CrudTextField>
@@ -482,8 +484,9 @@ value, error, and state to the matching Leptonic field atom, and the application
   durations edited as text. Multiline values (JSON) use a Leptonic `TextArea` instead of an `Input`.
 - [`CrudNumberField`](atoms::CrudNumberField) binds a Leptonic `NumberField` of the field's number type: all integer
   and float types, without grouping digits unless given `format_options`.
-- [`CrudSwitch`](atoms::CrudSwitch) and [`CrudCheckbox`](atoms::CrudCheckbox) bind a Leptonic `Switch` or
-  `Checkbox`: `bool`.
+- [`CrudSwitch`](atoms::CrudSwitch) and [`CrudCheckbox`](atoms::CrudCheckbox) bind a Leptonic `SwitchField` or
+  `CheckboxField`: `bool`. Their clickable part is a Leptonic `SwitchButton` or `CheckboxButton`, by default showing
+  the field's label.
 - [`CrudDisplayField`](atoms::CrudDisplayField) shows a field without editing it, e.g. in read views: a group of its
   label and a [`CrudFieldValue`](atoms::CrudFieldValue), the value as text.
 
@@ -622,8 +625,9 @@ deletion runs):
 
 ```no_run
 # crudkit_leptos::__doc_example!();
-use leptonic::atoms::prelude::{Dialog, ModalContent};
-use leptonic::hooks::DialogRole;
+use leptonic::atoms::dialog::Dialog;
+use leptonic::atoms::modal::ModalContent;
+use leptonic::hooks::dialog::DialogRole;
 
 #[component]
 fn Confirmations() -> impl IntoView {
@@ -687,10 +691,10 @@ notify.
 
 ```no_run
 # crudkit_leptos::__doc_example!();
-use leptonic::atoms::prelude::{
+use leptonic::atoms::toast::{
     Toast, ToastCloseButton, ToastContent, ToastDescription, ToastRegion, ToastTitle,
 };
-use leptonic::hooks::ToastQueue;
+use leptonic::hooks::toast::ToastQueue;
 
 #[component]
 fn App(children: Children) -> impl IntoView {

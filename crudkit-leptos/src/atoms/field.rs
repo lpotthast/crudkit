@@ -17,13 +17,16 @@ use crudkit_core::Value;
 use crudkit_web::field::{FieldMode, FieldOptions};
 use crudkit_web::layout::{Elem, Enclosing};
 use crudkit_web::prelude::*;
-use leptonic::atoms::prelude::{
-    Checkbox, FieldError, Input, Label, LabelContext, NumberField, Switch, TextArea, TextField,
-};
-use leptonic::hooks::UseLabelProps;
-use leptonic::utils::classes::{Classes, MergeStrategy};
-use leptonic::utils::number_formatter::NumberFormatOptions;
-use leptonic::utils::styles::Styles;
+use leptonic::NumberFormatOptions;
+use leptonic::atoms::checkbox::{CheckboxButton, CheckboxField};
+use leptonic::atoms::field::{FieldError, Label, LabelContext};
+use leptonic::atoms::input::{Input, TextArea};
+use leptonic::atoms::number_field::NumberField;
+use leptonic::atoms::switch::{SwitchButton, SwitchField};
+use leptonic::atoms::text_field::TextField;
+use leptonic::hooks::form::UseLabelProps;
+use leptonic::leptos_classes::{Classes, MergeStrategy};
+use leptonic::leptos_styles::Styles;
 use leptos::context::Provider;
 use leptos::prelude::*;
 use std::any::TypeId;
@@ -437,13 +440,14 @@ fn TypedNumberField<T: CrudNumber>(
     }
 }
 
-/// Binds the surrounding `bool` field to a Leptonic `Switch`.
+/// Binds the surrounding `bool` field to a Leptonic `SwitchField`. Compose it from a Leptonic
+/// `SwitchButton` (the clickable part) and, e.g., a `Description` and a `FieldError`.
 ///
-/// Default content: the field's label.
+/// Default content: a `SwitchButton` showing the field's label.
 ///
-/// Data attributes: those of Leptonic's `Switch`.
+/// Data attributes: those of Leptonic's `SwitchField`.
 ///
-/// Default classes: `leptonic-Switch crudkit-Switch`.
+/// Default classes: `leptonic-SwitchField crudkit-Switch`.
 #[component]
 pub fn CrudSwitch(
     #[prop(into, optional)] classes: Classes,
@@ -460,7 +464,7 @@ pub fn CrudSwitch(
         props,
     } = use_crud_toggle_input();
     view! {
-        <Switch
+        <SwitchField
             is_selected
             set_selected
             id=props.id
@@ -470,18 +474,22 @@ pub fn CrudSwitch(
             classes
             styles
         >
-            {content_or_default(children, label)}
-        </Switch>
+            {match children {
+                Some(children) => children().into_any(),
+                None => view! { <SwitchButton>{label}</SwitchButton> }.into_any(),
+            }}
+        </SwitchField>
     }
 }
 
-/// Binds the surrounding `bool` field to a Leptonic `Checkbox`.
+/// Binds the surrounding `bool` field to a Leptonic `CheckboxField`. Compose it from a Leptonic
+/// `CheckboxButton` (the clickable part) and, e.g., a `Description` and a `FieldError`.
 ///
-/// Default content: the field's label.
+/// Default content: a `CheckboxButton` showing the field's label.
 ///
-/// Data attributes: those of Leptonic's `Checkbox`.
+/// Data attributes: those of Leptonic's `CheckboxField`.
 ///
-/// Default classes: `leptonic-Checkbox crudkit-Checkbox`.
+/// Default classes: `leptonic-CheckboxField crudkit-Checkbox`.
 #[component]
 pub fn CrudCheckbox(
     #[prop(into, optional)] classes: Classes,
@@ -498,7 +506,7 @@ pub fn CrudCheckbox(
         props,
     } = use_crud_toggle_input();
     view! {
-        <Checkbox
+        <CheckboxField
             is_selected
             set_selected
             id=props.id
@@ -508,8 +516,11 @@ pub fn CrudCheckbox(
             classes
             styles
         >
-            {content_or_default(children, label)}
-        </Checkbox>
+            {match children {
+                Some(children) => children().into_any(),
+                None => view! { <CheckboxButton>{label}</CheckboxButton> }.into_any(),
+            }}
+        </CheckboxField>
     }
 }
 

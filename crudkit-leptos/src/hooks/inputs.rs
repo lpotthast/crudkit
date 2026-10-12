@@ -14,7 +14,7 @@ use crudkit_web::prelude::*;
 use crudkit_web::value_format::{
     DurationParts, format_date_time, format_date_time_input, parse_date_time_input,
 };
-use leptonic::utils::NumberValue;
+use leptonic::NumberValue;
 use leptos::prelude::*;
 use std::fmt;
 use std::sync::Arc;

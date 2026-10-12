@@ -38,9 +38,9 @@ upgrades: # "-" prefix allows for non-zero status codes!
 upgrade: # "-" prefix allows for non-zero status codes!
   -cargo upgrade
 
-# Run `cargo clippy --tests -- -Dclippy::all -Dclippy::pedantic` for the workspace.
+# Run `cargo clippy --tests` for the workspace. Lint levels are configured in the `[workspace.lints]` of `Cargo.toml`.
 clippy: # "-" prefix allows for non-zero status codes!
-  -cargo clippy --tests -- -Dclippy::all -Dclippy::pedantic
+  -cargo clippy --workspace --tests
 
 # Run the full-stack example (`examples/full-stack`) with `cargo leptos serve`. Serves http://127.0.0.1:3000.
 example:

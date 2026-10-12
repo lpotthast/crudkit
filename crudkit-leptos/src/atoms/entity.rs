@@ -7,9 +7,9 @@ use crate::hooks::instance::use_crud_navigation;
 use crate::hooks::texts::use_crud_texts;
 use crudkit_core::id::SerializableId;
 use crudkit_web::view::CrudView;
-use leptonic::atoms::prelude::Button;
-use leptonic::utils::classes::{Classes, MergeStrategy};
-use leptonic::utils::styles::Styles;
+use leptonic::atoms::button::Button;
+use leptonic::leptos_classes::{Classes, MergeStrategy};
+use leptonic::leptos_styles::Styles;
 use leptos::prelude::*;
 
 /// Opens the create view of the surrounding instance.

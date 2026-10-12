@@ -23,3 +23,6 @@ uuid = { version = "1.27.0", default-features = false }
 
 [dev-dependencies]
 assertr = { version = "0.7.1", default-features = false }
+
+[lints]
+workspace = true
