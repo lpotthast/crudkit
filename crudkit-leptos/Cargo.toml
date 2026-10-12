@@ -25,7 +25,7 @@ tracing = { version = "0.1.44", default-features = false }
 uuid = { version = "1.27.0", default-features = false, features = ["js", "v4"] }
 
 [dev-dependencies]
-assertr = { version = "0.7.1", default-features = false }
+assertr = { version = "0.8.0", default-features = false }
 typetag = { version = "0.2.23", default-features = false }
 
 # Dependencies of the native hook tests and their `test_support` module.
