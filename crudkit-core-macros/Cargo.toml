@@ -22,7 +22,7 @@ quote = { workspace = true }
 syn = { workspace = true }
 
 [dev-dependencies]
-assertr = { version = "0.7.1", default-features = false }
+assertr = { version = "0.8.0", default-features = false }
 serde = { version = "1.0.229", default-features = false, features = ["alloc", "derive"] }
 serde_json = { version = "1.0.151", default-features = false, features = ["alloc"] }
 time = { version = "0.3.55", default-features = false, features = ["serde", "std"] }

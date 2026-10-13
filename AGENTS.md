@@ -36,8 +36,8 @@ This is a Rust 2024 Cargo workspace with 12 crates:
   `crudkit-web-macros`.
 - `crudkit-leptos` owns instance configuration (`config`), mounted instance behavior (`instance`), and the Leptos
   hooks and headless atoms applications build their screens from. It builds on the hooks and atoms of Leptonic's
-  `hooks` branch (a path dependency on `../leptonic/leptonic`) and never on Leptonic's themed components. CrudKit
-  ships no prebuilt screens and no styles.
+  `hooks` branch (a git dependency on `github.com/lpotthast/leptonic`) and never on Leptonic's themed components.
+  CrudKit ships no prebuilt screens and no styles.
 
 Keep dependencies pointed from concrete integrations toward abstract contracts. In particular:
 

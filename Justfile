@@ -8,7 +8,7 @@ default:
 sort:
   cargo sort . -w -g
 
-# Run `cargo fmt` for the workspace members. `--all` would also reformat path dependencies such as `../leptonic`.
+# Run `cargo fmt` for the workspace members only.
 fmt:
   cargo fmt
 

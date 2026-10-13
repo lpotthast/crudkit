@@ -15,7 +15,7 @@ crudkit-web-macros = { path = "../crudkit-web-macros", default-features = false 
 
 indexmap = { version = "2.14.2", default-features = false, features = ["serde", "std"] }
 icondata_core = { version = "0.1.0", default-features = false }
-leptonic = { git = "https://github.com/lpotthast/leptonic.git", branch = "hooks", default-features = false, features = ["atoms"] }
+leptonic = { git = "https://github.com/lpotthast/leptonic", branch = "hooks", default-features = false, features = ["atoms"] }
 leptos = { version = "0.8.22", default-features = false }
 serde = { version = "1.0.229", default-features = false, features = ["alloc", "derive"] }
 serde_json = { version = "1.0.151", default-features = false, features = ["alloc"] }
@@ -24,7 +24,7 @@ tracing = { version = "0.1.44", default-features = false }
 uuid = { version = "1.27.0", default-features = false, features = ["js", "v4"] }
 
 [dev-dependencies]
-assertr = { version = "0.7.1", default-features = false }
+assertr = { version = "0.8.0", default-features = false }
 typetag = { version = "0.2.23", default-features = false }
 
 # Dependencies of the native hook tests and their `test_support` module.

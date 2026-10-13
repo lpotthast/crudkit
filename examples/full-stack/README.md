@@ -58,8 +58,7 @@ src/
 style/main.scss    # Page reset; imports `ui.scss`.
 ```
 
-The example uses Leptonic's `hooks` branch, through crudkit-leptos and directly for Leptonic's own atoms, and expects
-it checked out at `../leptonic` next to this repository.
+The example uses Leptonic's `hooks` branch from GitHub, through crudkit-leptos and directly for Leptonic's own atoms.
 
 ## SQLite notes
 
