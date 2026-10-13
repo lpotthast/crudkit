@@ -14,9 +14,8 @@ crudkit-web = { path = "../crudkit-web", default-features = false }
 crudkit-web-macros = { path = "../crudkit-web-macros", default-features = false }
 
 indexmap = { version = "2.14.2", default-features = false, features = ["serde", "std"] }
-# The `Icon` type of action configurations and the `CrudIcon` atom, without any icon set.
 icondata_core = { version = "0.1.0", default-features = false }
-leptonic = { path = "../../leptonic/leptonic", default-features = false, features = ["atoms"] }
+leptonic = { git = "https://github.com/lpotthast/leptonic.git", branch = "hooks", default-features = false, features = ["atoms"] }
 leptos = { version = "0.8.22", default-features = false }
 serde = { version = "1.0.229", default-features = false, features = ["alloc", "derive"] }
 serde_json = { version = "1.0.151", default-features = false, features = ["alloc"] }
@@ -34,7 +33,7 @@ any_spawner = { version = "0.3.0", default-features = false }
 async-trait = { version = "0.1.92", default-features = false }
 futures = { version = "0.3.34", default-features = false, features = ["executor"] }
 http = { version = "1.5.0", default-features = false }
-# Leptos only runs effects in client builds; tests need them too.
+# Leptos only runs effects in client builds .Tests need them too.
 reactive_graph = { version = "0.2.15", default-features = false, features = ["effects"] }
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
 

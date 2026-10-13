@@ -51,11 +51,9 @@ crudkit-leptos = { path = "../../crudkit-leptos" }
 crudkit-web = { path = "../../crudkit-web" }
 
 console_error_panic_hook = "0.1.7"
-# Lucide icons, rendered through `leptos_icons`.
 icondata = { version = "0.7.0", default-features = false, features = ["lucide"] }
 indexmap = "2.14.2"
-# Leptonic's atoms (fields, select, modal, dialog, toasts), composed with CrudKit's atoms.
-leptonic = { path = "../../../leptonic/leptonic", default-features = false, features = ["atoms"] }
+leptonic = { git = "https://github.com/lpotthast/leptonic.git", branch = "hooks", default-features = false, features = ["atoms"] }
 leptos = "0.8.22"
 leptos_icons = "0.7.1"
 leptos_meta = "0.8.7"
@@ -66,7 +64,6 @@ serde_json = "1.0.151"
 # `serde-human-readable` is enabled explicitly, so that the server and the WASM build agree on the date-time format.
 time = { version = "0.3.55", features = ["macros", "serde", "serde-human-readable", "wasm-bindgen"] }
 tracing = "0.1.44"
-# Required by code generated through crudkit-web's `CkField` derive.
 typetag = "0.2.23"
 wasm-bindgen = "0.2.129"
 
