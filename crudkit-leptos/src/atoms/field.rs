@@ -17,7 +17,7 @@ use crudkit_core::Value;
 use crudkit_web::field::{FieldMode, FieldOptions};
 use crudkit_web::layout::{Elem, Enclosing};
 use crudkit_web::prelude::*;
-use leptonic::NumberFormatOptions;
+use leptonic::{Id, NumberFormatOptions, Part};
 use leptonic::atoms::checkbox::{CheckboxButton, CheckboxField};
 use leptonic::atoms::field::{FieldError, Label, LabelContext};
 use leptonic::atoms::input::{Input, TextArea};
@@ -539,11 +539,11 @@ pub fn CrudDisplayField(
         .add("crudkit-DisplayField")
         .merge(classes, MergeStrategy::UnionConditions);
     let binding = use_crud_field_binding();
-    let label_id = format!("{}-label", binding.dom_id);
-    let label = LabelContext::span(UseLabelProps {
+    let label_id = Id::from(format!("{}-label", binding.dom_id));
+    let label = LabelContext::span(Part::stored(UseLabelProps {
         id: label_id.clone(),
         html_for: None,
-    });
+    }));
     view! {
         <div
             id=binding.dom_id

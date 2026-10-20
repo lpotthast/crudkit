@@ -24,7 +24,7 @@ use leptonic::hooks::table::{
     SortDescriptor, SortDirection, TableCollection, TableData, UseTableInput, UseTableReturn,
     UseTableStateInput, use_table, use_table_state,
 };
-use leptonic::{CapturedElement, ValueBinding};
+use leptonic::{CapturedElement, Id, Part, ValueBinding};
 use leptos::prelude::*;
 use std::fmt::Write as _;
 use std::sync::Arc;
@@ -123,17 +123,17 @@ pub struct UseCrudTableInput {
     /// Accessible name of the table.
     pub aria_label: MaybeProp<String>,
     /// Ids of elements naming the table, e.g. a heading.
-    pub aria_labelledby: Option<String>,
+    pub aria_labelledby: Option<Id>,
     /// Called when a row is activated, e.g. by pressing it while nothing is selected.
     pub on_row_action: Option<Callback<DynReadModel>>,
 }
 
 /// Output of [`use_crud_table`].
 pub struct UseCrudTableReturn {
-    /// Attributes for the `<table>` element. Spread them with `{..props.into_attrs()}`.
-    pub props: UseGridProps,
+    /// The `<table>` element.
+    pub table: Part<UseGridProps>,
     /// State shared by the table's rows, cells, and headers.
-    pub table: CrudTableData,
+    pub data: CrudTableData,
 }
 
 /// State of one CrudKit table, shared by its parts.
@@ -255,12 +255,12 @@ pub fn use_crud_table(input: UseCrudTableInput) -> UseCrudTableReturn {
         })
     };
 
-    let UseTableReturn { props, data } = use_table(UseTableInput {
+    let UseTableReturn { table, data } = use_table(UseTableInput {
         state,
         element: CapturedElement::new(),
         id: None,
         aria_label,
-        aria_labelledby: aria_labelledby.into(),
+        aria_labelledby: Signal::stored(aria_labelledby),
         keyboard_delegate: None,
         options: CollectionOptions::default(),
         keyboard_navigation_behavior: KeyboardNavigationBehavior::default(),
@@ -276,8 +276,8 @@ pub fn use_crud_table(input: UseCrudTableInput) -> UseCrudTableReturn {
     });
 
     UseCrudTableReturn {
-        props,
-        table: CrudTableData {
+        table,
+        data: CrudTableData {
             // The state's collection holds the selection column while it is shown.
             collection: data.state.table,
             data,

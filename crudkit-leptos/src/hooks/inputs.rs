@@ -14,7 +14,7 @@ use crudkit_web::prelude::*;
 use crudkit_web::value_format::{
     DurationParts, format_date_time, format_date_time_input, parse_date_time_input,
 };
-use leptonic::NumberValue;
+use leptonic::{Id, NumberValue};
 use leptos::prelude::*;
 use std::fmt;
 use std::sync::Arc;
@@ -24,7 +24,7 @@ use time::format_description::well_known::Rfc3339;
 #[derive(Debug, Clone)]
 pub struct CrudInputProps {
     /// DOM id for the input element.
-    pub id: String,
+    pub id: Id,
     /// The field's label: the one its layout gives, else its name.
     pub label: String,
     /// Whether the input is disabled by its layout options.

@@ -4,7 +4,7 @@ use crate::hooks::instance::use_crud_instance;
 use crudkit_core::{Value, ValueKind};
 use crudkit_web::field::{FieldMode, FieldOptions};
 use crudkit_web::prelude::*;
-use leptonic::use_id;
+use leptonic::{Id, use_id};
 use leptos::prelude::*;
 use std::collections::HashMap;
 use std::fmt;
@@ -15,7 +15,7 @@ pub type CrudFieldMap<F> = StoredValue<HashMap<F, ReactiveField>>;
 
 /// Returns a document-unique DOM id for a field's input element, the same on the server and while
 /// hydrating. Call it while creating a component, see Leptonic's `use_id`.
-pub(crate) fn dom_id() -> String {
+pub(crate) fn dom_id() -> Id {
     use_id("crudkit-field")
 }
 
@@ -45,7 +45,7 @@ pub struct CrudFieldState<F: TypeErasedField> {
     /// Whether the field's form is saving. Inputs are read-only meanwhile.
     pub is_saving: Signal<bool>,
     /// Unique DOM id for the field's input element.
-    pub dom_id: String,
+    pub dom_id: Id,
 }
 
 impl<F: TypeErasedField> fmt::Debug for CrudFieldState<F> {
@@ -114,7 +114,7 @@ pub struct CrudFieldBinding {
     /// Whether the field's form is saving. Inputs are read-only meanwhile.
     pub is_saving: Signal<bool>,
     /// Unique DOM id for the field's input element.
-    pub dom_id: String,
+    pub dom_id: Id,
     /// Whether the instance configuration registers a
     /// [`FieldRenderer`](crate::config::FieldRenderer) for the field, e.g. to give such fields
     /// more room.

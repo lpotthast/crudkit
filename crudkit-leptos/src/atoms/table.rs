@@ -20,7 +20,7 @@ use crate::hooks::texts::use_crud_texts;
 use crudkit_web::field::FieldOptions;
 use crudkit_web::prelude::*;
 use crudkit_web::view::CrudView;
-use leptonic::IntoAttrs;
+use leptonic::Id;
 use leptonic::flag;
 use leptonic::hooks::collections::Key;
 use leptonic::hooks::focus::{UseFocusRingInput, UseFocusRingReturn, use_focus_ring};
@@ -116,18 +116,18 @@ pub fn CrudTable(
         })),
         CrudRowAction::Custom(callback) => Some(callback),
     };
-    let UseCrudTableReturn { props, table } = use_crud_table(UseCrudTableInput {
+    let UseCrudTableReturn { table, data } = use_crud_table(UseCrudTableInput {
         list: expect_crud_list("CrudTable"),
         columns: columns.unwrap_or_else(|| ctx.list_columns()),
         selectable: Signal::stored(selectable),
         with_actions: Signal::stored(with_actions),
         aria_label: table_label(aria_label, aria_labelledby.is_some(), ctx.resource_name()),
-        aria_labelledby,
+        aria_labelledby: aria_labelledby.map(Id::from),
         on_row_action,
     });
     view! {
-        <Provider value=table>
-            <table {..props.into_attrs()} class=classes style=styles>
+        <Provider value=data>
+            <table {..table.attrs()} class=classes style=styles>
                 {children()}
             </table>
         </Provider>
@@ -163,7 +163,7 @@ pub fn CrudTableHeader(
         .merge(classes, MergeStrategy::UnionConditions);
     let row_group = use_grid_row_group();
     view! {
-        <thead {..row_group.row_group_props.into_attrs()} class=classes style=styles>
+        <thead {..row_group.row_group.attrs()} class=classes style=styles>
             {children()}
         </thead>
     }
@@ -184,7 +184,7 @@ pub fn CrudTableHeaderRow(
         .add("crudkit-TableHeaderRow")
         .merge(classes, MergeStrategy::UnionConditions);
     view! {
-        <tr {..use_table_header_row().into_attrs()} class=classes style=styles>
+        <tr {..use_table_header_row().attrs()} class=classes style=styles>
             {children()}
         </tr>
     }
@@ -300,7 +300,7 @@ pub fn CrudSelectAllCheckbox(
     let mut input =
         use_table_select_all_checkbox(UseTableSelectAllCheckboxInput { table: table.data });
     input.options.aria_label = checkbox_label(aria_label, |texts| texts.select_all.to_string());
-    let (attrs, checkbox_styles) = use_checkbox(input).input_props.into_parts();
+    let (attrs, checkbox_styles) = use_checkbox(input).input.attrs();
     view! { <input {..attrs} class=classes style=checkbox_styles.merge(styles) /> }
 }
 
@@ -376,18 +376,18 @@ fn ColumnHeader(
         ..UseHoverInput::default()
     });
     let UseTableColumnHeaderReturn {
-        column_header_props,
+        column_header,
         is_pressed,
     } = use_table_column_header(UseTableColumnHeaderInput {
         table: table.data,
         key,
         allows_arrow_navigation: false,
     });
-    let (attrs, header_styles) = column_header_props.into_parts();
+    let (attrs, header_styles) = column_header.attrs();
     view! {
         <th
             {..attrs}
-            {..hover.props.into_attrs()}
+            {..hover.target.attrs()}
             class=classes
             style=header_styles.merge(styles)
             data-kind=kind
@@ -417,7 +417,7 @@ pub fn CrudTableBody(
         .merge(classes, MergeStrategy::UnionConditions);
     let row_group = use_grid_row_group();
     view! {
-        <tbody {..row_group.row_group_props.into_attrs()} class=classes style=styles>
+        <tbody {..row_group.row_group.attrs()} class=classes style=styles>
             {children()}
         </tbody>
     }
@@ -472,7 +472,7 @@ pub fn CrudTableRow(
     };
     let table = expect_crud_table_data("CrudTableRow");
     let UseTableRowReturn {
-        row_props,
+        row,
         is_selected,
         is_focused,
         is_disabled,
@@ -485,7 +485,7 @@ pub fn CrudTableRow(
         key: key.get_value(),
         on_context_menu: None,
     });
-    let (attrs, row_styles) = row_props.into_parts();
+    let (attrs, row_styles) = row.attrs();
     let focus_visible = table.focus_visible;
     let is_focus_visible = Signal::derive(move || is_focused.get() && focus_visible.get());
     // Rows that can be selected or activated show hover, as Leptonic's table atoms do.
@@ -497,7 +497,7 @@ pub fn CrudTableRow(
         <Provider value=Some(handle)>
             <tr
                 {..attrs}
-                {..hover.props.into_attrs()}
+                {..hover.target.attrs()}
                 class=classes
                 style=row_styles.merge(styles)
                 data-selected=flag(is_selected)
@@ -553,12 +553,16 @@ pub fn CrudRowCheckbox(
         .add("crudkit-RowCheckbox")
         .merge(classes, MergeStrategy::UnionConditions);
     let row = use_row_entity("CrudRowCheckbox").key.get_value();
+    let table = expect_crud_table_data("CrudRowCheckbox").data;
+    let selection = table.state.grid.list.selection;
+    let selected_row = row.clone();
     let mut input = use_table_selection_checkbox(UseTableSelectionCheckboxInput {
-        table: expect_crud_table_data("CrudRowCheckbox").data,
+        table,
         key: row,
+        is_selected: Signal::derive(move || selection.is_selected(&selected_row)),
     });
     input.options.aria_label = checkbox_label(aria_label, |texts| texts.select_row.to_string());
-    let (attrs, checkbox_styles) = use_checkbox(input).input_props.into_parts();
+    let (attrs, checkbox_styles) = use_checkbox(input).input.attrs();
     view! { <input {..attrs} class=classes style=checkbox_styles.merge(styles) /> }
 }
 
@@ -746,7 +750,7 @@ fn GridCell(
             .into_any();
         };
         let UseTableCellReturn {
-            grid_cell_props,
+            cell,
             is_pressed,
         } = use_table_cell(UseTableCellInput {
             table: table.data.clone(),
@@ -755,10 +759,10 @@ fn GridCell(
             allows_arrow_navigation: false,
             should_select_on_press_up: false,
         });
-        let (attrs, cell_styles) = grid_cell_props.into_parts();
+        let (attrs, cell_styles) = cell.attrs();
         // Focus on the cell itself, and hover, as Leptonic's table atoms show them.
         let UseFocusRingReturn {
-            props: focus_ring,
+            target: focus_ring,
             is_focus_visible,
             ..
         } = use_focus_ring(UseFocusRingInput::default());
@@ -766,8 +770,8 @@ fn GridCell(
         view! {
             <td
                 {..attrs}
-                {..focus_ring.into_attrs()}
-                {..hover.props.into_attrs()}
+                {..focus_ring.attrs()}
+                {..hover.target.attrs()}
                 class=classes.clone()
                 style=cell_styles.merge(styles.clone())
                 data-kind=kind
