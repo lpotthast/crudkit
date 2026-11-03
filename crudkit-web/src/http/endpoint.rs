@@ -58,6 +58,10 @@ impl CrudEndpoint {
         }
     }
 
+    pub(crate) fn resource_name(&self) -> &str {
+        &self.resource_name
+    }
+
     pub(crate) fn set_base_condition(&mut self, condition: Option<Condition>) {
         self.base_condition = condition;
     }

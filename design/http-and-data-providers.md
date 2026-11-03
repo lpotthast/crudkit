@@ -1,7 +1,8 @@
 # HTTP and Data Providers
 
-CrudKit's current transport pair is generated Axum routes in `crudkit-rs` and Reqwest-based data providers in
-`crudkit-web`. Both sides exchange the bodies of `crudkit_wire_format::v1`; see
+CrudKit's current transport pair is generated Axum routes in `crudkit-rs` and Reqwest-based clients in `crudkit-web`:
+the REST data source, which an instance uses by default, and the typed REST data provider. Both sides exchange the
+bodies of `crudkit_wire_format::v1`; see
 [Wire Format Versions](#wire-format-versions). Paths, resource names, and some response shapes are still declared on
 each side separately, so both sides must evolve together.
 
@@ -58,8 +59,8 @@ resolve them through the field enum's `FieldLookup`. An unknown ordering field f
 before the operation runs. The OpenAPI description of `order_by` is a plain object.
 
 The backend resource name comes from `CrudResource::TYPE.name()`. The frontend resource name comes from
-`crudkit_web::resource::Resource::resource_name()` or dynamic instance configuration. They are separate declarations
-and must match exactly.
+`crudkit_web::resource::Resource::resource_name()`, or from the resource name given to the REST data source. They are
+separate declarations and must match exactly.
 
 Authentication-presence checks happen in the generated route before the operation. Fine-grained authorization and
 row scoping follow [Backend Operations](backend-operations.md).
@@ -67,22 +68,45 @@ row scoping follow [Backend Operations](backend-operations.md).
 ## Typed Provider
 
 `CrudRestDataProvider<T: Resource>` preserves concrete create, read, and update types. It serializes request DTOs,
-calls the stable path suffixes above, and deserializes successful JSON directly. Both providers share one
-crate-private endpoint that owns the base URL, executor, resource name, base condition, and path construction.
+calls the stable path suffixes above, and deserializes successful JSON directly. It shares one crate-private endpoint
+with the REST data source. The endpoint owns the base URL, executor, resource name, the typed provider's base
+condition, and path construction.
 
-The provider depends on `ReqwestExecutor`, not a concrete client. Implementations currently support a plain
+Both clients depend on `ReqwestExecutor`, not a concrete client. Implementations currently support a plain
 `reqwest::Client` and a new-client-per-request fallback. The opt-in `keycloak-auth` feature adds Leptos Keycloak's
 authenticated client; it is a feature so that `crudkit-web` does not depend on Leptos by default. This injection point
 owns request authentication and client construction; resource code does not add transport-specific credentials.
 
-## Dynamic Provider
+## REST Data Source
 
-`DynCrudRestDataProvider` is used after a `CrudInstance` has erased its concrete resource types. It holds the
-resource's `crudkit_web::model_handler::ModelHandler`, which deserializes response entities into the concrete models
-chosen during configuration, so reads return `DynReadModel`s and writes return `Saved<DynUpdateModel>`.
+`CrudRestDataSource` is the [data source](data-sources.md) of a resource served by the generated routes.
+`CrudInstanceConfig::new::<R>(api_base_url, executor)` configures an instance with it, so an application on
+`crudkit-rs` names only the base URL and the executor. The data source holds the resource's
+`crudkit_web::model_handler::ModelHandler`, which deserializes response entities into the concrete models chosen
+during configuration, so reads return `DynReadModel`s and writes return `Saved<DynUpdateModel>`.
+
+The data source maps its operations to the routes:
+
+| Operation     | Route                        | Condition                     |
+|---------------|------------------------------|-------------------------------|
+| `list`        | `read-many` and `read-count` | scope                         |
+| `read`        | `read-one`                   | scope AND the ID's components |
+| `create`      | `create-one`                 | none                          |
+| `update`      | `update-one`                 | scope AND the ID's components |
+| `delete`      | `delete-by-id`               | scope, next to the ID         |
+| `delete_many` | `delete-many`                | scope AND any of the IDs      |
+
+`list` sends both requests at once and answers with `CrudPaging::Offset`, whose total is the count. It can order by
+every field.
+
+The routes are flat, so the data source turns a `CrudScope` into a condition: each parent becomes an equality clause
+on the field that refers to it, the clauses are combined with AND, and the scope's condition is added with AND. A
+parent whose ID cannot be compared for equality fails the request with `RequestError::InvalidRequest`, because leaving
+it out would widen the operation. A creation sends the entity as it is: the instance fills the fields that refer to the
+scope's parents in the create model.
 
 Erased create and update models serialize with a typetag wrapper. Before sending them to the generated server DTO,
-the dynamic provider calls the model wrapper's `to_untagged_json`, which requires an object with exactly one outer
+the data source calls the model wrapper's `to_untagged_json`, which requires an object with exactly one outer
 type-tag entry and removes that entry. This keeps type information inside the client runtime while sending the
 untagged model object expected by Axum. A model that cannot be serialized this way fails with
 `RequestError::InvalidRequest` before anything is sent.
@@ -90,31 +114,30 @@ untagged model object expected by Axum. A model that cannot be serialized this w
 Malformed erased serialization becomes `RequestError::InvalidRequest`, and a response entity that does not match the
 handler's model becomes `RequestError::Deserialize`. Neither is recovered by trying another model type.
 
-The client surfaces do not yet cover every generated route. The typed provider lacks delete-one and delete-many. The
-dynamic provider implements delete-many but not delete-one. Both implement delete-by-ID.
+The typed provider does not yet cover every generated route: it lacks delete-one and delete-many. The REST data source
+uses delete-by-ID and delete-many. Neither uses delete-one.
 
 ## Write Response Compatibility
 
-The server returns `SavedV1<Model>` for create and update. Both web providers currently expect the entity portion
+The server returns `SavedV1<Model>` for create and update. Both web clients currently expect the entity portion
 to deserialize as the frontend `UpdateModel`. The JSON shapes must therefore be compatible, as described in
 [Data Contracts](data-contracts.md).
 
 ## Base Conditions
 
-Both providers can store a base condition. When supported by an operation, the provider combines it with the request
-condition using logical AND.
-
-The typed provider applies its base condition to count, read-one, read-many, update, and delete-by-ID. The dynamic
-provider also applies it to delete-many. Neither provider applies it to create.
+The typed provider can store a base condition, which it combines with the request condition using logical AND. It
+applies the base condition to count, read-one, read-many, update, and delete-by-ID, but not to create. The REST data
+source has no base condition of its own: an instance's base condition reaches it as the condition of the instance's
+scope.
 
 `DeleteById` carries an optional `condition` next to the ID. The server deletes the entity only if it matches both;
 otherwise the request fails as not found. Requests without the field delete by ID alone.
 
-`CrudInstance` also builds conditions explicitly for its list, read, edit, update, parent, and delete behavior: single
-and mass deletions carry the instance's base and parent conditions, so a view cannot delete outside of what it shows.
-These conditions are convenience scoping and UI composition, not access control:
+An instance passes its scope to every operation, so single and mass deletions stay within the instance's base
+condition and parents, and a view cannot delete outside of what it shows. These conditions are convenience scoping and
+UI composition, not access control:
 
-- clients can call the API without using a data provider;
+- clients can call the API without using a data source;
 - create has no selection condition;
 - a malicious caller controls request bodies.
 

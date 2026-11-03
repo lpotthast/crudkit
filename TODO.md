@@ -37,11 +37,11 @@ Priorities are relative:
   silent drift.
 - [ ] **P1 - Replace dynamic typetag stripping with an explicit wire conversion.** `Dyn*Model::to_untagged_json`
   currently requires exactly one outer typetag object entry and unwraps the serialized value before sending it.
-- [ ] **P1 - Complete client-provider route parity.** Add or deliberately exclude typed delete-one/delete-many and
-  dynamic delete-one so the provider API matches the generated server surface.
-- [ ] **P1 - Make provider scoping semantics uniform.** Decide whether a base condition is a general client scope and,
-  if so, apply it consistently or expose explicitly unscoped operations. Delete-by-ID currently bypasses it. Keep
-  authorization server-side regardless.
+- [ ] **P1 - Complete client-provider route parity.** Add or deliberately exclude the typed provider's delete-one and
+  delete-many so its API matches the generated server surface. The REST data source uses delete-by-ID and delete-many.
+- [ ] **P1 - Make provider scoping semantics uniform.** The REST data source applies an instance's `CrudScope` to every
+  operation except creation, while the typed provider keeps a base condition of its own. Decide whether the typed
+  provider takes a scope too. Keep authorization server-side regardless.
 - [ ] **P2 - Consider a gRPC API next to the HTTP API.** Idea for later, not yet investigated: offer the CRUD
   operations over gRPC as well, built on the same versioned wire format as the HTTP routes.
 - [ ] **P2 - Decide whether the POST-only CRUD surface is permanent.** If it is, document infrastructure and caching
@@ -102,13 +102,14 @@ Priorities are relative:
   automate these checks.
   Run them headless or in a visible window: Chrome pauses `requestAnimationFrame` in occluded windows, which
   suppresses Leptonic's focus restoration after overlays close.
-- [ ] **P2 - Publish hook test support once an application needs it.** The native executor and in-memory server in
-  `crudkit-leptos`'s `test_support` module are crate-private. Expose them, e.g. behind a feature, when applications
-  want to unit-test their own hook-based views.
+- [ ] **P2 - Publish hook test support once an application needs it.** The native executor, the in-memory data
+  source, and the in-memory server in `crudkit-leptos`'s `test_support` module are crate-private. Expose them, e.g.
+  behind a feature, when applications want to unit-test their own hook-based views.
 - [ ] **P2 - Let optional `bool` fields return to null.** The default checkbox can only set `true` or `false`.
 - [ ] **P2 - Offer a rich-text renderer.** The Tiptap-based editor was removed with Leptonic's legacy components; JSON
   fields now use a plain text area.
-- [ ] **P1 - Add list filtering.** The instance has a base condition, but no atom or hook lets users filter a list.
+- [ ] **P1 - Add list filtering.** The instance's scope has a base condition, but no atom or hook lets users filter a
+  list. A filter would reach the data source with the list request, which a data source may refuse.
 - [ ] **P1 - Expose entity control policy.** Deleting a listed entity is always offered (`can_delete` of table rows is
   `true`), and read, edit, and create availability have no policy either. UI controls remain presentation, not
   security.
@@ -117,14 +118,18 @@ Priorities are relative:
 - [ ] **P1 - Reject duplicate instance names.** `CrudInstanceMgr` silently replaces the previous registration, which
   can redirect nested-resource lookup to the wrong instance.
 - [ ] **P1 - Validate and type parent-resource mappings.** `CrudParentConfig` stores field names as strings. A bad
-  mapping can merely remove list scoping but panic later while prefilling the create model. Resolve both fields once
-  during instance construction and report one configuration error.
+  mapping leaves the parent out of the instance's scope, so the REST data source lists unscoped entities, or names a
+  field the create model lacks, which goes unnoticed. Resolve both fields once during instance construction and report
+  one configuration error.
 - [ ] **P1 - Add field atoms for arrays.** `CrudFieldControl` has no default for list values and shows a configuration
   error; applications must register a renderer.
 - [ ] **P2 - Decide the mounted-configuration mutability contract.** Either persist and restore the mutable subset and
   make intended changes reactive, or tighten the API and comments around mount-time-only configuration.
 - [ ] **P2 - Support server-capable read/edit loading where required.** Those views currently use `LocalResource` and
-  cannot perform their data load during server rendering.
+  cannot perform their data load during server rendering. Loading on the server also needs `Send` futures from data
+  sources, whose trait currently allows futures that are not `Send`.
+- [ ] **P2 - Show the range of a page of a list paged by cursor.** Without a total, `CrudPaginationState::range` is
+  `None`, although the page's first and last positions, e.g. "21-30", are known.
 - [ ] **P2 - Add localization.** `CrudUiTexts` offers German (the default) and English texts, but value formatting
   (`format_crud_value`: dates, booleans, numbers) is fixed and not locale-aware, and applications cannot provide their
   own formatter.

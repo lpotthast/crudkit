@@ -22,6 +22,7 @@ send_wrapper = { version = "0.6.0", default-features = false, features = ["futur
 leptos-keycloak-auth = { version = "0.14.0", default-features = false, optional = true }
 async-trait = { version = "0.1.92", default-features = false }
 dyn-clone = { version = "1.0.20", default-features = false }
+futures = { version = "0.3.34", default-features = false }
 indexmap = { version = "2.14.2", default-features = false, features = ["serde", "std"] }
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "multipart"] }
 serde = { version = "1.0.229", default-features = false, features = ["alloc", "derive", "rc"] }
@@ -33,6 +34,7 @@ tracing = { version = "0.1.44", default-features = false }
 
 [dev-dependencies]
 assertr = { version = "0.8.0", default-features = false }
+futures = { version = "0.3.34", default-features = false, features = ["executor"] }
 
 [lints]
 workspace = true

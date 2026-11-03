@@ -12,14 +12,16 @@ component-composition boundary.
 
 `CrudInstanceConfig` contains two kinds of input:
 
-- values represented as mounted signals or reset defaults, such as API URL, initial view, list columns,
-  form elements, pagination, ordering, and base condition;
-- configuration treated as static for the mount, such as resource name, request executor,
+- values represented as mounted signals or reset defaults, such as initial view, list columns,
+  form elements, pagination, ordering, and scope;
+- configuration treated as static for the mount, such as the data source,
   `ModelHandler`, actions, view registry, and field-renderer registries.
 
-`CrudInstanceConfig::new::<R>(api_base_url, executor)` derives the resource name and model handler from a
-`crudkit_web::resource::Resource` and starts everything else empty or at its default; applications complete it with
-struct update syntax.
+`CrudInstanceConfig::with_data_source::<R>(data_source)` takes the instance's [data source](data-sources.md), derives
+the model handler from a `crudkit_web::resource::Resource`, and starts everything else empty or at its default;
+applications complete it with struct update syntax. `CrudInstanceConfig::new::<R>(api_base_url, executor)` does the
+same with the default data source, the REST data source of the resource's generated routes
+([HTTP and Data Providers](http-and-data-providers.md#rest-data-source)).
 
 The split is an implementation boundary, not yet a serialization promise. The mutable subset is not
 currently persisted or restored across browser sessions, and most mounted setters are intentionally
@@ -92,30 +94,39 @@ state.
 
 ## List State Ownership
 
-Paging, items per page, ordering, base condition, and the reload token belong to the instance. The current
-page and count requests both observe the reload token, so reloading refreshes the list and its count. When the count
-shrinks below the current page, e.g. after deletions, the list moves to its last page.
+Paging, items per page, ordering, scope, and the reload token belong to the instance. A list loads its current page
+with one `list` operation of the data source, which observes the reload token, so reloading refreshes the page and,
+for a list paged by offset, its total. When the total shrinks below the current page, e.g. after deletions, the list
+moves to its last page.
+
+A list paged by cursor ([Data Sources](data-sources.md#pages)) offers only the previous and the next page. The
+instance keeps the cursors of the pages it reached in `PageCursors`, and records the cursor that opens the next page
+whenever a page loads. Changing the ordering or the page size, and resetting the instance, forget the cursors and
+return the list to its first page, because cursors depend on them. A list paged by offset keeps its page. When the
+list cannot show its current page, because it did not reach the page by paging forward or the page became empty, it
+moves to the first or to the previous page. The instance only orders by fields the data source can order by.
 
 An edit form keeps its unsaved changes when its entity reloads: the reloaded version only becomes what the draft is
 compared against. Other forms and clean drafts take the reloaded version.
 
 Selection belongs to the mounted list's `CrudListState`, not `CrudInstanceContext`. It is a
 `crudkit_web::list::Selection`. Select-all reads only the currently loaded page. Whenever the loaded page changes,
-through paging, ordering, condition changes, or a reload, entities that are no longer displayed are deselected, and
+through paging, ordering, scope changes, or a reload, entities that are no longer displayed are deselected, and
 a failed or pending load clears the selection. `all_selected` checks membership of every displayed entity.
 
-Page arithmetic (`page_count`, `PageNr::clamp_to`, `PageOptions`, and the offered page sizes) and the ordering toggle
-(`toggle_order`) live in `crudkit_web::list`. Changing the page size clamps the current page into the new page range.
+Page arithmetic (`page_count`, `PageNr::clamp_to`, `PageOptions`, `PageCursors`, and the offered page sizes) and the
+ordering toggle (`toggle_order`) live in `crudkit_web::list`. In a list paged by offset, changing the page size clamps
+the current page into the new page range.
 
-Mass deletion derives one equality condition per selected entity ID through
-`crudkit_core::condition::condition_matching_any_id` and combines multiple IDs with `Condition::Any`. The conversion
-is fallible: no IDs, an ID without components, or an ID value that cannot be compared for equality aborts the
-operation with `RequestError::InvalidRequest` before a request is sent, because a weakened condition could delete
-unrelated entities. After the operation, the
-instance reload token refreshes list data and count.
+Mass deletion hands the selected entities' IDs to the data source's `delete_many`, within the instance's scope. The
+REST data source derives one equality condition per ID through `crudkit_core::condition::condition_matching_any_id`
+and combines multiple IDs with `Condition::Any`. The conversion is fallible: no IDs, an ID without components, or an
+ID value that cannot be compared for equality aborts the operation with `RequestError::InvalidRequest` before a request
+is sent, because a weakened condition could delete unrelated entities. After the operation, the instance reload token
+refreshes the list.
 
-Current list controls are incomplete: there is no filtering beyond the instance's base condition, and read, edit,
-and delete availability is hard-coded to allowed.
+Current list controls are incomplete: there is no filtering beyond the condition of the instance's scope, and read,
+edit, and delete availability is hard-coded to allowed.
 
 ## Concrete Models to Reactive Fields
 
@@ -123,7 +134,7 @@ and delete availability is hard-coded to allowed.
 non-generic instance. It is a `Copy` value of function pointers that only `ModelHandler::new::<Create, Read, Update>`
 builds, so its operations always agree on the same three types. It owns:
 
-- deserialization of read and update models, used by the dynamic provider;
+- deserialization of read and update models, used by the REST data source;
 - conversion from read model to update model;
 - construction of the default create model;
 - every field of a model together with its current value;
@@ -183,29 +194,31 @@ Form layout descriptions and value semantics are defined in [Data Contracts](dat
 The parent ID is derived from the parent view's `CrudView::subject`, not from a hard-coded read/edit view
 name. Custom entity-oriented parent views therefore participate by setting a subject.
 
-When the subject contains the configured referenced field, the child:
+When the subject contains the configured referenced field, the child adds the parent to the parents of its scope
+([Data Sources](data-sources.md#scope)): the ID component, referred to through the child's referencing field. The
+child's configured scope comes first. Every operation of the child's data source then happens below the parent, e.g.
+in the parent's path or, with the REST data source, within an equality condition on the referencing field.
 
-- builds an equality condition on its referencing field;
-- ANDs that condition with its configured base condition for scoped reads and updates;
-- copies the ID component into the default create model.
+The default create model gets the ID of each parent of the scope in the field that refers to it, if the create model
+has that field. A data source that places new entities below their parents, e.g. in a path, needs no such field, so
+the create model may lack it.
 
-If the parent has no subject, the referenced ID field is missing, or the value cannot become a condition,
-the child has no parent condition and emits a diagnostic. Create prefill is less defensive: once a parent ID
-exists, a missing referenced ID field or unknown child create field violates configuration and may panic.
-This mechanism is UI composition, not server-side authorization.
+If the parent has no subject or the referenced ID field is missing, the child's scope lacks the parent, and the child
+emits a diagnostic. With the REST data source, the child then lists unscoped entities; a data source that needs the
+parent refuses the operation. This mechanism is UI composition, not server-side authorization.
 
 `CrudParentConfig` is appropriate only when the parent is an active instance under the same manager.
-Applications with route-owned or otherwise application-owned parent state should construct the condition and
-create defaults explicitly.
+Applications with route-owned or otherwise application-owned parent state put the parents into the configured scope
+(`CrudInstanceConfig::scope`).
 
 ## Reset
 
 `CrudInstanceContext::reset()` creates a navigation attempt. If any targeted dirty guard reports unsaved state, it uses
 the shared leave confirmation before applying reset.
 
-The current reset clears deletion requests, restores page number, items per page, and ordering from the initial
-config, and navigates to `config.initial_view` through the private committed path. `CrudResetButton` triggers it.
-Other static configuration and values without public mutation do not get rebuilt.
+The current reset clears deletion requests and the cursors of a list paged by cursor, restores page number, items per
+page, and ordering from the initial config, and navigates to `config.initial_view` through the private committed path.
+`CrudResetButton` triggers it. Other static configuration and values without public mutation do not get rebuilt.
 
 ## Navigation Scope Composition and Supplied Navigation Lifetime
 

@@ -5,9 +5,9 @@ use crate::hooks::instance::use_crud_instance;
 use crate::hooks::notify::{CrudNotification, CrudNotifier};
 use crate::hooks::texts::with_texts;
 use crate::instance::{CommittedReturnDestination, CrudNavigation};
-use crudkit_core::condition::{Condition, condition_matching_any_id, merge_conditions};
 use crudkit_core::id::SerializableId;
 use crudkit_core::{Deleted, DeletedMany};
+use crudkit_web::data_source::{CrudDataSource, CrudScope};
 use crudkit_web::delete::{DeleteManyCounts, DeleteManyOutcome};
 use crudkit_web::http::RequestError;
 use crudkit_web::prelude::*;
@@ -42,30 +42,26 @@ impl std::fmt::Debug for CrudDeleteState {
 
 impl CrudDeleteState {
     pub(crate) fn new(
-        data_provider: Signal<DynCrudRestDataProvider>,
+        data_source: Arc<dyn CrudDataSource>,
         reload: Callback<()>,
         notifier: CrudNotifier,
         texts: Signal<CrudUiTexts>,
         navigation: CrudNavigation,
-        scope: Signal<Option<Condition>>,
+        scope: Signal<CrudScope>,
     ) -> Self {
         let pending = RwSignal::new(None::<(DynReadOrUpdateModel, CrudNavigation)>);
         let pending_many = RwSignal::new(None::<Arc<Vec<DynReadModel>>>);
 
+        let single_data_source = data_source.clone();
         let delete_action =
             Action::new_local(move |(id, navigation): &(SerializableId, CrudNavigation)| {
-                let data_provider = data_provider.get_untracked();
+                let data_source = single_data_source.clone();
                 let id = id.clone();
                 let navigation = *navigation;
-                // Deletions stay within the instance's base and parent conditions, like reads.
-                let condition = scope.get_untracked();
+                // Deletions stay within the instance's scope, like reads.
+                let scope = scope.get_untracked();
                 async move {
-                    let result = data_provider
-                        .delete_by_id(DeleteById {
-                            id: id.clone(),
-                            condition,
-                        })
-                        .await;
+                    let result = data_source.delete(&scope, &id).await;
                     pending.set(None);
                     notifier.notify(with_texts(texts, |texts| {
                         delete_notification(texts, &result)
@@ -88,25 +84,14 @@ impl CrudDeleteState {
             });
 
         let delete_many_action = Action::new_local(move |entities: &Arc<Vec<DynReadModel>>| {
-            let data_provider = data_provider.get_untracked();
-            let entities = entities.clone();
+            let data_source = data_source.clone();
+            let ids = entities
+                .iter()
+                .map(|entity| entity.id())
+                .collect::<Vec<_>>();
             let scope = scope.get_untracked();
             async move {
-                // Each entity's ID fields become an AND condition, and all entities are OR'd together.
-                let result =
-                    match condition_matching_any_id(entities.iter().map(|entity| entity.id())) {
-                        Ok(condition) => {
-                            data_provider
-                                .delete_many(DeleteMany {
-                                    condition: merge_conditions(scope, Some(condition)),
-                                })
-                                .await
-                        }
-                        Err(err) => {
-                            tracing::error!(%err, "refusing to build a mass deletion condition");
-                            Err(RequestError::InvalidRequest(err.to_string()))
-                        }
-                    };
+                let result = data_source.delete_many(&scope, &ids).await;
                 pending_many.set(None);
                 notifier.notify(with_texts(texts, |texts| {
                     delete_many_notification(texts, &result)

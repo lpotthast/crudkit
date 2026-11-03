@@ -8,8 +8,7 @@ use crate::hooks::notify::{CrudNotification, CrudNotifier};
 use crate::hooks::texts::{use_crud_texts, with_texts};
 use crate::instance::CrudInstanceContext;
 use crate::instance::CrudNavigation;
-use crudkit_core::condition::{TryIntoAllEqualCondition, merge_conditions};
-use crudkit_core::id::{SerializableId, SerializableIdEntry};
+use crudkit_core::id::SerializableId;
 use crudkit_core::validation::PartialSerializableAggregateViolations;
 use crudkit_core::{Saved, Value};
 use crudkit_web::http::RequestError;
@@ -452,9 +451,10 @@ fn create_action(
         move |(create_model, follow_up): &(DynCreateModel, CrudSaveFollowUp)| {
             let entity = create_model.clone();
             let follow_up = *follow_up;
-            let data_provider = ctx.data_provider.get_untracked();
+            let data_source = ctx.data_source();
+            let scope = ctx.scope.get_untracked();
             async move {
-                let result = data_provider.create_one(CreateOne { entity }).await;
+                let result = data_source.create(&scope, entity).await;
                 notify.outcome(
                     &result,
                     |texts| &texts.created,
@@ -479,23 +479,11 @@ fn update_action(
         move |(entity, follow_up): &(DynUpdateModel, CrudSaveFollowUp)| {
             let entity = entity.clone();
             let follow_up = *follow_up;
-            let data_provider = ctx.data_provider.get_untracked();
+            let data_source = ctx.data_source();
             let id = id.get_untracked();
-            let base_condition = ctx.base_condition.get_untracked();
+            let scope = ctx.scope.get_untracked();
             async move {
-                let result = match id.0.into_iter().try_into_all_equal_condition() {
-                    Ok(id_condition) => {
-                        data_provider
-                            .update_one(UpdateOne {
-                                entity,
-                                condition: merge_conditions(base_condition, Some(id_condition)),
-                            })
-                            .await
-                    }
-                    Err(e) => Err(RequestError::InvalidRequest(format!(
-                        "ID contains unsupported field types: {e:?}"
-                    ))),
-                };
+                let result = data_source.update(&scope, &id, entity).await;
                 notify.outcome(&result, |texts| &texts.saved, |texts| &texts.update_failed);
                 (result, follow_up)
             }
@@ -561,38 +549,19 @@ fn savable_draft<F: TypeErasedField>(form: CrudFormState<F>) -> Option<F::Model>
     form.draft.get_untracked()
 }
 
+/// Returns the create model's default, with the IDs of the scope's parents in the fields that
+/// refer to them. Data sources that place new entities below their parents, e.g. in a path, need
+/// no such fields, so the create model may lack them.
 fn default_create_model(ctx: &CrudInstanceContext) -> DynCreateModel {
-    let mut entity = ctx
-        .static_config
-        .read_value()
-        .model_handler
-        .default_create_model();
-
-    if let Some(parent) = ctx.parent.get_value() {
-        if let Some(parent_id) = ctx.parent_id.get_untracked() {
-            let SerializableIdEntry {
-                field_name: _,
-                value,
-            } = parent_id
-                .entries()
-                .find(|entry| entry.field_name.as_str() == parent.referenced_field.as_ref())
-                .expect("related parent field must be part of the parents id!");
-            let referencing_field = ctx
-                .static_config
-                .read_value()
-                .model_handler
-                .create_model_field(&parent.referencing_field);
-            if let Some(field) = referencing_field {
-                field.set_value(&mut entity, value.clone().into());
-            } else {
-                tracing::error!(
-                    field = %parent.referencing_field,
-                    "the parent's referencing field is not a field of the create model; not prefilling it"
-                );
-            }
+    let model_handler = ctx.static_config.read_value().model_handler;
+    let mut entity = model_handler.default_create_model();
+    for parent in ctx.scope.get_untracked().parents {
+        if let Some(field) = model_handler.create_model_field(&parent.field_name) {
+            field.set_value(&mut entity, parent.value.into());
         } else {
-            tracing::error!(
-                "CrudInstance is configured to be a nested instance but no parent id was passed down!"
+            tracing::debug!(
+                field = %parent.field_name,
+                "the create model has no field referring to the parent; not prefilling it"
             );
         }
     }
@@ -777,22 +746,9 @@ fn use_entity(
     // TODO: Do not use LocalResource, allow loading on the server.
     let resource = LocalResource::new(move || async move {
         let _ = ctx.reload.get();
-        let equals_id_condition = match id.get().into_entries().try_into_all_equal_condition() {
-            Ok(condition) => condition,
-            Err(e) => {
-                return Err(RequestError::InvalidRequest(format!(
-                    "ID contains unsupported field types: {e:?}"
-                )));
-            }
-        };
-        ctx.data_provider
-            .read()
-            .read_one(ReadOne {
-                skip: None,
-                order_by: None,
-                condition: merge_conditions(ctx.base_condition.get(), Some(equals_id_condition)),
-            })
-            .await
+        let id = id.get();
+        let scope = ctx.scope.get();
+        ctx.data_source().read(&scope, &id).await
     });
 
     Memo::new(move |_prev| match resource.get() {

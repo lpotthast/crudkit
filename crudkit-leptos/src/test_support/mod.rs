@@ -7,6 +7,7 @@
 #![cfg_attr(feature = "ssr", allow(dead_code))]
 
 pub(crate) mod items;
+pub(crate) mod memory;
 
 use crate::instance::CrudNavigationScope;
 use crate::instance::manager_context;

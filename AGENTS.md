@@ -9,8 +9,9 @@ architectural and behavioral decisions:
 
 - `design/architecture.md`, `design/data-contracts.md`, and `design/derive-macros.md` cover layering, shared contracts,
   type erasure, and code generation.
-- `design/backend-operations.md`, `design/http-and-data-providers.md`, `design/sea-orm-adapter.md`, and
-  `design/validation-and-collaboration.md` cover storage-neutral operations and integration boundaries.
+- `design/backend-operations.md`, `design/http-and-data-providers.md`, `design/data-sources.md`,
+  `design/sea-orm-adapter.md`, and `design/validation-and-collaboration.md` cover storage-neutral operations and
+  integration boundaries.
 - `design/instances-and-composition.md`, `design/views-and-navigation.md`, `design/actions.md`, and
   `design/leptos-hooks-and-atoms.md` cover frontend composition and interaction contracts.
 
@@ -32,7 +33,7 @@ This is a Rust 2024 Cargo workspace with 12 crates:
 - `crudkit-rs` owns storage-neutral backend CRUD behavior; backend derives live in `crudkit-rs-macros` and
   `crudkit-rs-macros-core`.
 - `crudkit-sea-orm` adapts backend contracts to SeaORM; SeaORM-specific derives live in `crudkit-sea-orm-macros`.
-- `crudkit-web` owns platform-neutral web models, layouts, type erasure, and data providers; its derives live in
+- `crudkit-web` owns platform-neutral web models, layouts, type erasure, and data sources; its derives live in
   `crudkit-web-macros`.
 - `crudkit-leptos` owns instance configuration (`config`), mounted instance behavior (`instance`), and the Leptos
   hooks and headless atoms applications build their screens from. It builds on the hooks and atoms of Leptonic's

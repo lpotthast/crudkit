@@ -2,15 +2,15 @@
 #![deny(clippy::unwrap_used)]
 
 //! Platform-neutral frontend contracts of CrudKit: resources, typed and type-erased models, field
-//! presentation, layouts, views, data providers, and UI-independent list, deletion, navigation,
-//! and value-formatting logic.
+//! presentation, layouts, views, data sources and the typed REST data provider, and UI-independent
+//! list, deletion, navigation, and value-formatting logic.
 //!
 //! `use crudkit_web::prelude::*` brings the common types and derive macros into scope.
 
 pub mod action;
 pub mod data_provider;
+pub mod data_source;
 pub mod delete;
-pub mod dyn_data_provider;
 pub mod field;
 pub mod http;
 pub mod layout;
@@ -58,7 +58,10 @@ pub mod prelude {
     pub use super::view::CrudView;
 
     pub use super::data_provider::CrudRestDataProvider;
-    pub use super::dyn_data_provider::DynCrudRestDataProvider;
+    pub use super::data_source::{
+        CrudCursor, CrudDataSource, CrudListRequest, CrudPage, CrudPaging, CrudRestDataSource,
+        CrudScope,
+    };
 
     // CRUD request bodies.
     pub use crudkit_core::request::CreateOne;

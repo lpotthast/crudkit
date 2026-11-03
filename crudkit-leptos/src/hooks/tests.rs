@@ -6,6 +6,7 @@ use crate::hooks::form::{
     use_crud_edit_form,
 };
 use crate::hooks::instance::use_crud_navigation;
+use crate::hooks::list::CrudListState;
 use crate::hooks::list::use_crud_list_state;
 use crate::hooks::notify::{
     CrudNotification, CrudNotificationKind, CrudNotifier, provide_crud_notifier,
@@ -13,8 +14,10 @@ use crate::hooks::notify::{
 use crate::instance::{provide_crud_instance, provide_view_context};
 use crate::prelude::*;
 use crate::test_support::items::*;
+use crate::test_support::memory::{MemoryOperation, MemoryPaging, MemorySource};
 use crate::test_support::{CrudTestResponse, CrudTestServer, settle, with_crud_manager};
 use assertr::prelude::*;
+use indexmap::IndexMap;
 use leptos::prelude::*;
 use leptos::reactive::owner::Owner;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -512,7 +515,10 @@ fn deletions_stay_within_the_instance_scope() {
     )]);
     with_crud_manager(|| {
         let config = CrudInstanceConfig {
-            base_condition: Some(scope),
+            scope: CrudScope {
+                condition: Some(scope),
+                ..CrudScope::default()
+            },
             ..config(&server)
         };
         provide_crud_instance(instance_input("items", config));
@@ -738,4 +744,318 @@ fn deletions_finishing_after_their_instance_unmounted_are_still_reported() {
     assert_that!(server.requests_to("delete-by-id").len()).is_equal_to(1);
     assert_that!(server.requests_to("delete-many").len()).is_equal_to(1);
     assert_that!(notifications.lock().expect("lock").len()).is_equal_to(2);
+}
+
+/// Returns the IDs of the listed items.
+fn listed_ids(list: &CrudListState) -> Vec<i64> {
+    list.rows
+        .get_untracked()
+        .loaded()
+        .map(|rows| {
+            rows.iter()
+                .map(|row| row.downcast_ref::<ReadItem>().id)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Returns the cursor of the last list request that `source` received.
+fn last_cursor(source: &MemorySource) -> Option<String> {
+    source
+        .list_requests()
+        .pop()
+        .expect("a list request")
+        .cursor
+        .map(|cursor| cursor.as_str().to_owned())
+}
+
+#[test]
+fn lists_paged_by_cursor_offer_only_the_previous_and_the_next_page() {
+    let source = MemorySource::with_items(5, MemoryPaging::Cursor);
+    with_config(source.config(), |_ctx| {
+        let list = use_crud_list_state();
+        settle();
+        assert_that!(listed_ids(&list)).is_equal_to(vec![1, 2]);
+        assert_that!(list.item_count.get_untracked()).is_none();
+        assert_that!(list.pagination.page_count.get_untracked()).is_equal_to(0);
+        assert_that!(list.pagination.page_options.get_untracked().options).is_empty();
+        assert_that!(list.pagination.range()).is_none();
+        assert_that!(list.pagination.has_previous()).is_false();
+        assert_that!(list.pagination.has_next()).is_true();
+
+        list.pagination.next();
+        settle();
+        assert_that!(listed_ids(&list)).is_equal_to(vec![3, 4]);
+        assert_that!(last_cursor(&source)).is_equal_to(Some("2".to_owned()));
+
+        list.pagination.next();
+        settle();
+        assert_that!(listed_ids(&list)).is_equal_to(vec![5]);
+        assert_that!(list.pagination.has_next()).is_false();
+        list.pagination.next();
+        assert_that!(list.pagination.page.get_untracked()).is_equal_to(PageNr(3));
+
+        // The list opens the pages it visited with their cursors again.
+        list.pagination.previous();
+        settle();
+        assert_that!(listed_ids(&list)).is_equal_to(vec![3, 4]);
+        assert_that!(last_cursor(&source)).is_equal_to(Some("2".to_owned()));
+        list.pagination.previous();
+        settle();
+        assert_that!(listed_ids(&list)).is_equal_to(vec![1, 2]);
+        assert_that!(last_cursor(&source)).is_none();
+    });
+}
+
+#[test]
+fn lists_paged_by_cursor_start_over_when_their_ordering_or_page_size_changes() {
+    let source = MemorySource::with_items(5, MemoryPaging::Cursor);
+    with_config(source.config(), |_ctx| {
+        let list = use_crud_list_state();
+        settle();
+        list.pagination.next();
+        settle();
+
+        list.ordering
+            .toggle(DynReadField::from(ReadItemField::Name), false);
+        settle();
+        assert_that!(list.pagination.page.get_untracked()).is_equal_to(PageNr::first());
+        let request = source.list_requests().pop().expect("a list request");
+        assert_that!(request.cursor).is_none();
+        assert_that!(request.order_by.len()).is_equal_to(1);
+
+        list.pagination.next();
+        settle();
+        list.pagination.set_items_per_page(ItemsPerPage(3));
+        settle();
+        assert_that!(list.pagination.page.get_untracked()).is_equal_to(PageNr::first());
+        assert_that!(last_cursor(&source)).is_none();
+        assert_that!(listed_ids(&list)).is_equal_to(vec![1, 2, 3]);
+    });
+}
+
+#[test]
+fn lists_paged_by_offset_keep_their_page_when_their_ordering_changes() {
+    let source = MemorySource::with_items(5, MemoryPaging::Offset);
+    with_config(source.config(), |_ctx| {
+        let list = use_crud_list_state();
+        settle();
+        assert_that!(list.item_count.get_untracked()).is_equal_to(Some(5));
+        assert_that!(list.pagination.page_options.get_untracked().options.len()).is_equal_to(3);
+
+        list.pagination.set_page(PageNr(2));
+        list.ordering
+            .toggle(DynReadField::from(ReadItemField::Name), false);
+        settle();
+        assert_that!(list.pagination.page.get_untracked()).is_equal_to(PageNr(2));
+        let request = source.list_requests().pop().expect("a list request");
+        assert_that!(request.offset).is_equal_to(2);
+        assert_that!(request.cursor).is_none();
+    });
+}
+
+#[test]
+fn lists_paged_by_cursor_step_back_from_pages_they_cannot_show() {
+    // A configured page beyond the first cannot be reached without the cursors before it.
+    let source = MemorySource::with_items(3, MemoryPaging::Cursor);
+    let config = CrudInstanceConfig {
+        page_nr: PageNr(2),
+        ..source.config()
+    };
+    with_config(config, |_ctx| {
+        let list = use_crud_list_state();
+        settle();
+        assert_that!(list.pagination.page.get_untracked()).is_equal_to(PageNr::first());
+        assert_that!(listed_ids(&list)).is_equal_to(vec![1, 2]);
+
+        // A page left empty by a deletion is left for the page before it.
+        list.pagination.next();
+        settle();
+        assert_that!(listed_ids(&list)).is_equal_to(vec![3]);
+        let deletion = use_crud_delete();
+        deletion.request(item(3));
+        deletion.confirm();
+        settle();
+        assert_that!(list.pagination.page.get_untracked()).is_equal_to(PageNr::first());
+        assert_that!(listed_ids(&list)).is_equal_to(vec![1, 2]);
+        assert_that!(list.pagination.has_next()).is_false();
+    });
+}
+
+#[test]
+fn lists_order_only_by_fields_their_data_source_orders_by() {
+    let source = MemorySource::with_items(3, MemoryPaging::Offset);
+    let name = DynReadField::from(ReadItemField::Name);
+    let id = DynReadField::from(ReadItemField::Id);
+    let mut order_by = IndexMap::new();
+    order_by.insert(id.clone(), Order::Desc);
+    order_by.insert(name.clone(), Order::Desc);
+    let config = CrudInstanceConfig {
+        order_by,
+        ..source.config()
+    };
+    with_config(config, |_ctx| {
+        let list = use_crud_list_state();
+        settle();
+        assert_that!(list.ordering.can_order_by(&name)).is_true();
+        assert_that!(list.ordering.can_order_by(&id)).is_false();
+        // The configured ordering by ID is left out.
+        let expected = IndexMap::from([(name.clone(), Order::Desc)]);
+        assert_that!(list.ordering.order_by().get_untracked()).is_equal_to(expected.clone());
+
+        list.ordering.toggle(id.clone(), false);
+        list.ordering.set(id.clone(), Order::Asc);
+        settle();
+        assert_that!(list.ordering.order_by().get_untracked()).is_equal_to(expected.clone());
+        let request = source.list_requests().pop().expect("a list request");
+        assert_that!(request.order_by).is_equal_to(expected);
+        assert_that!(listed_ids(&list)).is_equal_to(vec![3, 2]);
+    });
+}
+
+#[test]
+fn every_operation_of_a_nested_instance_happens_below_its_parents() {
+    let source = MemorySource::with_items(3, MemoryPaging::Offset);
+    with_crud_manager(|| {
+        let parent = provide_crud_instance(instance_input("parents", source.config()));
+        parent.navigation.navigate(CrudView::edit(item(1).id()));
+
+        Owner::new().with(|| {
+            // E.g. the owner from the application's route.
+            let config = CrudInstanceConfig {
+                scope: CrudScope::default().with_parent("owner_id", IdValue::I64(7)),
+                ..source.config()
+            };
+            provide_crud_instance(ProvideCrudInstanceInput {
+                parent: Some(CrudParentConfig {
+                    name: "parents",
+                    referenced_field: "id".into(),
+                    referencing_field: "item_id".into(),
+                }),
+                ..instance_input("children", config)
+            });
+            let _list = use_crud_list_state();
+            // The create model has no field referring to a parent, as with sources that put the
+            // parents into a path.
+            let create = use_crud_create_form(UseCrudCreateFormInput::default());
+            create.form.set_field(
+                DynCreateField::from(CreateItemField::Name),
+                Ok(Value::String("new".to_owned())),
+            );
+            create.save.run(CrudSaveFollowUp::Stay);
+            let edit = use_crud_edit_form(edit_input(item(2).id()));
+            settle();
+            edit.form.set_field(
+                DynUpdateField::from(ItemField::Name),
+                Ok(Value::String("renamed".to_owned())),
+            );
+            edit.save.run(CrudSaveFollowUp::Stay);
+            let deletion = use_crud_delete();
+            deletion.request(item(3));
+            deletion.confirm();
+            settle();
+        });
+    });
+
+    let below_parents = CrudScope::default()
+        .with_parent("owner_id", IdValue::I64(7))
+        .with_parent("item_id", IdValue::I64(1));
+    let operations = source.operations();
+    let kinds = |scope: &CrudScope| {
+        operations
+            .iter()
+            .filter(|(_, received)| received == scope)
+            .map(|(operation, _)| match operation {
+                MemoryOperation::List(_) => "list",
+                MemoryOperation::Read(_) => "read",
+                MemoryOperation::Create => "create",
+                MemoryOperation::Update(_) => "update",
+                MemoryOperation::Delete(_) => "delete",
+            })
+            .collect::<std::collections::BTreeSet<_>>()
+    };
+    assert_that!(kinds(&below_parents).into_iter().collect::<Vec<_>>())
+        .is_equal_to(vec!["create", "delete", "list", "read", "update"]);
+    // Only the parent instance's own list ran without parents, and it listed nothing here.
+    assert_that!(kinds(&CrudScope::default())).is_empty();
+}
+
+#[test]
+fn new_entities_refer_to_the_parents_of_their_scope() {
+    let source = MemorySource::with_items(0, MemoryPaging::Offset);
+    let config = CrudInstanceConfig {
+        // The item's name stands in for a field that refers to a parent.
+        scope: CrudScope::default().with_parent("name", IdValue::String("scoped".to_owned())),
+        ..source.config()
+    };
+    with_config(config, |_ctx| {
+        let create = use_crud_create_form(UseCrudCreateFormInput::default());
+        assert_that!(
+            create
+                .form
+                .field(&DynCreateField::from(CreateItemField::Name))
+                .and_then(|field| field.get_untracked().as_string().cloned())
+        )
+        .is_equal_to(Some("scoped".to_owned()));
+    });
+}
+
+#[test]
+fn data_sources_without_mass_deletion_delete_one_entity_after_the_other() {
+    let source = MemorySource::with_items(3, MemoryPaging::Offset);
+    let notifications = Arc::new(Mutex::new(Vec::<CrudNotification>::new()));
+    with_crud_manager(|| {
+        let recorded = notifications.clone();
+        provide_crud_notifier(CrudNotifier::new(move |notification| {
+            recorded.lock().expect("lock").push(notification);
+        }));
+        provide_crud_instance(instance_input("items", source.config()));
+        let deletion = use_crud_delete();
+        deletion.request_many(vec![item(1), item(3)]);
+        deletion.confirm_many();
+        settle();
+    });
+
+    assert_that!(source.ids()).is_equal_to(vec![2]);
+    let message = notifications
+        .lock()
+        .expect("lock")
+        .iter()
+        .map(|notification| (notification.kind, notification.message.clone()))
+        .collect::<Vec<_>>();
+    assert_that!(message).is_equal_to(vec![(
+        CrudNotificationKind::Success,
+        "2 Einträge erfolgreich gelöscht.".to_owned(),
+    )]);
+}
+
+#[test]
+fn rest_data_sources_keep_nested_instances_below_their_parent_by_condition() {
+    let server = FakeServer::with_items(2);
+    with_crud_manager(|| {
+        let parent = provide_crud_instance(instance_input("parents", config(&server)));
+        parent.navigation.navigate(CrudView::edit(item(1).id()));
+        Owner::new().with(|| {
+            provide_crud_instance(ProvideCrudInstanceInput {
+                parent: Some(CrudParentConfig {
+                    name: "parents",
+                    referenced_field: "id".into(),
+                    referencing_field: "owner_id".into(),
+                }),
+                ..instance_input("children", config(&server))
+            });
+            let _list = use_crud_list_state();
+            settle();
+        });
+    });
+
+    let condition = |operation: &str| {
+        server
+            .requests_to(operation)
+            .pop()
+            .map(|request| request["condition"].to_string())
+            .unwrap_or_default()
+    };
+    assert_that!(condition("read-many").as_str()).contains("owner_id");
+    assert_that!(condition("read-count").as_str()).contains("owner_id");
 }

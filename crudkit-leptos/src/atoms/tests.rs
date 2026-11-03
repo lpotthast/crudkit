@@ -6,6 +6,7 @@ use crate::prelude::*;
 use crate::test_support::items::{
     CreateItemField, FakeServer, ReadItemField, config, instance_input,
 };
+use crate::test_support::memory::{MemoryPaging, MemorySource};
 use crate::test_support::with_crud_manager;
 use assertr::prelude::*;
 use leptonic::atoms::tabs::TabList;
@@ -323,6 +324,46 @@ fn table_headers_expose_their_column() {
     assert_that!(checkboxes.len()).is_equal_to(1);
     assert_that!(checkboxes[0]).contains("aria-label=\"Alle auswählen\"");
     assert_that!(elements_with_class(&html, "crudkit-TableActionsHeader").len()).is_equal_to(1);
+}
+
+#[test]
+fn table_headers_sort_only_by_fields_the_data_source_orders_by() {
+    // The data source in memory orders by name only.
+    let source = MemorySource::with_items(0, MemoryPaging::Offset);
+    let column = |field: ReadItemField, name: &'static str| {
+        Header::showing(
+            field,
+            HeaderOptions {
+                display_name: name.into(),
+                ordering_allowed: true,
+                ..HeaderOptions::default()
+            },
+        )
+    };
+    let config = CrudInstanceConfig {
+        list_columns: vec![
+            column(ReadItemField::Id, "ID"),
+            column(ReadItemField::Name, "Name"),
+        ],
+        ..source.config()
+    };
+    let html = render_in_instance(config, || {
+        view! {
+            <CrudList>
+                <CrudTable>
+                    <CrudTableHeader>
+                        <CrudTableHeaderRow>
+                            <CrudTableColumnHeaders />
+                        </CrudTableHeaderRow>
+                    </CrudTableHeader>
+                </CrudTable>
+            </CrudList>
+        }
+    });
+    let headers = elements_with_class(&html, "crudkit-TableColumnHeader");
+    assert_that!(headers.len()).is_equal_to(2);
+    assert_that!(headers[0]).does_not_contain("data-allows-sorting");
+    assert_that!(headers[1]).contains("data-allows-sorting");
 }
 
 #[test]

@@ -2,7 +2,8 @@
 
 CrudKit is a workspace of layered libraries and their code-generation companions. Applications can use the shared and
 backend crates without the Leptos frontend. They can also use the web and Leptos crates with a non-SeaORM backend that
-implements the same HTTP contract.
+implements the same HTTP contract, or with any other API through a data source of their own
+([Data Sources](data-sources.md)).
 
 ## Dependency Direction
 
@@ -36,8 +37,8 @@ also depend on `crudkit-wire-format` directly, because they convert at their tra
 - **Backend - `crudkit-rs`:** Storage-neutral resources, repositories, CRUD operations, lifecycle hooks, validation
   orchestration, authentication policy, collaboration service abstraction, and the current Axum route generator.
 - **Web client - `crudkit-web`:** Frontend resource and field contracts, typed and type-erased models, serializable
-  layouts and views, HTTP request execution, typed or dynamic REST data providers, and UI-independent list,
-  deletion, navigation, and value-formatting logic. It has no Leptos component dependency.
+  layouts and views, data sources with the REST data source, HTTP request execution, the typed REST data provider,
+  and UI-independent list, deletion, navigation, and value-formatting logic. It has no Leptos component dependency.
 - **UI - `crudkit-leptos`:** Instance configuration (`config`), the mounted-instance runtime with navigation scopes
   and dirty guards (`instance`), state and interaction hooks (`hooks`), and the atoms applications build their screens
   from (`atoms`), using Leptos and the hooks and atoms of Leptonic's hooks branch. It ships no prebuilt screens and no

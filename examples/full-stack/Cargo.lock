@@ -957,6 +957,7 @@ dependencies = [
  "dyn-eq",
  "dyn-hash",
  "erased-serde",
+ "futures",
  "indexmap",
  "reqwest",
  "send_wrapper",

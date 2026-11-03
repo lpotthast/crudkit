@@ -1029,6 +1029,7 @@ dependencies = [
  "dyn-eq",
  "dyn-hash",
  "erased-serde",
+ "futures",
  "indexmap 2.14.2",
  "leptos-keycloak-auth",
  "reqwest 0.13.5",

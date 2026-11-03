@@ -17,8 +17,10 @@ application's workflow, authorization rules, route structure outside the generat
   generated implementations and runtime contracts.
 - [Backend Operations](backend-operations.md) defines `CrudResource`, repositories, authentication policy, lifecycle
   hooks, operation ordering, and atomicity boundaries.
+- [Data Sources](data-sources.md) defines the frontend's integration point for data: the operations of a data
+  source, the scope of an instance's operations, pages by offset or by cursor, and the fields lists can be ordered by.
 - [HTTP and Data Providers](http-and-data-providers.md) defines generated Axum routes, request and response shapes,
-  typed and dynamic clients, condition scoping, and error translation.
+  the REST data source and the typed REST client, condition scoping, and error translation.
 - [Validation and Collaboration](validation-and-collaboration.md) defines validators, severities, partial and full
   results, persistence semantics, change notifications, and the current aggregate-validation boundary.
 - [SeaORM Adapter](sea-orm-adapter.md) defines how the storage-neutral backend maps to SeaORM entities, columns,

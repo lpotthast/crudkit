@@ -11,7 +11,7 @@
 
 use crate::config::Header;
 use crate::hooks::field::{CrudRowFields, use_crud_row_fields};
-use crate::hooks::list::CrudListState;
+use crate::hooks::list::{CrudListState, CrudOrderingState};
 use crudkit_core::Order;
 use crudkit_web::prelude::*;
 use leptonic::hooks::collections::Key;
@@ -201,7 +201,7 @@ pub fn use_crud_table(input: UseCrudTableInput) -> UseCrudTableReturn {
     } = input;
 
     let rows = table_rows(&list);
-    let collection = table_collection(columns, rows, with_actions);
+    let collection = table_collection(&list.ordering, columns, rows, with_actions);
 
     let entities_of = move |selection: &Selection| {
         rows.with_untracked(|rows| match selection {
@@ -336,12 +336,15 @@ fn sort_binding(
     )
 }
 
-/// Builds the table's columns and rows.
+/// Builds the table's columns and rows. A column sorts if its options allow it and the data source
+/// can order by its field.
 fn table_collection(
+    ordering: &CrudOrderingState,
     columns: Signal<Vec<Header>>,
     rows: Memo<Vec<(Key, DynReadModel)>>,
     with_actions: Signal<bool>,
 ) -> Memo<Arc<TableCollection>> {
+    let ordering = *ordering;
     Memo::new(move |_| {
         let columns = columns.get();
         let rows = rows.get();
@@ -349,7 +352,7 @@ fn table_collection(
         Arc::new(TableCollection::build(|t| {
             for Header { field, options } in &columns {
                 let column = t.column(column_key(field), options.display_name.to_string());
-                if options.ordering_allowed {
+                if options.ordering_allowed && ordering.can_order_by(field) {
                     column.allows_sorting();
                 }
             }

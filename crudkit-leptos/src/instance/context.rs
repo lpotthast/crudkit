@@ -14,15 +14,15 @@ use crate::instance::{
     CrudNavigation, provide_enclosing_navigation_scope, use_enclosing_navigation_scope,
 };
 use crudkit_core::Order;
-use crudkit_core::condition::{Condition, ConditionClause, ConditionElement};
 use crudkit_core::id::{SerializableId, SerializableIdEntry};
+use crudkit_web::data_source::{CrudDataSource, CrudScope};
 use crudkit_web::layout::TabId;
-use crudkit_web::list::toggle_order;
-use crudkit_web::list::{ItemsPerPage, PageNr};
+use crudkit_web::list::{ItemsPerPage, PageCursors, PageNr, toggle_order};
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
 use leptos::prelude::*;
 use std::collections::HashSet;
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Shared runtime state for one mounted instance.
@@ -45,7 +45,6 @@ pub struct CrudInstanceContext {
 
     default_config: StoredValue<CrudMutableInstanceConfig>,
     pub(crate) static_config: StoredValue<CrudStaticInstanceConfig>,
-    pub(crate) data_provider: Signal<DynCrudRestDataProvider>,
     pub(crate) headers: ReadSignal<Vec<Header>>,
     pub(crate) create_elements: ReadSignal<CreateElements>,
     pub(crate) update_elements: ReadSignal<UpdateElements>,
@@ -56,6 +55,9 @@ pub struct CrudInstanceContext {
     /// The page the user is currently on in the list view.
     pub current_page: ReadSignal<PageNr>,
     set_current_page: WriteSignal<PageNr>,
+
+    /// The cursors of the list's pages, while its data source pages by cursor.
+    pub(crate) cursors: StoredValue<PageCursors>,
 
     /// The amount of items shown per page in the list view.
     pub items_per_page: ReadSignal<ItemsPerPage>,
@@ -71,11 +73,9 @@ pub struct CrudInstanceContext {
     /// Current parent entity ID when parent-resource scoping can resolve one.
     pub parent_id: Signal<Option<SerializableId>>,
 
-    /// Condition restricting this resource to the resolved parent entity.
-    pub parent_id_referencing_condition: Signal<Option<Condition>>,
-
-    /// The base condition applicable when fetching data.
-    pub base_condition: Signal<Option<Condition>>,
+    /// What every operation of the instance's data source is restricted to: the configured scope,
+    /// below the resolved parent entity, if any.
+    pub scope: Signal<CrudScope>,
 
     /// Deletion requests awaiting confirmation.
     pub(crate) deletion: CrudDeleteState,
@@ -140,10 +140,23 @@ impl CrudInstanceContext {
             .clone()
     }
 
-    /// Returns the name of the resource on the wire.
+    /// Returns the name of the resource, as its data source names it.
     #[must_use]
     pub fn resource_name(&self) -> String {
-        self.static_config.read_value().resource_name.clone()
+        self.data_source().resource_name().to_owned()
+    }
+
+    /// Returns the data source of the instance's entities.
+    pub(crate) fn data_source(&self) -> Arc<dyn CrudDataSource> {
+        self.static_config.read_value().data_source.clone()
+    }
+
+    /// Returns whether the instance's data source can order its list by `field`.
+    pub(crate) fn can_order_by(&self, field: &DynReadField) -> bool {
+        self.static_config
+            .read_value()
+            .data_source
+            .can_order_by(field)
     }
 
     /// Selects the list page to load.
@@ -153,6 +166,7 @@ impl CrudInstanceContext {
 
     /// Sets the number of entities shown on each list page.
     pub(crate) fn set_items_per_page(&self, items_per_page: ItemsPerPage) {
+        self.restart_paging_by_cursor();
         self.set_items_per_page.set(items_per_page);
     }
 
@@ -164,13 +178,31 @@ impl CrudInstanceContext {
     #[allow(clippy::needless_pass_by_value)]
     pub(crate) fn toggle_order_by(&self, field: DynReadField, append: bool) {
         tracing::debug!(?field, append, "order by");
+        self.restart_paging_by_cursor();
         self.set_order_by
             .update(|order_by| toggle_order(order_by, field, append));
     }
 
     /// Replaces the list ordering.
     pub(crate) fn set_order_by(&self, order_by: IndexMap<DynReadField, Order>) {
+        self.restart_paging_by_cursor();
         self.set_order_by.set(order_by);
+    }
+
+    /// Returns to the first page of a list paged by cursor, whose cursors no longer apply, e.g.
+    /// after its ordering changed. A list paged by offset keeps its page.
+    fn restart_paging_by_cursor(&self) {
+        let paged_by_cursor = self
+            .cursors
+            .try_update_value(|cursors| {
+                let paged_by_cursor = !cursors.is_empty();
+                cursors.clear();
+                paged_by_cursor
+            })
+            .unwrap_or_default();
+        if paged_by_cursor {
+            self.set_current_page.set(PageNr::first());
+        }
     }
 
     /// Returns the selected tab of the tab group consisting of `tabs`, unless none was selected yet.
@@ -258,6 +290,7 @@ impl CrudInstanceContext {
     fn reset_committed(&self) {
         let default = self.default_config.get_value();
         self.deletion.clear();
+        self.cursors.update_value(PageCursors::clear);
         self.set_current_page.set(default.page);
         self.set_items_per_page.set(default.items_per_page);
         self.set_order_by.set(default.order_by.clone());
@@ -316,11 +349,11 @@ pub(crate) fn create_instance_context(
     // Unique id of this instance. Volatile. Not persistent between rerenders.
     let id = Uuid::new_v4();
 
-    let (config, static_config) = config.split();
+    let (mut config, static_config) = config.split();
+    retain_orderable(static_config.data_source.as_ref(), &mut config.order_by);
 
     let static_config = StoredValue::new(static_config);
 
-    let (api_base_url, _set_api_base_url) = signal(config.api_base_url.clone());
     let mgr = expect_context::<CrudInstanceMgrContext>();
     let instance_navigation = navigation.unwrap_or_else(|| {
         use_enclosing_navigation_scope()
@@ -335,6 +368,7 @@ pub(crate) fn create_instance_context(
 
     let (headers, _set_headers) = signal(config.headers.clone());
     let (current_page, set_current_page) = signal(config.page);
+    let cursors = StoredValue::new(PageCursors::default());
     let (items_per_page, set_items_per_page) = signal(config.items_per_page);
     let (order_by, set_order_by) = signal(config.order_by.clone());
 
@@ -345,18 +379,13 @@ pub(crate) fn create_instance_context(
             .as_ref()
             .and_then(|parent| get_parent_id(parent, mgr))
     });
-    let parent_id_referencing_condition = Signal::derive(move || {
-        parent
-            .read_value()
-            .as_ref()
-            .and_then(|parent| parent_id_referencing_condition(parent, mgr))
-    });
-    let base_condition = config.base_condition.clone();
-    let base_condition = Signal::derive(move || {
-        crudkit_core::condition::merge_conditions(
-            parent_id_referencing_condition.get(),
-            base_condition.clone(),
-        )
+    let configured_scope = config.scope.clone();
+    let scope = Signal::derive(move || {
+        let mut scope = configured_scope.clone();
+        if let Some(parent) = parent.read_value().as_ref() {
+            scope.parents.extend(parent_scope_entry(parent, mgr));
+        }
+        scope
     });
     let (create_elements, _set_create_elements) = signal(config.create_elements.clone());
     let (update_elements, _set_update_elements) = signal(config.elements.clone());
@@ -368,24 +397,20 @@ pub(crate) fn create_instance_context(
     let notifier = use_crud_notifier().with_origin(CrudNotificationOrigin {
         instance_id: id,
         instance_name: name,
-        resource_name: static_config.read_value().resource_name.clone(),
+        resource_name: static_config
+            .read_value()
+            .data_source
+            .resource_name()
+            .to_owned(),
     });
 
-    let data_provider = Signal::derive(move || {
-        DynCrudRestDataProvider::new(
-            api_base_url.get(),
-            static_config.read_value().reqwest_executor.clone(),
-            static_config.read_value().resource_name.clone(),
-            static_config.read_value().model_handler,
-        )
-    });
     let deletion = CrudDeleteState::new(
-        data_provider,
+        static_config.read_value().data_source.clone(),
         Callback::new(move |()| set_reload.set(Uuid::new_v4())),
         notifier,
         use_crud_texts(),
         navigation,
-        base_condition,
+        scope,
     );
 
     let dialogs = MountedDialogs::default();
@@ -396,21 +421,20 @@ pub(crate) fn create_instance_context(
         name,
         default_config,
         static_config,
-        data_provider,
         headers,
         create_elements,
         update_elements,
         navigation,
         current_page,
         set_current_page,
+        cursors,
         items_per_page,
         set_items_per_page,
         order_by,
         set_order_by,
         parent,
         parent_id,
-        parent_id_referencing_condition,
-        base_condition,
+        scope,
         deletion,
         leave_confirmation,
         dialogs,
@@ -495,20 +519,39 @@ pub(crate) fn provide_view_context(context: &CrudInstanceContext, navigation: Cr
     provide_enclosing_navigation_scope(navigation.scope());
 }
 
-/// Condition restricting entities to those referencing the current parent entity.
-fn parent_id_referencing_condition(
+/// Leaves out the fields of `order_by` that `data_source` cannot order by.
+fn retain_orderable(
+    data_source: &dyn CrudDataSource,
+    order_by: &mut IndexMap<DynReadField, Order>,
+) {
+    order_by.retain(|field, _| {
+        let orderable = data_source.can_order_by(field);
+        if !orderable {
+            tracing::warn!(
+                ?field,
+                "the data source cannot order by this field; ignoring it"
+            );
+        }
+        orderable
+    });
+}
+
+/// The parent of the scope of a nested instance: the current parent entity's ID, referred to
+/// through the child's referencing field.
+fn parent_scope_entry(
     parent: &CrudParentConfig,
     mgr: CrudInstanceMgrContext,
-) -> Option<Condition> {
-    let id = get_parent_id(parent, mgr)?;
-    let entry = id
+) -> Option<SerializableIdEntry> {
+    let Some(id) = get_parent_id(parent, mgr) else {
+        tracing::warn!(
+            parent = parent.name,
+            "the instance is nested below a parent instance that shows no entity"
+        );
+        return None;
+    };
+    let Some(entry) = id
         .into_entries()
-        .find(|entry| entry.field_name == parent.referenced_field);
-
-    let Some(SerializableIdEntry {
-        field_name: _,
-        value,
-    }) = entry
+        .find(|entry| entry.field_name == parent.referenced_field)
     else {
         tracing::warn!(
             referenced_field = %parent.referenced_field,
@@ -516,19 +559,10 @@ fn parent_id_referencing_condition(
         );
         return None;
     };
-
-    let Ok(clause_value) = value.clone().try_into() else {
-        tracing::warn!("Parent ID value not convertible to condition clause value");
-        return None;
-    };
-
-    Some(Condition::All(vec![ConditionElement::Clause(
-        ConditionClause {
-            column_name: parent.referencing_field.to_string(),
-            operator: crudkit_core::condition::Operator::Equal,
-            value: clause_value,
-        },
-    )]))
+    Some(SerializableIdEntry {
+        field_name: parent.referencing_field.to_string(),
+        value: entry.value,
+    })
 }
 
 fn get_parent_id(parent: &CrudParentConfig, mgr: CrudInstanceMgrContext) -> Option<SerializableId> {

@@ -1,10 +1,9 @@
 //! Test fixtures: an `items` resource served from memory.
 
-use crate::config::{CrudInstanceConfig, FieldRendererRegistry};
+use crate::config::CrudInstanceConfig;
 use crate::instance::{CrudInstanceContext, ProvideCrudInstanceInput, provide_crud_instance};
 use crate::prelude::*;
 use crate::test_support::{CrudTestResponse, CrudTestServer, with_crud_manager};
-use indexmap::IndexMap;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
@@ -127,33 +126,27 @@ fn respond(
     }
 }
 
+/// The configuration of items served by `server` through CrudKit's REST data source, two per
+/// page.
 pub(crate) fn config(server: &Arc<FakeServer>) -> CrudInstanceConfig {
     CrudInstanceConfig {
-        api_base_url: "http://test.local/api".to_owned(),
-        initial_view: CrudView::table(),
-        list_columns: Vec::new(),
-        create_elements: Vec::new(),
-        elements: Vec::new(),
-        order_by: IndexMap::default(),
         items_per_page: ItemsPerPage(2),
-        page_nr: PageNr::first(),
-        base_condition: None,
-        resource_name: "items".to_owned(),
-        reqwest_executor: server.http.executor(),
-        model_handler: ModelHandler::new::<CreateItem, ReadItem, Item>(),
-        actions: Vec::new(),
-        entity_actions: Vec::new(),
-        view_registry: None,
-        read_field_renderer: FieldRendererRegistry::default(),
-        create_field_renderer: FieldRendererRegistry::default(),
-        update_field_renderer: FieldRendererRegistry::default(),
+        ..CrudInstanceConfig::new::<CrudItemResource>(
+            "http://test.local/api",
+            server.http.executor(),
+        )
     }
 }
 
 /// Mounts an instance backed by `server` and runs `test` inside it.
 pub(crate) fn with_instance(server: &Arc<FakeServer>, test: impl FnOnce(CrudInstanceContext)) {
+    with_config(config(server), test);
+}
+
+/// Mounts an instance configured by `config` and runs `test` inside it.
+pub(crate) fn with_config(config: CrudInstanceConfig, test: impl FnOnce(CrudInstanceContext)) {
     with_crud_manager(|| {
-        let ctx = provide_crud_instance(instance_input("items", config(server)));
+        let ctx = provide_crud_instance(instance_input("items", config));
         test(ctx);
     });
 }

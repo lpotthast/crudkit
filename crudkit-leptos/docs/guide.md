@@ -36,9 +36,11 @@ Leptonic needs unstable `web-sys` APIs, so builds pass `--cfg=web_sys_unstable_a
 rustflags = ["--cfg=web_sys_unstable_apis"]
 ```
 
-The server side of a resource is `crudkit-rs`, which serves its REST API. An instance sends its requests to
+An instance reads and changes its resource through a data source. By default, the server side of a resource is
+`crudkit-rs`, which serves its REST API, and the instance sends its requests to
 `{api_base_url}/{resource_name}/crud/v1/...` through a `ReqwestExecutor`. Date-time values must serialize the same
-on the server and in the browser, e.g. with `time`'s `serde-human-readable` feature on both.
+on the server and in the browser, e.g. with `time`'s `serde-human-readable` feature on both. To use another API,
+see [Data sources](#data-sources).
 
 # Resources and configuration
 
@@ -93,7 +95,8 @@ A [`CrudInstanceConfig`](config::CrudInstanceConfig) describes how the resource 
 the create layout (`create_elements`) and the layout of the edit and read views (`elements`), the initial ordering and
 page size, actions, and field renderers. Layouts are `Elem`s: fields with `FieldOptions` (label, whether the field is
 disabled, date-time display), separators, and groups laid out in one to four columns, possibly as a card or tabs.
-[`CrudInstanceConfig::new`](config::CrudInstanceConfig::new) starts from defaults:
+[`CrudInstanceConfig::new`](config::CrudInstanceConfig::new) starts from defaults, with the resource's REST routes as
+its data source:
 
 ```no_run
 # crudkit_leptos::__doc_example!();
@@ -301,6 +304,10 @@ fn ClubRow() -> impl IntoView {
 }
 # fn main() {}
 ```
+
+The pagination follows the data source. A list whose data source pages by offset knows its total and offers every
+page. A list whose data source pages by cursor offers only the previous and the next page, so `CrudPageButtons`
+renders nothing there. Column headers sort only by fields the data source can order by.
 
 [`CrudListStatus`](atoms::CrudListStatus) explains a list that is loading, empty, or failed to load, with CrudKit's
 texts or markup of your own per case. The page size is chosen with [`CrudItemsPerPage`](atoms::CrudItemsPerPage), a
@@ -551,8 +558,9 @@ renderer is registered.
 
 A resource can be shown inside an entity of another, e.g. a club's players inside the club's edit view: a field
 renderer of the parent mounts another [`CrudInstance`](instance::CrudInstance) with a
-[`CrudParentConfig`](config::CrudParentConfig). It names the parent instance and the fields linking both; the nested
-instance then lists only the entities referencing the parent's entity and fills in the reference when creating one.
+[`CrudParentConfig`](config::CrudParentConfig). It names the parent instance and the fields linking both. The nested
+instance adds the parent's ID to its [`CrudScope`](crudkit_web::data_source::CrudScope), so its data source lists and
+changes only the entities below the parent's entity, and new entities get the reference if their model has the field.
 The nested instance needs its own outlet and dialogs, and its views sit below the parent's heading:
 
 ```no_run
@@ -578,6 +586,77 @@ fn nested_players() -> FieldRenderer<DynUpdateField> {
 
 The renderer's [`CrudFieldState`](hooks::CrudFieldState) tells whether the parent is edited (`state.mode`): in a read
 view, an application typically shows the nested entities without the controls changing them.
+
+A parent that the application knows from elsewhere, e.g. from its route, goes into the configured scope:
+`CrudInstanceConfig { scope: CrudScope::default().with_parent("club_id", IdValue::I64(club_id)), .. }`.
+
+# Data sources
+
+An instance reads and changes its resource through a
+[`CrudDataSource`](crudkit_web::data_source::CrudDataSource): it lists, reads, creates, updates, and deletes entities,
+each within the instance's [`CrudScope`](crudkit_web::data_source::CrudScope). The scope holds the parents of the
+entities and the instance's base condition. [`CrudInstanceConfig::new`](config::CrudInstanceConfig::new) uses the
+REST data source of `crudkit-rs`, which turns the scope into conditions. To show a resource of another API, e.g. a
+typed client of your own HTTP API, implement the trait and pass it to
+[`CrudInstanceConfig::with_data_source`](config::CrudInstanceConfig::with_data_source). Such a source converts between
+the API's types and the resource's models, puts the scope's parents where the API expects them, and refuses what it
+cannot do, e.g. a condition, with `RequestError::InvalidRequest`:
+
+```no_run
+# crudkit_leptos::__doc_example!();
+use crudkit_leptos::crudkit_web::data_source::async_trait;
+
+/// The players of an API that lists them below their club, at `/clubs/{club_id}/players`.
+#[derive(Debug)]
+struct PlayersApi;
+
+#[async_trait(?Send)]
+impl CrudDataSource for PlayersApi {
+    fn resource_name(&self) -> &str {
+        "players"
+    }
+
+    fn can_order_by(&self, field: &DynReadField) -> bool {
+        field.name() == "name"
+    }
+
+    async fn list(
+        &self,
+        scope: &CrudScope,
+        request: CrudListRequest,
+    ) -> Result<CrudPage, RequestError> {
+        let Some(IdValue::I64(club_id)) = scope.parent("club_id") else {
+            return Err(RequestError::InvalidRequest("players live below a club".to_owned()));
+        };
+        // Request `/clubs/{club_id}/players`, the page after `request.cursor`, and convert the
+        // answer into read models.
+        let _path = format!("/clubs/{club_id}/players?limit={}", request.limit);
+        let (players, next): (Vec<ReadPlayer>, Option<String>) = (Vec::new(), None);
+        Ok(CrudPage {
+            entities: players.into_iter().map(DynReadModel::from).collect(),
+            paging: CrudPaging::Cursor { next: next.map(CrudCursor::new) },
+        })
+    }
+
+    // `read`, `create`, `update`, and `delete` work alike.
+#     async fn read(&self, _: &CrudScope, _: &SerializableId)
+#     -> Result<Option<DynReadModel>, RequestError> { unimplemented!() }
+#     async fn create(&self, _: &CrudScope, _: DynCreateModel)
+#     -> Result<Saved<DynUpdateModel>, RequestError> { unimplemented!() }
+#     async fn update(&self, _: &CrudScope, _: &SerializableId, _: DynUpdateModel)
+#     -> Result<Saved<DynUpdateModel>, RequestError> { unimplemented!() }
+#     async fn delete(&self, _: &CrudScope, _: &SerializableId)
+#     -> Result<Deleted, RequestError> { unimplemented!() }
+}
+
+fn players_of_the_api() -> CrudInstanceConfig {
+    CrudInstanceConfig::with_data_source::<CrudPlayerResource>(std::sync::Arc::new(PlayersApi))
+}
+# fn main() {}
+```
+
+A page ends either with the total of the list, when the data source pages by offset, or with the cursor of the next
+page, when it pages by cursor. `delete_many` deletes one entity after the other unless the data source overrides it.
 
 # Views and navigation
 

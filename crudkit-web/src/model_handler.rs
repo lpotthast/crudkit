@@ -10,7 +10,7 @@ use crudkit_core::Value;
 /// Resource-specific operations on the erased models of one resource.
 ///
 /// The handler closes over the resource's concrete create, read, and update model types, so code
-/// that only holds erased models, such as a mounted instance or the dynamic data provider, stays
+/// that only holds erased models, such as a mounted instance or the REST data source, stays
 /// non-generic. It can only be built by [`Self::new`], which ties every operation to the same
 /// three types.
 #[derive(Debug, Clone, Copy)]

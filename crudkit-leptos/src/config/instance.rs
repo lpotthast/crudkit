@@ -2,7 +2,7 @@ use crate::config::CrudViewRegistry;
 use crate::config::FieldRendererRegistry;
 use crate::config::{CrudAction, CrudEntityAction};
 use crudkit_core::Order;
-use crudkit_core::condition::Condition;
+use crudkit_web::data_source::{CrudDataSource, CrudRestDataSource, CrudScope};
 use crudkit_web::field::HeaderOptions;
 use crudkit_web::http::ReqwestExecutor;
 use crudkit_web::list::{ItemsPerPage, PageNr};
@@ -46,12 +46,11 @@ impl From<(DynReadField, HeaderOptions)> for Header {
 /// The first group of fields seeds the instance's reactive state when it mounts and is restored
 /// by [`CrudInstanceContext::reset`](crate::instance::CrudInstanceContext::reset) where
 /// applicable. The second group is treated as static for the lifetime of the mount. Start from
-/// [`CrudInstanceConfig::new`] and complete it with struct update syntax.
+/// [`CrudInstanceConfig::new`] or [`CrudInstanceConfig::with_data_source`] and complete it with
+/// struct update syntax.
 #[derive(Debug, Clone)]
 pub struct CrudInstanceConfig {
     /* Later to-be mutable data. */
-    /// Base URL of the CrudKit API. Requests go to `{api_base_url}/{resource_name}/crud/v1/...`.
-    pub api_base_url: String,
     /// View used to initialize instance-owned navigation and as the reset destination.
     pub initial_view: CrudView,
     /// Columns of the list view, in display order.
@@ -61,21 +60,23 @@ pub struct CrudInstanceConfig {
     /// Layout of the edit and read views, both of which render the update model.
     pub elements: UpdateElements,
     /// Initial ordering of the list, restored on reset. Earlier entries take precedence; an empty
-    /// map leaves the order to the server.
+    /// map leaves the order to the data source. Fields the data source cannot order by are left
+    /// out.
     pub order_by: IndexMap<DynReadField, Order>,
     /// The number of items shown per page in the list view.
     pub items_per_page: ItemsPerPage,
-    /// The current page to display, e.g. `PageNr::first()`. One-based index.
+    /// The current page to display, e.g. `PageNr::first()`. One-based index. A list whose data
+    /// source pages by cursor starts at the first page.
     pub page_nr: PageNr,
-    /// Condition restricting every list, count, read, and update request of the instance. A
-    /// parent condition derived from [`CrudParentConfig`] is combined with it.
-    pub base_condition: Option<Condition>,
+    /// The parents of the instance's entities, e.g. from the application's route, and the base
+    /// condition, which restricts every operation of the instance except creation. The instance
+    /// passes it to every operation of its data source. A [`CrudParentConfig`] adds the parent's
+    /// ID to its parents.
+    pub scope: CrudScope,
 
     /* Immutable data */
-    /// Name of the resource, used as path segment of its API routes.
-    pub resource_name: String,
-    /// Executor sending the instance's HTTP requests.
-    pub reqwest_executor: Arc<dyn ReqwestExecutor>,
+    /// Where the instance reads and changes its entities.
+    pub data_source: Arc<dyn CrudDataSource>,
     /// Type-erased access to the resource's concrete create, read, and update models.
     pub model_handler: ModelHandler,
     /// Actions operating on the resource as a whole, offered by
@@ -98,12 +99,11 @@ pub struct CrudInstanceConfig {
 }
 
 impl CrudInstanceConfig {
-    /// Creates a configuration of resource `R`, served below `api_base_url` and requested through
-    /// `reqwest_executor`.
+    /// Creates a configuration of resource `R`, served by CrudKit's REST routes below
+    /// `api_base_url` (`{api_base_url}/{resource_name}/crud/v1/...`) and requested through
+    /// `reqwest_executor`. Its data source is a [`CrudRestDataSource`].
     ///
-    /// Everything else starts empty or at its default: no list columns, layouts, actions, or
-    /// registered field renderers, the table as initial view, and the view registry provided by
-    /// the application. Complete it with struct update syntax.
+    /// Everything else starts as [`Self::with_data_source`] describes.
     #[must_use]
     pub fn new<R>(
         api_base_url: impl Into<String>,
@@ -118,8 +118,31 @@ impl CrudInstanceConfig {
         <R::CreateModel as Model>::Field: ErasedCreateField,
         <R::UpdateModel as Model>::Field: ErasedUpdateField,
     {
+        Self::with_data_source::<R>(Arc::new(CrudRestDataSource::new(
+            api_base_url.into(),
+            reqwest_executor,
+            R::resource_name().to_owned(),
+            model_handler::<R>(),
+        )))
+    }
+
+    /// Creates a configuration of resource `R`, whose entities `data_source` reads and changes.
+    ///
+    /// Everything else starts empty or at its default: no list columns, layouts, actions, or
+    /// registered field renderers, an empty scope, the table as initial view, and the view
+    /// registry provided by the application. Complete it with struct update syntax.
+    #[must_use]
+    pub fn with_data_source<R>(data_source: Arc<dyn CrudDataSource>) -> Self
+    where
+        R: crudkit_web::resource::Resource,
+        R::CreateModel: ErasedCreateModel,
+        R::ReadModel: ErasedReadModel,
+        R::UpdateModel: ErasedUpdateModel + From<R::ReadModel>,
+        <R::ReadModel as Model>::Field: ErasedReadField,
+        <R::CreateModel as Model>::Field: ErasedCreateField,
+        <R::UpdateModel as Model>::Field: ErasedUpdateField,
+    {
         Self {
-            api_base_url: api_base_url.into(),
             initial_view: CrudView::default(),
             list_columns: Vec::new(),
             create_elements: Vec::new(),
@@ -127,10 +150,9 @@ impl CrudInstanceConfig {
             order_by: IndexMap::new(),
             items_per_page: ItemsPerPage::default(),
             page_nr: PageNr::default(),
-            base_condition: None,
-            resource_name: R::resource_name().to_owned(),
-            reqwest_executor,
-            model_handler: ModelHandler::new::<R::CreateModel, R::ReadModel, R::UpdateModel>(),
+            scope: CrudScope::default(),
+            data_source,
+            model_handler: model_handler::<R>(),
             actions: Vec::new(),
             entity_actions: Vec::new(),
             view_registry: None,
@@ -143,7 +165,6 @@ impl CrudInstanceConfig {
     pub(crate) fn split(self) -> (CrudMutableInstanceConfig, CrudStaticInstanceConfig) {
         (
             CrudMutableInstanceConfig {
-                api_base_url: self.api_base_url,
                 initial_view: self.initial_view,
                 headers: self.list_columns,
                 create_elements: self.create_elements,
@@ -151,11 +172,10 @@ impl CrudInstanceConfig {
                 order_by: self.order_by,
                 items_per_page: self.items_per_page,
                 page: self.page_nr,
-                base_condition: self.base_condition,
+                scope: self.scope,
             },
             CrudStaticInstanceConfig {
-                resource_name: self.resource_name,
-                reqwest_executor: self.reqwest_executor,
+                data_source: self.data_source,
                 model_handler: self.model_handler,
                 actions: self.actions,
                 entity_actions: self.entity_actions,
@@ -173,7 +193,6 @@ impl CrudInstanceConfig {
 
 #[derive(Debug, Clone)] // TODO: Serialize, Deserialize
 pub(crate) struct CrudMutableInstanceConfig {
-    pub api_base_url: String,
     pub initial_view: CrudView,
     pub headers: Vec<Header>,
     pub create_elements: CreateElements,
@@ -181,14 +200,13 @@ pub(crate) struct CrudMutableInstanceConfig {
     pub order_by: IndexMap<DynReadField, Order>,
     pub items_per_page: ItemsPerPage,
     pub page: PageNr,
-    pub base_condition: Option<Condition>,
+    pub scope: CrudScope,
 }
 
 /// This config is non-serializable. Every piece of runtime-changing data relevant to be tracked and reloaded should be part of the `CrudInstanceConfig` struct.
 #[derive(Debug, Clone)]
 pub(crate) struct CrudStaticInstanceConfig {
-    pub resource_name: String,
-    pub reqwest_executor: Arc<dyn ReqwestExecutor>,
+    pub data_source: Arc<dyn CrudDataSource>,
     pub model_handler: ModelHandler,
     pub actions: Vec<CrudAction>,
     pub entity_actions: Vec<CrudEntityAction>,
@@ -200,8 +218,10 @@ pub(crate) struct CrudStaticInstanceConfig {
 
 /// Scopes a nested instance to the entity shown by another instance under the same manager.
 ///
-/// The child restricts its requests to entities whose `referencing_field` equals the parent's
-/// `referenced_field` and prefills that field in new entities.
+/// The child adds the parent's ID to the parents of its [`CrudScope`]: the value of the parent's
+/// `referenced_field`, referred to through the child's `referencing_field`. Its data source keeps
+/// every operation below that parent, and new entities get the value in their `referencing_field`
+/// if the create model has that field.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CrudParentConfig {
     /// The name of the parent instance from which the referenced id should be loaded.
@@ -219,3 +239,17 @@ pub type UpdateElements = Vec<Elem<DynUpdateField>>;
 
 /// Layout of the create view: a sequence of fields, separators, and enclosing groups.
 pub type CreateElements = Vec<Elem<DynCreateField>>;
+
+/// Returns the model handler of the concrete models of resource `R`.
+fn model_handler<R>() -> ModelHandler
+where
+    R: crudkit_web::resource::Resource,
+    R::CreateModel: ErasedCreateModel,
+    R::ReadModel: ErasedReadModel,
+    R::UpdateModel: ErasedUpdateModel + From<R::ReadModel>,
+    <R::ReadModel as Model>::Field: ErasedReadField,
+    <R::CreateModel as Model>::Field: ErasedCreateField,
+    <R::UpdateModel as Model>::Field: ErasedUpdateField,
+{
+    ModelHandler::new::<R::CreateModel, R::ReadModel, R::UpdateModel>()
+}

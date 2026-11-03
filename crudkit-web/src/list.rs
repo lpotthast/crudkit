@@ -1,5 +1,6 @@
 //! UI-independent list state: pagination, ordering, and selection.
 
+use crate::data_source::CrudCursor;
 use crudkit_core::Order;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -123,6 +124,59 @@ impl PageOptions {
                 .collect()
         };
         Self { options }
+    }
+}
+
+/// The cursors of the pages of a list paged by cursor that the list reached, so that it can open
+/// them again.
+///
+/// The first page needs no cursor. Every further page opens with the cursor that the page before
+/// it ended with, so a list reaches a page only by paging forward to it. Cursors depend on the
+/// list's ordering, page size, and scope, so the owner clears them when one of these changes.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PageCursors {
+    /// The cursor opening page `n` at index `n - 2`.
+    cursors: Vec<CrudCursor>,
+}
+
+impl PageCursors {
+    /// Returns the cursor that opens `page`. `None` for the first page, and for pages the list
+    /// did not reach.
+    #[must_use]
+    pub fn cursor_of(&self, page: PageNr) -> Option<&CrudCursor> {
+        let index = usize::try_from(page.0.checked_sub(2)?).ok()?;
+        self.cursors.get(index)
+    }
+
+    /// Returns whether the list can open `page`: the first page, and every page whose cursor is
+    /// known.
+    #[must_use]
+    pub fn reaches(&self, page: PageNr) -> bool {
+        page.0 <= 1 || self.cursor_of(page).is_some()
+    }
+
+    /// Records the cursor `next` with which `page` ended, which opens the page after it.
+    ///
+    /// Forgets the cursors of the pages beyond that, because they change when entities are added or
+    /// deleted. Ignores pages the list did not reach.
+    pub fn record(&mut self, page: PageNr, next: Option<CrudCursor>) {
+        if !self.reaches(page) {
+            return;
+        }
+        let known = usize::try_from(page.0.saturating_sub(1)).unwrap_or(usize::MAX);
+        self.cursors.truncate(known);
+        self.cursors.extend(next);
+    }
+
+    /// Returns whether no cursor is known, as for a list paged by offset.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.cursors.is_empty()
+    }
+
+    /// Forgets every cursor.
+    pub fn clear(&mut self) {
+        self.cursors.clear();
     }
 }
 
@@ -326,6 +380,45 @@ mod tests {
     fn page_options_clamp_an_out_of_range_current_page() {
         assert_that!(numbers(&PageOptions::new(42, PageNr(100))))
             .is_equal_to(numbers(&PageOptions::new(42, PageNr(42))));
+    }
+
+    fn cursor(name: &str) -> CrudCursor {
+        CrudCursor::new(name)
+    }
+
+    #[test]
+    fn page_cursors_open_the_pages_the_list_paged_forward_to() {
+        let mut cursors = PageCursors::default();
+        assert_that!(cursors.reaches(PageNr(1))).is_true();
+        assert_that!(cursors.reaches(PageNr(2))).is_false();
+
+        cursors.record(PageNr(1), Some(cursor("a")));
+        cursors.record(PageNr(2), Some(cursor("b")));
+        assert_that!(cursors.cursor_of(PageNr(1))).is_none();
+        assert_that!(cursors.cursor_of(PageNr(2))).is_equal_to(Some(&cursor("a")));
+        assert_that!(cursors.cursor_of(PageNr(3))).is_equal_to(Some(&cursor("b")));
+        assert_that!(cursors.reaches(PageNr(4))).is_false();
+
+        // Pages the list did not reach are not recorded.
+        cursors.record(PageNr(9), Some(cursor("z")));
+        assert_that!(cursors.reaches(PageNr(10))).is_false();
+    }
+
+    #[test]
+    fn page_cursors_forget_the_pages_beyond_a_page_loaded_again() {
+        let mut cursors = PageCursors::default();
+        cursors.record(PageNr(1), Some(cursor("a")));
+        cursors.record(PageNr(2), Some(cursor("b")));
+        cursors.record(PageNr(3), Some(cursor("c")));
+
+        // Reloading the second page found a new cursor of the third.
+        cursors.record(PageNr(2), Some(cursor("b2")));
+        assert_that!(cursors.cursor_of(PageNr(3))).is_equal_to(Some(&cursor("b2")));
+        assert_that!(cursors.reaches(PageNr(4))).is_false();
+
+        // The first page became the last one.
+        cursors.record(PageNr(1), None);
+        assert_that!(cursors.is_empty()).is_true();
     }
 
     #[test]

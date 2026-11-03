@@ -124,8 +124,10 @@ Conventions:
   `Value::Null`; input the codec rejects becomes an input error of the form and leaves the value unchanged. Text that
   does not parse yet is kept while the user types.
 - `use_crud_table` renders a `CrudListState` through Leptonic's table hooks as an ARIA grid. Ordering and selection
-  stay owned by CrudKit and are bound into Leptonic's table state. A header press replaces the ordering with that
-  column; secondary ordering is available through `CrudOrderingState::toggle` with `append`.
+  stay owned by CrudKit and are bound into Leptonic's table state. A column sorts if its header options allow it and
+  the instance's data source can order by its field ([Data Sources](data-sources.md#ordering)). A header press
+  replaces the ordering with that column; secondary ordering is available through `CrudOrderingState::toggle` with
+  `append`.
 - `use_crud_tab_selection` binds a layout's tab group to Leptonic's `Tabs`. The instance remembers the selected tab of
   every tab group, so the selection survives re-rendering a layout and carries over between views whose layouts use
   the same tab IDs.
@@ -166,6 +168,11 @@ cells the application renders; `row_action` (`CrudRowAction`) decides what activ
 cells expose the column's kind of value as `data-kind`, like `CrudValue`, so number columns can be aligned. Like
 Leptonic's table atoms, rows, column headers, and cells expose `data-focus-visible` and `data-hovered`, and a cell
 renders again when its column moves, e.g. when the table's columns change.
+
+The pagination atoms follow how the list's data source pages ([Data Sources](data-sources.md#pages)). A list paged by
+offset knows its total and offers every page: `CrudPaginationState::page_options` lists them, and `range` describes
+the current one. A list paged by cursor knows no total, so it offers no page numbers and no range, and
+`CrudPageButtons` renders nothing. Its previous and next buttons page through the cursors.
 
 `CrudListStatus` and `CrudEntityStatus` are polite live regions that stay rendered, empty while there is nothing to
 explain: screen readers announce changes of a live region's content, but rarely the content of a new one.
@@ -239,9 +246,11 @@ unmounted still notify, through the application's notifier, without an origin.
 
 ## Testing
 
-State hooks are unit-tested on a native single-threaded executor against an in-memory server. The crate-private
-`test_support` module provides this setup: `with_crud_manager` runs a test below a manager, `CrudTestServer` answers
-CrudKit's requests from a handler and records them, and `settle` runs pending tasks. The test dev-dependencies enable
+State hooks are unit-tested on a native single-threaded executor against data in memory. The crate-private
+`test_support` module provides this setup: `with_crud_manager` runs a test below a manager, `MemorySource` is a data
+source of items in memory, paged by offset or by cursor, which records every operation with its scope,
+`CrudTestServer` answers the requests of the REST data source from a handler and records them, and `settle` runs
+pending tasks. The test dev-dependencies enable
 `reactive_graph`'s `effects` feature, because Leptos only runs effects in client builds.
 
 The atoms' markup (elements, default classes, data attributes, misplacement panics) is tested by rendering atoms to

@@ -3,6 +3,7 @@
 use crate::hooks::instance::use_crud_instance;
 use crate::instance::CrudInstanceContext;
 use crudkit_core::Order;
+use crudkit_web::data_source::{CrudListRequest, CrudPage, CrudPaging};
 use crudkit_web::http::RequestError;
 use crudkit_web::list::{self, ItemsPerPage, PageNr, PageOptions, Selection};
 use crudkit_web::load_state::LoadState;
@@ -23,7 +24,8 @@ pub struct CrudListState {
     pub has_rows: Signal<bool>,
     /// Whether the list shows rows, or why not.
     pub status: Signal<CrudListLoadStatus>,
-    /// Total number of entities matching the instance's base condition, once known.
+    /// Total number of entities in the instance's scope, once known. Stays unknown while the
+    /// data source pages by cursor.
     pub item_count: Signal<Option<u64>>,
     /// Paging of the list.
     pub pagination: CrudPaginationState,
@@ -84,37 +86,42 @@ pub fn use_crud_list_state() -> CrudListState {
         let _ = ctx.reload.get();
         let items_per_page = ctx.items_per_page.get();
         let page = ctx.current_page.get();
-        ctx.data_provider
-            .get()
-            .read_many(ReadMany {
-                limit: Some(items_per_page.0),
-                skip: Some(page.skip(items_per_page)),
-                order_by: Some(ctx.order_by.get()),
-                condition: ctx.base_condition.get(),
-            })
-            .await
+        let scope = ctx.scope.get();
+        let request = CrudListRequest {
+            limit: items_per_page.0,
+            offset: page.skip(items_per_page),
+            // Untracked, so that recording the cursor of the next page loads nothing again.
+            cursor: ctx
+                .cursors
+                .try_with_value(|cursors| cursors.cursor_of(page).cloned())
+                .flatten(),
+            order_by: ctx.order_by.get(),
+        };
+        let result = ctx.data_source().list(&scope, request).await;
+        if let Ok(CrudPage {
+            paging: CrudPaging::Cursor { next },
+            ..
+        }) = &result
+        {
+            // The instance may have been unmounted while the request was in flight.
+            ctx.cursors
+                .try_update_value(|cursors| cursors.record(page, next.clone()));
+        }
+        LoadedPage::new(page, result)
     });
 
     let rows = Memo::new(move |_prev| match page_resource.get() {
-        Some(result) => LoadState::from(result.map(Arc::new)),
+        Some(loaded) => loaded.entities,
         None => LoadState::Loading,
     });
-
-    let count_resource = LocalResource::new(move || async move {
-        let _ = ctx.reload.get();
-        ctx.data_provider
+    let loaded_paging = Memo::new(move |_prev| {
+        page_resource
             .get()
-            .read_count(ReadCount {
-                condition: ctx.base_condition.get(),
-            })
-            .await
+            .and_then(|loaded| Some((loaded.page, loaded.paging?)))
     });
-    let item_count = Signal::derive(move || {
-        count_resource.get().and_then(|result| {
-            result
-                .inspect_err(|err| tracing::warn!(%err, "could not count entities"))
-                .ok()
-        })
+    let item_count = Signal::derive(move || match loaded_paging.get() {
+        Some((_, CrudPaging::Offset { total })) => Some(total),
+        Some((_, CrudPaging::Cursor { .. })) | None => None,
     });
 
     let has_rows =
@@ -131,9 +138,37 @@ pub fn use_crud_list_state() -> CrudListState {
         has_rows,
         status: status.into(),
         item_count,
-        pagination: CrudPaginationState::new(&ctx, item_count),
+        pagination: CrudPaginationState::new(&ctx, loaded_paging, item_count, has_rows),
         ordering: CrudOrderingState { ctx },
         selection: CrudSelectionState::new(rows.into()),
+    }
+}
+
+/// The outcome of loading one page of a list.
+#[derive(Debug, Clone, PartialEq)]
+struct LoadedPage {
+    /// The page that was requested.
+    page: PageNr,
+    /// The entities of the page.
+    entities: LoadState<Arc<Vec<DynReadModel>>>,
+    /// How the page relates to the rest of the list. `None` if loading failed.
+    paging: Option<CrudPaging>,
+}
+
+impl LoadedPage {
+    fn new(page: PageNr, result: Result<CrudPage, RequestError>) -> Self {
+        match result {
+            Ok(CrudPage { entities, paging }) => Self {
+                page,
+                entities: LoadState::Loaded(Arc::new(entities)),
+                paging: Some(paging),
+            },
+            Err(error) => Self {
+                page,
+                entities: LoadState::Failed(error),
+                paging: None,
+            },
+        }
     }
 }
 
@@ -149,25 +184,35 @@ pub struct CrudPageRange {
 }
 
 /// Paging of a list. Page and page size are owned by the instance.
+///
+/// A list whose data source pages by offset knows its total and offers every page. A list whose
+/// data source pages by cursor knows no total, so it offers only the previous and the next page.
 #[derive(Debug, Clone, Copy)]
 pub struct CrudPaginationState {
     ctx: CrudInstanceContext,
+    /// The loaded page and how it relates to the rest of the list, once loaded.
+    loaded_paging: Memo<Option<(PageNr, CrudPaging)>>,
     /// The currently displayed page.
     pub page: Signal<PageNr>,
     /// The number of entities per page.
     pub items_per_page: Signal<ItemsPerPage>,
-    /// Total number of entities, once known.
+    /// Total number of entities, once known. Stays unknown while the data source pages by cursor.
     pub item_count: Signal<Option<u64>>,
     /// Number of pages. Zero while the count is unknown or no entity exists.
     pub page_count: Signal<u64>,
-    /// Pages a pagination control should offer.
+    /// Pages a pagination control should offer. Empty while the count is unknown.
     pub page_options: Signal<PageOptions>,
     /// Page sizes a page size control should offer. Always contains the current page size.
     pub items_per_page_options: Signal<Vec<ItemsPerPage>>,
 }
 
 impl CrudPaginationState {
-    fn new(ctx: &CrudInstanceContext, item_count: Signal<Option<u64>>) -> Self {
+    fn new(
+        ctx: &CrudInstanceContext,
+        loaded_paging: Memo<Option<(PageNr, CrudPaging)>>,
+        item_count: Signal<Option<u64>>,
+        has_rows: Signal<bool>,
+    ) -> Self {
         let page: Signal<PageNr> = ctx.current_page.into();
         let items_per_page: Signal<ItemsPerPage> = ctx.items_per_page.into();
         let page_count = Signal::derive(move || {
@@ -175,6 +220,7 @@ impl CrudPaginationState {
         });
         let this = Self {
             ctx: *ctx,
+            loaded_paging,
             page,
             items_per_page,
             item_count,
@@ -186,9 +232,15 @@ impl CrudPaginationState {
         };
         // Deleting entities, here or elsewhere, can leave the current page beyond the last one.
         Effect::new(move || {
-            page.track();
-            if let Some(item_count) = item_count.get() {
-                this.clamp_page(item_count, items_per_page.get_untracked());
+            let current = page.get();
+            match loaded_paging.get() {
+                Some((_, CrudPaging::Offset { total })) => {
+                    this.clamp_page(total, items_per_page.get_untracked());
+                }
+                Some((loaded, CrudPaging::Cursor { .. })) if loaded == current => {
+                    this.step_back_from_unreachable_page(current, has_rows.get());
+                }
+                Some((_, CrudPaging::Cursor { .. })) | None => {}
             }
         });
         this
@@ -200,6 +252,9 @@ impl CrudPaginationState {
     }
 
     /// Changes the page size and keeps the current page within the new page range.
+    ///
+    /// A list paged by cursor starts over at the first page, because its cursors depend on the
+    /// page size.
     pub fn set_items_per_page(&self, items_per_page: ItemsPerPage) {
         self.ctx.set_items_per_page(items_per_page);
         if let Some(item_count) = self.item_count.get_untracked() {
@@ -213,6 +268,26 @@ impl CrudPaginationState {
         let clamped = current.clamp_to(list::page_count(item_count, items_per_page));
         if clamped != current {
             self.ctx.set_page(clamped);
+        }
+    }
+
+    /// Leaves the loaded page `current` of a list paged by cursor when the list cannot show it:
+    /// for the first page when the list did not reach it by paging forward, e.g. when the
+    /// configured page is not the first, and for the previous page when it is empty, e.g. after
+    /// its entities were deleted.
+    fn step_back_from_unreachable_page(&self, current: PageNr, has_rows: bool) {
+        if current.0 <= 1 {
+            return;
+        }
+        let reached = self
+            .ctx
+            .cursors
+            .try_with_value(|cursors| cursors.reaches(current))
+            .unwrap_or_default();
+        if !reached {
+            self.ctx.set_page(PageNr::first());
+        } else if !has_rows {
+            self.ctx.set_page(PageNr(current.0 - 1));
         }
     }
 
@@ -238,10 +313,15 @@ impl CrudPaginationState {
         self.page.get().0 > 1
     }
 
-    /// Returns whether a page after the current one exists.
+    /// Returns whether a page after the current one exists: within the page count of a list
+    /// paged by offset, and while the loaded page ends with a cursor in a list paged by cursor.
     #[must_use]
     pub fn has_next(&self) -> bool {
-        self.page.get().0 < self.page_count.get()
+        let page = self.page.get();
+        match self.loaded_paging.get() {
+            Some((loaded, CrudPaging::Cursor { next })) => loaded == page && next.is_some(),
+            Some((_, CrudPaging::Offset { .. })) | None => page.0 < self.page_count.get(),
+        }
     }
 
     /// Shows the previous page, if any.
@@ -254,20 +334,28 @@ impl CrudPaginationState {
 
     /// Shows the next page, if any.
     pub fn next(&self) {
-        let page = self.page.get_untracked();
-        if page.0 < self.page_count.get_untracked() {
+        if untrack(|| self.has_next()) {
+            let page = self.page.get_untracked();
             self.set_page(PageNr(page.0 + 1));
         }
     }
 }
 
 /// Ordering of a list. The ordering is owned by the instance.
+///
+/// The list orders only by fields its data source can order by, and ignores the others.
 #[derive(Debug, Clone, Copy)]
 pub struct CrudOrderingState {
     ctx: CrudInstanceContext,
 }
 
 impl CrudOrderingState {
+    /// Returns whether the instance's data source can order the list by `field`.
+    #[must_use]
+    pub fn can_order_by(&self, field: &DynReadField) -> bool {
+        self.ctx.can_order_by(field)
+    }
+
     /// Returns the ordering, in priority order.
     #[must_use]
     pub fn order_by(&self) -> Signal<IndexMap<DynReadField, Order>> {
@@ -280,8 +368,11 @@ impl CrudOrderingState {
         self.ctx.order_by.read().get(field).copied()
     }
 
-    /// Orders by `field` only, in `order`.
+    /// Orders by `field` only, in `order`. Ignored if the data source cannot order by `field`.
     pub fn set(&self, field: DynReadField, order: Order) {
+        if !self.orderable(&field) {
+            return;
+        }
         let mut order_by = IndexMap::new();
         order_by.insert(field, order);
         self.ctx.set_order_by(order_by);
@@ -292,12 +383,27 @@ impl CrudOrderingState {
         self.ctx.set_order_by(IndexMap::new());
     }
 
-    /// Toggles `field` between ascending and descending order.
+    /// Toggles `field` between ascending and descending order. Ignored if the data source cannot
+    /// order by `field`.
     ///
     /// Without `append`, `field` replaces any existing ordering. With `append`, it is added as the
     /// lowest-priority ordering criterion.
     pub fn toggle(&self, field: DynReadField, append: bool) {
-        self.ctx.toggle_order_by(field, append);
+        if self.orderable(&field) {
+            self.ctx.toggle_order_by(field, append);
+        }
+    }
+
+    /// Returns whether the data source can order by `field`, and reports it if not.
+    fn orderable(&self, field: &DynReadField) -> bool {
+        let orderable = self.can_order_by(field);
+        if !orderable {
+            tracing::warn!(
+                ?field,
+                "the data source cannot order by this field; ignoring it"
+            );
+        }
+        orderable
     }
 }
 
