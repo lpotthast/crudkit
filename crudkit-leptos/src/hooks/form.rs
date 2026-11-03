@@ -493,7 +493,7 @@ fn update_action(
                             .await
                     }
                     Err(e) => Err(RequestError::InvalidRequest(format!(
-                        "ID contains unsupported field types: {e:?}"
+                        "Invalid entity ID: {e}"
                     ))),
                 };
                 notify.outcome(&result, |texts| &texts.saved, |texts| &texts.update_failed);
@@ -781,7 +781,7 @@ fn use_entity(
             Ok(condition) => condition,
             Err(e) => {
                 return Err(RequestError::InvalidRequest(format!(
-                    "ID contains unsupported field types: {e:?}"
+                    "Invalid entity ID: {e}"
                 )));
             }
         };

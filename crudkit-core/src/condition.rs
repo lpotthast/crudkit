@@ -285,6 +285,7 @@ where
 
 /// Reasons why entity IDs cannot be turned into a condition matching exactly them.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum IdConditionError {
     /// No ID was supplied.
     #[error("no entity IDs were supplied")]
