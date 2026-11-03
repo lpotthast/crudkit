@@ -187,6 +187,8 @@ pub fn context<P: CrudAuthPolicy>(
 #[derive(Default)]
 pub struct MemoryRepository {
     accounts: Mutex<Vec<Account>>,
+    /// The IDs of the accounts that other data references, so that deleting them fails.
+    referenced: Mutex<Vec<i64>>,
     calls: AtomicUsize,
 }
 
@@ -215,8 +217,17 @@ impl MemoryRepository {
     pub fn with(accounts: Vec<Account>) -> Self {
         Self {
             accounts: Mutex::new(accounts),
+            referenced: Mutex::new(Vec::new()),
             calls: AtomicUsize::new(0),
         }
+    }
+
+    /// Lets deleting the account `id` fail like a foreign key constraint of a database.
+    pub fn reference(&self, id: i64) {
+        self.referenced
+            .lock()
+            .expect("references should not be poisoned")
+            .push(id);
     }
 
     pub fn accounts(&self) -> Vec<Account> {
@@ -430,6 +441,16 @@ impl<P: CrudAuthPolicy> Repository<Accounts<P>> for MemoryRepository {
         model: Account,
     ) -> impl Future<Output = Result<DeleteResult, Self::Error>> + Send {
         self.calls.fetch_add(1, Ordering::SeqCst);
+        let referenced = self
+            .referenced
+            .lock()
+            .expect("references should not be poisoned")
+            .contains(&model.id);
+        if referenced {
+            return ready(Err(MemoryRepositoryError::Constraint {
+                detail: format!("Key (secret)=({}) is still referenced.", model.secret),
+            }));
+        }
         let mut accounts = self.lock();
         let before = accounts.len();
         accounts.retain(|account| account.id != model.id);

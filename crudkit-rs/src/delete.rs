@@ -338,9 +338,15 @@ async fn delete_one_of_many<R: CrudResource>(
             return;
         }
         Err(HookError::Internal(err)) => {
+            tracing::warn!(
+                entity_id = %entity_id,
+                error = %err,
+                "A lifecycle hook failed while deleting an entity of a batch."
+            );
+            // Like a 500 response, the result names the failure without its details.
             result
                 .errors
-                .push((serializable_id.clone(), format!("Lifecycle error: {err}")));
+                .push((serializable_id.clone(), "Lifecycle error.".to_owned()));
             return;
         }
     };
@@ -389,9 +395,16 @@ async fn delete_one_of_many<R: CrudResource>(
             result.deleted_ids.push(serializable_id.clone());
         }
         Err(err) => {
+            tracing::warn!(
+                entity_id = %entity_id,
+                error = %err,
+                "Could not delete an entity of a batch."
+            );
+            // Like a 500 response, the result names the failure without its details, which can
+            // contain values of the entity.
             result
                 .errors
-                .push((serializable_id.clone(), format!("Delete error: {err:?}")));
+                .push((serializable_id.clone(), "Repository error.".to_owned()));
         }
     }
 }

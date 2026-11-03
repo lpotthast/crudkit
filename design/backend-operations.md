@@ -127,3 +127,6 @@ using a 50 MB budget and a heap-overhead multiplier, then clamps the result to 1
 Every entity is reported as deleted, hook-aborted, validation-failed, or errored. If a fetched batch produces no
 successful deletion, processing stops to avoid repeatedly fetching the same undeletable entities. This is a best-effort
 bulk operation, not an all-or-nothing transaction.
+
+An errored entity carries a generic reason, `Repository error.` or `Lifecycle error.`, as a 500 response does, because
+the details of a failure can contain values of the entity. The operation logs the error's `Display` text instead.
