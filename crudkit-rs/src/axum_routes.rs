@@ -64,8 +64,8 @@ impl From<CrudError> for AxumCrudError {
             CrudError::NotFound => Self::NotFound {
                 reason: "Not found".into(),
             },
-            CrudError::IntoCondition { .. } => Self::BadRequest {
-                reason: "Invalid query parameters".into(),
+            CrudError::InvalidId { source } => Self::BadRequest {
+                reason: format!("Invalid entity ID: {source}"),
             },
 
             // Server errors: use minimal generic messages.

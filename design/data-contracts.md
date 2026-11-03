@@ -89,9 +89,13 @@ and RFC 3339) instead of relying on the `time` crate's Cargo features. It does n
 a resource name, so callers must retain the resource context separately. Entry names and values are sufficient to
 reconstruct a typed ID only when `Id::from_serializable_id` accepts the complete shape.
 
-The backend delete-by-ID operation currently does not perform that reconstruction. It converts the supplied entries
-directly into equality clauses. An empty ID therefore produces a match-all condition, while a valid non-ID model field
-can become a selector. Operation boundaries must not currently treat arbitrary `SerializableId` input as validated.
+An ID selects an entity only through a condition with one equality clause per ID field, so the condition must never
+be weaker than the ID. Converting a `SerializableId` to a condition therefore fails for an ID without fields, because
+an empty `All` matches everything. It also fails for a field without a name or with an empty string as its value,
+because such a field identifies no entity. The backend delete-by-ID operation additionally reconstructs the
+resource's typed ID and refuses an ID that lacks, repeats, misnames, or mistypes a field, or that adds a field. It
+does so before the repository sees the request, and builds the condition from the reconstructed ID. Clients that
+select an entity for reading or updating build their ID condition with the same conversion.
 
 Read and update models implement `HasId`; create models normally do not. UI view subjects, entity change notifications,
 delete-by-ID requests, parent resolution, and validation storage all use the same `SerializableId` representation.
@@ -111,7 +115,7 @@ backend-specific predicate.
 
 `merge_conditions(a, b)` always combines two present conditions under a new `All`. Data-provider base conditions,
 nested-resource conditions, and entity-ID conditions therefore narrow one another. Converting an ID to a condition
-produces an `All` of equality clauses, one per ID component.
+produces an `All` of equality clauses, one per ID field; see [Identifiers](#identifiers).
 
 Not every `Value` or `IdValue` can be used in a condition. Field converters and storage adapters reject unsupported
 combinations with errors; see the [SeaORM adapter](sea-orm-adapter.md#unsupported-condition-cases).

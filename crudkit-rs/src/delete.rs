@@ -17,7 +17,7 @@ use crate::{
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
 };
-use crudkit_core::condition::{TryIntoAllEqualCondition, merge_conditions};
+use crudkit_core::condition::{condition_matching_id, merge_conditions};
 use crudkit_core::id::{Id, SerializableId};
 use crudkit_core::request::{DeleteById, DeleteMany, DeleteOne};
 use crudkit_core::validation::PartialSerializableAggregateViolations;
@@ -56,8 +56,9 @@ const fn calculate_batch_size<M>() -> u64 {
 ///
 /// # Errors
 ///
-/// Returns `CrudError::IntoCondition` if the ID cannot be turned into a condition,
-/// `CrudError::NotFound` if no entity with that ID matches the condition, `CrudError::Repository` if fetching or deleting
+/// Returns `CrudError::InvalidId` before the repository is asked if the ID does not consist of
+/// exactly the fields of the resource's ID, e.g. because it has no fields, `CrudError::NotFound` if
+/// no entity with that ID matches the condition, `CrudError::Repository` if fetching or deleting
 /// fails, `CrudError::Forbidden`, `CrudError::UnprocessableEntity`, or
 /// `CrudError::LifecycleHookError` if a lifecycle hook rejects the operation or fails, or
 /// `CrudError::CriticalValidationErrors` if validation blocks the deletion.
@@ -71,12 +72,8 @@ pub async fn delete_by_id<R: CrudResource>(
     context: Arc<CrudContext<R>>,
     body: DeleteById,
 ) -> Result<Deleted, CrudError> {
-    let id_condition = body
-        .id
-        .clone()
-        .into_entries()
-        .try_into_all_equal_condition()
-        .map_err(|err| CrudError::IntoCondition { source: err })?;
+    let id_condition = condition_matching_id::<R::Id>(&body.id)
+        .map_err(|source| CrudError::InvalidId { source })?;
     let condition = merge_conditions(Some(id_condition), body.condition);
 
     let model = context

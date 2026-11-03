@@ -1,5 +1,5 @@
 use crate::repository::RepositoryError;
-use crudkit_core::condition::IntoAllEqualConditionError;
+use crudkit_core::condition::IdConditionError;
 use crudkit_core::validation::PartialSerializableAggregateViolations;
 use snafu::Snafu;
 use std::sync::Arc;
@@ -54,11 +54,11 @@ pub enum CrudError {
     // =========================================================================
     // Client Errors (HTTP 400)
     // =========================================================================
-    /// Could not convert to condition (invalid query parameters).
+    /// The entity ID of a request is not an ID of the resource, e.g. because it has no fields.
     ///
     /// Mapped to HTTP status 400 Bad Request.
-    #[snafu(display("Invalid query parameters: {source}"))]
-    IntoCondition { source: IntoAllEqualConditionError },
+    #[snafu(display("Invalid entity ID: {source}"))]
+    InvalidId { source: IdConditionError },
 
     // =========================================================================
     // Server Errors (HTTP 500)

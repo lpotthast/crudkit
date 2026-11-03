@@ -108,7 +108,9 @@ The typed provider applies its base condition to count, read-one, read-many, upd
 provider also applies it to delete-many. Neither provider applies it to create.
 
 `DeleteById` carries an optional `condition` next to the ID. The server deletes the entity only if it matches both;
-otherwise the request fails as not found. Requests without the field delete by ID alone.
+otherwise the request fails as not found. Requests without the field delete by ID alone. An ID that does not consist
+of exactly the fields of the resource's ID fails with 400 Bad Request before the repository sees the request; see
+[Data Contracts](data-contracts.md#identifiers).
 
 `CrudInstance` also builds conditions explicitly for its list, read, edit, update, parent, and delete behavior: single
 and mass deletions carry the instance's base and parent conditions, so a view cannot delete outside of what it shows.
@@ -125,15 +127,15 @@ Server-side hooks or repository constraints must enforce security-sensitive scop
 Every failed request answers with an `ErrorResponseV1` body. Its `error` is tagged by `kind`, and the generated
 routes pair each kind with an HTTP status:
 
-| Kind                         | Status | Meaning                                                       |
-|------------------------------|--------|---------------------------------------------------------------|
-| `bad_request`                | 400    | malformed body, unknown field, or unsupported condition       |
-| `unauthorized`               | 401    | required authentication missing                               |
-| `forbidden`                  | 403    | lifecycle authorization rejection                             |
-| `not_found`                  | 404    | selected entity not found                                     |
-| `unprocessable_entity`       | 422    | lifecycle business rejection                                  |
-| `critical_validation_errors` | 422    | critical validation; the body carries the violations          |
-| `internal_server_error`      | 500    | repository, lifecycle-internal, or validation-storage failure |
+| Kind                         | Status | Meaning                                                                    |
+|------------------------------|--------|----------------------------------------------------------------------------|
+| `bad_request`                | 400    | malformed body, unknown field, unsupported condition, or invalid entity ID |
+| `unauthorized`               | 401    | required authentication missing                                            |
+| `forbidden`                  | 403    | lifecycle authorization rejection                                          |
+| `not_found`                  | 404    | selected entity not found                                                  |
+| `unprocessable_entity`       | 422    | lifecycle business rejection                                               |
+| `critical_validation_errors` | 422    | critical validation; the body carries the violations                       |
+| `internal_server_error`      | 500    | repository, lifecycle-internal, or validation-storage failure              |
 
 A request body that axum cannot deserialize, including one of another wire format version, becomes `bad_request`
 instead of axum's plain-text rejection. The routes log every failed operation with the resource name and the

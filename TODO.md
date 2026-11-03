@@ -19,9 +19,10 @@ Priorities are relative:
   string input into `Value::String` rather than `Value::Json`.
 - [ ] **P1 - Align the condition wire domain with supported field values.** Decide which array and temporal values are
   supported, add the missing vector forms or narrow the public contract, and make string-to-type parsing explicit.
-- [ ] **P0 - Validate serialized IDs at server operation boundaries.** Reject empty, duplicate, missing, extra,
-  misnamed, and mistyped components before building an ID predicate. Delete-by-ID currently accepts arbitrary entries;
-  an empty `SerializableId` becomes a match-all condition. Add route tests for simple and composite IDs.
+- [ ] **P1 - Select the entity of an update by its ID.** `UpdateOneV1` selects its entity by a condition and has no
+  order, so a missing or match-all condition updates whichever entity the repository returns first. CrudKit's clients
+  refuse to build the condition from an empty ID, but the server cannot tell an ID condition from any other. Carry
+  the ID as delete-by-ID does, in a new wire format version, and validate it the same way.
 - [ ] **P1 - Return diagnostic ID reconstruction errors.** Replace the bare `Option` from
   `Id::from_serializable_id` with an error that identifies missing, extra, mistyped, or misnamed ID fields.
 - [ ] **P1 - Validate type-erased configuration before use.** Detect incompatible models, fields, handlers, renderers,
