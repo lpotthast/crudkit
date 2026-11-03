@@ -126,6 +126,19 @@ Current emission order is:
 Broadcast calls are awaited, so service latency is part of request latency. Delivery errors are logged and swallowed;
 they neither fail nor roll back the CRUD operation.
 
+### Audience
+
+Every message goes only to the clients that may read the resource it is about, because it names entities of that
+resource and may carry their validation findings. Next to each message, the operation passes the message's
+`Audience`: the resource name and the read requirement of the resource's `CrudAuthPolicy`. `Audience::admits` tells
+whether a client may receive the message. When reads are public, every client may. When reads require authentication,
+only clients that authenticated may. The service applies this rule to every connected client, and it may leave out
+more clients, e.g. by roles that the application checks for the resource.
+
+The audience is resource-wide. Rules that lifecycle hooks apply per request, such as a tenant filter in `before_read`,
+do not limit who receives a message. A client that may read the resource can therefore learn the IDs and validation
+findings of entities that its reads would not return.
+
 ## Consistency Guarantees
 
 Collaboration is best-effort invalidation and status notification. Messages have no revision, origin, correlation ID,

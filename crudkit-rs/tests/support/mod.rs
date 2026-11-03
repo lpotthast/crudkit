@@ -16,7 +16,6 @@ use crudkit_core::Value;
 use crudkit_core::condition::{
     Condition, ConditionClause, ConditionClauseValue, ConditionElement, Operator,
 };
-use crudkit_rs::collaboration::CollaborationService;
 use crudkit_rs::crudkit_wire_format::v1::CollabMessageV1;
 use crudkit_rs::data::{ConditionValueConverter, FieldLookup};
 use crudkit_rs::prelude::*;
@@ -407,9 +406,12 @@ impl CollaborationService for Clients {
     fn broadcast(
         &self,
         message: CollabMessageV1,
+        audience: Audience,
     ) -> impl Future<Output = Result<(), Self::Error>> + Send {
         for client in self.lock().iter_mut() {
-            client.received.push(message.clone());
+            if audience.admits(client.authenticated) {
+                client.received.push(message.clone());
+            }
         }
         ready(Ok(()))
     }

@@ -84,6 +84,7 @@ pub mod prelude {
     pub use super::error::CrudError;
 
     // Core types.
+    pub use super::collaboration::Audience;
     pub use super::collaboration::CollaborationService;
     pub use super::context::CrudContext;
     pub use super::resource::CrudResource;

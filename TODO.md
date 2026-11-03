@@ -82,6 +82,10 @@ Priorities are relative:
   failures. Choose an outbox/retry protocol or explicitly decouple best-effort notifications from durable events.
 - [ ] **P1 - Add collaboration identity and ordering.** Messages need enough revision, origin, correlation, and
   ordering information for receivers to reject stale state and deduplicate retries.
+- [ ] **P1 - Limit broadcasts to the entities a client may read.** A message reaches every client that may read its
+  resource (`Audience`), also when lifecycle hooks would hide the entity from that client, e.g. by tenant. Give
+  services each recipient's authentication, and let the resource decide per recipient and entity, e.g. through a
+  read-visibility policy that both `before_read` and broadcasts use.
 - [ ] **P1 - Add the frontend collaboration consumer.** Implement refetch/invalidation and validation-state handling,
   including duplicate, delayed, missing, and reordered messages.
 - [ ] **P1 - Define clear-state broadcasts consistently.** Specify when empty partial results are emitted, especially

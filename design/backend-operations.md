@@ -94,6 +94,9 @@ values out of its errors.
 For a public operation, `RequestContext::auth` may still contain authentication when the caller supplied it. For an
 authenticated operation, the generated route rejects a missing auth extension with 401 before invoking the operation.
 
+The read requirement also decides which clients receive collaboration messages about the resource; see
+[Validation and Collaboration](validation-and-collaboration.md#audience).
+
 Claims, roles, ownership, tenant membership, and entity-specific permission are deliberately outside `CrudAuthPolicy`.
 Lifecycle hooks inspect `RequestContext` and the fetched entity or mutable read request to enforce those rules. A
 client-side condition or hidden button is never an authorization boundary.
