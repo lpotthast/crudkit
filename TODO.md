@@ -43,6 +43,28 @@ Priorities are relative:
 - [ ] **P1 - Make provider scoping semantics uniform.** Decide whether a base condition is a general client scope and,
   if so, apply it consistently or expose explicitly unscoped operations. Delete-by-ID currently bypasses it. Keep
   authorization server-side regardless.
+- [ ] **P1 - Serve a product's typed, versioned REST API.** A product with typed, versioned REST APIs, such as
+  Agnite's `/v1`, should be able to build its resources on crudkit-rs and its sibling crates. CrudKit then serves the
+  product's public API without the product writing the routes by hand, while the product keeps its own records in the
+  same transaction. The product needs:
+  - typed routes: `GET`, `POST`, `PATCH`, and `DELETE` on resource paths as an alternative to the `POST` routes of the
+    wire format, with filters and sorting that a resource declares instead of the general condition language;
+  - nested resources: a server-side scope of parent IDs, in which each ID resolves inside its parent or the request
+    fails with 404;
+  - optimistic concurrency: an opaque version in `ETag` and `If-Match`, with 428 for a missing and 412 for a stale
+    version (see *Add an optimistic-concurrency contract* below);
+  - pages by cursor, without a total count;
+  - updates as JSON merge patches, in which `null` removes a field, with a message for each change;
+  - asynchronous outcomes: 202 with the resource in its new state, such as `deleting`;
+  - problem details (RFC 9457) with the paths of the fields, for validation failures and for refusals;
+  - transactions: every operation, hook, and repository call runs inside a transaction that the caller provides, so
+    that the product can write its own records in it, such as a change row with author, origin, and message;
+  - authorization by scope before any read, and a 404 that hides a resource the caller may not see;
+  - the product's own schema: no shared validation table, read views qualified by schema, and migrations that only
+    go forward;
+  - write-only fields, such as secret values, which are never read back, never `Debug`, and never traced;
+  - actions that are not CRUD, declared next to a resource, so that its routes and their documentation come from one
+    place.
 - [ ] **P2 - Consider a gRPC API next to the HTTP API.** Idea for later, not yet investigated: offer the CRUD
   operations over gRPC as well, built on the same versioned wire format as the HTTP routes.
 - [ ] **P2 - Decide whether the POST-only CRUD surface is permanent.** If it is, document infrastructure and caching
