@@ -587,26 +587,45 @@ fn nested_players() -> FieldRenderer<DynUpdateField> {
 The renderer's [`CrudFieldState`](hooks::CrudFieldState) tells whether the parent is edited (`state.mode`): in a read
 view, an application typically shows the nested entities without the controls changing them.
 
-A parent that the application knows from elsewhere, e.g. from its route, goes into the configured scope:
-`CrudInstanceConfig { scope: CrudScope::default().with_parent("club_id", IdValue::I64(club_id)), .. }`.
+A parent that the application knows from elsewhere, e.g. from its route, goes into the configured scope, a signal.
+When the scope changes, e.g. because only the route's parameters changed and the instance stayed mounted, the list
+starts over at its first page:
+
+```no_run
+# crudkit_leptos::__doc_example!();
+fn players_of_club(club_id: Signal<i64>) -> CrudInstanceConfig {
+    CrudInstanceConfig {
+        scope: Signal::derive(move || {
+            CrudScope::default().with_parent("club_id", IdValue::I64(club_id.get()))
+        }),
+        ..player_config()
+    }
+}
+# fn main() {}
+```
 
 # Data sources
 
 An instance reads and changes its resource through a
-[`CrudDataSource`](crudkit_web::data_source::CrudDataSource): it lists, reads, creates, updates, and deletes entities,
-each within the instance's [`CrudScope`](crudkit_web::data_source::CrudScope). The scope holds the parents of the
-entities and the instance's base condition. [`CrudInstanceConfig::new`](config::CrudInstanceConfig::new) uses the
-REST data source of `crudkit-rs`, which turns the scope into conditions. To show a resource of another API, e.g. a
-typed client of your own HTTP API, implement the trait and pass it to
+[`CrudDataSource`](crudkit_web::data_source::CrudDataSource). It lists, counts, reads, creates, updates, and deletes
+entities below the parents of the instance's [`CrudScope`](crudkit_web::data_source::CrudScope). Each operation takes
+a request and answers with an outcome of its own, e.g. a
+[`CrudUpdateRequest`](crudkit_web::data_source::CrudUpdateRequest) that holds the changed entity and the baseline that
+the user's change started from. [`CrudInstanceConfig::new`](config::CrudInstanceConfig::new) uses the REST data
+source of `crudkit-rs`, which turns the scope into conditions and may add a base condition of its own
+([`CrudRestDataSource::with_base_condition`](crudkit_web::data_source::CrudRestDataSource::with_base_condition)).
+
+To show a resource of another API, e.g. a typed client of your own HTTP API, implement the trait and pass it to
 [`CrudInstanceConfig::with_data_source`](config::CrudInstanceConfig::with_data_source). Such a source converts between
-the API's types and the resource's models, puts the scope's parents where the API expects them, and refuses what it
-cannot do, e.g. a condition, with `RequestError::InvalidRequest`:
+the API's types and the resource's models, puts the scope's parents where the API expects them, declares the fields
+it can order by, and refuses what it cannot do with `RequestError::InvalidRequest`:
 
 ```no_run
 # crudkit_leptos::__doc_example!();
 use crudkit_leptos::crudkit_web::data_source::async_trait;
 
-/// The players of an API that lists them below their club, at `/clubs/{club_id}/players`.
+/// The players of an API that lists them below their club, at `/clubs/{club_id}/players`, and
+/// sorts them by name with `?sort=name` or `?sort=-name`.
 #[derive(Debug)]
 struct PlayersApi;
 
@@ -628,25 +647,34 @@ impl CrudDataSource for PlayersApi {
         let Some(IdValue::I64(club_id)) = scope.parent("club_id") else {
             return Err(RequestError::InvalidRequest("players live below a club".to_owned()));
         };
-        // Request `/clubs/{club_id}/players`, the page after `request.cursor`, and convert the
-        // answer into read models.
-        let _path = format!("/clubs/{club_id}/players?limit={}", request.limit);
+        // The instance orders only by the fields declared above, and the API by one at most.
+        let sort = match request.order_by.first() {
+            None => String::new(),
+            Some((_, Order::Asc)) => "&sort=name".to_owned(),
+            Some((_, Order::Desc)) => "&sort=-name".to_owned(),
+        };
+        let cursor = request
+            .cursor
+            .map(|cursor| format!("&cursor={}", cursor.as_str()))
+            .unwrap_or_default();
+        let _url = format!("/clubs/{club_id}/players?limit={}{sort}{cursor}", request.limit);
+        // Request the URL and convert the answer into read models.
         let (players, next): (Vec<ReadPlayer>, Option<String>) = (Vec::new(), None);
-        Ok(CrudPage {
-            entities: players.into_iter().map(DynReadModel::from).collect(),
-            paging: CrudPaging::Cursor { next: next.map(CrudCursor::new) },
-        })
+        Ok(CrudPage::new(
+            players.into_iter().map(DynReadModel::from).collect(),
+            CrudPaging::Cursor { next: next.map(CrudCursor::new) },
+        ))
     }
 
     // `read`, `create`, `update`, and `delete` work alike.
-#     async fn read(&self, _: &CrudScope, _: &SerializableId)
+#     async fn read(&self, _: &CrudScope, _: CrudReadRequest)
 #     -> Result<Option<DynReadModel>, RequestError> { unimplemented!() }
-#     async fn create(&self, _: &CrudScope, _: DynCreateModel)
-#     -> Result<Saved<DynUpdateModel>, RequestError> { unimplemented!() }
-#     async fn update(&self, _: &CrudScope, _: &SerializableId, _: DynUpdateModel)
-#     -> Result<Saved<DynUpdateModel>, RequestError> { unimplemented!() }
-#     async fn delete(&self, _: &CrudScope, _: &SerializableId)
-#     -> Result<Deleted, RequestError> { unimplemented!() }
+#     async fn create(&self, _: &CrudScope, _: CrudCreateRequest)
+#     -> Result<CrudSaved, RequestError> { unimplemented!() }
+#     async fn update(&self, _: &CrudScope, _: CrudUpdateRequest)
+#     -> Result<CrudSaved, RequestError> { unimplemented!() }
+#     async fn delete(&self, _: &CrudScope, _: CrudDeleteRequest)
+#     -> Result<CrudDeleted, RequestError> { unimplemented!() }
 }
 
 fn players_of_the_api() -> CrudInstanceConfig {
@@ -655,8 +683,9 @@ fn players_of_the_api() -> CrudInstanceConfig {
 # fn main() {}
 ```
 
-A page ends either with the total of the list, when the data source pages by offset, or with the cursor of the next
-page, when it pages by cursor. `delete_many` deletes one entity after the other unless the data source overrides it.
+A page ends either as part of a list paged by offset, whose total comes from `count`, or with the cursor of the next
+page. A list paged by offset counts again only when its scope changes or it reloads. `delete_many` deletes one entity
+after the other unless the data source overrides it, and stops at a failure that concerns more than one entity.
 
 # Views and navigation
 

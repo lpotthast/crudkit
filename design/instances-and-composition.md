@@ -95,16 +95,24 @@ state.
 ## List State Ownership
 
 Paging, items per page, ordering, scope, and the reload token belong to the instance. A list loads its current page
-with one `list` operation of the data source, which observes the reload token, so reloading refreshes the page and,
-for a list paged by offset, its total. When the total shrinks below the current page, e.g. after deletions, the list
-moves to its last page.
+with the data source's `list`, and the total of a list paged by offset with its `count`. Both observe the reload token
+and the scope, so reloading refreshes the page and the total, while paging and ordering load only the page. When the
+total shrinks below the current page, e.g. after deletions, the list moves to its last page.
+
+The scope is a memo of the configured scope signal and the parent of a `CrudParentConfig`. An application may keep an
+instance mounted while the scope changes, e.g. because its router keeps a component mounted when only the route's
+parameters change. Other parents make another list, so a change of the scope restarts the cursors and returns the list
+to its first page, also when the list pages by offset.
 
 A list paged by cursor ([Data Sources](data-sources.md#pages)) offers only the previous and the next page. The
 instance keeps the cursors of the pages it reached in `PageCursors`, and records the cursor that opens the next page
-whenever a page loads. Changing the ordering or the page size, and resetting the instance, forget the cursors and
-return the list to its first page, because cursors depend on them. A list paged by offset keeps its page. When the
-list cannot show its current page, because it did not reach the page by paging forward or the page became empty, it
-moves to the first or to the previous page. The instance only orders by fields the data source can order by.
+whenever a page loads, in the generation of the cursors that the page was requested in. Changing the ordering, the
+page size, or the scope, and resetting the instance, restart the cursors in a new generation and return the list to
+its first page, because cursors depend on them. A list paged by offset keeps its page when its ordering or page size
+changes. When the list cannot show its current page, because it did not reach the page by paging forward or the page
+became empty, it moves to the first or to the previous page. The list acts only on a page loaded in the current
+generation, because a page of an earlier one may arrive late. The instance only orders by fields the data source can
+order by.
 
 An edit form keeps its unsaved changes when its entity reloads: the reloaded version only becomes what the draft is
 compared against. Other forms and clean drafts take the reloaded version.
@@ -118,15 +126,15 @@ Page arithmetic (`page_count`, `PageNr::clamp_to`, `PageOptions`, `PageCursors`,
 ordering toggle (`toggle_order`) live in `crudkit_web::list`. In a list paged by offset, changing the page size clamps
 the current page into the new page range.
 
-Mass deletion hands the selected entities' IDs to the data source's `delete_many`, within the instance's scope. The
+Mass deletion hands the selected entities to the data source's `delete_many`, within the instance's scope. The
 REST data source derives one equality condition per ID through `crudkit_core::condition::condition_matching_any_id`
 and combines multiple IDs with `Condition::Any`. The conversion is fallible: no IDs, an ID without components, or an
 ID value that cannot be compared for equality aborts the operation with `RequestError::InvalidRequest` before a request
 is sent, because a weakened condition could delete unrelated entities. After the operation, the instance reload token
 refreshes the list.
 
-Current list controls are incomplete: there is no filtering beyond the condition of the instance's scope, and read,
-edit, and delete availability is hard-coded to allowed.
+Current list controls are incomplete: there is no filtering beyond the base condition of the REST data source, and
+read, edit, and delete availability is hard-coded to allowed.
 
 ## Concrete Models to Reactive Fields
 
@@ -152,7 +160,8 @@ action callbacks, equality, and dirty comparison. Applications can only read a `
 through the form, so the two cannot diverge.
 
 Create compares its current DTO with the original default DTO. Edit compares its current DTO with the
-last accepted server entity. Those dirty signals are registered with navigation as described in
+last accepted server entity, its baseline. Saving an edit sends both to the data source in a `CrudUpdateRequest`, so
+that a data source can send only what changed. Those dirty signals are registered with navigation as described in
 [Views, Navigation Scopes, and Dirty Guards](views-and-navigation.md).
 
 ## Field Renderer Resolution
@@ -209,7 +218,7 @@ parent refuses the operation. This mechanism is UI composition, not server-side 
 
 `CrudParentConfig` is appropriate only when the parent is an active instance under the same manager.
 Applications with route-owned or otherwise application-owned parent state put the parents into the configured scope
-(`CrudInstanceConfig::scope`).
+signal (`CrudInstanceConfig::scope`).
 
 ## Reset
 

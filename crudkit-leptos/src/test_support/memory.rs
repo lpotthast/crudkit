@@ -17,10 +17,25 @@ pub(crate) enum MemoryPaging {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum MemoryOperation {
     List(CrudListRequest),
+    Count,
     Read(SerializableId),
     Create,
-    Update(SerializableId),
-    Delete(SerializableId),
+    Update(CrudUpdateRequest),
+    Delete(CrudDeleteRequest),
+}
+
+impl MemoryOperation {
+    /// The name of the operation's kind.
+    pub(crate) fn kind(&self) -> &'static str {
+        match self {
+            Self::List(_) => "list",
+            Self::Count => "count",
+            Self::Read(_) => "read",
+            Self::Create => "create",
+            Self::Update(_) => "update",
+            Self::Delete(_) => "delete",
+        }
+    }
 }
 
 /// Items in memory, ordered by ID unless a list asks otherwise. It orders by `name` only, and
@@ -120,20 +135,18 @@ impl MemorySource {
         let total = items.len() as u64;
         let end = start.saturating_add(request.limit).min(total);
         let paging = match self.paging {
-            MemoryPaging::Offset => CrudPaging::Offset { total },
+            MemoryPaging::Offset => CrudPaging::Offset,
             MemoryPaging::Cursor => CrudPaging::Cursor {
                 next: (end < total).then(|| CrudCursor::new(end.to_string())),
             },
         };
-        Ok(CrudPage {
-            entities: items
-                .into_iter()
-                .skip(usize::try_from(start).unwrap_or(usize::MAX))
-                .take(usize::try_from(end.saturating_sub(start)).unwrap_or(usize::MAX))
-                .map(DynReadModel::from)
-                .collect(),
-            paging,
-        })
+        let entities = items
+            .into_iter()
+            .skip(usize::try_from(start).unwrap_or(usize::MAX))
+            .take(usize::try_from(end.saturating_sub(start)).unwrap_or(usize::MAX))
+            .map(DynReadModel::from)
+            .collect();
+        Ok(CrudPage::new(entities, paging))
     }
 }
 
@@ -166,13 +179,25 @@ impl CrudDataSource for MemorySource {
         self.page(&request)
     }
 
+    async fn count(
+        &self,
+        scope: &CrudScope,
+        _request: CrudCountRequest,
+    ) -> Result<Option<u64>, RequestError> {
+        self.record(MemoryOperation::Count, scope);
+        Ok(match self.paging {
+            MemoryPaging::Offset => Some(self.items().len() as u64),
+            MemoryPaging::Cursor => None,
+        })
+    }
+
     async fn read(
         &self,
         scope: &CrudScope,
-        id: &SerializableId,
+        request: CrudReadRequest,
     ) -> Result<Option<DynReadModel>, RequestError> {
-        self.record(MemoryOperation::Read(id.clone()), scope);
-        let id = item_id(id)?;
+        self.record(MemoryOperation::Read(request.id.clone()), scope);
+        let id = item_id(&request.id)?;
         Ok(self
             .items()
             .iter()
@@ -184,54 +209,45 @@ impl CrudDataSource for MemorySource {
     async fn create(
         &self,
         scope: &CrudScope,
-        entity: DynCreateModel,
-    ) -> Result<Saved<DynUpdateModel>, RequestError> {
+        request: CrudCreateRequest,
+    ) -> Result<CrudSaved, RequestError> {
         self.record(MemoryOperation::Create, scope);
         let mut items = self.items();
         let item = ReadItem {
             id: items.iter().map(|item| item.id).max().unwrap_or_default() + 1,
-            name: entity.downcast::<CreateItem>().name,
+            name: request.entity.downcast::<CreateItem>().name,
         };
         items.push(item.clone());
-        Ok(Saved {
-            entity: DynUpdateModel::from(Item::from(item)),
-            violations: PartialSerializableAggregateViolations::default(),
-        })
+        Ok(CrudSaved::new(DynUpdateModel::from(Item::from(item))))
     }
 
     async fn update(
         &self,
         scope: &CrudScope,
-        id: &SerializableId,
-        entity: DynUpdateModel,
-    ) -> Result<Saved<DynUpdateModel>, RequestError> {
-        self.record(MemoryOperation::Update(id.clone()), scope);
-        let id = item_id(id)?;
-        let entity = entity.downcast::<Item>();
+        request: CrudUpdateRequest,
+    ) -> Result<CrudSaved, RequestError> {
+        self.record(MemoryOperation::Update(request.clone()), scope);
+        let id = item_id(&request.id)?;
+        let entity = request.entity.downcast::<Item>();
         let mut items = self.items();
         let item = items
             .iter_mut()
             .find(|item| item.id == id)
             .ok_or_else(|| RequestError::NotFound(format!("item {id}")))?;
         item.name.clone_from(&entity.name);
-        Ok(Saved {
-            entity: DynUpdateModel::from(entity),
-            violations: PartialSerializableAggregateViolations::default(),
-        })
+        Ok(CrudSaved::new(DynUpdateModel::from(entity)))
     }
 
     async fn delete(
         &self,
         scope: &CrudScope,
-        id: &SerializableId,
-    ) -> Result<Deleted, RequestError> {
-        self.record(MemoryOperation::Delete(id.clone()), scope);
-        let id = item_id(id)?;
+        request: CrudDeleteRequest,
+    ) -> Result<CrudDeleted, RequestError> {
+        self.record(MemoryOperation::Delete(request.clone()), scope);
+        let id = item_id(&request.id)?;
         let mut items = self.items();
         let before = items.len();
         items.retain(|item| item.id != id);
-        Ok(Deleted {
-            entities_affected: (before - items.len()) as u64,
-        })
+        Ok(CrudDeleted::new((before - items.len()) as u64))
     }
 }

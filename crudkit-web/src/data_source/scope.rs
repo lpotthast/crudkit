@@ -1,23 +1,19 @@
-//! The part of a resource that an instance works in.
+//! The parents that an instance's entities live below.
 
-use crudkit_core::condition::Condition;
 use crudkit_core::id::{IdValue, SerializableIdEntry};
 
-/// What the operations of an instance are restricted to: the parents that its entities live
-/// below, and a condition that narrows them further.
+/// The parents that the entities of an instance live below.
 ///
 /// A data source decides how it applies a scope. One that serves nested paths, such as
 /// `/projects/{project_id}/spaces/{space_id}/services`, puts the parents into the path.
 /// [`CrudRestDataSource`](super::CrudRestDataSource) turns them into conditions.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct CrudScope {
     /// The IDs of the parents, outermost first. Each entry names the field through which the
     /// resource's entities refer to the parent, e.g. `club_id` or `space_id`, and holds the
     /// parent's ID.
     pub parents: Vec<SerializableIdEntry>,
-    /// The condition that narrows every operation except creation, e.g. an instance's base
-    /// condition. `None` narrows nothing.
-    pub condition: Option<Condition>,
 }
 
 impl CrudScope {

@@ -258,6 +258,17 @@ pub enum DynReadOrUpdateModel {
     Update(DynUpdateModel),
 }
 
+impl DynReadOrUpdateModel {
+    /// Returns the ID of the entity.
+    #[must_use]
+    pub fn id(&self) -> crudkit_core::id::SerializableId {
+        match self {
+            Self::Read(model) => model.id(),
+            Self::Update(model) => model.id(),
+        }
+    }
+}
+
 impl From<DynReadModel> for DynReadOrUpdateModel {
     fn from(model: DynReadModel) -> Self {
         Self::Read(model)

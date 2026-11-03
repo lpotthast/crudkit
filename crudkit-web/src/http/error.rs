@@ -2,10 +2,12 @@ use crudkit_core::validation::PartialSerializableAggregateViolations;
 use crudkit_wire_format::v1::{ErrorResponseV1, ErrorV1};
 use thiserror::Error as ThisError;
 
-/// Failure of a request to the generated CRUD routes.
+/// Failure of an operation of a [data source](crate::data_source::CrudDataSource).
 ///
-/// The server's failures arrive as version 1 error bodies and are classified by their `kind`. A
-/// response without such a body, e.g. from a proxy, is classified by its HTTP status instead.
+/// The variants name the kinds of failure by the HTTP status that usually reports them. A data
+/// source maps the failures of its API to them. The REST data source and the typed REST data
+/// provider classify the version 1 error bodies of the generated CRUD routes by their `kind`, and
+/// a response without such a body, e.g. from a proxy, by its HTTP status.
 ///
 /// | Variant | Cause |
 /// |---------|-------|
@@ -16,7 +18,7 @@ use thiserror::Error as ThisError;
 /// | `UnprocessableEntity` | Business rules rejected the operation (422). |
 /// | `CriticalValidationErrors` | Critical validation errors prevent the operation (422). |
 /// | `InternalServerError` | The server failed (500). |
-/// | `InvalidRequest` | The client could not build the request; nothing was sent. |
+/// | `InvalidRequest` | The request could not be built or honored; nothing was sent. |
 /// | `Request` | The request failed in transport or the server responded with another status. |
 /// | `Deserialize` | The server's success response could not be deserialized. |
 ///
@@ -64,8 +66,8 @@ pub enum RequestError {
     #[error("Server error: {0}")]
     InternalServerError(String),
 
-    /// The client could not build the request, e.g. because a URL, body, or condition is invalid.
-    /// Nothing was sent.
+    /// The client could not build the request, e.g. because a URL, body, or condition is invalid,
+    /// or the data source cannot honor a part of it. Nothing was sent.
     #[error("Invalid request: {0}")]
     InvalidRequest(String),
 

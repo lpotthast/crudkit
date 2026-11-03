@@ -117,7 +117,7 @@ fn respond(
         "delete-many" => serde_json::json!({
             "wire_format_version": 1,
             "deleted_count": 2,
-            "deleted_ids": [],
+            "deleted_ids": [[["id", { "I64": 1 }]], [["id", { "I64": 3 }]]],
             "aborted": [],
             "validation_failed": [],
             "errors": [],

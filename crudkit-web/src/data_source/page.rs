@@ -26,6 +26,7 @@ impl CrudCursor {
 /// A request names the page both ways: by its offset and, once the list knows it, by the cursor
 /// that opens it. A data source uses whichever way it pages by.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct CrudListRequest {
     /// The maximum number of entities of the page.
     pub limit: u64,
@@ -41,8 +42,41 @@ pub struct CrudListRequest {
     pub order_by: IndexMap<DynReadField, Order>,
 }
 
+impl CrudListRequest {
+    /// Requests the page of at most `limit` entities after `offset` entities, or after `cursor`,
+    /// ordered by `order_by`.
+    #[must_use]
+    pub fn new(
+        limit: u64,
+        offset: u64,
+        cursor: Option<CrudCursor>,
+        order_by: IndexMap<DynReadField, Order>,
+    ) -> Self {
+        Self {
+            limit,
+            offset,
+            cursor,
+            order_by,
+        }
+    }
+}
+
+/// What [`CrudDataSource::count`](super::CrudDataSource::count) counts: all entities of a list.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct CrudCountRequest {}
+
+impl CrudCountRequest {
+    /// Requests the number of all entities in the scope.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
 /// One page of a list of entities.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct CrudPage {
     /// The entities of the page, in the list's order.
     pub entities: Vec<DynReadModel>,
@@ -50,15 +84,20 @@ pub struct CrudPage {
     pub paging: CrudPaging,
 }
 
+impl CrudPage {
+    /// A page holding `entities`, which relates to the rest of its list as `paging` says.
+    #[must_use]
+    pub fn new(entities: Vec<DynReadModel>, paging: CrudPaging) -> Self {
+        Self { entities, paging }
+    }
+}
+
 /// How the pages of a list follow each other.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CrudPaging {
-    /// The data source opens every page by its offset, and the list holds `total` entities. An
-    /// instance offers every page.
-    Offset {
-        /// The number of entities of the whole list.
-        total: u64,
-    },
+    /// The data source opens every page by its offset. The number of all entities comes from
+    /// [`CrudDataSource::count`](super::CrudDataSource::count), and an instance offers every page.
+    Offset,
     /// The data source opens a page by the cursor with which the page before it ended. The list
     /// has no known total, so an instance offers only the previous and the next page.
     Cursor {

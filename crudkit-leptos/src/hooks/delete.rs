@@ -5,9 +5,10 @@ use crate::hooks::instance::use_crud_instance;
 use crate::hooks::notify::{CrudNotification, CrudNotifier};
 use crate::hooks::texts::with_texts;
 use crate::instance::{CommittedReturnDestination, CrudNavigation};
-use crudkit_core::id::SerializableId;
-use crudkit_core::{Deleted, DeletedMany};
-use crudkit_web::data_source::{CrudDataSource, CrudScope};
+use crudkit_web::data_source::{
+    CrudDataSource, CrudDeleteManyRequest, CrudDeleteRequest, CrudDeleted, CrudDeletedMany,
+    CrudScope,
+};
 use crudkit_web::delete::{DeleteManyCounts, DeleteManyOutcome};
 use crudkit_web::http::RequestError;
 use crudkit_web::prelude::*;
@@ -28,7 +29,7 @@ pub struct CrudDeleteState {
     pub is_deleting: Signal<bool>,
     requested: RwSignal<Option<(DynReadOrUpdateModel, CrudNavigation)>>,
     requested_many: RwSignal<Option<Arc<Vec<DynReadModel>>>>,
-    delete_action: Action<(SerializableId, CrudNavigation), ()>,
+    delete_action: Action<(DynReadOrUpdateModel, CrudNavigation), ()>,
     delete_many_action: Action<Arc<Vec<DynReadModel>>, ()>,
     /// Navigation of the view requesting deletions, which returns after a single deletion.
     navigation: CrudNavigation,
@@ -53,15 +54,16 @@ impl CrudDeleteState {
         let pending_many = RwSignal::new(None::<Arc<Vec<DynReadModel>>>);
 
         let single_data_source = data_source.clone();
-        let delete_action =
-            Action::new_local(move |(id, navigation): &(SerializableId, CrudNavigation)| {
+        let delete_action = Action::new_local(
+            move |(entity, navigation): &(DynReadOrUpdateModel, CrudNavigation)| {
                 let data_source = single_data_source.clone();
-                let id = id.clone();
+                let request = CrudDeleteRequest::new(entity.clone());
+                let id = request.id.clone();
                 let navigation = *navigation;
                 // Deletions stay within the instance's scope, like reads.
                 let scope = scope.get_untracked();
                 async move {
-                    let result = data_source.delete(&scope, &id).await;
+                    let result = data_source.delete(&scope, request).await;
                     pending.set(None);
                     notifier.notify(with_texts(texts, |texts| {
                         delete_notification(texts, &result)
@@ -81,17 +83,21 @@ impl CrudDeleteState {
                         reload.try_run(());
                     }
                 }
-            });
+            },
+        );
 
         let delete_many_action = Action::new_local(move |entities: &Arc<Vec<DynReadModel>>| {
             let data_source = data_source.clone();
-            let ids = entities
-                .iter()
-                .map(|entity| entity.id())
-                .collect::<Vec<_>>();
+            let request = CrudDeleteManyRequest::new(
+                entities
+                    .iter()
+                    .cloned()
+                    .map(DynReadOrUpdateModel::from)
+                    .collect(),
+            );
             let scope = scope.get_untracked();
             async move {
-                let result = data_source.delete_many(&scope, &ids).await;
+                let result = data_source.delete_many(&scope, request).await;
                 pending_many.set(None);
                 notifier.notify(with_texts(texts, |texts| {
                     delete_many_notification(texts, &result)
@@ -142,14 +148,9 @@ impl CrudDeleteState {
         if self.delete_action.pending().get_untracked() {
             return;
         }
-        let Some((entity, navigation)) = self.requested.get_untracked() else {
-            return;
-        };
-        let id = match entity {
-            DynReadOrUpdateModel::Read(model) => model.id(),
-            DynReadOrUpdateModel::Update(model) => model.id(),
-        };
-        self.delete_action.dispatch((id, navigation));
+        if let Some(requested) = self.requested.get_untracked() {
+            self.delete_action.dispatch(requested);
+        }
     }
 
     /// Discards the pending request.
@@ -194,7 +195,7 @@ pub fn use_crud_delete() -> CrudDeleteState {
 /// Describes the outcome of a single deletion.
 pub(crate) fn delete_notification(
     texts: &CrudUiTexts,
-    result: &Result<Deleted, RequestError>,
+    result: &Result<CrudDeleted, RequestError>,
 ) -> CrudNotification {
     let title = texts.deletion.to_string();
     match result {
@@ -215,7 +216,7 @@ pub(crate) fn delete_notification(
 /// Describes the outcome of a mass deletion.
 pub(crate) fn delete_many_notification(
     texts: &CrudUiTexts,
-    result: &Result<DeletedMany, RequestError>,
+    result: &Result<CrudDeletedMany, RequestError>,
 ) -> CrudNotification {
     let title = texts.deletion.to_string();
     match result {
@@ -242,6 +243,7 @@ fn with_failures(texts: &CrudUiTexts, message: String, counts: DeleteManyCounts)
         (counts.aborted, &texts.deletions_aborted),
         (counts.validation_failed, &texts.deletions_invalid),
         (counts.errors, &texts.deletions_failed),
+        (counts.skipped, &texts.deletions_skipped),
     ];
     failures
         .into_iter()
@@ -256,15 +258,11 @@ mod tests {
     use super::*;
     use crate::hooks::notify::CrudNotificationKind;
     use assertr::prelude::*;
+    use crudkit_core::id::SerializableId;
 
     #[test]
     fn single_deletion_outcomes_map_to_notification_kinds() {
-        let ok = delete_notification(
-            &CrudUiTexts::default(),
-            &Ok(Deleted {
-                entities_affected: 1,
-            }),
-        );
+        let ok = delete_notification(&CrudUiTexts::default(), &Ok(CrudDeleted::new(1)));
         assert_that!(ok.kind).is_equal_to(CrudNotificationKind::Success);
         assert_that!(ok.message).is_equal_to("1 Eintrag erfolgreich gelöscht.".to_owned());
 
@@ -283,18 +281,15 @@ mod tests {
 
     #[test]
     fn mass_deletion_outcomes_map_to_notification_kinds() {
-        let partial = delete_many_notification(
-            &CrudUiTexts::default(),
-            &Ok(DeletedMany {
-                deleted_count: 2,
-                deleted_ids: Vec::new(),
-                aborted: vec![(SerializableId(Vec::new()), String::new())],
-                validation_failed: Vec::new(),
-                errors: Vec::new(),
-            }),
-        );
+        let id = || SerializableId(Vec::new());
+        let mut outcome = CrudDeletedMany::new();
+        outcome.deleted = vec![id(), id()];
+        outcome.failed = vec![(id(), RequestError::Forbidden(String::new()))];
+        outcome.skipped = vec![id()];
+        let partial = delete_many_notification(&CrudUiTexts::default(), &Ok(outcome));
         assert_that!(partial.kind).is_equal_to(CrudNotificationKind::Warning);
-        assert_that!(partial.message).is_equal_to("2 Einträge gelöscht. 1 abgebrochen.".to_owned());
+        assert_that!(partial.message)
+            .is_equal_to("2 Einträge gelöscht. 1 abgebrochen. 1 nicht versucht.".to_owned());
 
         let failed = delete_many_notification(
             &CrudUiTexts::default(),

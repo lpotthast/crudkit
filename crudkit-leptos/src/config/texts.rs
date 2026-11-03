@@ -113,6 +113,9 @@ pub struct CrudUiTexts {
     pub deletions_invalid: CountText,
     /// Sentence reporting failed deletions, given their number.
     pub deletions_failed: CountText,
+    /// Sentence reporting entities not tried after a failure stopped a mass deletion, given their
+    /// number.
+    pub deletions_skipped: CountText,
     /// Message after a deletion was refused, given the server's reason.
     pub deletion_forbidden: ReasonText,
     /// Message after a deletion was rejected as invalid, given the server's reason.
@@ -206,6 +209,7 @@ impl CrudUiTexts {
             deletions_aborted: Arc::new(|count| format!("{count} abgebrochen.")),
             deletions_invalid: Arc::new(|count| format!("{count} Validierungsfehler.")),
             deletions_failed: Arc::new(|count| format!("{count} Fehler.")),
+            deletions_skipped: Arc::new(|count| format!("{count} nicht versucht.")),
             deletion_forbidden: Arc::new(|reason| {
                 format!("Löschvorgang abgebrochen. Grund: {reason}")
             }),
@@ -279,6 +283,7 @@ impl CrudUiTexts {
             deletions_aborted: Arc::new(|count| format!("{count} aborted.")),
             deletions_invalid: Arc::new(|count| format!("{count} validation errors.")),
             deletions_failed: Arc::new(|count| format!("{count} errors.")),
+            deletions_skipped: Arc::new(|count| format!("{count} not attempted.")),
             deletion_forbidden: Arc::new(|reason| format!("Deletion refused. Reason: {reason}")),
             deletion_rejected: Arc::new(|reason| {
                 format!("Deletion not possible. Reason: {reason}")

@@ -73,8 +73,8 @@ pub struct CrudInstanceContext {
     /// Current parent entity ID when parent-resource scoping can resolve one.
     pub parent_id: Signal<Option<SerializableId>>,
 
-    /// What every operation of the instance's data source is restricted to: the configured scope,
-    /// below the resolved parent entity, if any.
+    /// The parents of the instance's entities, which every operation of its data source gets: the
+    /// configured scope, and the resolved parent entity, if any.
     pub scope: Signal<CrudScope>,
 
     /// Deletion requests awaiting confirmation.
@@ -166,7 +166,7 @@ impl CrudInstanceContext {
 
     /// Sets the number of entities shown on each list page.
     pub(crate) fn set_items_per_page(&self, items_per_page: ItemsPerPage) {
-        self.restart_paging_by_cursor();
+        self.restart_paging();
         self.set_items_per_page.set(items_per_page);
     }
 
@@ -178,25 +178,25 @@ impl CrudInstanceContext {
     #[allow(clippy::needless_pass_by_value)]
     pub(crate) fn toggle_order_by(&self, field: DynReadField, append: bool) {
         tracing::debug!(?field, append, "order by");
-        self.restart_paging_by_cursor();
+        self.restart_paging();
         self.set_order_by
             .update(|order_by| toggle_order(order_by, field, append));
     }
 
     /// Replaces the list ordering.
     pub(crate) fn set_order_by(&self, order_by: IndexMap<DynReadField, Order>) {
-        self.restart_paging_by_cursor();
+        self.restart_paging();
         self.set_order_by.set(order_by);
     }
 
-    /// Returns to the first page of a list paged by cursor, whose cursors no longer apply, e.g.
-    /// after its ordering changed. A list paged by offset keeps its page.
-    fn restart_paging_by_cursor(&self) {
+    /// Restarts the cursors, which no longer apply, e.g. after the list's ordering changed. A list
+    /// paged by cursor returns to its first page, and a list paged by offset keeps its page.
+    fn restart_paging(&self) {
         let paged_by_cursor = self
             .cursors
             .try_update_value(|cursors| {
                 let paged_by_cursor = !cursors.is_empty();
-                cursors.clear();
+                cursors.restart();
                 paged_by_cursor
             })
             .unwrap_or_default();
@@ -290,7 +290,7 @@ impl CrudInstanceContext {
     fn reset_committed(&self) {
         let default = self.default_config.get_value();
         self.deletion.clear();
-        self.cursors.update_value(PageCursors::clear);
+        self.cursors.update_value(PageCursors::restart);
         self.set_current_page.set(default.page);
         self.set_items_per_page.set(default.items_per_page);
         self.set_order_by.set(default.order_by.clone());
@@ -379,14 +379,25 @@ pub(crate) fn create_instance_context(
             .as_ref()
             .and_then(|parent| get_parent_id(parent, mgr))
     });
-    let configured_scope = config.scope.clone();
-    let scope = Signal::derive(move || {
-        let mut scope = configured_scope.clone();
+    let configured_scope = config.scope;
+    let scope = Memo::new(move |_| {
+        let mut scope = configured_scope.get();
         if let Some(parent) = parent.read_value().as_ref() {
             scope.parents.extend(parent_scope_entry(parent, mgr));
         }
         scope
     });
+    // Other parents make another list, which starts over at its first page. The instance may stay
+    // mounted meanwhile, e.g. when only the parameters of the application's route changed.
+    Effect::new(move |previous: Option<CrudScope>| {
+        let current = scope.get();
+        if previous.is_some_and(|previous| previous != current) {
+            cursors.update_value(PageCursors::restart);
+            set_current_page.set(PageNr::first());
+        }
+        current
+    });
+    let scope = Signal::from(scope);
     let (create_elements, _set_create_elements) = signal(config.create_elements.clone());
     let (update_elements, _set_update_elements) = signal(config.elements.clone());
     let (reload, set_reload) = signal(Uuid::new_v4());

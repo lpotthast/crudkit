@@ -503,10 +503,10 @@ fn deletions_blocked_by_critical_validation_errors_are_reported_as_warnings() {
 }
 
 #[test]
-fn deletions_stay_within_the_instance_scope() {
+fn deletions_stay_within_the_base_condition_of_the_rest_data_source() {
     let server = FakeServer::with_items(3);
-    let mut scope = crudkit_core::condition::Condition::all();
-    scope.push_elements(vec![crudkit_core::condition::ConditionElement::Clause(
+    let mut base_condition = crudkit_core::condition::Condition::all();
+    base_condition.push_elements(vec![crudkit_core::condition::ConditionElement::Clause(
         crudkit_core::condition::ConditionClause {
             column_name: "name".to_owned(),
             operator: crudkit_core::condition::Operator::Equal,
@@ -514,11 +514,13 @@ fn deletions_stay_within_the_instance_scope() {
         },
     )]);
     with_crud_manager(|| {
+        let data_source = CrudRestDataSource::for_resource::<CrudItemResource>(
+            "http://test.local/api".to_owned(),
+            server.http.executor(),
+        )
+        .with_base_condition(base_condition);
         let config = CrudInstanceConfig {
-            scope: CrudScope {
-                condition: Some(scope),
-                ..CrudScope::default()
-            },
+            data_source: Arc::new(data_source),
             ..config(&server)
         };
         provide_crud_instance(instance_input("items", config));
@@ -923,7 +925,9 @@ fn every_operation_of_a_nested_instance_happens_below_its_parents() {
         Owner::new().with(|| {
             // E.g. the owner from the application's route.
             let config = CrudInstanceConfig {
-                scope: CrudScope::default().with_parent("owner_id", IdValue::I64(7)),
+                scope: Signal::stored(
+                    CrudScope::default().with_parent("owner_id", IdValue::I64(7)),
+                ),
                 ..source.config()
             };
             provide_crud_instance(ProvideCrudInstanceInput {
@@ -965,17 +969,11 @@ fn every_operation_of_a_nested_instance_happens_below_its_parents() {
         operations
             .iter()
             .filter(|(_, received)| received == scope)
-            .map(|(operation, _)| match operation {
-                MemoryOperation::List(_) => "list",
-                MemoryOperation::Read(_) => "read",
-                MemoryOperation::Create => "create",
-                MemoryOperation::Update(_) => "update",
-                MemoryOperation::Delete(_) => "delete",
-            })
+            .map(|(operation, _)| operation.kind())
             .collect::<std::collections::BTreeSet<_>>()
     };
     assert_that!(kinds(&below_parents).into_iter().collect::<Vec<_>>())
-        .is_equal_to(vec!["create", "delete", "list", "read", "update"]);
+        .is_equal_to(vec!["count", "create", "delete", "list", "read", "update"]);
     // Only the parent instance's own list ran without parents, and it listed nothing here.
     assert_that!(kinds(&CrudScope::default())).is_empty();
 }
@@ -985,7 +983,9 @@ fn new_entities_refer_to_the_parents_of_their_scope() {
     let source = MemorySource::with_items(0, MemoryPaging::Offset);
     let config = CrudInstanceConfig {
         // The item's name stands in for a field that refers to a parent.
-        scope: CrudScope::default().with_parent("name", IdValue::String("scoped".to_owned())),
+        scope: Signal::stored(
+            CrudScope::default().with_parent("name", IdValue::String("scoped".to_owned())),
+        ),
         ..source.config()
     };
     with_config(config, |_ctx| {
@@ -1058,4 +1058,142 @@ fn rest_data_sources_keep_nested_instances_below_their_parent_by_condition() {
     };
     assert_that!(condition("read-many").as_str()).contains("owner_id");
     assert_that!(condition("read-count").as_str()).contains("owner_id");
+}
+
+#[test]
+fn lists_start_over_below_other_parents_while_they_stay_mounted() {
+    for paging in [MemoryPaging::Cursor, MemoryPaging::Offset] {
+        let source = MemorySource::with_items(5, paging);
+        // E.g. the parameters of the application's route.
+        let project = RwSignal::new(1);
+        let config = CrudInstanceConfig {
+            scope: Signal::derive(move || {
+                CrudScope::default().with_parent("project_id", IdValue::I64(project.get()))
+            }),
+            ..source.config()
+        };
+        with_config(config, |_ctx| {
+            let list = use_crud_list_state();
+            settle();
+            list.pagination.next();
+            settle();
+            assert_that!(list.pagination.page.get_untracked()).is_equal_to(PageNr(2));
+
+            project.set(2);
+            settle();
+            assert_that!(list.pagination.page.get_untracked()).is_equal_to(PageNr::first());
+            assert_that!(listed_ids(&list)).is_equal_to(vec![1, 2]);
+            let (request, scope) = source
+                .operations()
+                .into_iter()
+                .rev()
+                .find_map(|(operation, scope)| match operation {
+                    MemoryOperation::List(request) => Some((request, scope)),
+                    _ => None,
+                })
+                .expect("a list request");
+            assert_that!(scope.parent("project_id")).is_equal_to(Some(&IdValue::I64(2)));
+            assert_that!(request.offset).is_equal_to(0);
+            assert_that!(request.cursor).is_none();
+        });
+    }
+}
+
+#[test]
+fn updates_name_the_version_they_start_from() {
+    let source = MemorySource::with_items(1, MemoryPaging::Offset);
+    with_config(source.config(), |_ctx| {
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
+        settle();
+        let name = DynUpdateField::from(ItemField::Name);
+        for renamed in ["first", "second"] {
+            edit.form
+                .set_field(name.clone(), Ok(Value::String(renamed.to_owned())));
+            edit.save.run(CrudSaveFollowUp::Stay);
+            settle();
+        }
+    });
+
+    let updates = source
+        .operations()
+        .into_iter()
+        .filter_map(|(operation, _)| match operation {
+            MemoryOperation::Update(request) => Some(request),
+            _ => None,
+        })
+        .map(|request| {
+            let name = |model: DynUpdateModel| model.downcast::<Item>().name;
+            (name(request.baseline), name(request.entity))
+        })
+        .collect::<Vec<_>>();
+    // The second change starts from the version that the first one saved.
+    assert_that!(updates).is_equal_to(vec![
+        ("item 1".to_owned(), "first".to_owned()),
+        ("first".to_owned(), "second".to_owned()),
+    ]);
+}
+
+#[test]
+fn deletions_name_the_entity_as_the_user_saw_it() {
+    let source = MemorySource::with_items(2, MemoryPaging::Offset);
+    with_config(source.config(), |_ctx| {
+        let deletion = use_crud_delete();
+        deletion.request(item(2));
+        deletion.confirm();
+        settle();
+    });
+
+    let deleted = source
+        .operations()
+        .into_iter()
+        .find_map(|(operation, _)| match operation {
+            MemoryOperation::Delete(request) => Some(request),
+            _ => None,
+        })
+        .expect("a deletion");
+    assert_that!(deleted.id).is_equal_to(item(2).id());
+    assert_that!(deleted.entity).is_equal_to(DynReadOrUpdateModel::from(item(2)));
+}
+
+#[test]
+fn rest_lists_count_again_only_when_they_reload() {
+    let server = FakeServer::with_items(5);
+    with_instance(&server, |ctx| {
+        let list = use_crud_list_state();
+        settle();
+        list.pagination.next();
+        list.ordering
+            .toggle(DynReadField::from(ReadItemField::Name), false);
+        settle();
+        assert_that!(server.requests_to("read-many").len()).is_equal_to(2);
+        assert_that!(server.requests_to("read-count").len()).is_equal_to(1);
+
+        ctx.reload();
+        settle();
+        assert_that!(server.requests_to("read-count").len()).is_equal_to(2);
+    });
+}
+
+#[test]
+fn rest_lists_show_their_page_when_counting_fails() {
+    let items = FakeServer::with_items(3);
+    let server = Arc::new(FakeServer {
+        http: CrudTestServer::new(move |request| match request.operation.as_str() {
+            "read-count" => CrudTestResponse::status(
+                500,
+                serde_json::json!({
+                    "wire_format_version": 1,
+                    "error": { "kind": "internal_server_error", "message": "count failed" },
+                }),
+            ),
+            _ => items.http.answer(request),
+        }),
+    });
+    with_instance(&server, |_ctx| {
+        let list = use_crud_list_state();
+        settle();
+        assert_that!(listed_ids(&list)).is_equal_to(vec![1, 2]);
+        assert_that!(list.status.get_untracked()).is_equal_to(CrudListLoadStatus::Ready);
+        assert_that!(list.item_count.get_untracked()).is_none();
+    });
 }

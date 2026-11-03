@@ -147,6 +147,11 @@ impl CrudTestServer {
         })
     }
 
+    /// Answers `request` as this server does, without recording it.
+    pub(crate) fn answer(&self, request: &CrudTestRequest) -> CrudTestResponse {
+        (self.handler)(request)
+    }
+
     /// Returns an executor sending requests to this server.
     #[must_use]
     pub(crate) fn executor(self: &Arc<Self>) -> Arc<dyn ReqwestExecutor> {

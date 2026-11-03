@@ -3,9 +3,9 @@
 use crate::hooks::instance::use_crud_instance;
 use crate::instance::CrudInstanceContext;
 use crudkit_core::Order;
-use crudkit_web::data_source::{CrudListRequest, CrudPage, CrudPaging};
+use crudkit_web::data_source::{CrudCountRequest, CrudListRequest, CrudPage, CrudPaging};
 use crudkit_web::http::RequestError;
-use crudkit_web::list::{self, ItemsPerPage, PageNr, PageOptions, Selection};
+use crudkit_web::list::{self, ItemsPerPage, PageCursors, PageNr, PageOptions, Selection};
 use crudkit_web::load_state::LoadState;
 use crudkit_web::prelude::*;
 use indexmap::IndexMap;
@@ -87,27 +87,29 @@ pub fn use_crud_list_state() -> CrudListState {
         let items_per_page = ctx.items_per_page.get();
         let page = ctx.current_page.get();
         let scope = ctx.scope.get();
-        let request = CrudListRequest {
-            limit: items_per_page.0,
-            offset: page.skip(items_per_page),
-            // Untracked, so that recording the cursor of the next page loads nothing again.
-            cursor: ctx
-                .cursors
-                .try_with_value(|cursors| cursors.cursor_of(page).cloned())
-                .flatten(),
-            order_by: ctx.order_by.get(),
-        };
+        // Untracked, so that recording the cursor of the next page loads nothing again.
+        let (generation, cursor) = ctx
+            .cursors
+            .try_with_value(|cursors| (cursors.generation(), cursors.cursor_of(page).cloned()))
+            .unwrap_or_default();
+        let request = CrudListRequest::new(
+            items_per_page.0,
+            page.skip(items_per_page),
+            cursor,
+            ctx.order_by.get(),
+        );
         let result = ctx.data_source().list(&scope, request).await;
         if let Ok(CrudPage {
             paging: CrudPaging::Cursor { next },
             ..
         }) = &result
         {
-            // The instance may have been unmounted while the request was in flight.
+            // The instance may have been unmounted while the request was in flight. An answer
+            // that arrives after the paging restarted records nothing.
             ctx.cursors
-                .try_update_value(|cursors| cursors.record(page, next.clone()));
+                .try_update_value(|cursors| cursors.record(generation, page, next.clone()));
         }
-        LoadedPage::new(page, result)
+        LoadedPage::new(page, generation, result)
     });
 
     let rows = Memo::new(move |_prev| match page_resource.get() {
@@ -115,13 +117,37 @@ pub fn use_crud_list_state() -> CrudListState {
         None => LoadState::Loading,
     });
     let loaded_paging = Memo::new(move |_prev| {
-        page_resource
-            .get()
-            .and_then(|loaded| Some((loaded.page, loaded.paging?)))
+        page_resource.get().and_then(|loaded| {
+            Some(LoadedPaging {
+                page: loaded.page,
+                generation: loaded.generation,
+                paging: loaded.paging?,
+            })
+        })
     });
-    let item_count = Signal::derive(move || match loaded_paging.get() {
-        Some((_, CrudPaging::Offset { total })) => Some(total),
-        Some((_, CrudPaging::Cursor { .. })) | None => None,
+
+    // Counted again only when the scope changes or the list reloads, not for every page.
+    let count_resource = LocalResource::new(move || async move {
+        let _ = ctx.reload.get();
+        let scope = ctx.scope.get();
+        ctx.data_source()
+            .count(&scope, CrudCountRequest::new())
+            .await
+    });
+    let item_count = Signal::derive(move || {
+        let paged_by_offset = loaded_paging
+            .read()
+            .as_ref()
+            .is_some_and(|loaded| loaded.paging == CrudPaging::Offset);
+        if !paged_by_offset {
+            return None;
+        }
+        count_resource.get().and_then(|result| {
+            result
+                .inspect_err(|err| tracing::warn!(%err, "could not count entities"))
+                .ok()
+                .flatten()
+        })
     });
 
     let has_rows =
@@ -149,6 +175,8 @@ pub fn use_crud_list_state() -> CrudListState {
 struct LoadedPage {
     /// The page that was requested.
     page: PageNr,
+    /// The generation of the list's cursors that the page was requested in.
+    generation: u64,
     /// The entities of the page.
     entities: LoadState<Arc<Vec<DynReadModel>>>,
     /// How the page relates to the rest of the list. `None` if loading failed.
@@ -156,19 +184,44 @@ struct LoadedPage {
 }
 
 impl LoadedPage {
-    fn new(page: PageNr, result: Result<CrudPage, RequestError>) -> Self {
+    fn new(page: PageNr, generation: u64, result: Result<CrudPage, RequestError>) -> Self {
         match result {
-            Ok(CrudPage { entities, paging }) => Self {
+            Ok(CrudPage {
+                entities, paging, ..
+            }) => Self {
                 page,
+                generation,
                 entities: LoadState::Loaded(Arc::new(entities)),
                 paging: Some(paging),
             },
             Err(error) => Self {
                 page,
+                generation,
                 entities: LoadState::Failed(error),
                 paging: None,
             },
         }
+    }
+}
+
+/// How a loaded page relates to the rest of its list.
+#[derive(Debug, Clone, PartialEq)]
+struct LoadedPaging {
+    /// The page that was requested.
+    page: PageNr,
+    /// The generation of the list's cursors that the page was requested in.
+    generation: u64,
+    paging: CrudPaging,
+}
+
+impl LoadedPaging {
+    /// Returns whether this is the current `page` of the list, loaded in the current generation of
+    /// its `cursors`. Until the current page loaded, the list shows the page loaded before.
+    fn is_current(&self, page: PageNr, cursors: StoredValue<PageCursors>) -> bool {
+        self.page == page
+            && cursors
+                .try_with_value(|cursors| cursors.generation() == self.generation)
+                .unwrap_or_default()
     }
 }
 
@@ -190,8 +243,8 @@ pub struct CrudPageRange {
 #[derive(Debug, Clone, Copy)]
 pub struct CrudPaginationState {
     ctx: CrudInstanceContext,
-    /// The loaded page and how it relates to the rest of the list, once loaded.
-    loaded_paging: Memo<Option<(PageNr, CrudPaging)>>,
+    /// How the loaded page relates to the rest of the list, once loaded.
+    loaded_paging: Memo<Option<LoadedPaging>>,
     /// The currently displayed page.
     pub page: Signal<PageNr>,
     /// The number of entities per page.
@@ -209,7 +262,7 @@ pub struct CrudPaginationState {
 impl CrudPaginationState {
     fn new(
         ctx: &CrudInstanceContext,
-        loaded_paging: Memo<Option<(PageNr, CrudPaging)>>,
+        loaded_paging: Memo<Option<LoadedPaging>>,
         item_count: Signal<Option<u64>>,
         has_rows: Signal<bool>,
     ) -> Self {
@@ -232,15 +285,20 @@ impl CrudPaginationState {
         };
         // Deleting entities, here or elsewhere, can leave the current page beyond the last one.
         Effect::new(move || {
+            page.track();
+            if let Some(item_count) = item_count.get() {
+                this.clamp_page(item_count, items_per_page.get_untracked());
+            }
+        });
+        let cursors = ctx.cursors;
+        Effect::new(move || {
             let current = page.get();
-            match loaded_paging.get() {
-                Some((_, CrudPaging::Offset { total })) => {
-                    this.clamp_page(total, items_per_page.get_untracked());
-                }
-                Some((loaded, CrudPaging::Cursor { .. })) if loaded == current => {
-                    this.step_back_from_unreachable_page(current, has_rows.get());
-                }
-                Some((_, CrudPaging::Cursor { .. })) | None => {}
+            let paged_by_cursor = loaded_paging.read().as_ref().is_some_and(|loaded| {
+                matches!(loaded.paging, CrudPaging::Cursor { .. })
+                    && loaded.is_current(current, cursors)
+            });
+            if paged_by_cursor {
+                this.step_back_from_unreachable_page(current, has_rows.get());
             }
         });
         this
@@ -318,10 +376,20 @@ impl CrudPaginationState {
     #[must_use]
     pub fn has_next(&self) -> bool {
         let page = self.page.get();
-        match self.loaded_paging.get() {
-            Some((loaded, CrudPaging::Cursor { next })) => loaded == page && next.is_some(),
-            Some((_, CrudPaging::Offset { .. })) | None => page.0 < self.page_count.get(),
-        }
+        let cursors = self.ctx.cursors;
+        self.loaded_paging.with(|loaded| match loaded {
+            Some(
+                loaded @ LoadedPaging {
+                    paging: CrudPaging::Cursor { next },
+                    ..
+                },
+            ) => next.is_some() && loaded.is_current(page, cursors),
+            Some(LoadedPaging {
+                paging: CrudPaging::Offset,
+                ..
+            })
+            | None => page.0 < self.page_count.get(),
+        })
     }
 
     /// Shows the previous page, if any.

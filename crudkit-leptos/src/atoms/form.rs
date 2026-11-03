@@ -11,8 +11,8 @@ use crate::hooks::form::{
 };
 use crate::hooks::instance::{use_crud_instance, use_crud_navigation};
 use crate::hooks::texts::use_crud_texts;
-use crudkit_core::Saved;
 use crudkit_core::id::SerializableId;
+use crudkit_web::data_source::CrudSaved;
 use crudkit_web::field::FieldMode;
 use crudkit_web::http::RequestError;
 use crudkit_web::layout::Elem;
@@ -71,7 +71,7 @@ impl<F: TypeErasedField> Copy for FormContext<F> {}
 pub fn CrudCreateForm(
     /// Called after the entity was created, while the form is mounted.
     #[prop(into, optional)]
-    on_saved: Option<Callback<Saved<DynUpdateModel>>>,
+    on_saved: Option<Callback<CrudSaved>>,
     /// Called when creating the entity failed, while the form is mounted.
     #[prop(into, optional)]
     on_save_failed: Option<Callback<RequestError>>,
@@ -153,7 +153,7 @@ pub fn CrudEditForm(
     id: Signal<SerializableId>,
     /// Called after the entity was saved, while the form is mounted.
     #[prop(into, optional)]
-    on_saved: Option<Callback<Saved<DynUpdateModel>>>,
+    on_saved: Option<Callback<CrudSaved>>,
     /// Called when saving the entity failed, while the form is mounted.
     #[prop(into, optional)]
     on_save_failed: Option<Callback<RequestError>>,

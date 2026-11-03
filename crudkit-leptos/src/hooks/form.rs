@@ -8,9 +8,10 @@ use crate::hooks::notify::{CrudNotification, CrudNotifier};
 use crate::hooks::texts::{use_crud_texts, with_texts};
 use crate::instance::CrudInstanceContext;
 use crate::instance::CrudNavigation;
+use crudkit_core::Value;
 use crudkit_core::id::SerializableId;
 use crudkit_core::validation::PartialSerializableAggregateViolations;
-use crudkit_core::{Saved, Value};
+use crudkit_web::data_source::{CrudCreateRequest, CrudReadRequest, CrudSaved, CrudUpdateRequest};
 use crudkit_web::http::RequestError;
 use crudkit_web::load_state::LoadState;
 use crudkit_web::prelude::*;
@@ -296,7 +297,7 @@ pub enum CrudSaveNotifications {
 #[derive(Debug, Clone, Default)]
 pub struct UseCrudCreateFormInput {
     /// Called after the entity was created, while the form is mounted.
-    pub on_saved: Option<Callback<Saved<DynUpdateModel>>>,
+    pub on_saved: Option<Callback<CrudSaved>>,
     /// Called when creating the entity failed, while the form is mounted.
     pub on_save_failed: Option<Callback<RequestError>>,
     /// Which outcomes notify the user. Notifications are sent even when the form is gone by then.
@@ -433,10 +434,7 @@ fn entity_status<F: TypeErasedField>(
 }
 
 /// Result of a save request, together with the follow-up requested for it.
-type SaveOutcome = (
-    Result<Saved<DynUpdateModel>, RequestError>,
-    CrudSaveFollowUp,
-);
+type SaveOutcome = (Result<CrudSaved, RequestError>, CrudSaveFollowUp);
 
 /// Creates the action sending create requests for the instance of `ctx`. It notifies the outcome
 /// as `notifications` ask, also when the form is gone by then.
@@ -454,7 +452,9 @@ fn create_action(
             let data_source = ctx.data_source();
             let scope = ctx.scope.get_untracked();
             async move {
-                let result = data_source.create(&scope, entity).await;
+                let result = data_source
+                    .create(&scope, CrudCreateRequest::new(entity))
+                    .await;
                 notify.outcome(
                     &result,
                     |texts| &texts.created,
@@ -466,24 +466,22 @@ fn create_action(
     )
 }
 
-/// Creates the action sending update requests for the entity `id` of the instance of `ctx`. It
-/// notifies the outcome as `notifications` ask, also when the form is gone by then.
+/// Creates the action sending update requests for the instance of `ctx`. It notifies the outcome
+/// as `notifications` ask, also when the form is gone by then.
 fn update_action(
     ctx: &CrudInstanceContext,
-    id: Signal<SerializableId>,
     notifications: CrudSaveNotifications,
-) -> Action<(DynUpdateModel, CrudSaveFollowUp), SaveOutcome> {
+) -> Action<(CrudUpdateRequest, CrudSaveFollowUp), SaveOutcome> {
     let ctx = *ctx;
     let notify = SaveNotifier::new(&ctx, notifications);
     Action::new_local(
-        move |(entity, follow_up): &(DynUpdateModel, CrudSaveFollowUp)| {
-            let entity = entity.clone();
+        move |(request, follow_up): &(CrudUpdateRequest, CrudSaveFollowUp)| {
+            let request = request.clone();
             let follow_up = *follow_up;
             let data_source = ctx.data_source();
-            let id = id.get_untracked();
             let scope = ctx.scope.get_untracked();
             async move {
-                let result = data_source.update(&scope, &id, entity).await;
+                let result = data_source.update(&scope, request).await;
                 notify.outcome(&result, |texts| &texts.saved, |texts| &texts.update_failed);
                 (result, follow_up)
             }
@@ -574,7 +572,7 @@ pub struct UseCrudEditFormInput {
     /// ID of the edited entity.
     pub id: Signal<SerializableId>,
     /// Called after the entity was saved, while the form is mounted.
-    pub on_saved: Option<Callback<Saved<DynUpdateModel>>>,
+    pub on_saved: Option<Callback<CrudSaved>>,
     /// Called when saving the entity failed, while the form is mounted.
     pub on_save_failed: Option<Callback<RequestError>>,
     /// Which outcomes notify the user. Notifications are sent even when the form is gone by then.
@@ -627,7 +625,7 @@ pub fn use_crud_edit_form(input: UseCrudEditFormInput) -> UseCrudEditFormReturn 
     let violations = RwSignal::new(None::<PartialSerializableAggregateViolations>);
 
     let entity = use_entity(&ctx, id);
-    let save_action = update_action(&ctx, id, notifications);
+    let save_action = update_action(&ctx, notifications);
     let is_saving: Signal<bool> = save_action.pending().into();
     let form = CrudFormState::<DynUpdateField>::new(is_saving);
     load_into_form(&ctx, entity, form);
@@ -668,9 +666,12 @@ pub fn use_crud_edit_form(input: UseCrudEditFormInput) -> UseCrudEditFormReturn 
 
     let is_dirty = form.is_dirty;
     let save = Callback::new(move |follow_up: CrudSaveFollowUp| {
-        if let Some(draft) = savable_draft(form) {
-            save_action.dispatch((draft, follow_up));
-        }
+        let (Some(draft), Some(baseline)) = (savable_draft(form), form.baseline.get_untracked())
+        else {
+            return;
+        };
+        let request = CrudUpdateRequest::new(id.get_untracked(), draft, baseline);
+        save_action.dispatch((request, follow_up));
     });
     // Deletes the entity as loaded: the draft may hold unsaved changes, even of its ID fields.
     let delete = Callback::new(move |()| {
@@ -737,7 +738,7 @@ pub fn use_crud_read(id: impl Into<Signal<SerializableId>>) -> UseCrudReadReturn
     }
 }
 
-/// Loads the entity identified by `id` within the instance's base condition.
+/// Loads the entity identified by `id` in the instance's scope.
 fn use_entity(
     ctx: &CrudInstanceContext,
     id: Signal<SerializableId>,
@@ -748,7 +749,9 @@ fn use_entity(
         let _ = ctx.reload.get();
         let id = id.get();
         let scope = ctx.scope.get();
-        ctx.data_source().read(&scope, &id).await
+        ctx.data_source()
+            .read(&scope, CrudReadRequest::new(id))
+            .await
     });
 
     Memo::new(move |_prev| match resource.get() {

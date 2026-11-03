@@ -68,11 +68,11 @@ pub struct CrudInstanceConfig {
     /// The current page to display, e.g. `PageNr::first()`. One-based index. A list whose data
     /// source pages by cursor starts at the first page.
     pub page_nr: PageNr,
-    /// The parents of the instance's entities, e.g. from the application's route, and the base
-    /// condition, which restricts every operation of the instance except creation. The instance
-    /// passes it to every operation of its data source. A [`CrudParentConfig`] adds the parent's
-    /// ID to its parents.
-    pub scope: CrudScope,
+    /// The parents of the instance's entities, e.g. from the application's route. The instance
+    /// passes them to every operation of its data source, after the parent of a
+    /// [`CrudParentConfig`]. When the scope changes, e.g. because the route's parameters changed
+    /// while the instance stays mounted, the list starts over at its first page.
+    pub scope: Signal<CrudScope>,
 
     /* Immutable data */
     /// Where the instance reads and changes its entities.
@@ -118,11 +118,9 @@ impl CrudInstanceConfig {
         <R::CreateModel as Model>::Field: ErasedCreateField,
         <R::UpdateModel as Model>::Field: ErasedUpdateField,
     {
-        Self::with_data_source::<R>(Arc::new(CrudRestDataSource::new(
+        Self::with_data_source::<R>(Arc::new(CrudRestDataSource::for_resource::<R>(
             api_base_url.into(),
             reqwest_executor,
-            R::resource_name().to_owned(),
-            model_handler::<R>(),
         )))
     }
 
@@ -150,9 +148,9 @@ impl CrudInstanceConfig {
             order_by: IndexMap::new(),
             items_per_page: ItemsPerPage::default(),
             page_nr: PageNr::default(),
-            scope: CrudScope::default(),
+            scope: Signal::stored(CrudScope::default()),
             data_source,
-            model_handler: model_handler::<R>(),
+            model_handler: ModelHandler::new::<R::CreateModel, R::ReadModel, R::UpdateModel>(),
             actions: Vec::new(),
             entity_actions: Vec::new(),
             view_registry: None,
@@ -200,7 +198,7 @@ pub(crate) struct CrudMutableInstanceConfig {
     pub order_by: IndexMap<DynReadField, Order>,
     pub items_per_page: ItemsPerPage,
     pub page: PageNr,
-    pub scope: CrudScope,
+    pub scope: Signal<CrudScope>,
 }
 
 /// This config is non-serializable. Every piece of runtime-changing data relevant to be tracked and reloaded should be part of the `CrudInstanceConfig` struct.
@@ -239,17 +237,3 @@ pub type UpdateElements = Vec<Elem<DynUpdateField>>;
 
 /// Layout of the create view: a sequence of fields, separators, and enclosing groups.
 pub type CreateElements = Vec<Elem<DynCreateField>>;
-
-/// Returns the model handler of the concrete models of resource `R`.
-fn model_handler<R>() -> ModelHandler
-where
-    R: crudkit_web::resource::Resource,
-    R::CreateModel: ErasedCreateModel,
-    R::ReadModel: ErasedReadModel,
-    R::UpdateModel: ErasedUpdateModel + From<R::ReadModel>,
-    <R::ReadModel as Model>::Field: ErasedReadField,
-    <R::CreateModel as Model>::Field: ErasedCreateField,
-    <R::UpdateModel as Model>::Field: ErasedUpdateField,
-{
-    ModelHandler::new::<R::CreateModel, R::ReadModel, R::UpdateModel>()
-}

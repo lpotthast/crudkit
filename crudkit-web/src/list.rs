@@ -132,14 +132,24 @@ impl PageOptions {
 ///
 /// The first page needs no cursor. Every further page opens with the cursor that the page before
 /// it ended with, so a list reaches a page only by paging forward to it. Cursors depend on the
-/// list's ordering, page size, and scope, so the owner clears them when one of these changes.
+/// list's ordering, page size, and scope, so the owner [restarts](Self::restart) the cursors when
+/// one of these changes. Every restart starts a new generation. A page records its cursor only in
+/// the generation it was requested in, so that an answer arriving after a restart records nothing.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PageCursors {
+    /// Counts the restarts.
+    generation: u64,
     /// The cursor opening page `n` at index `n - 2`.
     cursors: Vec<CrudCursor>,
 }
 
 impl PageCursors {
+    /// Returns the current generation, which a request of a page records the cursor in.
+    #[must_use]
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
     /// Returns the cursor that opens `page`. `None` for the first page, and for pages the list
     /// did not reach.
     #[must_use]
@@ -155,12 +165,13 @@ impl PageCursors {
         page.0 <= 1 || self.cursor_of(page).is_some()
     }
 
-    /// Records the cursor `next` with which `page` ended, which opens the page after it.
+    /// Records the cursor `next` with which `page` of `generation` ended, which opens the page
+    /// after it.
     ///
     /// Forgets the cursors of the pages beyond that, because they change when entities are added or
-    /// deleted. Ignores pages the list did not reach.
-    pub fn record(&mut self, page: PageNr, next: Option<CrudCursor>) {
-        if !self.reaches(page) {
+    /// deleted. Ignores pages of another generation, and pages the list did not reach.
+    pub fn record(&mut self, generation: u64, page: PageNr, next: Option<CrudCursor>) {
+        if generation != self.generation || !self.reaches(page) {
             return;
         }
         let known = usize::try_from(page.0.saturating_sub(1)).unwrap_or(usize::MAX);
@@ -174,8 +185,9 @@ impl PageCursors {
         self.cursors.is_empty()
     }
 
-    /// Forgets every cursor.
-    pub fn clear(&mut self) {
+    /// Forgets every cursor and starts a new generation.
+    pub fn restart(&mut self) {
+        self.generation += 1;
         self.cursors.clear();
     }
 }
@@ -392,33 +404,49 @@ mod tests {
         assert_that!(cursors.reaches(PageNr(1))).is_true();
         assert_that!(cursors.reaches(PageNr(2))).is_false();
 
-        cursors.record(PageNr(1), Some(cursor("a")));
-        cursors.record(PageNr(2), Some(cursor("b")));
+        cursors.record(0, PageNr(1), Some(cursor("a")));
+        cursors.record(0, PageNr(2), Some(cursor("b")));
         assert_that!(cursors.cursor_of(PageNr(1))).is_none();
         assert_that!(cursors.cursor_of(PageNr(2))).is_equal_to(Some(&cursor("a")));
         assert_that!(cursors.cursor_of(PageNr(3))).is_equal_to(Some(&cursor("b")));
         assert_that!(cursors.reaches(PageNr(4))).is_false();
 
         // Pages the list did not reach are not recorded.
-        cursors.record(PageNr(9), Some(cursor("z")));
+        cursors.record(0, PageNr(9), Some(cursor("z")));
         assert_that!(cursors.reaches(PageNr(10))).is_false();
     }
 
     #[test]
     fn page_cursors_forget_the_pages_beyond_a_page_loaded_again() {
         let mut cursors = PageCursors::default();
-        cursors.record(PageNr(1), Some(cursor("a")));
-        cursors.record(PageNr(2), Some(cursor("b")));
-        cursors.record(PageNr(3), Some(cursor("c")));
+        cursors.record(0, PageNr(1), Some(cursor("a")));
+        cursors.record(0, PageNr(2), Some(cursor("b")));
+        cursors.record(0, PageNr(3), Some(cursor("c")));
 
         // Reloading the second page found a new cursor of the third.
-        cursors.record(PageNr(2), Some(cursor("b2")));
+        cursors.record(0, PageNr(2), Some(cursor("b2")));
         assert_that!(cursors.cursor_of(PageNr(3))).is_equal_to(Some(&cursor("b2")));
         assert_that!(cursors.reaches(PageNr(4))).is_false();
 
         // The first page became the last one.
-        cursors.record(PageNr(1), None);
+        cursors.record(0, PageNr(1), None);
         assert_that!(cursors.is_empty()).is_true();
+    }
+
+    #[test]
+    fn page_cursors_ignore_answers_requested_before_a_restart() {
+        let mut cursors = PageCursors::default();
+        let before = cursors.generation();
+        cursors.record(before, PageNr(1), Some(cursor("a")));
+
+        cursors.restart();
+        assert_that!(cursors.is_empty()).is_true();
+        // An answer of the old ordering arrives late.
+        cursors.record(before, PageNr(1), Some(cursor("old")));
+        assert_that!(cursors.is_empty()).is_true();
+
+        cursors.record(cursors.generation(), PageNr(1), Some(cursor("new")));
+        assert_that!(cursors.cursor_of(PageNr(2))).is_equal_to(Some(&cursor("new")));
     }
 
     #[test]

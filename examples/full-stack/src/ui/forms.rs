@@ -180,7 +180,7 @@ fn CardHeader(title: String) -> impl IntoView {
 }
 
 /// Reports a successful save in the app's words, instead of CrudKit's default notification.
-fn notify_saved() -> Callback<Saved<DynUpdateModel>> {
+fn notify_saved() -> Callback<CrudSaved> {
     let notifier = use_crud_notifier();
     Callback::new(move |_| {
         notifier.notify(CrudNotification::success(

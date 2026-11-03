@@ -39,9 +39,6 @@ Priorities are relative:
   currently requires exactly one outer typetag object entry and unwraps the serialized value before sending it.
 - [ ] **P1 - Complete client-provider route parity.** Add or deliberately exclude the typed provider's delete-one and
   delete-many so its API matches the generated server surface. The REST data source uses delete-by-ID and delete-many.
-- [ ] **P1 - Make provider scoping semantics uniform.** The REST data source applies an instance's `CrudScope` to every
-  operation except creation, while the typed provider keeps a base condition of its own. Decide whether the typed
-  provider takes a scope too. Keep authorization server-side regardless.
 - [ ] **P2 - Consider a gRPC API next to the HTTP API.** Idea for later, not yet investigated: offer the CRUD
   operations over gRPC as well, built on the same versioned wire format as the HTTP routes.
 - [ ] **P2 - Decide whether the POST-only CRUD surface is permanent.** If it is, document infrastructure and caching
@@ -108,7 +105,7 @@ Priorities are relative:
 - [ ] **P2 - Let optional `bool` fields return to null.** The default checkbox can only set `true` or `false`.
 - [ ] **P2 - Offer a rich-text renderer.** The Tiptap-based editor was removed with Leptonic's legacy components; JSON
   fields now use a plain text area.
-- [ ] **P1 - Add list filtering.** The instance's scope has a base condition, but no atom or hook lets users filter a
+- [ ] **P1 - Add list filtering.** The REST data source has a base condition, but no atom or hook lets users filter a
   list. A filter would reach the data source with the list request, which a data source may refuse.
 - [ ] **P1 - Expose entity control policy.** Deleting a listed entity is always offered (`can_delete` of table rows is
   `true`), and read, edit, and create availability have no policy either. UI controls remain presentation, not

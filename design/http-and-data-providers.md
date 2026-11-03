@@ -81,29 +81,38 @@ owns request authentication and client construction; resource code does not add 
 
 `CrudRestDataSource` is the [data source](data-sources.md) of a resource served by the generated routes.
 `CrudInstanceConfig::new::<R>(api_base_url, executor)` configures an instance with it, so an application on
-`crudkit-rs` names only the base URL and the executor. The data source holds the resource's
-`crudkit_web::model_handler::ModelHandler`, which deserializes response entities into the concrete models chosen
-during configuration, so reads return `DynReadModel`s and writes return `Saved<DynUpdateModel>`.
+`crudkit-rs` names only the base URL and the executor. `CrudRestDataSource::for_resource::<R>` creates it for
+an instance configured with `CrudInstanceConfig::with_data_source`, e.g. with a base condition. The data source holds
+the resource's `crudkit_web::model_handler::ModelHandler`, which deserializes response entities into the concrete
+models chosen during configuration, so reads return `DynReadModel`s and writes return `CrudSaved`.
 
-The data source maps its operations to the routes:
+The data source maps its operations to the routes. Its condition keeps every operation except creation within the
+scope and the base condition:
 
-| Operation     | Route                        | Condition                     |
-|---------------|------------------------------|-------------------------------|
-| `list`        | `read-many` and `read-count` | scope                         |
-| `read`        | `read-one`                   | scope AND the ID's components |
-| `create`      | `create-one`                 | none                          |
-| `update`      | `update-one`                 | scope AND the ID's components |
-| `delete`      | `delete-by-id`               | scope, next to the ID         |
-| `delete_many` | `delete-many`                | scope AND any of the IDs      |
+| Operation     | Route          | Condition                         |
+|---------------|----------------|-----------------------------------|
+| `list`        | `read-many`    | the data source's condition       |
+| `count`       | `read-count`   | the data source's condition       |
+| `read`        | `read-one`     | the condition AND the ID's fields |
+| `create`      | `create-one`   | none                              |
+| `update`      | `update-one`   | the condition AND the ID's fields |
+| `delete`      | `delete-by-id` | the condition, next to the ID     |
+| `delete_many` | `delete-many`  | the condition AND any of the IDs  |
 
-`list` sends both requests at once and answers with `CrudPaging::Offset`, whose total is the count. It can order by
-every field.
+`list` answers with `CrudPaging::Offset`. The instance counts with `count` only when the scope changes or the list
+reloads, so paging and ordering send no count request, and a failed count leaves the page shown. The data source can
+order by every field.
 
 The routes are flat, so the data source turns a `CrudScope` into a condition: each parent becomes an equality clause
-on the field that refers to it, the clauses are combined with AND, and the scope's condition is added with AND. A
-parent whose ID cannot be compared for equality fails the request with `RequestError::InvalidRequest`, because leaving
-it out would widen the operation. A creation sends the entity as it is: the instance fills the fields that refer to the
-scope's parents in the create model.
+on the field that refers to it, and the clauses are combined with AND. The base condition, set with
+`CrudRestDataSource::with_base_condition`, is added with AND. A parent whose ID cannot be compared for equality fails
+the request with `RequestError::InvalidRequest`, because leaving it out would widen the operation. A creation sends the
+entity as it is: the instance fills the fields that refer to the scope's parents in the create model.
+
+The `delete-many` route reports its outcome as `DeletedManyV1`. The data source turns it into a `CrudDeletedMany`: the
+deleted IDs, the deletions aborted by lifecycle hooks as `UnprocessableEntity` with their reason, because the route does
+not tell a refusal from a rejection, the deletions prevented by validation as `CriticalValidationErrors`, and the
+other failures as `InternalServerError` with their message.
 
 Erased create and update models serialize with a typetag wrapper. Before sending them to the generated server DTO,
 the data source calls the model wrapper's `to_untagged_json`, which requires an object with exactly one outer
@@ -125,17 +134,17 @@ to deserialize as the frontend `UpdateModel`. The JSON shapes must therefore be 
 
 ## Base Conditions
 
-The typed provider can store a base condition, which it combines with the request condition using logical AND. It
-applies the base condition to count, read-one, read-many, update, and delete-by-ID, but not to create. The REST data
-source has no base condition of its own: an instance's base condition reaches it as the condition of the instance's
-scope.
+Both clients can hold a base condition, which they combine with the request condition using logical AND. The typed
+provider applies its base condition to count, read-one, read-many, update, and delete-by-ID, but not to create. The
+REST data source applies its base condition to every operation except create, also to delete-many. A base condition
+belongs to the REST clients, because it is a condition of the generated routes, which other APIs do not have.
 
 `DeleteById` carries an optional `condition` next to the ID. The server deletes the entity only if it matches both;
 otherwise the request fails as not found. Requests without the field delete by ID alone.
 
-An instance passes its scope to every operation, so single and mass deletions stay within the instance's base
-condition and parents, and a view cannot delete outside of what it shows. These conditions are convenience scoping and
-UI composition, not access control:
+An instance passes its scope to every operation, so single and mass deletions stay within the instance's parents and
+the data source's base condition, and a view cannot delete outside of what it shows. These conditions are convenience
+scoping and UI composition, not access control:
 
 - clients can call the API without using a data source;
 - create has no selection condition;
