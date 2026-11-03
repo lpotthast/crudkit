@@ -45,7 +45,11 @@ use crate::{
 /// `CrudError::CriticalValidationErrors` if delta validation finds critical violations, or
 /// `CrudError::DeleteValidations`/`CrudError::SaveValidations` if stored violations cannot be
 /// updated.
-#[tracing::instrument(level = "info", skip(context, request))]
+#[tracing::instrument(
+    level = "info",
+    skip_all,
+    fields(resource = R::TYPE.name(), entity_id = tracing::field::Empty)
+)]
 pub async fn update_one<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
@@ -60,6 +64,7 @@ pub async fn update_one<R: CrudResource>(
             reason: Arc::new(err),
         })?
         .ok_or(CrudError::NotFound)?;
+    tracing::Span::current().record("entity_id", tracing::field::display(existing_model.id()));
 
     // Keep a copy of the old state for delta validation.
     let old_model = existing_model.clone();

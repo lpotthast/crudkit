@@ -334,7 +334,7 @@ impl ValidationResultRepository for UnifiedValidationRepository {
                     .await
                 {
                     tracing::error!(
-                        "Failed to save violations for entity {entity_id:?} of resource type '{resource_name}': {e:?}"
+                        "Failed to save violations for entity {entity_id:?} of resource type '{resource_name}': {e}"
                     );
                 }
             }

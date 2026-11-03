@@ -19,9 +19,10 @@ Priorities are relative:
   string input into `Value::String` rather than `Value::Json`.
 - [ ] **P1 - Align the condition wire domain with supported field values.** Decide which array and temporal values are
   supported, add the missing vector forms or narrow the public contract, and make string-to-type parsing explicit.
-- [ ] **P0 - Validate serialized IDs at server operation boundaries.** Reject empty, duplicate, missing, extra,
-  misnamed, and mistyped components before building an ID predicate. Delete-by-ID currently accepts arbitrary entries;
-  an empty `SerializableId` becomes a match-all condition. Add route tests for simple and composite IDs.
+- [ ] **P1 - Select the entity of an update by its ID.** `UpdateOneV1` selects its entity by a condition and has no
+  order, so a missing or match-all condition updates whichever entity the repository returns first. CrudKit's clients
+  refuse to build the condition from an empty ID, but the server cannot tell an ID condition from any other. Carry
+  the ID as delete-by-ID does, in a new wire format version, and validate it the same way.
 - [ ] **P1 - Return diagnostic ID reconstruction errors.** Replace the bare `Option` from
   `Id::from_serializable_id` with an error that identifies missing, extra, mistyped, or misnamed ID fields.
 - [ ] **P1 - Validate type-erased configuration before use.** Detect incompatible models, fields, handlers, renderers,
@@ -39,6 +40,28 @@ Priorities are relative:
   currently requires exactly one outer typetag object entry and unwraps the serialized value before sending it.
 - [ ] **P1 - Complete client-provider route parity.** Add or deliberately exclude the typed provider's delete-one and
   delete-many so its API matches the generated server surface. The REST data source uses delete-by-ID and delete-many.
+- [ ] **P1 - Serve a product's typed, versioned REST API.** A product with typed, versioned REST APIs, such as
+  Agnite's `/v1`, should be able to build its resources on crudkit-rs and its sibling crates. CrudKit then serves the
+  product's public API without the product writing the routes by hand, while the product keeps its own records in the
+  same transaction. The product needs:
+  - typed routes: `GET`, `POST`, `PATCH`, and `DELETE` on resource paths as an alternative to the `POST` routes of the
+    wire format, with filters and sorting that a resource declares instead of the general condition language;
+  - nested resources: a server-side scope of parent IDs, in which each ID resolves inside its parent or the request
+    fails with 404;
+  - optimistic concurrency: an opaque version in `ETag` and `If-Match`, with 428 for a missing and 412 for a stale
+    version (see *Add an optimistic-concurrency contract* below);
+  - pages by cursor, without a total count;
+  - updates as JSON merge patches, in which `null` removes a field, with a message for each change;
+  - asynchronous outcomes: 202 with the resource in its new state, such as `deleting`;
+  - problem details (RFC 9457) with the paths of the fields, for validation failures and for refusals;
+  - transactions: every operation, hook, and repository call runs inside a transaction that the caller provides, so
+    that the product can write its own records in it, such as a change row with author, origin, and message;
+  - authorization by scope before any read, and a 404 that hides a resource the caller may not see;
+  - the product's own schema: no shared validation table, read views qualified by schema, and migrations that only
+    go forward;
+  - write-only fields, such as secret values, which are never read back, never `Debug`, and never traced;
+  - actions that are not CRUD, declared next to a resource, so that its routes and their documentation come from one
+    place.
 - [ ] **P2 - Consider a gRPC API next to the HTTP API.** Idea for later, not yet investigated: offer the CRUD
   operations over gRPC as well, built on the same versioned wire format as the HTTP routes.
 - [ ] **P2 - Decide whether the POST-only CRUD surface is permanent.** If it is, document infrastructure and caching
@@ -79,6 +102,10 @@ Priorities are relative:
   failures. Choose an outbox/retry protocol or explicitly decouple best-effort notifications from durable events.
 - [ ] **P1 - Add collaboration identity and ordering.** Messages need enough revision, origin, correlation, and
   ordering information for receivers to reject stale state and deduplicate retries.
+- [ ] **P1 - Limit broadcasts to the entities a client may read.** A message reaches every client that may read its
+  resource (`Audience`), also when lifecycle hooks would hide the entity from that client, e.g. by tenant. Give
+  services each recipient's authentication, and let the resource decide per recipient and entity, e.g. through a
+  read-visibility policy that both `before_read` and broadcasts use.
 - [ ] **P1 - Add the frontend collaboration consumer.** Implement refetch/invalidation and validation-state handling,
   including duplicate, delayed, missing, and reordered messages.
 - [ ] **P1 - Define clear-state broadcasts consistently.** Specify when empty partial results are emitted, especially
@@ -170,6 +197,10 @@ Priorities are relative:
 
 - [ ] **P1 - Resolve the `sqlx-postgres 0.7.4` future-incompatibility warning.** Inspect Cargo's report and update or
   patch the SeaORM/SQLx dependency chain before a future Rust release turns the warning into a build failure.
+- [ ] **P1 - Log a diagnosis of database failures.** CrudKit logs repository errors by their `Display` text, and
+  `SeaOrmRepoError::Db` displays only that the database failed, because the database's error can contain values, such
+  as PostgreSQL's `Key (email)=(…) already exists`. Add what identifies a failure without values, such as the SQLSTATE
+  code and the name of the violated constraint.
 - [ ] **P1 - Support explicit SQL NULL updates.** Generated optional update fields currently mean “write when
   `Some`, leave unchanged when `None`” and cannot distinguish set-null from unchanged.
 - [ ] **P2 - Separate portable and PostgreSQL-specific read-view support.** Make the database requirement explicit in

@@ -72,6 +72,17 @@ The ordering below is observable and matters because there is no transaction aro
 Validation result meaning and the incomplete global-validation path are defined in
 [Validation and Collaboration](validation-and-collaboration.md).
 
+## Tracing
+
+Every operation runs in an `info` span named after the operation, such as `create_one`. The span records the
+resource name as `resource`. Operations on one entity also record its ID as `entity_id` once they know the entity.
+
+Spans and events never record request bodies, models, conditions, or validation findings, because these can hold
+secrets or personal data, and logs are kept longer and read by more people than the data. A condition value that
+cannot be converted for its field is described by its kind, not by its value. Errors of repositories, hooks, and
+collaboration services are logged by their `Display` text, never by `Debug`, so an implementation must keep
+confidential values out of that text. A database's error, for example, can name the values that violate a constraint.
+
 ## Authentication and Authorization
 
 `CrudAuthPolicy` answers one narrow question for each CRUD operation: must an authenticated value be present?
@@ -82,6 +93,9 @@ Validation result meaning and the incomplete global-validation path are defined 
 
 For a public operation, `RequestContext::auth` may still contain authentication when the caller supplied it. For an
 authenticated operation, the generated route rejects a missing auth extension with 401 before invoking the operation.
+
+The read requirement also decides which clients receive collaboration messages about the resource; see
+[Validation and Collaboration](validation-and-collaboration.md#audience).
 
 Claims, roles, ownership, tenant membership, and entity-specific permission are deliberately outside `CrudAuthPolicy`.
 Lifecycle hooks inspect `RequestContext` and the fetched entity or mutable read request to enforce those rules. A
@@ -113,3 +127,6 @@ using a 50 MB budget and a heap-overhead multiplier, then clamps the result to 1
 Every entity is reported as deleted, hook-aborted, validation-failed, or errored. If a fetched batch produces no
 successful deletion, processing stops to avoid repeatedly fetching the same undeletable entities. This is a best-effort
 bulk operation, not an all-or-nothing transaction.
+
+An errored entity carries a generic reason, `Repository error.` or `Lifecycle error.`, as a 500 response does, because
+the details of a failure can contain values of the entity. The operation logs the error's `Display` text instead.

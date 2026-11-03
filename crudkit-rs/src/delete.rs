@@ -17,7 +17,7 @@ use crate::{
     prelude::*,
     validation::{CrudAction, ValidationContext, ValidationTrigger, When},
 };
-use crudkit_core::condition::{TryIntoAllEqualCondition, merge_conditions};
+use crudkit_core::condition::{condition_matching_id, merge_conditions};
 use crudkit_core::id::{Id, SerializableId};
 use crudkit_core::request::{DeleteById, DeleteMany, DeleteOne};
 use crudkit_core::validation::PartialSerializableAggregateViolations;
@@ -56,23 +56,24 @@ const fn calculate_batch_size<M>() -> u64 {
 ///
 /// # Errors
 ///
-/// Returns `CrudError::IntoCondition` if the ID cannot be turned into a condition,
-/// `CrudError::NotFound` if no entity with that ID matches the condition, `CrudError::Repository` if fetching or deleting
+/// Returns `CrudError::InvalidId` before the repository is asked if the ID does not consist of
+/// exactly the fields of the resource's ID, e.g. because it has no fields, `CrudError::NotFound` if
+/// no entity with that ID matches the condition, `CrudError::Repository` if fetching or deleting
 /// fails, `CrudError::Forbidden`, `CrudError::UnprocessableEntity`, or
 /// `CrudError::LifecycleHookError` if a lifecycle hook rejects the operation or fails, or
 /// `CrudError::CriticalValidationErrors` if validation blocks the deletion.
-#[tracing::instrument(level = "info", skip(context, request))]
+#[tracing::instrument(
+    level = "info",
+    skip_all,
+    fields(resource = R::TYPE.name(), entity_id = tracing::field::Empty)
+)]
 pub async fn delete_by_id<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
     body: DeleteById,
 ) -> Result<Deleted, CrudError> {
-    let id_condition = body
-        .id
-        .clone()
-        .into_entries()
-        .try_into_all_equal_condition()
-        .map_err(|err| CrudError::IntoCondition { source: err })?;
+    let id_condition = condition_matching_id::<R::Id>(&body.id)
+        .map_err(|source| CrudError::InvalidId { source })?;
     let condition = merge_conditions(Some(id_condition), body.condition);
 
     let model = context
@@ -83,6 +84,7 @@ pub async fn delete_by_id<R: CrudResource>(
             reason: Arc::new(err),
         })?
         .ok_or(CrudError::NotFound)?;
+    tracing::Span::current().record("entity_id", tracing::field::display(model.id()));
 
     let delete_request = DeleteRequest {
         operation: DeleteOperation::ById,
@@ -108,7 +110,11 @@ pub async fn delete_by_id<R: CrudResource>(
 /// fetching or deleting fails, `CrudError::Forbidden`, `CrudError::UnprocessableEntity`, or
 /// `CrudError::LifecycleHookError` if a lifecycle hook rejects the operation or fails, or
 /// `CrudError::CriticalValidationErrors` if validation blocks the deletion.
-#[tracing::instrument(level = "info", skip(context, request))]
+#[tracing::instrument(
+    level = "info",
+    skip_all,
+    fields(resource = R::TYPE.name(), entity_id = tracing::field::Empty)
+)]
 pub async fn delete_one<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
@@ -127,6 +133,7 @@ pub async fn delete_one<R: CrudResource>(
             reason: Arc::new(err),
         })?
         .ok_or(CrudError::NotFound)?;
+    tracing::Span::current().record("entity_id", tracing::field::display(model.id()));
 
     let delete_request = DeleteRequest {
         operation: DeleteOperation::One,
@@ -229,7 +236,11 @@ async fn execute_single_delete<R: CrudResource>(
         .delete_all_of_entity(R::TYPE.name(), &entity_id)
         .await
     {
-        tracing::warn!("Failed to delete validation results for entity {entity_id:?}: {e:?}");
+        tracing::warn!(
+            entity_id = %entity_id,
+            error = %e,
+            "Failed to delete the validation results of a deleted entity."
+        );
     }
 
     // Broadcast deletion via WebSocket.
@@ -245,7 +256,7 @@ async fn execute_single_delete<R: CrudResource>(
 /// Returns `CrudError::Repository` if fetching a batch of entities fails. Per-entity hook
 /// rejections, validation failures, and delete errors do not fail the operation; they are reported
 /// in the returned `DeletedMany`.
-#[tracing::instrument(level = "info", skip(context, request))]
+#[tracing::instrument(level = "info", skip_all, fields(resource = R::TYPE.name()))]
 pub async fn delete_many<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
@@ -327,9 +338,15 @@ async fn delete_one_of_many<R: CrudResource>(
             return;
         }
         Err(HookError::Internal(err)) => {
+            tracing::warn!(
+                entity_id = %entity_id,
+                error = %err,
+                "A lifecycle hook failed while deleting an entity of a batch."
+            );
+            // Like a 500 response, the result names the failure without its details.
             result
                 .errors
-                .push((serializable_id.clone(), format!("Lifecycle error: {err}")));
+                .push((serializable_id.clone(), "Lifecycle error.".to_owned()));
             return;
         }
     };
@@ -366,7 +383,9 @@ async fn delete_one_of_many<R: CrudResource>(
                 .await
             {
                 tracing::warn!(
-                    "Failed to delete validation results for entity {entity_id:?}: {e:?}"
+                    entity_id = %entity_id,
+                    error = %e,
+                    "Failed to delete the validation results of a deleted entity."
                 );
             }
 
@@ -376,9 +395,16 @@ async fn delete_one_of_many<R: CrudResource>(
             result.deleted_ids.push(serializable_id.clone());
         }
         Err(err) => {
+            tracing::warn!(
+                entity_id = %entity_id,
+                error = %err,
+                "Could not delete an entity of a batch."
+            );
+            // Like a 500 response, the result names the failure without its details, which can
+            // contain values of the entity.
             result
                 .errors
-                .push((serializable_id.clone(), format!("Delete error: {err:?}")));
+                .push((serializable_id.clone(), "Repository error.".to_owned()));
         }
     }
 }

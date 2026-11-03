@@ -1,6 +1,6 @@
 //! Query filtering DSL with condition clauses and operators.
 
-use crate::id::{IdValue, SerializableId, SerializableIdEntry};
+use crate::id::{Id, IdValue, SerializableId, SerializableIdEntry};
 use crate::{TimeDuration, Value};
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -239,10 +239,6 @@ pub fn merge_conditions(a: Option<Condition>, b: Option<Condition>) -> Option<Co
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("Could not build all-equal-condition.")]
-pub struct IntoAllEqualConditionError;
-
 pub trait TryIntoAllEqualCondition {
     type Error;
 
@@ -250,7 +246,9 @@ pub trait TryIntoAllEqualCondition {
     ///
     /// # Errors
     ///
-    /// Returns an error if a value cannot be used in a condition clause.
+    /// Returns an error if there is no entry, if an entry has no field name or an empty string
+    /// value, or if a value cannot be used in a condition clause. The conversion fails instead of
+    /// weakening the condition, because a condition without clauses matches every entity.
     fn try_into_all_equal_condition(self) -> Result<Condition, Self::Error>;
 }
 
@@ -258,69 +256,97 @@ impl<I> TryIntoAllEqualCondition for I
 where
     I: Iterator<Item = SerializableIdEntry>,
 {
-    type Error = IntoAllEqualConditionError;
+    type Error = IdConditionError;
 
     fn try_into_all_equal_condition(self) -> Result<Condition, Self::Error> {
         let mut clauses = Vec::new();
 
         for SerializableIdEntry { field_name, value } in self {
-            let clause = ConditionElement::Clause(ConditionClause {
+            let empty_value = matches!(&value, IdValue::String(string) if string.is_empty());
+            if field_name.is_empty() || empty_value {
+                return Err(IdConditionError::EmptyIdField);
+            }
+            let Ok(value) = ConditionClauseValue::try_from(value) else {
+                return Err(IdConditionError::UnsupportedIdValue { field_name });
+            };
+            clauses.push(ConditionElement::Clause(ConditionClause {
                 column_name: field_name,
                 operator: Operator::Equal,
-                value: value
-                    .clone()
-                    .try_into()
-                    .map_err(|_| IntoAllEqualConditionError)?,
-            });
-
-            clauses.push(clause);
+                value,
+            }));
         }
 
+        if clauses.is_empty() {
+            return Err(IdConditionError::EmptyId);
+        }
         Ok(Condition::All(clauses))
     }
 }
 
-/// Reasons why a set of entity IDs cannot be turned into a condition matching exactly them.
+/// Reasons why entity IDs cannot be turned into a condition matching exactly them.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum IdConditionError {
     /// No ID was supplied.
     #[error("no entity IDs were supplied")]
     NoIds,
-    /// An ID without components would match every entity.
-    #[error("an entity ID without components would match every entity")]
+    /// An ID without fields would match every entity.
+    #[error("an entity ID without fields would match every entity")]
     EmptyId,
-    /// An ID component cannot be used in an equality condition.
-    #[error("entity ID {id} cannot be used in an equality condition")]
+    /// An ID field without a name, or with an empty string as its value, identifies no entity.
+    #[error("an entity ID field without a name or value identifies no entity")]
+    EmptyIdField,
+    /// The ID does not consist of exactly the fields of its ID type: a field is missing, repeated,
+    /// misnamed, of another type, or not part of the ID type.
+    #[error("the entity ID does not consist of exactly the fields of its ID type")]
+    MismatchedIdFields,
+    /// An ID field cannot be used in an equality condition.
+    #[error("the entity ID field `{field_name}` cannot be used in an equality condition")]
     UnsupportedIdValue {
-        /// Debug rendering of the offending ID.
-        id: String,
+        /// The name of the field.
+        field_name: String,
     },
+}
+
+/// Builds a condition matching exactly the entity that `id` identifies, an ID of the type `I`.
+///
+/// `id` must consist of exactly the fields of `I`, with their types, so that the condition never
+/// selects by fewer fields than `I` has, or by fields that are not part of `I`.
+///
+/// # Errors
+///
+/// Returns an error if `id` has no fields, if it does not consist of exactly the fields of `I`, if
+/// a field is empty, or if a field cannot be compared for equality.
+pub fn condition_matching_id<I: Id>(id: &SerializableId) -> Result<Condition, IdConditionError> {
+    if id.0.is_empty() {
+        return Err(IdConditionError::EmptyId);
+    }
+    let typed_id = I::from_serializable_id(id).ok_or(IdConditionError::MismatchedIdFields)?;
+    let canonical_id = typed_id.to_serializable_id();
+    // `from_serializable_id` found every field of `I` in `id`. More fields in `id` are fields that
+    // `I` lacks, or repeated ones.
+    if canonical_id.0.len() != id.0.len() {
+        return Err(IdConditionError::MismatchedIdFields);
+    }
+    canonical_id.into_entries().try_into_all_equal_condition()
 }
 
 /// Builds a condition matching exactly the entities identified by `ids`.
 ///
-/// The components of each ID are combined with AND, and the IDs are combined with OR. The conversion
+/// The fields of each ID are combined with AND, and the IDs are combined with OR. The conversion
 /// fails instead of weakening the condition, because a weakened selection condition, e.g. for a
 /// deletion, could select unrelated entities.
 ///
 /// # Errors
 ///
-/// Returns an error if `ids` is empty, if any ID has no components, or if an ID component cannot be
-/// compared for equality.
+/// Returns an error if `ids` is empty, if any ID has no fields or an empty field, or if an ID field
+/// cannot be compared for equality.
 pub fn condition_matching_any_id(
     ids: impl IntoIterator<Item = SerializableId>,
 ) -> Result<Condition, IdConditionError> {
     let mut conditions = ids
         .into_iter()
-        .map(|id| {
-            if id.0.is_empty() {
-                return Err(IdConditionError::EmptyId);
-            }
-            let rendered = format!("{id:?}");
-            id.0.into_iter()
-                .try_into_all_equal_condition()
-                .map_err(|_| IdConditionError::UnsupportedIdValue { id: rendered })
-        })
+        .map(|id| id.into_entries().try_into_all_equal_condition())
         .collect::<Result<Vec<_>, _>>()?;
 
     match conditions.len() {
@@ -336,6 +362,31 @@ pub fn condition_matching_any_id(
 }
 
 impl ConditionClauseValue {
+    /// Names the kind of this value without revealing the value, which may be confidential.
+    fn kind_name(&self) -> &'static str {
+        match self {
+            Self::Bool(_) => "Bool",
+            Self::U8(_) => "U8",
+            Self::U16(_) => "U16",
+            Self::U32(_) => "U32",
+            Self::U64(_) => "U64",
+            Self::U128(_) => "U128",
+            Self::I8(_) => "I8",
+            Self::I16(_) => "I16",
+            Self::I32(_) => "I32",
+            Self::I64(_) => "I64",
+            Self::I128(_) => "I128",
+            Self::F32(_) => "F32",
+            Self::F64(_) => "F64",
+            Self::String(_) => "String",
+            Self::Json(_) => "Json",
+            Self::Uuid(_) => "Uuid",
+            Self::U8Vec(_) => "U8Vec",
+            Self::I32Vec(_) => "I32Vec",
+            Self::I64Vec(_) => "I64Vec",
+        }
+    }
+
     // TODO: All these to functions support string->type parsing. Should this be removed and made explicit?
     /// Converts the value to `Value::I32`, or to an array of them for a list.
     ///
@@ -350,7 +401,8 @@ impl ConditionClauseValue {
             }
             ConditionClauseValue::String(string) => parse::<i32>(&string).map(Value::I32),
             _ => Err(format!(
-                "{self:?} can not be converted to an i32 or Vec<i32>. Expected i32 or Vec<i32> or String."
+                "A value of kind {} can not be converted to an i32 or Vec<i32>. Expected i32 or Vec<i32> or String.",
+                self.kind_name()
             )),
         }
     }
@@ -368,7 +420,8 @@ impl ConditionClauseValue {
             }
             ConditionClauseValue::String(string) => parse::<i64>(&string).map(Value::I64),
             _ => Err(format!(
-                "{self:?} can not be converted to an i64. Expected i64 or String."
+                "A value of kind {} can not be converted to an i64. Expected i64 or String.",
+                self.kind_name()
             )),
         }
     }
@@ -383,7 +436,8 @@ impl ConditionClauseValue {
             ConditionClauseValue::U32(num) => Ok(Value::U32(num)),
             ConditionClauseValue::String(string) => parse::<u32>(&string).map(Value::U32),
             _ => Err(format!(
-                "{self:?} can not be converted to an u32. Expected u32 or String."
+                "A value of kind {} can not be converted to an u32. Expected u32 or String.",
+                self.kind_name()
             )),
         }
     }
@@ -398,7 +452,8 @@ impl ConditionClauseValue {
             ConditionClauseValue::F32(num) => Ok(Value::F32(num)),
             ConditionClauseValue::String(string) => parse::<f32>(&string).map(Value::F32),
             _ => Err(format!(
-                "{self:?} can not be converted to an f32. Expected f32 or String."
+                "A value of kind {} can not be converted to an f32. Expected f32 or String.",
+                self.kind_name()
             )),
         }
     }
@@ -413,7 +468,8 @@ impl ConditionClauseValue {
             ConditionClauseValue::F64(num) => Ok(Value::F64(num)),
             ConditionClauseValue::String(string) => parse::<f64>(&string).map(Value::F64),
             _ => Err(format!(
-                "{self:?} can not be converted to an f32. Expected f64 or String."
+                "A value of kind {} can not be converted to an f64. Expected f64 or String.",
+                self.kind_name()
             )),
         }
     }
@@ -429,7 +485,8 @@ impl ConditionClauseValue {
                 Ok(Value::Array(vec.into_iter().map(Value::U8).collect()))
             }
             _ => Err(format!(
-                "{self:?} can not be converted to an U8Vec. Expected U8Vec."
+                "A value of kind {} can not be converted to an U8Vec. Expected U8Vec.",
+                self.kind_name()
             )),
         }
     }
@@ -444,7 +501,8 @@ impl ConditionClauseValue {
             ConditionClauseValue::Bool(bool) => Ok(Value::Bool(bool)),
             ConditionClauseValue::String(string) => parse::<bool>(&string).map(Value::Bool),
             _ => Err(format!(
-                "{self:?} can not be converted to a bool. Expected bool or String."
+                "A value of kind {} can not be converted to a bool. Expected bool or String.",
+                self.kind_name()
             )),
         }
     }
@@ -458,7 +516,8 @@ impl ConditionClauseValue {
         match self {
             ConditionClauseValue::String(string) => Ok(Value::String(string)),
             _ => Err(format!(
-                "{self:?} can not be converted to a String. Expected String."
+                "A value of kind {} can not be converted to a String. Expected String.",
+                self.kind_name()
             )),
         }
     }
@@ -472,7 +531,8 @@ impl ConditionClauseValue {
         match self {
             ConditionClauseValue::String(string) => Ok(Value::String(string)),
             _ => Err(format!(
-                "{self:?} can not be converted to a String. Expected String."
+                "A value of kind {} can not be converted to a String. Expected String.",
+                self.kind_name()
             )),
         }
     }
@@ -486,7 +546,8 @@ impl ConditionClauseValue {
         match self {
             ConditionClauseValue::Uuid(uuid) => Ok(Value::Uuid(uuid)),
             _ => Err(format!(
-                "{self:?} can not be converted to a Uuid. Expected Uuid."
+                "A value of kind {} can not be converted to a Uuid. Expected Uuid.",
+                self.kind_name()
             )),
         }
     }
@@ -504,7 +565,8 @@ impl ConditionClauseValue {
                     .map(Value::PrimitiveDateTime)
             }
             _ => Err(format!(
-                "{self:?} can not be converted to a PrimitiveDateTime. Expected String."
+                "A value of kind {} can not be converted to a PrimitiveDateTime. Expected String.",
+                self.kind_name()
             )),
         }
     }
@@ -520,7 +582,8 @@ impl ConditionClauseValue {
                 .map_err(|err| err.to_string())
                 .map(Value::OffsetDateTime),
             _ => Err(format!(
-                "{self:?} can not be converted to an OffsetDateTime. Expected String."
+                "A value of kind {} can not be converted to an OffsetDateTime. Expected String.",
+                self.kind_name()
             )),
         }
     }
@@ -552,7 +615,8 @@ impl ConditionClauseValue {
             ConditionClauseValue::String(string) => parse::<i64>(&string)?,
             _ => {
                 return Err(format!(
-                    "{self:?} can not be converted to a duration. Expected i64 microseconds or String."
+                    "A value of kind {} can not be converted to a duration. Expected i64 microseconds or String.",
+                    self.kind_name()
                 ));
             }
         };
@@ -572,7 +636,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{Condition, ConditionClauseValue, IdConditionError, condition_matching_any_id};
+    use super::{
+        Condition, ConditionClause, ConditionClauseValue, ConditionElement, IdConditionError,
+        Operator, TryIntoAllEqualCondition, condition_matching_any_id, condition_matching_id,
+    };
     use crate::id::{IdValue, SerializableId, SerializableIdEntry};
     use crate::{TimeDuration, Value};
 
@@ -607,6 +674,47 @@ mod tests {
         assert_eq!(
             condition_matching_any_id([id(&[("id", 1)]), SerializableId(Vec::new())]),
             Err(IdConditionError::EmptyId)
+        );
+    }
+
+    #[test]
+    fn ids_without_fields_or_with_empty_fields_build_no_condition() {
+        let empty_name = SerializableIdEntry {
+            field_name: String::new(),
+            value: IdValue::I64(1),
+        };
+        let empty_value = SerializableIdEntry {
+            field_name: "name".to_owned(),
+            value: IdValue::String(String::new()),
+        };
+        for (entries, expected) in [
+            (Vec::new(), IdConditionError::EmptyId),
+            (vec![empty_name], IdConditionError::EmptyIdField),
+            (vec![empty_value], IdConditionError::EmptyIdField),
+        ] {
+            assert_eq!(
+                entries.into_iter().try_into_all_equal_condition(),
+                Err(expected)
+            );
+        }
+    }
+
+    #[test]
+    fn ids_must_have_the_fields_of_their_id_type() {
+        // `SerializableId` accepts every shape, so only the generic checks apply.
+        assert_eq!(
+            condition_matching_id::<SerializableId>(&SerializableId(Vec::new())),
+            Err(IdConditionError::EmptyId)
+        );
+        assert_eq!(
+            condition_matching_id::<SerializableId>(&id(&[("id", 1)])),
+            Ok(Condition::All(vec![ConditionElement::Clause(
+                ConditionClause {
+                    column_name: "id".to_owned(),
+                    operator: Operator::Equal,
+                    value: ConditionClauseValue::I64(1),
+                }
+            )]))
         );
     }
 

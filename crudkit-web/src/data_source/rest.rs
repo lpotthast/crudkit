@@ -303,9 +303,7 @@ fn id_condition(id: &SerializableId) -> Result<Condition, RequestError> {
     id.entries()
         .cloned()
         .try_into_all_equal_condition()
-        .map_err(|e| {
-            RequestError::InvalidRequest(format!("ID contains unsupported field types: {e:?}"))
-        })
+        .map_err(|e| RequestError::InvalidRequest(format!("Invalid entity ID: {e}")))
 }
 
 /// Converts the outcome of the `delete-many` route.

@@ -1,5 +1,5 @@
 use crate::repository::RepositoryError;
-use crudkit_core::condition::IntoAllEqualConditionError;
+use crudkit_core::condition::IdConditionError;
 use crudkit_core::validation::PartialSerializableAggregateViolations;
 use snafu::Snafu;
 use std::sync::Arc;
@@ -11,7 +11,9 @@ use std::sync::Arc;
 ///
 /// # Logging vs HTTP Responses
 ///
-/// - Use `{error:?}` (Debug) for logging - shows full internal details
+/// - Log the `Display` text (`{error}`). It leaves out validation findings and shows the errors of
+///   repositories by their own `Display` text, which keeps entity values out of the logs.
+/// - Do not log the `Debug` text, which can contain entity values, e.g. in a database's error.
 /// - Convert to `AxumCrudError` for HTTP responses - exposes only minimal user-safe messages
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
@@ -54,11 +56,11 @@ pub enum CrudError {
     // =========================================================================
     // Client Errors (HTTP 400)
     // =========================================================================
-    /// Could not convert to condition (invalid query parameters).
+    /// The entity ID of a request is not an ID of the resource, e.g. because it has no fields.
     ///
     /// Mapped to HTTP status 400 Bad Request.
-    #[snafu(display("Invalid query parameters: {source}"))]
-    IntoCondition { source: IntoAllEqualConditionError },
+    #[snafu(display("Invalid entity ID: {source}"))]
+    InvalidId { source: IdConditionError },
 
     // =========================================================================
     // Server Errors (HTTP 500)
@@ -66,7 +68,7 @@ pub enum CrudError {
     /// Repository/database error.
     ///
     /// Mapped to HTTP status 500 Internal Server Error.
-    #[snafu(display("Repository error: {reason:?}"))]
+    #[snafu(display("Repository error: {reason}"))]
     Repository { reason: Arc<dyn RepositoryError> },
 
     /// Unexpected lifecycle hook error.
@@ -78,12 +80,12 @@ pub enum CrudError {
     /// Could not save validation results.
     ///
     /// Mapped to HTTP status 500 Internal Server Error.
-    #[snafu(display("Could not save validations: {reason:?}"))]
+    #[snafu(display("Could not save validations: {reason}"))]
     SaveValidations { reason: Arc<dyn RepositoryError> },
 
     /// Could not delete validation results.
     ///
     /// Mapped to HTTP status 500 Internal Server Error.
-    #[snafu(display("Could not delete validations: {reason:?}"))]
+    #[snafu(display("Could not delete validations: {reason}"))]
     DeleteValidations { reason: Arc<dyn RepositoryError> },
 }

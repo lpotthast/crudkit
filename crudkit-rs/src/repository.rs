@@ -17,7 +17,12 @@ use snafu::Snafu;
 use std::future::Future;
 
 /// Marker error trait for error types used in repository implementations.
-pub trait RepositoryError: std::fmt::Debug + Send + Sync {}
+///
+/// CrudKit logs a repository error by its `Display` text, so that text must not contain the values
+/// of entities or of conditions, which can be secrets or personal data. A database's error, for
+/// example, can name the values that violate a constraint. `Debug` may show such details, but
+/// CrudKit never logs it.
+pub trait RepositoryError: std::fmt::Debug + std::fmt::Display + Send + Sync {}
 
 /// Support error-stack `Report`s being used as repository error types.
 impl<T: RepositoryError> RepositoryError for error_stack::Report<T> {}

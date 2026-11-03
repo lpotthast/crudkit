@@ -25,5 +25,14 @@ snafu = { version = "0.9.2", default-features = false, features = ["std"] }
 tracing = { version = "0.1.44", default-features = false, features = ["attributes"] }
 utoipa = { version = "6.0.0", default-features = false }
 
+[dev-dependencies]
+assertr = { version = "0.8.0", default-features = false }
+# The generated routes need `axum-macros` and `utoipa`'s macros in the crate that generates them.
+axum-macros = { version = "0.5.1", default-features = false }
+futures = { version = "0.3.34", default-features = false, features = ["executor"] }
+tower-service = { version = "0.3.3", default-features = false }
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt"] }
+utoipa = { version = "6.0.0", default-features = false, features = ["macros"] }
+
 [lints]
 workspace = true
