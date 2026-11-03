@@ -236,7 +236,11 @@ async fn execute_single_delete<R: CrudResource>(
         .delete_all_of_entity(R::TYPE.name(), &entity_id)
         .await
     {
-        tracing::warn!("Failed to delete validation results for entity {entity_id:?}: {e:?}");
+        tracing::warn!(
+            entity_id = %entity_id,
+            error = %e,
+            "Failed to delete the validation results of a deleted entity."
+        );
     }
 
     // Broadcast deletion via WebSocket.
@@ -373,7 +377,9 @@ async fn delete_one_of_many<R: CrudResource>(
                 .await
             {
                 tracing::warn!(
-                    "Failed to delete validation results for entity {entity_id:?}: {e:?}"
+                    entity_id = %entity_id,
+                    error = %e,
+                    "Failed to delete the validation results of a deleted entity."
                 );
             }
 

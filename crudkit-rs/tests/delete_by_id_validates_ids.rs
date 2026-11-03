@@ -6,17 +6,13 @@ mod support;
 use std::sync::Arc;
 
 use assertr::prelude::*;
-use axum::body::Body;
-use axum::http::{Request, StatusCode};
-use axum::{Extension, Router};
+use axum::http::StatusCode;
 use crudkit_core::condition::{IdConditionError, TryIntoAllEqualCondition, condition_matching_id};
 use crudkit_core::id::{HasId, Id, IdValue, SerializableId, SerializableIdEntry};
 use crudkit_rs::crudkit_wire_format::v1::DeleteByIdV1;
 use crudkit_rs::prelude::*;
 use futures::executor::block_on;
-use support::routes::axum_accounts_crud_routes::add_crud_routes;
-use support::{Accounts, Clients, MemoryRepository, Token, account, context};
-use tower_service::Service;
+use support::{Accounts, Clients, MemoryRepository, account, context, post};
 
 #[test]
 fn delete_by_id_refuses_ids_that_are_not_ids_of_the_resource() {
@@ -145,35 +141,14 @@ fn id(fields: &[(&str, IdValue)]) -> SerializableId {
     )
 }
 
-/// Requests the deletion of the account `id` through the generated route, and returns the status
-/// and the body of the response.
+/// Requests the deletion of the account `id` through the generated route.
 async fn delete_by_id(
     context: &Arc<CrudContext<Accounts<RestrictedAuthPolicy>>>,
     id: SerializableId,
 ) -> (StatusCode, serde_json::Value) {
-    let mut router = add_crud_routes("", Router::new())
-        .layer(Extension(context.clone()))
-        .layer(Extension(Token));
-    let body = serde_json::to_vec(&DeleteByIdV1::from(DeleteById {
+    let body = DeleteByIdV1::from(DeleteById {
         id,
         condition: None,
-    }))
-    .expect("the request should serialize");
-    let request = Request::post("/accounts/crud/v1/delete-by-id")
-        .header("content-type", "application/json")
-        .body(Body::from(body))
-        .expect("the request should be valid");
-    std::future::poll_fn(|cx| <Router as Service<Request<Body>>>::poll_ready(&mut router, cx))
-        .await
-        .expect("the router should be ready");
-    let response = router
-        .call(request)
-        .await
-        .expect("the router should answer");
-    let status = response.status();
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-        .await
-        .expect("the response body should be readable");
-    let body = serde_json::from_slice(&body).expect("the response body should be JSON");
-    (status, body)
+    });
+    post(context, "delete-by-id", &body).await
 }

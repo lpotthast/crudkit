@@ -7,13 +7,14 @@ use std::io;
 use std::sync::{Arc, Mutex};
 
 use assertr::prelude::*;
+use axum::http::StatusCode;
 use crudkit_core::condition::{Condition, ConditionClauseValue};
 use crudkit_core::id::{IdValue, SerializableId, SerializableIdEntry};
 use crudkit_rs::prelude::*;
 use futures::executor::block_on;
 use support::{
     AccountUpdate, Accounts, Clients, MemoryRepository, NewAccount, SECRET, Token, account,
-    context, equals,
+    context, equals, post,
 };
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -60,12 +61,19 @@ fn operations_trace_the_resource_and_ids_but_no_data() {
 
     // Act
     block_on(read_by_secret(&context));
+    let rejected = block_on(create_duplicate_through_route(&context));
     block_on(write_secrets(&context));
 
     // Assert
     let text = logs.text();
     assert_that!(context.repository.accounts()).is_empty();
+    assert_that!(rejected.0).is_equal_to(StatusCode::INTERNAL_SERVER_ERROR);
+    assert_that!(rejected.1.to_string()).does_not_contain(SECRET);
     assert_that!(text.as_str()).does_not_contain(SECRET);
+    assert_that!(text.as_str()).contains(
+        "Could not perform CRUD operation: create one. resource=\"accounts\" \
+         error=Repository error: constraint violated",
+    );
     assert_that!(text.as_str()).contains("read_one{resource=\"accounts\" entity_id=id=1}");
     assert_that!(text.as_str()).contains("read_many{resource=\"accounts\"}");
     assert_that!(text.as_str()).contains("create_one{resource=\"accounts\" entity_id=id=4}");
@@ -133,6 +141,21 @@ async fn read_by_secret(context: &Arc<CrudContext<Accounts<RestrictedAuthPolicy>
     )
     .await
     .expect_err("a JSON value should not match an ID");
+}
+
+/// Creates an account through the generated route, then another one with the same name, which
+/// the repository refuses with an error whose detail names the name. Returns the status and the
+/// body of the second response.
+async fn create_duplicate_through_route(
+    context: &Arc<CrudContext<Accounts<RestrictedAuthPolicy>>>,
+) -> (StatusCode, serde_json::Value) {
+    let body = serde_json::json!({
+        "wire_format_version": 1,
+        "entity": { "name": SECRET, "secret": SECRET },
+    });
+    let (status, _) = post(context, "create-one", &body).await;
+    assert_that!(status).is_equal_to(StatusCode::OK);
+    post(context, "create-one", &body).await
 }
 
 /// Creates and updates accounts with secrets, then deletes every account by its secret.

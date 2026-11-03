@@ -5,7 +5,7 @@ use crudkit_core::collaboration::{CollabMessage, EntityCreated, EntityDeleted, E
 use crudkit_core::id::SerializableId;
 use crudkit_core::validation::{FullSerializableValidations, PartialSerializableValidations};
 use crudkit_wire_format::v1::CollabMessageV1;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::sync::Arc;
 
 /// Delivers collaboration messages to the connected clients, e.g. over a websocket.
@@ -13,7 +13,9 @@ use std::sync::Arc;
 /// CrudKit sends validation status updates and entity change notifications through it. Messages
 /// are handed over in their versioned wire form, ready to be serialized for clients.
 pub trait CollaborationService {
-    type Error: Debug + Send + Sync + 'static;
+    /// The error of a failed delivery. CrudKit logs it by its `Display` text, so that text must not
+    /// contain the content of messages.
+    type Error: Debug + Display + Send + Sync + 'static;
 
     /// Sends `message` to the connected clients that `audience` admits.
     ///
@@ -79,7 +81,7 @@ pub(crate) async fn broadcast_creation_event<R: CrudResource>(
         )
         .await
     {
-        tracing::warn!("Failed to broadcast EntityCreated event: {err:?}");
+        tracing::warn!(error = %err, "Failed to broadcast EntityCreated.");
     }
 }
 
@@ -100,7 +102,7 @@ pub(crate) async fn broadcast_updated_event<R: CrudResource>(
         )
         .await
     {
-        tracing::error!("Failed to broadcast EntityUpdated event: {err:?}");
+        tracing::error!(error = %err, "Failed to broadcast EntityUpdated.");
     }
 }
 
@@ -119,7 +121,7 @@ pub(crate) async fn broadcast_deletion_event<R: CrudResource>(
         )
         .await
     {
-        tracing::warn!("Failed to broadcast EntityDeleted event: {e:?}");
+        tracing::warn!(error = %e, "Failed to broadcast EntityDeleted.");
     }
 }
 
@@ -135,7 +137,7 @@ pub(crate) async fn broadcast_partial_validation_result<R: CrudResource>(
         )
         .await
     {
-        tracing::warn!("Failed to broadcast partial validation result: {err:?}");
+        tracing::warn!(error = %err, "Failed to broadcast partial validation result.");
     }
 }
 
@@ -152,6 +154,6 @@ pub(crate) async fn broadcast_full_validation_result<R: CrudResource>(
         )
         .await
     {
-        tracing::warn!("Failed to broadcast full validation result: {err:?}");
+        tracing::warn!(error = %err, "Failed to broadcast full validation result.");
     }
 }

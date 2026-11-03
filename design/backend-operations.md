@@ -80,8 +80,8 @@ resource name as `resource`. Operations on one entity also record its ID as `ent
 Spans and events never record request bodies, models, conditions, or validation findings, because these can hold
 secrets or personal data, and logs are kept longer and read by more people than the data. A condition value that
 cannot be converted for its field is described by its kind, not by its value. Errors of repositories, hooks, and
-collaboration services are logged as their implementations display them, so an implementation must keep confidential
-values out of its errors.
+collaboration services are logged by their `Display` text, never by `Debug`, so an implementation must keep
+confidential values out of that text. A database's error, for example, can name the values that violate a constraint.
 
 ## Authentication and Authorization
 

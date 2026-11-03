@@ -11,6 +11,9 @@ use std::marker::PhantomData;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use axum::body::Body;
+use axum::http::{Request, StatusCode};
+use axum::{Extension, Router};
 use crudkit_core::Order;
 use crudkit_core::Value;
 use crudkit_core::condition::{
@@ -23,6 +26,7 @@ use crudkit_rs::validate::GlobalValidationState;
 use crudkit_rs_macros::CkField;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+use tower_service::Service;
 use utoipa::ToSchema;
 
 /// A value that must never reach the logs.
@@ -133,6 +137,36 @@ pub mod routes {
     );
 }
 
+/// Posts `body` to the generated route `operation` of the accounts as an authenticated client, and
+/// returns the status and the body of the response.
+pub async fn post(
+    context: &Arc<CrudContext<Accounts<RestrictedAuthPolicy>>>,
+    operation: &str,
+    body: &impl Serialize,
+) -> (StatusCode, serde_json::Value) {
+    let mut router = routes::axum_accounts_crud_routes::add_crud_routes("", Router::new())
+        .layer(Extension(context.clone()))
+        .layer(Extension(Token));
+    let body = serde_json::to_vec(body).expect("the request should serialize");
+    let request = Request::post(format!("/accounts/crud/v1/{operation}"))
+        .header("content-type", "application/json")
+        .body(Body::from(body))
+        .expect("the request should be valid");
+    std::future::poll_fn(|cx| <Router as Service<Request<Body>>>::poll_ready(&mut router, cx))
+        .await
+        .expect("the router should be ready");
+    let response = router
+        .call(request)
+        .await
+        .expect("the router should answer");
+    let status = response.status();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("the response body should be readable");
+    let body = serde_json::from_slice(&body).expect("the response body should be JSON");
+    (status, body)
+}
+
 /// The context of the accounts in `repository`, whose changes `clients` receive.
 pub fn context<P: CrudAuthPolicy>(
     repository: MemoryRepository,
@@ -156,8 +190,24 @@ pub struct MemoryRepository {
     calls: AtomicUsize,
 }
 
+/// A failure of the [`MemoryRepository`]. Like the error of a database, its `Debug` text names the
+/// values that caused it, and its `Display` text does not.
 #[derive(Debug)]
-pub struct MemoryRepositoryError(String);
+pub enum MemoryRepositoryError {
+    /// The repository cannot evaluate a condition.
+    Condition(String),
+    /// A write would break a constraint. The detail names the values, as PostgreSQL's does.
+    Constraint { detail: String },
+}
+
+impl fmt::Display for MemoryRepositoryError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Condition(reason) => write!(f, "unsupported condition: {reason}"),
+            Self::Constraint { .. } => f.write_str("constraint violated"),
+        }
+    }
+}
 
 impl RepositoryError for MemoryRepositoryError {}
 
@@ -182,6 +232,23 @@ impl MemoryRepository {
         self.accounts
             .lock()
             .expect("accounts should not be poisoned")
+    }
+
+    /// Fails like a unique constraint of a database if an account other than `id` has `name`.
+    fn check_unique_name(
+        accounts: &[Account],
+        id: i64,
+        name: &str,
+    ) -> Result<(), MemoryRepositoryError> {
+        if accounts
+            .iter()
+            .any(|account| account.id != id && account.name == name)
+        {
+            return Err(MemoryRepositoryError::Constraint {
+                detail: format!("Key (name)=({name}) already exists."),
+            });
+        }
+        Ok(())
     }
 
     /// Counts a request and returns the accounts that match `condition`, at most `limit`.
@@ -230,23 +297,24 @@ fn clause_matches(
     account: &Account,
     clause: &ConditionClause,
 ) -> Result<bool, MemoryRepositoryError> {
-    let field = AccountField::from_name(&clause.column_name)
-        .ok_or_else(|| MemoryRepositoryError(format!("unknown column '{}'", clause.column_name)))?;
+    let field = AccountField::from_name(&clause.column_name).ok_or_else(|| {
+        MemoryRepositoryError::Condition(format!("unknown column '{}'", clause.column_name))
+    })?;
     if clause.operator != Operator::Equal {
-        return Err(MemoryRepositoryError(format!(
+        return Err(MemoryRepositoryError::Condition(format!(
             "unsupported operator {:?}",
             clause.operator
         )));
     }
     let value = field
         .convert_condition_value(clause.value.clone())
-        .map_err(MemoryRepositoryError)?;
+        .map_err(MemoryRepositoryError::Condition)?;
     Ok(match (field, value) {
         (AccountField::Id, Value::I64(id)) => account.id == id,
         (AccountField::Name, Value::String(name)) => account.name == name,
         (AccountField::Secret, Value::String(secret)) => account.secret == secret,
         (field, _) => {
-            return Err(MemoryRepositoryError(format!(
+            return Err(MemoryRepositoryError::Condition(format!(
                 "unexpected value for {field:?}"
             )));
         }
@@ -263,6 +331,9 @@ impl<P: CrudAuthPolicy> Repository<Accounts<P>> for MemoryRepository {
         self.calls.fetch_add(1, Ordering::SeqCst);
         let mut accounts = self.lock();
         let id = accounts.iter().map(|account| account.id).max().unwrap_or(0) + 1;
+        if let Err(err) = Self::check_unique_name(&accounts, id, &create_model.name) {
+            return ready(Err(err));
+        }
         let account = Account {
             id,
             name: create_model.name,
@@ -337,12 +408,16 @@ impl<P: CrudAuthPolicy> Repository<Accounts<P>> for MemoryRepository {
         update_model: AccountUpdate,
     ) -> impl Future<Output = Result<Account, Self::Error>> + Send {
         self.calls.fetch_add(1, Ordering::SeqCst);
+        let mut accounts = self.lock();
+        if let Err(err) = Self::check_unique_name(&accounts, existing.id, &update_model.name) {
+            return ready(Err(err));
+        }
         let updated = Account {
             id: existing.id,
             name: update_model.name,
             secret: update_model.secret,
         };
-        for account in self.lock().iter_mut() {
+        for account in accounts.iter_mut() {
             if account.id == existing.id {
                 *account = updated.clone();
             }
