@@ -43,7 +43,11 @@ use std::{collections::HashMap, sync::Arc};
 /// `CrudError::CriticalValidationErrors` if pre-insert validation finds critical violations,
 /// `CrudError::Repository` if the insert fails, or `CrudError::SaveValidations` if post-insert
 /// violations cannot be persisted.
-#[tracing::instrument(level = "info", skip(context, request))]
+#[tracing::instrument(
+    level = "info",
+    skip_all,
+    fields(resource = R::TYPE.name(), entity_id = tracing::field::Empty)
+)]
 pub async fn create_one<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
@@ -94,6 +98,7 @@ pub async fn create_one<R: CrudResource>(
             .map_err(|err| CrudError::Repository {
                 reason: Arc::new(err),
             })?;
+    tracing::Span::current().record("entity_id", tracing::field::display(inserted_entity.id()));
 
     // Run after_create hook.
     let _hook_data = R::Lifetime::after_create(

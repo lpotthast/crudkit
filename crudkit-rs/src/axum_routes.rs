@@ -320,9 +320,8 @@ macro_rules! impl_add_crud_routes {
                         Ok(body) => body,
                         Err(rejection) => return AxumCrudError::from(rejection).into_response(),
                     };
-                    let result: Result<u64, AxumCrudError> = crudkit_rs::read::read_count::<$resource_type>(request_context, context.clone(), body.into())
-                        .await
-                        .map_err(Into::into);
+                    let result: Result<u64, CrudError> = crudkit_rs::read::read_count::<$resource_type>(request_context, context.clone(), body.into())
+                        .await;
                     match result {
                         Ok(count) => (
                             StatusCode::OK,
@@ -330,8 +329,12 @@ macro_rules! impl_add_crud_routes {
                         )
                             .into_response(),
                         Err(err) => {
-                            tracing::error!(?err, "Could not perform CRUD operation: read count.");
-                            err.into_response()
+                            tracing::error!(
+                                resource = <$resource_type as CrudResource>::TYPE.name(),
+                                error = %err,
+                                "Could not perform CRUD operation: read count."
+                            );
+                            AxumCrudError::from(err).into_response()
                         },
                     }
                 }
@@ -364,14 +367,17 @@ macro_rules! impl_add_crud_routes {
                         Ok(body) => body,
                         Err(err) => return AxumCrudError::BadRequest { reason: err.to_string() }.into_response(),
                     };
-                    let result: Result<ReadModel, AxumCrudError> = crudkit_rs::read::read_one::<$resource_type>(request_context, context.clone(), body)
-                        .await
-                        .map_err(Into::into);
+                    let result: Result<ReadModel, CrudError> = crudkit_rs::read::read_one::<$resource_type>(request_context, context.clone(), body)
+                        .await;
                     match result {
                         Ok(data) => (StatusCode::OK, Json(ReadOneResponseV1 { wire_format_version: WireFormatVersionV1, entity: Some(data) })).into_response(),
                         Err(err) => {
-                            tracing::error!(?err, "Could not perform CRUD operation: read one.");
-                            err.into_response()
+                            tracing::error!(
+                                resource = <$resource_type as CrudResource>::TYPE.name(),
+                                error = %err,
+                                "Could not perform CRUD operation: read one."
+                            );
+                            AxumCrudError::from(err).into_response()
                         },
                     }
                 }
@@ -404,14 +410,17 @@ macro_rules! impl_add_crud_routes {
                         Ok(body) => body,
                         Err(err) => return AxumCrudError::BadRequest { reason: err.to_string() }.into_response(),
                     };
-                    let result: Result<Vec<ReadModel>, AxumCrudError> = crudkit_rs::read::read_many::<$resource_type>(request_context, context.clone(), body)
-                        .await
-                        .map_err(Into::into);
+                    let result: Result<Vec<ReadModel>, CrudError> = crudkit_rs::read::read_many::<$resource_type>(request_context, context.clone(), body)
+                        .await;
                     match result {
                         Ok(data) => (StatusCode::OK, Json(ReadManyResponseV1 { wire_format_version: WireFormatVersionV1, entities: data })).into_response(),
                         Err(err) => {
-                            tracing::error!(?err, "Could not perform CRUD operation: read many.");
-                            err.into_response()
+                            tracing::error!(
+                                resource = <$resource_type as CrudResource>::TYPE.name(),
+                                error = %err,
+                                "Could not perform CRUD operation: read many."
+                            );
+                            AxumCrudError::from(err).into_response()
                         },
                     }
                 }
@@ -440,14 +449,17 @@ macro_rules! impl_add_crud_routes {
                         Ok(body) => body,
                         Err(rejection) => return AxumCrudError::from(rejection).into_response(),
                     };
-                    let result: Result<Saved<Model>, AxumCrudError> = crudkit_rs::create::create_one::<$resource_type>(request_context, context.clone(), body.into())
-                        .await
-                        .map_err(Into::into);
+                    let result: Result<Saved<Model>, CrudError> = crudkit_rs::create::create_one::<$resource_type>(request_context, context.clone(), body.into())
+                        .await;
                     match result {
                         Ok(data) => (StatusCode::OK, Json(SavedV1::from(data))).into_response(),
                         Err(err) => {
-                            tracing::error!(?err, "Could not perform CRUD operation: create one.");
-                            err.into_response()
+                            tracing::error!(
+                                resource = <$resource_type as CrudResource>::TYPE.name(),
+                                error = %err,
+                                "Could not perform CRUD operation: create one."
+                            );
+                            AxumCrudError::from(err).into_response()
                         },
                     }
                 }
@@ -476,14 +488,17 @@ macro_rules! impl_add_crud_routes {
                         Ok(body) => body,
                         Err(rejection) => return AxumCrudError::from(rejection).into_response(),
                     };
-                    let result: Result<Saved<Model>, AxumCrudError> = crudkit_rs::update::update_one::<$resource_type>(request_context, context.clone(), body.into())
-                        .await
-                        .map_err(Into::into);
+                    let result: Result<Saved<Model>, CrudError> = crudkit_rs::update::update_one::<$resource_type>(request_context, context.clone(), body.into())
+                        .await;
                     match result {
                         Ok(data) => (StatusCode::OK, Json(SavedV1::from(data))).into_response(),
                         Err(err) => {
-                            tracing::error!(?err, "Could not perform CRUD operation: update.");
-                            err.into_response()
+                            tracing::error!(
+                                resource = <$resource_type as CrudResource>::TYPE.name(),
+                                error = %err,
+                                "Could not perform CRUD operation: update."
+                            );
+                            AxumCrudError::from(err).into_response()
                         },
                     }
                 }
@@ -512,14 +527,17 @@ macro_rules! impl_add_crud_routes {
                         Ok(body) => body,
                         Err(rejection) => return AxumCrudError::from(rejection).into_response(),
                     };
-                    let result: Result<Deleted, AxumCrudError> = crudkit_rs::delete::delete_by_id::<$resource_type>(request_context, context.clone(), body.into())
-                        .await
-                        .map_err(Into::into);
+                    let result: Result<Deleted, CrudError> = crudkit_rs::delete::delete_by_id::<$resource_type>(request_context, context.clone(), body.into())
+                        .await;
                     match result {
                         Ok(data) => (StatusCode::OK, Json(DeletedV1::from(data))).into_response(),
                         Err(err) => {
-                            tracing::error!(?err, "Could not perform CRUD operation: delete by id.");
-                            err.into_response()
+                            tracing::error!(
+                                resource = <$resource_type as CrudResource>::TYPE.name(),
+                                error = %err,
+                                "Could not perform CRUD operation: delete by id."
+                            );
+                            AxumCrudError::from(err).into_response()
                         },
                     }
                 }
@@ -552,14 +570,17 @@ macro_rules! impl_add_crud_routes {
                         Ok(body) => body,
                         Err(err) => return AxumCrudError::BadRequest { reason: err.to_string() }.into_response(),
                     };
-                    let result: Result<Deleted, AxumCrudError> = crudkit_rs::delete::delete_one::<$resource_type>(request_context, context.clone(), body)
-                        .await
-                        .map_err(Into::into);
+                    let result: Result<Deleted, CrudError> = crudkit_rs::delete::delete_one::<$resource_type>(request_context, context.clone(), body)
+                        .await;
                     match result {
                         Ok(data) => (StatusCode::OK, Json(DeletedV1::from(data))).into_response(),
                         Err(err) => {
-                            tracing::error!(?err, "Could not perform CRUD operation: delete one.");
-                            err.into_response()
+                            tracing::error!(
+                                resource = <$resource_type as CrudResource>::TYPE.name(),
+                                error = %err,
+                                "Could not perform CRUD operation: delete one."
+                            );
+                            AxumCrudError::from(err).into_response()
                         },
                     }
                 }
@@ -588,14 +609,17 @@ macro_rules! impl_add_crud_routes {
                         Ok(body) => body,
                         Err(rejection) => return AxumCrudError::from(rejection).into_response(),
                     };
-                    let result: Result<DeletedMany, AxumCrudError> = crudkit_rs::delete::delete_many::<$resource_type>(request_context, context.clone(), body.into())
-                        .await
-                        .map_err(Into::into);
+                    let result: Result<DeletedMany, CrudError> = crudkit_rs::delete::delete_many::<$resource_type>(request_context, context.clone(), body.into())
+                        .await;
                     match result {
                         Ok(data) => (StatusCode::OK, Json(DeletedManyV1::from(data))).into_response(),
                         Err(err) => {
-                            tracing::error!(?err, "Could not perform CRUD operation: delete many.");
-                            err.into_response()
+                            tracing::error!(
+                                resource = <$resource_type as CrudResource>::TYPE.name(),
+                                error = %err,
+                                "Could not perform CRUD operation: delete many."
+                            );
+                            AxumCrudError::from(err).into_response()
                         },
                     }
                 }

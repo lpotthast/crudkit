@@ -336,6 +336,31 @@ pub fn condition_matching_any_id(
 }
 
 impl ConditionClauseValue {
+    /// Names the kind of this value without revealing the value, which may be confidential.
+    fn kind_name(&self) -> &'static str {
+        match self {
+            Self::Bool(_) => "Bool",
+            Self::U8(_) => "U8",
+            Self::U16(_) => "U16",
+            Self::U32(_) => "U32",
+            Self::U64(_) => "U64",
+            Self::U128(_) => "U128",
+            Self::I8(_) => "I8",
+            Self::I16(_) => "I16",
+            Self::I32(_) => "I32",
+            Self::I64(_) => "I64",
+            Self::I128(_) => "I128",
+            Self::F32(_) => "F32",
+            Self::F64(_) => "F64",
+            Self::String(_) => "String",
+            Self::Json(_) => "Json",
+            Self::Uuid(_) => "Uuid",
+            Self::U8Vec(_) => "U8Vec",
+            Self::I32Vec(_) => "I32Vec",
+            Self::I64Vec(_) => "I64Vec",
+        }
+    }
+
     // TODO: All these to functions support string->type parsing. Should this be removed and made explicit?
     /// Converts the value to `Value::I32`, or to an array of them for a list.
     ///
@@ -350,7 +375,8 @@ impl ConditionClauseValue {
             }
             ConditionClauseValue::String(string) => parse::<i32>(&string).map(Value::I32),
             _ => Err(format!(
-                "{self:?} can not be converted to an i32 or Vec<i32>. Expected i32 or Vec<i32> or String."
+                "A value of kind {} can not be converted to an i32 or Vec<i32>. Expected i32 or Vec<i32> or String.",
+                self.kind_name()
             )),
         }
     }
@@ -368,7 +394,8 @@ impl ConditionClauseValue {
             }
             ConditionClauseValue::String(string) => parse::<i64>(&string).map(Value::I64),
             _ => Err(format!(
-                "{self:?} can not be converted to an i64. Expected i64 or String."
+                "A value of kind {} can not be converted to an i64. Expected i64 or String.",
+                self.kind_name()
             )),
         }
     }
@@ -383,7 +410,8 @@ impl ConditionClauseValue {
             ConditionClauseValue::U32(num) => Ok(Value::U32(num)),
             ConditionClauseValue::String(string) => parse::<u32>(&string).map(Value::U32),
             _ => Err(format!(
-                "{self:?} can not be converted to an u32. Expected u32 or String."
+                "A value of kind {} can not be converted to an u32. Expected u32 or String.",
+                self.kind_name()
             )),
         }
     }
@@ -398,7 +426,8 @@ impl ConditionClauseValue {
             ConditionClauseValue::F32(num) => Ok(Value::F32(num)),
             ConditionClauseValue::String(string) => parse::<f32>(&string).map(Value::F32),
             _ => Err(format!(
-                "{self:?} can not be converted to an f32. Expected f32 or String."
+                "A value of kind {} can not be converted to an f32. Expected f32 or String.",
+                self.kind_name()
             )),
         }
     }
@@ -413,7 +442,8 @@ impl ConditionClauseValue {
             ConditionClauseValue::F64(num) => Ok(Value::F64(num)),
             ConditionClauseValue::String(string) => parse::<f64>(&string).map(Value::F64),
             _ => Err(format!(
-                "{self:?} can not be converted to an f32. Expected f64 or String."
+                "A value of kind {} can not be converted to an f64. Expected f64 or String.",
+                self.kind_name()
             )),
         }
     }
@@ -429,7 +459,8 @@ impl ConditionClauseValue {
                 Ok(Value::Array(vec.into_iter().map(Value::U8).collect()))
             }
             _ => Err(format!(
-                "{self:?} can not be converted to an U8Vec. Expected U8Vec."
+                "A value of kind {} can not be converted to an U8Vec. Expected U8Vec.",
+                self.kind_name()
             )),
         }
     }
@@ -444,7 +475,8 @@ impl ConditionClauseValue {
             ConditionClauseValue::Bool(bool) => Ok(Value::Bool(bool)),
             ConditionClauseValue::String(string) => parse::<bool>(&string).map(Value::Bool),
             _ => Err(format!(
-                "{self:?} can not be converted to a bool. Expected bool or String."
+                "A value of kind {} can not be converted to a bool. Expected bool or String.",
+                self.kind_name()
             )),
         }
     }
@@ -458,7 +490,8 @@ impl ConditionClauseValue {
         match self {
             ConditionClauseValue::String(string) => Ok(Value::String(string)),
             _ => Err(format!(
-                "{self:?} can not be converted to a String. Expected String."
+                "A value of kind {} can not be converted to a String. Expected String.",
+                self.kind_name()
             )),
         }
     }
@@ -472,7 +505,8 @@ impl ConditionClauseValue {
         match self {
             ConditionClauseValue::String(string) => Ok(Value::String(string)),
             _ => Err(format!(
-                "{self:?} can not be converted to a String. Expected String."
+                "A value of kind {} can not be converted to a String. Expected String.",
+                self.kind_name()
             )),
         }
     }
@@ -486,7 +520,8 @@ impl ConditionClauseValue {
         match self {
             ConditionClauseValue::Uuid(uuid) => Ok(Value::Uuid(uuid)),
             _ => Err(format!(
-                "{self:?} can not be converted to a Uuid. Expected Uuid."
+                "A value of kind {} can not be converted to a Uuid. Expected Uuid.",
+                self.kind_name()
             )),
         }
     }
@@ -504,7 +539,8 @@ impl ConditionClauseValue {
                     .map(Value::PrimitiveDateTime)
             }
             _ => Err(format!(
-                "{self:?} can not be converted to a PrimitiveDateTime. Expected String."
+                "A value of kind {} can not be converted to a PrimitiveDateTime. Expected String.",
+                self.kind_name()
             )),
         }
     }
@@ -520,7 +556,8 @@ impl ConditionClauseValue {
                 .map_err(|err| err.to_string())
                 .map(Value::OffsetDateTime),
             _ => Err(format!(
-                "{self:?} can not be converted to an OffsetDateTime. Expected String."
+                "A value of kind {} can not be converted to an OffsetDateTime. Expected String.",
+                self.kind_name()
             )),
         }
     }
@@ -552,7 +589,8 @@ impl ConditionClauseValue {
             ConditionClauseValue::String(string) => parse::<i64>(&string)?,
             _ => {
                 return Err(format!(
-                    "{self:?} can not be converted to a duration. Expected i64 microseconds or String."
+                    "A value of kind {} can not be converted to a duration. Expected i64 microseconds or String.",
+                    self.kind_name()
                 ));
             }
         };

@@ -61,7 +61,11 @@ const fn calculate_batch_size<M>() -> u64 {
 /// fails, `CrudError::Forbidden`, `CrudError::UnprocessableEntity`, or
 /// `CrudError::LifecycleHookError` if a lifecycle hook rejects the operation or fails, or
 /// `CrudError::CriticalValidationErrors` if validation blocks the deletion.
-#[tracing::instrument(level = "info", skip(context, request))]
+#[tracing::instrument(
+    level = "info",
+    skip_all,
+    fields(resource = R::TYPE.name(), entity_id = tracing::field::Empty)
+)]
 pub async fn delete_by_id<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
@@ -83,6 +87,7 @@ pub async fn delete_by_id<R: CrudResource>(
             reason: Arc::new(err),
         })?
         .ok_or(CrudError::NotFound)?;
+    tracing::Span::current().record("entity_id", tracing::field::display(model.id()));
 
     let delete_request = DeleteRequest {
         operation: DeleteOperation::ById,
@@ -108,7 +113,11 @@ pub async fn delete_by_id<R: CrudResource>(
 /// fetching or deleting fails, `CrudError::Forbidden`, `CrudError::UnprocessableEntity`, or
 /// `CrudError::LifecycleHookError` if a lifecycle hook rejects the operation or fails, or
 /// `CrudError::CriticalValidationErrors` if validation blocks the deletion.
-#[tracing::instrument(level = "info", skip(context, request))]
+#[tracing::instrument(
+    level = "info",
+    skip_all,
+    fields(resource = R::TYPE.name(), entity_id = tracing::field::Empty)
+)]
 pub async fn delete_one<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
@@ -127,6 +136,7 @@ pub async fn delete_one<R: CrudResource>(
             reason: Arc::new(err),
         })?
         .ok_or(CrudError::NotFound)?;
+    tracing::Span::current().record("entity_id", tracing::field::display(model.id()));
 
     let delete_request = DeleteRequest {
         operation: DeleteOperation::One,
@@ -245,7 +255,7 @@ async fn execute_single_delete<R: CrudResource>(
 /// Returns `CrudError::Repository` if fetching a batch of entities fails. Per-entity hook
 /// rejections, validation failures, and delete errors do not fail the operation; they are reported
 /// in the returned `DeletedMany`.
-#[tracing::instrument(level = "info", skip(context, request))]
+#[tracing::instrument(level = "info", skip_all, fields(resource = R::TYPE.name()))]
 pub async fn delete_many<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,

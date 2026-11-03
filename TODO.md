@@ -168,6 +168,9 @@ Priorities are relative:
 
 - [ ] **P1 - Resolve the `sqlx-postgres 0.7.4` future-incompatibility warning.** Inspect Cargo's report and update or
   patch the SeaORM/SQLx dependency chain before a future Rust release turns the warning into a build failure.
+- [ ] **P1 - Keep entity values out of SeaORM repository errors.** `SeaOrmRepoError::Db` carries the database's
+  error, whose details can contain values, such as PostgreSQL's `Key (email)=(…) already exists`. The generated routes
+  log repository errors. Leave such details out of the logged error, or log them only where confidential data may go.
 - [ ] **P1 - Support explicit SQL NULL updates.** Generated optional update fields currently mean “write when
   `Some`, leave unchanged when `None`” and cannot distinguish set-null from unchanged.
 - [ ] **P2 - Separate portable and PostgreSQL-specific read-view support.** Make the database requirement explicit in

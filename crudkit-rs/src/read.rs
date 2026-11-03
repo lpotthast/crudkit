@@ -4,6 +4,7 @@
 
 use crate::{
     auth::RequestContext,
+    data::HasId,
     error::CrudError,
     lifetime::{CrudLifetime, ReadOperation, ReadRequest, ReadResult},
     prelude::*,
@@ -12,7 +13,6 @@ use crate::{
 use crudkit_core::request::{ReadCount, ReadMany, ReadOne};
 
 use std::sync::Arc;
-use tracing::error;
 
 /// Count entities matching the given condition.
 ///
@@ -25,7 +25,7 @@ use tracing::error;
 /// # Panics
 ///
 /// Panics if the `after_read` hook replaces the read result with a different `ReadResult` variant.
-#[tracing::instrument(level = "info", skip(context, request))]
+#[tracing::instrument(level = "info", skip_all, fields(resource = R::TYPE.name()))]
 pub async fn read_count<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
@@ -87,7 +87,11 @@ pub async fn read_count<R: CrudResource>(
 /// # Panics
 ///
 /// Panics if the `after_read` hook replaces the read result with a different `ReadResult` variant.
-#[tracing::instrument(level = "info", skip(context, request))]
+#[tracing::instrument(
+    level = "info",
+    skip_all,
+    fields(resource = R::TYPE.name(), entity_id = tracing::field::Empty)
+)]
 pub async fn read_one<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
@@ -125,6 +129,7 @@ pub async fn read_one<R: CrudResource>(
             reason: Arc::new(err),
         })?
         .ok_or(CrudError::NotFound)?;
+    tracing::Span::current().record("entity_id", tracing::field::display(entity.id()));
 
     let mut read_result = ReadResult::One(entity);
 
@@ -155,7 +160,7 @@ pub async fn read_one<R: CrudResource>(
 /// # Panics
 ///
 /// Panics if the `after_read` hook replaces the read result with a different `ReadResult` variant.
-#[tracing::instrument(level = "info", skip(context, request))]
+#[tracing::instrument(level = "info", skip_all, fields(resource = R::TYPE.name()))]
 pub async fn read_many<R: CrudResource>(
     request: RequestContext<R::Auth>,
     context: Arc<CrudContext<R>>,
@@ -191,13 +196,7 @@ pub async fn read_many<R: CrudResource>(
         .await
         .map_err(|err| CrudError::Repository {
             reason: Arc::new(err),
-        });
-
-    if let Err(err) = &entities {
-        error!(resource = ?R::TYPE, "{err}");
-    }
-
-    let entities = entities?;
+        })?;
 
     let mut read_result = ReadResult::Many(entities);
 

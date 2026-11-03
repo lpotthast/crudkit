@@ -136,8 +136,9 @@ routes pair each kind with an HTTP status:
 | `internal_server_error`      | 500    | repository, lifecycle-internal, or validation-storage failure |
 
 A request body that axum cannot deserialize, including one of another wire format version, becomes `bad_request`
-instead of axum's plain-text rejection. Internal failures are logged with their detailed `CrudError`; generated 500
-responses expose only generic messages.
+instead of axum's plain-text rejection. The routes log every failed operation with the resource name and the
+`CrudError`'s display text, which names validation failures without their findings; see
+[Tracing](backend-operations.md#tracing). Generated 500 responses expose only generic messages.
 
 The web client classifies a failure by the body's `kind`, not by the status, so the transport's status mapping is
 not part of the contract. Only a response without a version 1 error body, e.g. from a proxy, is classified by its
