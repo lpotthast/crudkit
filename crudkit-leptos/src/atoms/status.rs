@@ -1,5 +1,8 @@
 //! The live region shared by the status atoms.
 
+use crate::config::CrudText;
+use crate::hooks::texts::CrudTexts;
+use crudkit_web::http::RequestError;
 use leptonic::leptos_classes::Classes;
 use leptonic::leptos_styles::Styles;
 use leptos::prelude::*;
@@ -29,4 +32,11 @@ pub(crate) fn status_content(content: Option<&ViewFn>, text: String) -> AnyView 
         Some(content) => content.run(),
         None => text.into_any(),
     }
+}
+
+/// The default content for the status of a list or an entity that could not be loaded because of
+/// `error` ([`CrudText::StatusFailed`]).
+pub(crate) fn failed_status_text(texts: CrudTexts, error: &RequestError) -> String {
+    let error = texts.get(CrudText::from(error));
+    texts.get(CrudText::StatusFailed { error: &error })
 }

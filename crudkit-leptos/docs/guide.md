@@ -174,8 +174,8 @@ CrudKit's atoms follow the rules of Leptonic's atoms, and are combined with them
 - **Leptonic atoms where they fit.** Field atoms bind a field to Leptonic's field atoms, whose parts (`Label`,
   `Input`, `TextArea`, `Description`, `FieldError`) the application places inside. Buttons are Leptonic `Button`s,
   dialogs are Leptonic `ModalBackdrop`s, and the page size is a Leptonic `Select`.
-- **Sensible defaults.** Atoms that show text show CrudKit's localizable texts (see [Texts](#texts)) unless given
-  children. Iterators render their one obvious atom, e.g. [`CrudTableCells`](atoms::CrudTableCells) a
+- **Sensible defaults.** Atoms that show text show CrudKit's texts in the user's language (see [Texts](#texts))
+  unless given children. Iterators render their one obvious atom, e.g. [`CrudTableCells`](atoms::CrudTableCells) a
   [`CrudTableCell`](atoms::CrudTableCell) per column.
 
 # Mounting a resource
@@ -480,7 +480,7 @@ failures as before.
   or the other value meets the user's. A field whose input could not be read shows the other value too. When the
   user's changes cannot be applied to the current version, e.g. because the result is no valid model, the form keeps
   its draft and the version it is based on, so that saving is refused again instead of replacing the other change,
-  and the summary says so ([`CrudUiTexts::rebase_failed`](config::CrudUiTexts::rebase_failed)).
+  and the summary says so ([`CrudText::FormRebaseFailed`](config::CrudText::FormRebaseFailed)).
 - `invalid`: the data source refused the values of fields. The summary lists their problems. Fields that show errors,
   such as text fields with a [`CrudFieldError`](atoms::CrudFieldError), show their problems too, until the user changes
   them, and a [`CrudFormTab`](atoms::CrudFormTab) is `data-invalid` while a field in its panel has problems.
@@ -878,22 +878,93 @@ fn App(children: Children) -> impl IntoView {
 # Texts
 
 Atoms show CrudKit's texts unless given children: button labels, statuses, dialog texts, accessible names, and the
-messages of notifications. Provide them once with [`provide_crud_texts`](hooks::provide_crud_texts):
-[`CrudUiTexts::english`](config::CrudUiTexts::english), [`CrudUiTexts::german`](config::CrudUiTexts::german) (the
-default), texts of your own, or a signal to switch the language while the page is shown:
+messages of notifications and errors. Each text is a [`CrudText`](config::CrudText) with a stable ID, such as
+`crudkit-form-save`, named arguments, such as the `count` of `crudkit-selection-count`, and an English default.
+[`CrudText`](config::CrudText) lists every text with its English default.
+
+CrudKit shows its English texts. To show another language, such as German, provide a
+[`CrudTranslator`](config::CrudTranslator) once at the root of the application with
+[`provide_crud_translator`](hooks::provide_crud_translator). A translator returns a text in the user's language, or
+`None` to show the English default, so a translator may also rephrase a few English texts only. A function or a
+closure is a translator too. A translator written in Rust matches the texts:
 
 ```no_run
 # crudkit_leptos::__doc_example!();
+fn german(text: &CrudText<'_>) -> Option<String> {
+    Some(match *text {
+        CrudText::FormSave => "Speichern".to_owned(),
+        CrudText::SelectionCount { count } => format!("{count} ausgewählt"),
+        CrudText::DeleteCompleted { count: 1 } => "1 Eintrag gelöscht.".to_owned(),
+        CrudText::DeleteCompleted { count } => format!("{count} Einträge gelöscht."),
+        // Every other text shows its English default.
+        _ => return None,
+    })
+}
+
 #[component]
-fn Localized(children: Children) -> impl IntoView {
-    let german = RwSignal::new(false);
-    provide_crud_texts(Signal::derive(move || {
-        if german.get() { CrudUiTexts::german() } else { CrudUiTexts::english() }
-    }));
+fn App(children: Children) -> impl IntoView {
+    provide_crud_translator(german);
     children()
 }
 # fn main() {}
 ```
+
+A translator that reads reactive state switches everything rendered when that state changes, such as a signal holding
+the user's language. CrudKit also looks texts up for notifications after their view is gone, so a translator reads
+state that lives as long as the translator does:
+
+```no_run
+# crudkit_leptos::__doc_example!();
+# fn german(_: &CrudText<'_>) -> Option<String> { None }
+#[component]
+fn App(children: Children) -> impl IntoView {
+    let is_german = RwSignal::new(false);
+    provide_crud_translator(move |text: &CrudText<'_>| {
+        if is_german.get() { german(text) } else { None }
+    });
+    children()
+}
+# fn main() {}
+```
+
+A translator backed by a library of translations looks a text up by its [`id`](config::CrudText::id), and passes its
+[`args`](config::CrudText::args) with numbers kept as numbers, so that each translation chooses its plural forms. IDs
+and argument names are valid identifiers of Fluent, so a translator over a Fluent bundle needs no mapping. Translators
+are `Send + Sync`, so it uses the bundle of `fluent_bundle::concurrent`:
+
+```ignore
+use fluent_bundle::concurrent::FluentBundle;
+use fluent_bundle::{FluentArgs, FluentResource};
+
+struct FluentTranslator(FluentBundle<FluentResource>);
+
+impl CrudTranslator for FluentTranslator {
+    fn translate(&self, text: &CrudText<'_>) -> Option<String> {
+        let pattern = self.0.get_message(text.id())?.value()?;
+        let mut args = FluentArgs::new();
+        for (name, value) in text.args() {
+            match value {
+                CrudTextArg::Number(number) => args.set(name, number),
+                CrudTextArg::String(string) => args.set(name, string),
+            }
+        }
+        let mut errors = Vec::new();
+        let translated = self.0.format_pattern(pattern, Some(&args), &mut errors);
+        errors.is_empty().then(|| translated.into_owned())
+    }
+}
+```
+
+```ftl
+crudkit-delete-completed = { $count ->
+    [one] { $count } Eintrag gelöscht.
+   *[other] { $count } Einträge gelöscht.
+}
+```
+
+Server rendering and hydration show the same texts when the server and the browser provide translators for the same
+language. [`format_crud_value`](hooks::format_crud_value) formats values, such as numbers and dates, the same way in
+every language.
 
 # Styling
 

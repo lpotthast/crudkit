@@ -1,9 +1,9 @@
 //! Single and mass deletion of entities.
 
-use crate::config::CrudUiTexts;
+use crate::config::CrudText;
 use crate::hooks::instance::use_crud_instance;
 use crate::hooks::notify::{CrudNotification, CrudNotifier};
-use crate::hooks::texts::with_texts;
+use crate::hooks::texts::CrudTexts;
 use crate::instance::{CommittedReturnDestination, CrudNavigation};
 use crudkit_web::data_source::{
     CrudCompletion, CrudDataSource, CrudDeleteManyRequest, CrudDeleteRequest, CrudDeleted,
@@ -46,7 +46,7 @@ impl CrudDeleteState {
         data_source: Arc<dyn CrudDataSource>,
         reload: Callback<()>,
         notifier: CrudNotifier,
-        texts: Signal<CrudUiTexts>,
+        texts: CrudTexts,
         navigation: CrudNavigation,
         scope: Signal<CrudScope>,
     ) -> Self {
@@ -65,9 +65,7 @@ impl CrudDeleteState {
                 async move {
                     let result = data_source.delete(&scope, request).await;
                     pending.set(None);
-                    notifier.notify(with_texts(texts, |texts| {
-                        delete_notification(texts, &result)
-                    }));
+                    notifier.notify(delete_notification(texts, &result));
                     // Someone else changed the entity since the user saw it. Reloading shows its
                     // current state, so that the user can decide again.
                     if matches!(result, Err(RequestError::Outdated(_))) {
@@ -105,9 +103,7 @@ impl CrudDeleteState {
             async move {
                 let result = data_source.delete_many(&scope, request).await;
                 pending_many.set(None);
-                notifier.notify(with_texts(texts, |texts| {
-                    delete_many_notification(texts, &result)
-                }));
+                notifier.notify(delete_many_notification(texts, &result));
                 // The instance may have been unmounted while the request was in flight.
                 reload.try_run(());
             }
@@ -203,23 +199,25 @@ pub fn use_crud_delete() -> CrudDeleteState {
 
 /// Describes the outcome of a single deletion.
 pub(crate) fn delete_notification(
-    texts: &CrudUiTexts,
+    texts: CrudTexts,
     result: &Result<CrudDeleted, RequestError>,
 ) -> CrudNotification {
-    let title = texts.deletion.to_string();
+    let text = |text: CrudText<'_>| texts.get_untracked(text);
+    let title = text(CrudText::DeleteTitle);
     match result {
         Ok(deleted) => {
+            let count = deleted.entities_affected;
             let message = match deleted.completion {
-                CrudCompletion::Completed => (texts.deleted)(deleted.entities_affected),
-                CrudCompletion::Accepted => (texts.deletion_accepted)(deleted.entities_affected),
+                CrudCompletion::Completed => text(CrudText::DeleteCompleted { count }),
+                CrudCompletion::Accepted => text(CrudText::DeleteAccepted { count }),
             };
             CrudNotification::success(title, message)
         }
         Err(RequestError::Forbidden(reason)) => {
-            CrudNotification::warning(title, (texts.deletion_forbidden)(reason))
+            CrudNotification::warning(title, text(CrudText::DeleteForbidden { reason }))
         }
         Err(RequestError::Outdated(_)) => {
-            CrudNotification::warning(title, texts.deletion_outdated.to_string())
+            CrudNotification::warning(title, text(CrudText::DeleteOutdated))
         }
         Err(
             RequestError::UnprocessableEntity(reason)
@@ -229,22 +227,27 @@ pub(crate) fn delete_notification(
             | RequestError::InvalidFields {
                 message: reason, ..
             },
-        ) => CrudNotification::warning(title, (texts.deletion_rejected)(reason)),
-        Err(error) => CrudNotification::error(title, (texts.deletion_failed)(&error.to_string())),
+        ) => CrudNotification::warning(title, text(CrudText::DeleteRejected { reason })),
+        Err(error) => CrudNotification::error(title, deletion_failed(texts, error)),
     }
 }
 
 /// Describes the outcome of a mass deletion.
 pub(crate) fn delete_many_notification(
-    texts: &CrudUiTexts,
+    texts: CrudTexts,
     result: &Result<CrudDeletedMany, RequestError>,
 ) -> CrudNotification {
-    let title = texts.deletion.to_string();
+    let title = texts.get_untracked(CrudText::DeleteTitle);
     match result {
         Ok(deleted_many) => match DeleteManyOutcome::from(deleted_many) {
             DeleteManyOutcome::Complete { deleted, accepted } => CrudNotification::success(
                 title,
-                with_accepted(texts, texts.deleted.as_ref(), deleted, accepted),
+                with_accepted(
+                    texts,
+                    |count| CrudText::DeleteCompleted { count },
+                    deleted,
+                    accepted,
+                ),
             ),
             DeleteManyOutcome::Partial(counts) => CrudNotification::warning(
                 title,
@@ -252,7 +255,7 @@ pub(crate) fn delete_many_notification(
                     texts,
                     with_accepted(
                         texts,
-                        texts.deleted_partially.as_ref(),
+                        |count| CrudText::DeleteManyPartial { count },
                         counts.deleted,
                         counts.accepted,
                     ),
@@ -261,46 +264,70 @@ pub(crate) fn delete_many_notification(
             ),
             DeleteManyOutcome::Failed(counts) => CrudNotification::error(
                 title,
-                with_failures(texts, texts.nothing_deleted.to_string(), counts),
+                with_failures(texts, texts.get_untracked(CrudText::DeleteManyNone), counts),
             ),
         },
-        Err(err) => CrudNotification::error(title, (texts.deletion_failed)(&err.to_string())),
+        Err(error) => CrudNotification::error(title, deletion_failed(texts, error)),
     }
 }
 
-/// Reports `deleted` deleted entities with `deleted_text`, followed by the `accepted` entities that
-/// are still being deleted. Leaves out the deleted entities when there are none, but some accepted
-/// ones.
+/// Reports a deletion that failed with `error`.
+fn deletion_failed(texts: CrudTexts, error: &RequestError) -> String {
+    let error = texts.get_untracked(CrudText::from(error));
+    texts.get_untracked(CrudText::DeleteFailed { error: &error })
+}
+
+/// Reports `deleted` deleted entities with `deleted_text`, followed by the `accepted` entities
+/// that are still being deleted. Leaves out the deleted entities when there are none, but some
+/// accepted ones.
 fn with_accepted(
-    texts: &CrudUiTexts,
-    deleted_text: &(dyn Fn(u64) -> String + Send + Sync),
+    texts: CrudTexts,
+    deleted_text: fn(u64) -> CrudText<'static>,
     deleted: u64,
     accepted: u64,
 ) -> String {
+    let deleted_text = || texts.get_untracked(deleted_text(deleted));
+    let accepted_text = || texts.get_untracked(CrudText::DeleteAccepted { count: accepted });
     match (deleted, accepted) {
-        (_, 0) => deleted_text(deleted),
-        (0, accepted) => (texts.deletion_accepted)(accepted),
-        (deleted, accepted) => format!(
-            "{} {}",
-            deleted_text(deleted),
-            (texts.deletion_accepted)(accepted)
-        ),
+        (_, 0) => deleted_text(),
+        (0, _) => accepted_text(),
+        _ => format!("{} {}", deleted_text(), accepted_text()),
     }
 }
 
 /// Appends the sentences reporting the failures in `counts` to `message`.
-fn with_failures(texts: &CrudUiTexts, message: String, counts: DeleteManyCounts) -> String {
+fn with_failures(texts: CrudTexts, message: String, counts: DeleteManyCounts) -> String {
     let failures = [
-        (counts.aborted, &texts.deletions_aborted),
-        (counts.validation_failed, &texts.deletions_invalid),
-        (counts.errors, &texts.deletions_failed),
-        (counts.skipped, &texts.deletions_skipped),
+        (
+            counts.aborted,
+            CrudText::DeleteManyAborted {
+                count: counts.aborted as u64,
+            },
+        ),
+        (
+            counts.validation_failed,
+            CrudText::DeleteManyInvalid {
+                count: counts.validation_failed as u64,
+            },
+        ),
+        (
+            counts.errors,
+            CrudText::DeleteManyFailed {
+                count: counts.errors as u64,
+            },
+        ),
+        (
+            counts.skipped,
+            CrudText::DeleteManySkipped {
+                count: counts.skipped as u64,
+            },
+        ),
     ];
     failures
         .into_iter()
         .filter(|(count, _)| *count > 0)
-        .fold(message, |message, (count, text)| {
-            format!("{message} {}", text(count as u64))
+        .fold(message, |message, (_, text)| {
+            format!("{message} {}", texts.get_untracked(text))
         })
 }
 
@@ -310,42 +337,76 @@ mod tests {
     use crate::hooks::notify::CrudNotificationKind;
     use assertr::prelude::*;
     use crudkit_core::id::SerializableId;
+    use leptos::reactive::owner::Owner;
 
     #[test]
     fn single_deletion_outcomes_map_to_notification_kinds() {
-        let ok = delete_notification(&CrudUiTexts::default(), &Ok(CrudDeleted::new(1)));
+        let texts = CrudTexts::default();
+        let ok = delete_notification(texts, &Ok(CrudDeleted::new(1)));
         assert_that!(ok.kind).is_equal_to(CrudNotificationKind::Success);
-        assert_that!(ok.message).is_equal_to("1 Eintrag erfolgreich gelöscht.".to_owned());
+        assert_that!(ok.title).is_equal_to("Deletion".to_owned());
+        assert_that!(ok.message).is_equal_to("1 entry deleted.".to_owned());
 
-        let forbidden = delete_notification(
-            &CrudUiTexts::default(),
-            &Err(RequestError::Forbidden("nope".to_owned())),
-        );
+        let forbidden =
+            delete_notification(texts, &Err(RequestError::Forbidden("nope".to_owned())));
         assert_that!(forbidden.kind).is_equal_to(CrudNotificationKind::Warning);
 
-        let failed = delete_notification(
-            &CrudUiTexts::default(),
-            &Err(RequestError::Request("offline".to_owned())),
-        );
+        let failed = delete_notification(texts, &Err(RequestError::Request("offline".to_owned())));
         assert_that!(failed.kind).is_equal_to(CrudNotificationKind::Error);
+        assert_that!(failed.message)
+            .is_equal_to("Deletion failed: Network error: offline".to_owned());
     }
 
-    #[test]
-    fn mass_deletion_outcomes_map_to_notification_kinds() {
+    /// A mass deletion that deleted two entities, aborted one, and left one untried.
+    fn partial_deletion() -> CrudDeletedMany {
         let id = || SerializableId(Vec::new());
         let mut outcome = CrudDeletedMany::new();
         outcome.deleted = vec![id(), id()];
         outcome.failed = vec![(id(), RequestError::Forbidden(String::new()))];
         outcome.skipped = vec![id()];
-        let partial = delete_many_notification(&CrudUiTexts::default(), &Ok(outcome));
+        outcome
+    }
+
+    #[test]
+    fn mass_deletion_outcomes_map_to_notification_kinds() {
+        let texts = CrudTexts::default();
+        let partial = delete_many_notification(texts, &Ok(partial_deletion()));
         assert_that!(partial.kind).is_equal_to(CrudNotificationKind::Warning);
         assert_that!(partial.message)
-            .is_equal_to("2 Einträge gelöscht. 1 abgebrochen. 1 nicht versucht.".to_owned());
+            .is_equal_to("2 entries deleted. 1 aborted. 1 not attempted.".to_owned());
 
-        let failed = delete_many_notification(
-            &CrudUiTexts::default(),
-            &Err(RequestError::Request("offline".to_owned())),
-        );
+        let failed =
+            delete_many_notification(texts, &Err(RequestError::Request("offline".to_owned())));
         assert_that!(failed.kind).is_equal_to(CrudNotificationKind::Error);
+    }
+
+    #[test]
+    fn deletion_outcomes_are_translated_with_their_counts() {
+        Owner::new().with(|| {
+            // Translates some texts only, so the others show their English defaults.
+            let texts = CrudTexts::new(|text: &CrudText<'_>| match *text {
+                CrudText::DeleteTitle => Some("Löschen".to_owned()),
+                CrudText::DeleteManyPartial { count } => Some(match count {
+                    1 => "1 Eintrag gelöscht.".to_owned(),
+                    _ => format!("{count} Einträge gelöscht."),
+                }),
+                CrudText::DeleteManyAborted { count } => Some(format!("{count} abgebrochen.")),
+                CrudText::DeleteFailed { error } => {
+                    Some(format!("Löschen fehlgeschlagen: {error}"))
+                }
+                CrudText::ErrorNetwork { message } => Some(format!("Netzwerkfehler: {message}")),
+                _ => None,
+            });
+
+            let partial = delete_many_notification(texts, &Ok(partial_deletion()));
+            let failed =
+                delete_notification(texts, &Err(RequestError::Request("offline".to_owned())));
+
+            assert_that!(partial.title).is_equal_to("Löschen".to_owned());
+            assert_that!(partial.message)
+                .is_equal_to("2 Einträge gelöscht. 1 abgebrochen. 1 not attempted.".to_owned());
+            assert_that!(failed.message)
+                .is_equal_to("Löschen fehlgeschlagen: Netzwerkfehler: offline".to_owned());
+        });
     }
 }

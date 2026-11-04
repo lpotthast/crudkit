@@ -201,7 +201,7 @@ fn selection_counts_are_empty_live_regions_without_a_selection() {
     assert_that!(counts.len()).is_equal_to(1);
     assert_that!(counts[0]).contains("role=\"status\"");
     assert_that!(counts[0]).contains("data-empty");
-    assert_that!(html.as_str()).contains("0 ausgewählt");
+    assert_that!(html.as_str()).contains("0 selected");
 }
 
 #[test]
@@ -325,7 +325,7 @@ fn table_headers_expose_their_column() {
     assert_that!(elements_with_class(&html, "crudkit-TableSelectAllHeader").len()).is_equal_to(1);
     let checkboxes = elements_with_class(&html, "crudkit-SelectAllCheckbox");
     assert_that!(checkboxes.len()).is_equal_to(1);
-    assert_that!(checkboxes[0]).contains("aria-label=\"Alle auswählen\"");
+    assert_that!(checkboxes[0]).contains("aria-label=\"Select all\"");
     assert_that!(elements_with_class(&html, "crudkit-TableActionsHeader").len()).is_equal_to(1);
 }
 
@@ -495,7 +495,7 @@ fn form_errors_offer_the_current_state_of_an_outdated_entity() {
     let errors = elements_with_class(&html, "crudkit-FormError");
     assert_that!(errors.len()).is_equal_to(1);
     assert_that!(errors[0]).contains("data-kind=\"outdated\"");
-    assert_that!(html.as_str()).contains(CrudUiTexts::default().outdated.as_ref());
+    assert_that!(html.as_str()).contains(CrudText::FormOutdated.english().as_ref());
     let reload = elements_with_class(&html, "crudkit-ReloadButton");
     assert_that!(reload.len()).is_equal_to(1);
     assert_that!(reload[0]).contains("leptonic-Button");
@@ -509,11 +509,10 @@ fn form_errors_explain_changes_that_cannot_apply_to_the_current_version() {
         true,
     );
 
-    let texts = CrudUiTexts::default();
     assert_that!(elements_with_class(&html, "crudkit-FormError")[0])
         .contains("data-kind=\"outdated\"");
-    assert_that!(html.as_str()).contains(texts.rebase_failed.as_ref());
-    assert_that!(html.as_str()).does_not_contain(texts.outdated.as_ref());
+    assert_that!(html.as_str()).contains(CrudText::FormRebaseFailed.english().as_ref());
+    assert_that!(html.as_str()).does_not_contain(CrudText::FormOutdated.english().as_ref());
 }
 
 /// The tabs of the surrounding form's `CrudFormTabs` in the tests.
@@ -652,13 +651,12 @@ fn error_summaries_explain_conflicts_found_by_a_reload() {
         false,
     );
 
-    let texts = CrudUiTexts::default();
     assert_that!(elements_with_class(&html, "crudkit-FormError")[0])
         .contains("data-kind=\"conflict\"");
-    assert_that!(html.as_str()).contains(texts.conflicts.as_ref());
+    assert_that!(html.as_str()).contains(CrudText::FormConflicts.english().as_ref());
     assert_that!(html.as_str()).contains(format!(
         "<li>tags/team: {}</li>",
-        (texts.changed_meanwhile)("blue").replace('"', "&quot;")
+        CrudText::FormChangedMeanwhile { value: "blue" }.english()
     ));
 }
 
@@ -682,4 +680,51 @@ fn form_errors_explain_other_failures() {
 )]
 fn reload_buttons_need_an_entity_to_reload() {
     render_in_create_form(items_config(), || view! { <CrudReloadButton /> });
+}
+
+/// Translates some texts of lists into German, and leaves every other text to its English
+/// default.
+fn german_list_texts(text: &CrudText<'_>) -> Option<String> {
+    Some(match *text {
+        CrudText::EntityCreate => "Neu".to_owned(),
+        CrudText::SelectionCount { count } => format!("{count} ausgewählt"),
+        CrudText::PaginationLabel => "Seiten".to_owned(),
+        CrudText::TableSelectAll => "Alle auswählen".to_owned(),
+        _ => return None,
+    })
+}
+
+#[test]
+fn atoms_show_the_texts_of_the_provided_translator() {
+    let html = render_in_instance(items_config(), || {
+        provide_crud_translator(german_list_texts);
+        view! {
+            <CrudList>
+                <CrudCreateButton />
+                <CrudSelectionCount />
+                <CrudPagination>
+                    <CrudNextPageButton />
+                </CrudPagination>
+                <CrudTable selectable=true with_actions=false>
+                    <CrudTableHeader>
+                        <CrudTableHeaderRow>
+                            <CrudTableSelectAllHeader>
+                                <CrudSelectAllCheckbox />
+                            </CrudTableSelectAllHeader>
+                        </CrudTableHeaderRow>
+                    </CrudTableHeader>
+                </CrudTable>
+            </CrudList>
+        }
+    });
+
+    assert_that!(elements_with_class(&html, "crudkit-CreateButton").len()).is_equal_to(1);
+    assert_that!(html.as_str()).contains(">Neu<");
+    assert_that!(html.as_str()).contains(">0 ausgewählt<");
+    assert_that!(elements_with_class(&html, "crudkit-Pagination")[0])
+        .contains("aria-label=\"Seiten\"");
+    assert_that!(elements_with_class(&html, "crudkit-SelectAllCheckbox")[0])
+        .contains("aria-label=\"Alle auswählen\"");
+    // A text that the translator does not know shows its English default.
+    assert_that!(html.as_str()).contains(">Next page<");
 }

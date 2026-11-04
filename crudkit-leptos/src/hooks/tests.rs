@@ -1025,7 +1025,7 @@ fn data_sources_without_mass_deletion_delete_one_entity_after_the_other() {
         .collect::<Vec<_>>();
     assert_that!(message).is_equal_to(vec![(
         CrudNotificationKind::Success,
-        "2 Einträge erfolgreich gelöscht.".to_owned(),
+        "2 entries deleted.".to_owned(),
     )]);
 }
 
@@ -1218,6 +1218,11 @@ fn kinds_and_messages(
         .collect()
 }
 
+/// Returns the English default of `text`.
+fn english(text: CrudText<'_>) -> String {
+    text.english().into_owned()
+}
+
 /// Returns the update requests that `source` received, oldest first.
 fn update_requests(source: &MemorySource) -> Vec<CrudUpdateRequest> {
     source
@@ -1323,10 +1328,15 @@ fn outdated_changes_keep_the_input_and_apply_it_to_the_current_state() {
     assert_that!(retried.merge_patch()).is_equal_to(Ok(serde_json::json!({ "name": "mine" })));
     let stored = source.item(1).expect("the item");
     assert_that!((stored.name.as_str(), stored.note.as_str())).is_equal_to(("mine", "theirs"));
-    let texts = CrudUiTexts::default();
     assert_that!(kinds_and_messages(&notifications)).is_equal_to(vec![
-        (CrudNotificationKind::Warning, texts.outdated.to_string()),
-        (CrudNotificationKind::Success, texts.saved.to_string()),
+        (
+            CrudNotificationKind::Warning,
+            english(CrudText::FormOutdated),
+        ),
+        (
+            CrudNotificationKind::Success,
+            english(CrudText::SaveUpdated),
+        ),
     ]);
 }
 
@@ -1431,7 +1441,7 @@ fn accepted_changes_continue_from_the_state_they_return() {
     ]);
     assert_that!(completions.lock().expect("lock").clone())
         .is_equal_to(vec![CrudCompletion::Accepted; 2]);
-    let accepted = CrudUiTexts::default().change_accepted.to_string();
+    let accepted = english(CrudText::SaveUpdateAccepted);
     assert_that!(kinds_and_messages(&notifications)).is_equal_to(vec![
         (
             CrudNotificationKind::Success,
@@ -1472,13 +1482,18 @@ fn accepted_and_outdated_deletions_are_reported_as_such() {
     assert_that!(reloaded).is_true();
     // Accepted deletions keep their entities while they run.
     assert_that!(source.ids()).is_equal_to(vec![1, 2, 3]);
-    let texts = CrudUiTexts::default();
     assert_that!(kinds_and_messages(&notifications)).is_equal_to(vec![
-        (CrudNotificationKind::Success, (texts.deletion_accepted)(1)),
-        (CrudNotificationKind::Success, (texts.deletion_accepted)(2)),
+        (
+            CrudNotificationKind::Success,
+            english(CrudText::DeleteAccepted { count: 1 }),
+        ),
+        (
+            CrudNotificationKind::Success,
+            english(CrudText::DeleteAccepted { count: 2 }),
+        ),
         (
             CrudNotificationKind::Warning,
-            texts.deletion_outdated.to_string(),
+            english(CrudText::DeleteOutdated),
         ),
     ]);
 }
@@ -1623,7 +1638,7 @@ fn members_that_both_changed_conflict_until_the_user_changes_them() {
         assert_that!(text_of(&edit.form, ItemField::Name)).is_equal_to(Some("mine".to_owned()));
         assert_that!(json_of(&edit.form, ItemField::Tags))
             .is_equal_to(Some(serde_json::json!({ "a": "mine" })));
-        let changed = (CrudUiTexts::default().changed_meanwhile)("theirs");
+        let changed = english(CrudText::FormChangedMeanwhile { value: "theirs" });
         let error_of = |field: ItemField| {
             edit.form
                 .field_error(DynUpdateField::from(field))
@@ -1687,7 +1702,7 @@ fn unreadable_input_takes_the_reloaded_value_and_keeps_its_error() {
             "/note".to_owned(),
             Some(serde_json::json!("theirs")),
         )]);
-        let changed = (CrudUiTexts::default().changed_meanwhile)("theirs");
+        let changed = english(CrudText::FormChangedMeanwhile { value: "theirs" });
         assert_that!(edit.form.field_error(note).get_untracked())
             .is_equal_to(Some(format!("unreadable {changed}")));
 
@@ -1793,10 +1808,9 @@ fn outdated_refusals_of_versions_that_a_reload_replaced_are_ignored() {
         assert_that!(edit.form.is_dirty.get_untracked()).is_false();
     });
 
-    let texts = CrudUiTexts::default();
     assert_that!(kinds_and_messages(&notifications)).is_equal_to(vec![(
         CrudNotificationKind::Success,
-        texts.saved.to_string(),
+        english(CrudText::SaveUpdated),
     )]);
 }
 
@@ -2041,5 +2055,115 @@ fn emptied_required_text_stays_while_the_value_changes() {
 
         assert_that!(reported.lock().expect("lock").clone()).is_equal_to(vec![false]);
         assert_that!(input.value.get_untracked()).is_equal_to(String::new());
+    });
+}
+
+/// Translates the texts of deletions and failed saves into German, and leaves every other text to
+/// its English default.
+fn german_notifications(text: &CrudText<'_>) -> Option<String> {
+    Some(match *text {
+        CrudText::DeleteTitle => "Löschen".to_owned(),
+        CrudText::DeleteCompleted { count } => match count {
+            1 => "1 Eintrag gelöscht.".to_owned(),
+            _ => format!("{count} Einträge gelöscht."),
+        },
+        CrudText::SaveErrorTitle => "Fehler".to_owned(),
+        CrudText::SaveUpdateFailed { error } => {
+            format!("Eintrag konnte nicht gespeichert werden. {error}")
+        }
+        _ => return None,
+    })
+}
+
+#[test]
+fn notifications_show_the_texts_of_the_provided_translator() {
+    let server = FakeServer::with_items(3);
+    let notifications = Arc::new(Mutex::new(Vec::<CrudNotification>::new()));
+    with_crud_manager(|| {
+        record_notifications(&notifications);
+        provide_crud_translator(german_notifications);
+        provide_crud_instance(instance_input("items", config(&server)));
+
+        let deletion = use_crud_delete();
+        deletion.request_many(vec![item(1), item(3)]);
+        deletion.confirm_many();
+        settle();
+
+        let edit = use_crud_edit_form(edit_input(item(2).id()));
+        settle();
+        edit.form.set_field(
+            DynUpdateField::from(ItemField::Name),
+            Ok(Value::String("reject".to_owned())),
+        );
+        edit.save.run(CrudSaveFollowUp::Stay);
+        settle();
+    });
+
+    let titles_and_messages = notifications
+        .lock()
+        .expect("lock")
+        .iter()
+        .map(|notification| (notification.title.clone(), notification.message.clone()))
+        .collect::<Vec<_>>();
+    assert_that!(titles_and_messages).has_length(2);
+    assert_that!(titles_and_messages[0].clone())
+        .is_equal_to(("Löschen".to_owned(), "2 Einträge gelöscht.".to_owned()));
+    let (title, message) = titles_and_messages[1].clone();
+    assert_that!(title).is_equal_to("Fehler".to_owned());
+    // The translator leaves the text of the error, an unreadable response, to its English default.
+    assert_that!(message.as_str())
+        .starts_with("Eintrag konnte nicht gespeichert werden. Invalid response: ");
+}
+
+#[test]
+fn rejected_input_is_explained_by_the_provided_translator() {
+    with_crud_manager(|| {
+        provide_crud_translator(|text: &CrudText<'_>| match *text {
+            CrudText::InputInvalidUuid => Some("Gib eine UUID ein.".to_owned()),
+            _ => None,
+        });
+        let reported = Arc::new(Mutex::new(Vec::new()));
+        let sink = reported.clone();
+        provide_context(CrudFieldBinding {
+            name: "owner".to_owned(),
+            value_kind: crudkit_core::ValueKind::Uuid,
+            is_optional: false,
+            value: ReactiveField::new(Value::Uuid(uuid::Uuid::from_u128(1))),
+            mode: FieldMode::Editable,
+            options: FieldOptions::default(),
+            set: Callback::new(move |result: Result<Value, CrudFieldInputError>| {
+                if let Err(error) = result {
+                    sink.lock().expect("lock").push(error.to_string());
+                }
+            }),
+            error: Signal::stored(None),
+            is_saving: Signal::stored(false),
+            dom_id: leptonic::Id::from("owner"),
+            has_renderer: false,
+        });
+        let input = use_crud_text_input(CrudTextCodec::uuid());
+
+        input.set_value.run("not a uuid".to_owned());
+
+        assert_that!(reported.lock().expect("lock").clone())
+            .is_equal_to(vec!["Gib eine UUID ein.".to_owned()]);
+    });
+}
+
+#[test]
+fn texts_follow_the_language_that_the_translator_reads() {
+    with_crud_manager(|| {
+        let german = RwSignal::new(false);
+        provide_crud_translator(move |text: &CrudText<'_>| match *text {
+            CrudText::FormSave if german.get() => Some("Speichern".to_owned()),
+            _ => None,
+        });
+        let texts = use_crud_texts();
+        let label = Memo::new(move |_| texts.get(CrudText::FormSave));
+        assert_that!(label.get_untracked()).is_equal_to("Save".to_owned());
+
+        german.set(true);
+
+        assert_that!(label.get_untracked()).is_equal_to("Speichern".to_owned());
     });
 }

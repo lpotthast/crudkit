@@ -34,9 +34,10 @@ pub use form::{
     use_crud_form, use_crud_read,
 };
 pub use inputs::{
-    CrudInputKind, CrudInputProps, CrudNumber, CrudNumberKind, CrudTextCodec, CrudValueFormatter,
-    CrudValueParser, UseCrudNumberInputReturn, UseCrudTextInputReturn, UseCrudToggleInputReturn,
-    format_crud_value, use_crud_number_input, use_crud_text_input, use_crud_toggle_input,
+    CrudInputError, CrudInputKind, CrudInputProps, CrudNumber, CrudNumberKind, CrudTextCodec,
+    CrudValueFormatter, CrudValueParser, UseCrudNumberInputReturn, UseCrudTextInputReturn,
+    UseCrudToggleInputReturn, format_crud_value, use_crud_number_input, use_crud_text_input,
+    use_crud_toggle_input,
 };
 pub use instance::{use_crud_instance, use_crud_navigation};
 pub use leave::{CrudLeaveConfirmation, use_crud_leave_confirmation};
@@ -53,7 +54,7 @@ pub use table::{
     use_crud_table_row,
 };
 pub use tabs::{UseCrudTabSelectionReturn, use_crud_tab_selection};
-pub use texts::{provide_crud_texts, use_crud_texts};
+pub use texts::{CrudTexts, provide_crud_translator, use_crud_texts};
 pub use views::provide_crud_view_registry;
 
 // Hooks load data in client mode only, so their tests run without the `ssr` feature.

@@ -5,10 +5,10 @@ mod state;
 pub use state::{CrudFieldConflict, CrudFormState};
 pub(crate) use state::{FieldTarget, conflict_message, register_error_summary};
 
-use crate::config::{CrudEntityViewKind, CrudUiTexts};
+use crate::config::{CrudEntityViewKind, CrudText};
 use crate::hooks::instance::use_crud_instance;
 use crate::hooks::notify::{CrudNotification, CrudNotifier};
-use crate::hooks::texts::{use_crud_texts, with_texts};
+use crate::hooks::texts::{CrudTexts, use_crud_texts};
 use crate::instance::CrudInstanceContext;
 use crate::instance::CrudNavigation;
 use crudkit_core::id::SerializableId;
@@ -354,15 +354,7 @@ fn create_action(
                 let result = data_source
                     .create(&scope, CrudCreateRequest::new(entity))
                     .await;
-                notify.outcome(
-                    &result,
-                    SaveTexts {
-                        completed: |texts| &texts.created,
-                        accepted: |texts| &texts.creation_accepted,
-                        failed: |texts| &texts.create_failed,
-                    },
-                    form.shows_failures(),
-                );
+                notify.outcome(&result, SaveKind::Create, form.shows_failures());
                 SaveOutcome {
                     result,
                     follow_up,
@@ -395,15 +387,7 @@ fn update_action(
                 let stale = matches!(result, Err(RequestError::Outdated(_)))
                     && is_replaced(&form, based_on.as_ref());
                 if !stale {
-                    notify.outcome(
-                        &result,
-                        SaveTexts {
-                            completed: |texts| &texts.saved,
-                            accepted: |texts| &texts.change_accepted,
-                            failed: |texts| &texts.update_failed,
-                        },
-                        form.shows_failures(),
-                    );
+                    notify.outcome(&result, SaveKind::Update, form.shows_failures());
                 }
                 SaveOutcome {
                     result,
@@ -427,22 +411,44 @@ fn is_replaced(form: &CrudFormState<DynUpdateField>, version: Option<&CrudVersio
         .unwrap_or(false)
 }
 
-/// The messages of the outcomes of one kind of save.
+/// What a save does, which chooses the messages of its outcomes.
 #[derive(Clone, Copy)]
-struct SaveTexts {
-    /// After a completed save.
-    completed: fn(&CrudUiTexts) -> &str,
-    /// After a save that the data source accepted, and still applies.
-    accepted: fn(&CrudUiTexts) -> &str,
-    /// After a failed save, followed by the error.
-    failed: fn(&CrudUiTexts) -> &str,
+enum SaveKind {
+    Create,
+    Update,
+}
+
+impl SaveKind {
+    /// The message after a completed save.
+    fn completed(self) -> CrudText<'static> {
+        match self {
+            Self::Create => CrudText::SaveCreated,
+            Self::Update => CrudText::SaveUpdated,
+        }
+    }
+
+    /// The message after a save that the data source accepted, and still applies.
+    fn accepted(self) -> CrudText<'static> {
+        match self {
+            Self::Create => CrudText::SaveCreateAccepted,
+            Self::Update => CrudText::SaveUpdateAccepted,
+        }
+    }
+
+    /// The message after a save that failed with `error`.
+    fn failed(self, error: &str) -> CrudText<'_> {
+        match self {
+            Self::Create => CrudText::SaveCreateFailed { error },
+            Self::Update => CrudText::SaveUpdateFailed { error },
+        }
+    }
 }
 
 /// Notifies the outcomes of save requests through the instance's notifier.
 #[derive(Clone, Copy)]
 struct SaveNotifier {
     notifier: CrudNotifier,
-    texts: Signal<CrudUiTexts>,
+    texts: CrudTexts,
     notifications: CrudSaveNotifications,
 }
 
@@ -455,14 +461,14 @@ impl SaveNotifier {
         }
     }
 
-    /// Notifies `result` with one of `messages`, as the notifications ask. A save refused as
+    /// Notifies `result` of a save of `kind`, as the notifications ask. A save refused as
     /// outdated is a warning, which asks the user to look at the current state. A failure that
     /// the form's error summary shows (`form_shows_failures`) is not notified, so that screen
     /// readers do not announce it twice.
     fn outcome(
         self,
         result: &Result<CrudSaved, RequestError>,
-        messages: SaveTexts,
+        kind: SaveKind,
         form_shows_failures: bool,
     ) {
         if result.is_err() && form_shows_failures {
@@ -471,32 +477,25 @@ impl SaveNotifier {
             }
             return;
         }
+        let text = |text: CrudText<'_>| self.texts.get_untracked(text);
         let notification = match result {
             Ok(saved) if self.notifications == CrudSaveNotifications::All => {
                 let message = match saved.completion {
-                    CrudCompletion::Completed => messages.completed,
-                    CrudCompletion::Accepted => messages.accepted,
+                    CrudCompletion::Completed => kind.completed(),
+                    CrudCompletion::Accepted => kind.accepted(),
                 };
-                with_texts(self.texts, |texts| {
-                    CrudNotification::success(texts.save.to_string(), message(texts))
-                })
+                CrudNotification::success(text(CrudText::SaveTitle), text(message))
             }
             Err(error @ RequestError::Outdated(_))
                 if self.notifications != CrudSaveNotifications::None =>
             {
                 tracing::warn!(%error, "could not save the entity");
-                with_texts(self.texts, |texts| {
-                    CrudNotification::warning(texts.save.to_string(), texts.outdated.to_string())
-                })
+                CrudNotification::warning(text(CrudText::SaveTitle), text(CrudText::FormOutdated))
             }
             Err(error) if self.notifications != CrudSaveNotifications::None => {
                 tracing::warn!(%error, "could not save the entity");
-                with_texts(self.texts, |texts| {
-                    CrudNotification::error(
-                        texts.error.to_string(),
-                        format!("{} {error}", (messages.failed)(texts)),
-                    )
-                })
+                let error = text(CrudText::from(error));
+                CrudNotification::error(text(CrudText::SaveErrorTitle), text(kind.failed(&error)))
             }
             Ok(_) => return,
             Err(error) => {

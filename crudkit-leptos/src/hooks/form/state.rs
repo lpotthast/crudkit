@@ -1,10 +1,10 @@
 //! The state of a form: its draft, the baseline the draft is compared against, the values of its
 //! fields, why its last save failed, and where its fields are rendered.
 
-use crate::config::CrudUiTexts;
+use crate::config::CrudText;
 use crate::hooks::field::{CrudFieldMap, ReactiveField, reactive_fields};
 use crate::hooks::tabs::TabLocation;
-use crate::hooks::texts::use_crud_texts;
+use crate::hooks::texts::{CrudTexts, use_crud_texts};
 use crudkit_core::Value;
 use crudkit_web::data_source::{
     CrudFieldProblem, apply_merge_patch, merge_patch, merge_patch_conflicts,
@@ -217,19 +217,21 @@ impl<F: TypeErasedField> CrudFormState<F> {
                     .read()
                     .iter()
                     .filter(|problem| problem.field == name)
-                    .map(|problem| at_path(problem.path_in_field(), &problem.detail)),
+                    .map(|problem| at_path(texts, problem.path_in_field(), &problem.detail)),
             );
-            texts.with(|texts| {
-                messages.extend(
-                    conflicts
-                        .read()
-                        .iter()
-                        .filter(|conflict| conflict.field == name)
-                        .map(|conflict| {
-                            at_path(conflict.path_in_field(), &conflict_message(texts, conflict))
-                        }),
-                );
-            });
+            messages.extend(
+                conflicts
+                    .read()
+                    .iter()
+                    .filter(|conflict| conflict.field == name)
+                    .map(|conflict| {
+                        at_path(
+                            texts,
+                            conflict.path_in_field(),
+                            &conflict_message(texts, conflict),
+                        )
+                    }),
+            );
             (!messages.is_empty()).then(|| messages.join(" "))
         })
     }
@@ -568,20 +570,24 @@ pub(crate) fn register_error_summary(error_summaries: StoredValue<usize>) {
     });
 }
 
-/// Returns `message` about the member at `path` below a field, e.g. `0/count: must be positive`,
-/// or `message` alone for the field as a whole.
-fn at_path(path: &str, message: &str) -> String {
+/// Returns `message` about the member at `path` below a field, e.g. `0/count: must be positive`
+/// ([`CrudText::FormProblem`]), or `message` alone for the field as a whole.
+fn at_path(texts: CrudTexts, path: &str, message: &str) -> String {
     match path.strip_prefix('/') {
-        Some(path) => format!("{path}: {message}"),
+        Some(location) => texts.get(CrudText::FormProblem { location, message }),
         None => message.to_owned(),
     }
 }
 
 /// Describes how someone else changed the member of `conflict`.
-pub(crate) fn conflict_message(texts: &CrudUiTexts, conflict: &CrudFieldConflict) -> String {
+pub(crate) fn conflict_message(texts: CrudTexts, conflict: &CrudFieldConflict) -> String {
     match &conflict.theirs {
-        Some(serde_json::Value::String(text)) => (texts.changed_meanwhile)(text),
-        Some(value) => (texts.changed_meanwhile)(&value.to_string()),
-        None => texts.removed_meanwhile.to_string(),
+        Some(serde_json::Value::String(value)) => {
+            texts.get(CrudText::FormChangedMeanwhile { value })
+        }
+        Some(value) => texts.get(CrudText::FormChangedMeanwhile {
+            value: &value.to_string(),
+        }),
+        None => texts.get(CrudText::FormRemovedMeanwhile),
     }
 }

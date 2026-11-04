@@ -1,7 +1,8 @@
 //! The list of an instance's entities, and atoms acting on its selection.
 
 use crate::atoms::content::content_or_default;
-use crate::atoms::status::{StatusRegion, status_content};
+use crate::atoms::status::{StatusRegion, failed_status_text, status_content};
+use crate::config::CrudText;
 use crate::hooks::delete::use_crud_delete;
 use crate::hooks::instance::use_crud_instance;
 use crate::hooks::list::{CrudListLoadStatus, expect_crud_list, use_crud_list_state};
@@ -29,17 +30,17 @@ pub fn CrudList(children: Children) -> impl IntoView {
 /// (`role="status"`), stating that the list loads, is empty, or failed to load, and empty while
 /// the list shows rows.
 ///
-/// Default content: the matching prop, else [`CrudUiTexts::loading`], [`CrudUiTexts::no_data`],
-/// or [`CrudUiTexts::data_unavailable`] with the reason. The list's
+/// Default content: the matching prop, else [`CrudText::StatusLoading`],
+/// [`CrudText::StatusEmpty`], or [`CrudText::StatusFailed`] with the reason. The list's
 /// [`status`](crate::hooks::CrudListState::status) tells the reason too.
 ///
 /// Data attributes: `data-status` (`loading`, `empty`, `failed`, or `ready`).
 ///
 /// Default class: `crudkit-ListStatus`.
 ///
-/// [`CrudUiTexts::loading`]: crate::config::CrudUiTexts::loading
-/// [`CrudUiTexts::no_data`]: crate::config::CrudUiTexts::no_data
-/// [`CrudUiTexts::data_unavailable`]: crate::config::CrudUiTexts::data_unavailable
+/// [`CrudText::StatusLoading`]: crate::config::CrudText::StatusLoading
+/// [`CrudText::StatusEmpty`]: crate::config::CrudText::StatusEmpty
+/// [`CrudText::StatusFailed`]: crate::config::CrudText::StatusFailed
 #[component]
 pub fn CrudListStatus(
     /// Shown while the list loads.
@@ -65,18 +66,16 @@ pub fn CrudListStatus(
         CrudListLoadStatus::Failed(_) => "failed",
         CrudListLoadStatus::Ready => "ready",
     });
-    let content = move || {
-        let texts = texts.read();
-        match status.get() {
-            CrudListLoadStatus::Ready => ().into_any(),
-            CrudListLoadStatus::Loading => {
-                status_content(loading.as_ref(), texts.loading.to_string())
-            }
-            CrudListLoadStatus::Empty => status_content(empty.as_ref(), texts.no_data.to_string()),
-            CrudListLoadStatus::Failed(error) => status_content(
-                failed.as_ref(),
-                format!("{}: {error}", texts.data_unavailable),
-            ),
+    let content = move || match status.get() {
+        CrudListLoadStatus::Ready => ().into_any(),
+        CrudListLoadStatus::Loading => {
+            status_content(loading.as_ref(), texts.get(CrudText::StatusLoading))
+        }
+        CrudListLoadStatus::Empty => {
+            status_content(empty.as_ref(), texts.get(CrudText::StatusEmpty))
+        }
+        CrudListLoadStatus::Failed(error) => {
+            status_content(failed.as_ref(), failed_status_text(texts, &error))
         }
     };
     view! {
@@ -91,13 +90,13 @@ pub fn CrudListStatus(
 ///
 /// Disabled while nothing is selected.
 ///
-/// Default content: [`CrudUiTexts::delete_selection`].
+/// Default content: [`CrudText::SelectionDelete`].
 ///
 /// Data attributes: those of Leptonic's `Button`.
 ///
 /// Default classes: `leptonic-Button crudkit-DeleteSelectedButton`.
 ///
-/// [`CrudUiTexts::delete_selection`]: crate::config::CrudUiTexts::delete_selection
+/// [`CrudText::SelectionDelete`]: crate::config::CrudText::SelectionDelete
 #[component]
 pub fn CrudDeleteSelectedButton(
     #[prop(into, optional)] is_disabled: Signal<bool>,
@@ -114,7 +113,7 @@ pub fn CrudDeleteSelectedButton(
     let selection = expect_crud_list("CrudDeleteSelectedButton").selection;
     let deletion = use_crud_delete();
     let texts = use_crud_texts();
-    let text = move || texts.read().delete_selection.to_string();
+    let text = move || texts.get(CrudText::SelectionDelete);
     view! {
         <Button
             on_press=move |_| deletion.request_many(selection.selected())
@@ -132,13 +131,13 @@ pub fn CrudDeleteSelectedButton(
 ///
 /// Disabled while nothing is selected.
 ///
-/// Default content: [`CrudUiTexts::clear_selection`].
+/// Default content: [`CrudText::SelectionClear`].
 ///
 /// Data attributes: those of Leptonic's `Button`.
 ///
 /// Default classes: `leptonic-Button crudkit-ClearSelectionButton`.
 ///
-/// [`CrudUiTexts::clear_selection`]: crate::config::CrudUiTexts::clear_selection
+/// [`CrudText::SelectionClear`]: crate::config::CrudText::SelectionClear
 #[component]
 pub fn CrudClearSelectionButton(
     #[prop(into, optional)] is_disabled: Signal<bool>,
@@ -154,7 +153,7 @@ pub fn CrudClearSelectionButton(
         .merge(classes, MergeStrategy::UnionConditions);
     let selection = expect_crud_list("CrudClearSelectionButton").selection;
     let texts = use_crud_texts();
-    let text = move || texts.read().clear_selection.to_string();
+    let text = move || texts.get(CrudText::SelectionClear);
     view! {
         <Button
             on_press=move |_| selection.clear()
@@ -171,13 +170,13 @@ pub fn CrudClearSelectionButton(
 /// Resets the surrounding instance to its configuration: its first view, page, page size, and
 /// ordering. Asks for confirmation while a form has unsaved changes.
 ///
-/// Default content: [`CrudUiTexts::reset`].
+/// Default content: [`CrudText::InstanceReset`].
 ///
 /// Data attributes: those of Leptonic's `Button`.
 ///
 /// Default classes: `leptonic-Button crudkit-ResetButton`.
 ///
-/// [`CrudUiTexts::reset`]: crate::config::CrudUiTexts::reset
+/// [`CrudText::InstanceReset`]: crate::config::CrudText::InstanceReset
 #[component]
 pub fn CrudResetButton(
     #[prop(into, optional)] is_disabled: Signal<bool>,
@@ -193,7 +192,7 @@ pub fn CrudResetButton(
         .merge(classes, MergeStrategy::UnionConditions);
     let ctx = use_crud_instance();
     let texts = use_crud_texts();
-    let text = move || texts.read().reset.to_string();
+    let text = move || texts.get(CrudText::InstanceReset);
     view! {
         <Button on_press=move |_| ctx.reset() is_disabled aria_label classes styles>
             {content_or_default(children, text)}
@@ -204,13 +203,13 @@ pub fn CrudResetButton(
 /// The number of selected entities of the surrounding list: a `<span>`, e.g. for a toolbar. It is
 /// a polite live region, so screen readers announce selection changes.
 ///
-/// Content: [`CrudUiTexts::selected`] of the number.
+/// Content: [`CrudText::SelectionCount`] of the number.
 ///
 /// Data attributes: `data-empty` (nothing is selected).
 ///
 /// Default class: `crudkit-SelectionCount`.
 ///
-/// [`CrudUiTexts::selected`]: crate::config::CrudUiTexts::selected
+/// [`CrudText::SelectionCount`]: crate::config::CrudText::SelectionCount
 #[component]
 pub fn CrudSelectionCount(
     #[prop(into, optional)] classes: Classes,
@@ -221,7 +220,11 @@ pub fn CrudSelectionCount(
         .merge(classes, MergeStrategy::UnionConditions);
     let count = expect_crud_list("CrudSelectionCount").selection.count;
     let texts = use_crud_texts();
-    let text = move || (texts.read().selected)(count.get() as u64);
+    let text = move || {
+        texts.get(CrudText::SelectionCount {
+            count: count.get() as u64,
+        })
+    };
     view! {
         <span
             class=classes

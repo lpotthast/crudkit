@@ -1,6 +1,7 @@
 //! Paging through the surrounding list.
 
 use crate::atoms::content::content_or_default;
+use crate::config::CrudText;
 use crate::hooks::list::expect_crud_list;
 use crate::hooks::texts::use_crud_texts;
 use crudkit_web::list::{ItemsPerPage, PageNr};
@@ -17,11 +18,11 @@ use leptos::prelude::*;
 /// [`CrudPreviousPageButton`], [`CrudPageButtons`], [`CrudNextPageButton`], and
 /// [`CrudItemsPerPage`].
 ///
-/// Labeled [`CrudUiTexts::pagination`] unless given `aria_label`.
+/// Labeled [`CrudText::PaginationLabel`] unless given `aria_label`.
 ///
 /// Default class: `crudkit-Pagination`.
 ///
-/// [`CrudUiTexts::pagination`]: crate::config::CrudUiTexts::pagination
+/// [`CrudText::PaginationLabel`]: crate::config::CrudText::PaginationLabel
 #[component]
 pub fn CrudPagination(
     #[prop(into, optional)] aria_label: MaybeProp<String>,
@@ -36,7 +37,7 @@ pub fn CrudPagination(
     let aria_label = move || {
         aria_label
             .get()
-            .unwrap_or_else(|| texts.read().pagination.to_string())
+            .unwrap_or_else(|| texts.get(CrudText::PaginationLabel))
     };
     view! {
         <nav class=classes style=styles aria-label=aria_label>
@@ -102,13 +103,13 @@ fn page_items(options: &[Option<PageNr>]) -> Vec<PageItem> {
 
 /// Opens `page` of the surrounding list. The current page's button has `aria-current="page"`.
 ///
-/// Default content: the page number. Labeled [`CrudUiTexts::page`] unless given `aria_label`.
+/// Default content: the page number. Labeled [`CrudText::PaginationPage`] unless given `aria_label`.
 ///
 /// Data attributes: those of Leptonic's `Button`.
 ///
 /// Default classes: `leptonic-Button crudkit-PageButton`.
 ///
-/// [`CrudUiTexts::page`]: crate::config::CrudUiTexts::page
+/// [`CrudText::PaginationPage`]: crate::config::CrudText::PaginationPage
 #[component]
 pub fn CrudPageButton(
     /// The page this button opens.
@@ -127,7 +128,7 @@ pub fn CrudPageButton(
         Some(
             aria_label
                 .get()
-                .unwrap_or_else(|| (texts.read().page)(page.0)),
+                .unwrap_or_else(|| texts.get(CrudText::PaginationPage { page: page.0 })),
         )
     });
     let aria_current =
@@ -162,13 +163,13 @@ pub fn CrudPageGap(
 
 /// Opens the previous page of the surrounding list. Disabled on the first page.
 ///
-/// Default content: [`CrudUiTexts::previous_page`].
+/// Default content: [`CrudText::PaginationPrevious`].
 ///
 /// Data attributes: those of Leptonic's `Button`.
 ///
 /// Default classes: `leptonic-Button crudkit-PreviousPageButton`.
 ///
-/// [`CrudUiTexts::previous_page`]: crate::config::CrudUiTexts::previous_page
+/// [`CrudText::PaginationPrevious`]: crate::config::CrudText::PaginationPrevious
 #[component]
 pub fn CrudPreviousPageButton(
     #[prop(into, optional)] is_disabled: Signal<bool>,
@@ -184,7 +185,7 @@ pub fn CrudPreviousPageButton(
         .merge(classes, MergeStrategy::UnionConditions);
     let pagination = expect_crud_list("CrudPreviousPageButton").pagination;
     let texts = use_crud_texts();
-    let text = move || texts.read().previous_page.to_string();
+    let text = move || texts.get(CrudText::PaginationPrevious);
     view! {
         <Button
             on_press=move |_| pagination.previous()
@@ -200,13 +201,13 @@ pub fn CrudPreviousPageButton(
 
 /// Opens the next page of the surrounding list. Disabled on the last page.
 ///
-/// Default content: [`CrudUiTexts::next_page`].
+/// Default content: [`CrudText::PaginationNext`].
 ///
 /// Data attributes: those of Leptonic's `Button`.
 ///
 /// Default classes: `leptonic-Button crudkit-NextPageButton`.
 ///
-/// [`CrudUiTexts::next_page`]: crate::config::CrudUiTexts::next_page
+/// [`CrudText::PaginationNext`]: crate::config::CrudText::PaginationNext
 #[component]
 pub fn CrudNextPageButton(
     #[prop(into, optional)] is_disabled: Signal<bool>,
@@ -222,7 +223,7 @@ pub fn CrudNextPageButton(
         .merge(classes, MergeStrategy::UnionConditions);
     let pagination = expect_crud_list("CrudNextPageButton").pagination;
     let texts = use_crud_texts();
-    let text = move || texts.read().next_page.to_string();
+    let text = move || texts.get(CrudText::PaginationNext);
     view! {
         <Button
             on_press=move |_| pagination.next()
@@ -239,7 +240,7 @@ pub fn CrudNextPageButton(
 /// Chooses how many entities a page of the surrounding list shows: a Leptonic `Select` bound to the
 /// list's page size.
 ///
-/// Compose it like a Leptonic `Select`: a `Label` (e.g. [`CrudUiTexts::items_per_page`]), a
+/// Compose it like a Leptonic `Select`: a `Label` (e.g. [`CrudText::PaginationPageSize`]), a
 /// `SelectTrigger` with a `SelectValue`, and a `SelectPopover` holding a `ListBox` with
 /// [`CrudItemsPerPageOptions`].
 ///
@@ -247,7 +248,7 @@ pub fn CrudNextPageButton(
 ///
 /// Default classes: `leptonic-Select crudkit-ItemsPerPage`.
 ///
-/// [`CrudUiTexts::items_per_page`]: crate::config::CrudUiTexts::items_per_page
+/// [`CrudText::PaginationPageSize`]: crate::config::CrudText::PaginationPageSize
 #[component]
 pub fn CrudItemsPerPage(
     #[prop(into, optional)] classes: Classes,

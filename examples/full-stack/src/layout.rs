@@ -9,8 +9,6 @@ use leptos_router::components::Outlet;
 /// instances) and owns the navigation scope used for dirty-form guards.
 #[component]
 pub fn MainLayout() -> impl IntoView {
-    provide_crud_texts(CrudUiTexts::english());
-
     view! {
         <ui::Shell>
             <CrudInstanceMgr>

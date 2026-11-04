@@ -31,8 +31,7 @@ pub fn CrudValue(
         .merge(classes, MergeStrategy::UnionConditions);
     let texts = use_crud_texts();
     let is_empty = move || value.with(|value| matches!(value, Value::Null | Value::Void(())));
-    let text =
-        move || value.with(|value| format_crud_value(value, date_time_display, &texts.read()));
+    let text = move || value.with(|value| format_crud_value(value, date_time_display, texts));
     view! {
         <span
             class=classes

@@ -3,6 +3,7 @@
 use crate::atoms::content::content_or_default;
 use crate::atoms::form::FormContext;
 use crate::atoms::value::CrudValue;
+use crate::config::CrudText;
 use crate::hooks::field::{
     CrudFieldBinding, CrudFieldInputError, CrudFieldState, dom_id, use_crud_field_binding,
 };
@@ -142,7 +143,7 @@ fn UnknownField(field: String) -> impl IntoView {
         "a field is bound that the form's model does not have"
     );
     let texts = use_crud_texts();
-    let message = move || (texts.read().unknown_field)(&field);
+    let message = move || texts.get(CrudText::FieldUnknown { field: &field });
     view! {
         <div class="crudkit-UnknownField" role="alert">
             {message}
@@ -297,7 +298,7 @@ pub fn CrudFieldControl(
 fn MissingRenderer(field: String) -> impl IntoView {
     tracing::error!(field, "a field of a custom type has no registered renderer");
     let texts = use_crud_texts();
-    let message = move || (texts.read().no_renderer)(&field);
+    let message = move || texts.get(CrudText::FieldNoRenderer { field: &field });
     view! {
         <div class="crudkit-MissingFieldRenderer" role="alert">
             {message}

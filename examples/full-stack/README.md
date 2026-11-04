@@ -48,7 +48,7 @@ src/
 ├── main.rs        # SSR entry point: axum server serving the Leptos app and the CRUD API.
 ├── lib.rs         # Hydrate entry point.
 ├── app.rs         # HTML shell and routes.
-├── layout.rs      # The app's frame, `CrudInstanceMgr`, and English texts around the routed page.
+├── layout.rs      # The app's frame and `CrudInstanceMgr` around the routed page.
 ├── api.rs         # API base URL and HTTP executor used by CrudKit instances.
 ├── models/        # Frontend (crudkit-web) models shared by SSR and the WASM client.
 ├── resources/     # Instance configurations.

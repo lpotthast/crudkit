@@ -116,8 +116,9 @@ deliberate redesign, not a refactoring.
 - **One notification sink, annotated by origin (2026-10-07).** Notifications go to one application-wide sink provided
   at the root, typically a Leptonic toast queue. Instances do not render notifications; they name themselves as each
   notification's origin, so the application can group, filter, or place notifications per instance or resource.
-- **Texts are data the application can switch (2026-10-07).** User-facing texts come from `CrudUiTexts`, provided as a
-  signal, so a change of language updates everything rendered. Proper localization, including value formatting, is
-  future work in the [backlog](../TODO.md).
+- **Texts are translated by the application (2026-11-04).** Every text CrudKit shows has a stable ID and an English
+  default. An application provides a translator, which looks the IDs up in the user's language, so CrudKit depends on
+  no translation library and ships English only. Formatting values for a locale is future work in the
+  [backlog](../TODO.md). See [Leptos Hooks and Atoms](leptos-hooks-and-atoms.md#texts).
 - **Dependencies are declared minimally (2026-10-07).** Every dependency is declared with `default-features = false`
   and only the features CrudKit uses, so applications do not pay for unused functionality.

@@ -5,8 +5,9 @@
 //! through the setter updates the form's draft and the field's reactive value. Optional fields map
 //! an empty input to `Value::Null`.
 
-use crate::config::CrudUiTexts;
+use crate::config::CrudText;
 use crate::hooks::field::{CrudFieldBinding, use_crud_field_binding};
+use crate::hooks::texts::{CrudTexts, use_crud_texts};
 use crudkit_core::{TimeDuration, Value, ValueKind};
 use crudkit_web::field::DateTimeDisplay;
 use crudkit_web::field::FieldMode;
@@ -71,8 +72,52 @@ impl std::error::Error for InvalidInput {}
 /// Formats a field's [`Value`] as text.
 pub type CrudValueFormatter = Arc<dyn Fn(&Value) -> String + Send + Sync>;
 
-/// Parses text into a field's [`Value`], or returns a message describing why the text is invalid.
-pub type CrudValueParser = Arc<dyn Fn(&str) -> Result<Value, String> + Send + Sync>;
+/// Parses text into a field's [`Value`], or returns why the text is invalid.
+pub type CrudValueParser = Arc<dyn Fn(&str) -> Result<Value, CrudInputError> + Send + Sync>;
+
+/// Why a [`CrudTextCodec`] rejected the text of an input. Inputs show it in the user's language.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CrudInputError {
+    /// The text is not a UUID ([`CrudText::InputInvalidUuid`]).
+    Uuid,
+    /// The text is not a date-time in the form `YYYY-MM-DDTHH:MM[:SS]`
+    /// ([`CrudText::InputInvalidDateTime`]).
+    DateTime,
+    /// The text is not a date-time with offset in RFC 3339 form
+    /// ([`CrudText::InputInvalidOffsetDateTime`]).
+    OffsetDateTime,
+    /// The text is not a duration in the form `HH:MM:SS[.cc]`
+    /// ([`CrudText::InputInvalidDuration`]).
+    Duration,
+    /// The text is not JSON ([`CrudText::InputInvalidJson`]).
+    Json {
+        /// The line of the first error, counted from one.
+        line: u64,
+        /// The column of the first error, counted from one.
+        column: u64,
+    },
+    /// A message of the application, e.g. of its own codec, shown as it is.
+    Message(String),
+}
+
+impl CrudInputError {
+    /// Returns the message explaining this error in the language of `texts`, without tracking.
+    #[must_use]
+    pub fn message(&self, texts: CrudTexts) -> String {
+        let text = match self {
+            Self::Uuid => CrudText::InputInvalidUuid,
+            Self::DateTime => CrudText::InputInvalidDateTime,
+            Self::OffsetDateTime => CrudText::InputInvalidOffsetDateTime,
+            Self::Duration => CrudText::InputInvalidDuration,
+            Self::Json { line, column } => CrudText::InputInvalidJson {
+                line: *line,
+                column: *column,
+            },
+            Self::Message(message) => return message.clone(),
+        };
+        texts.get_untracked(text)
+    }
+}
 
 /// Converts between a field's [`Value`] and the text shown in a text input.
 #[derive(Clone)]
@@ -112,7 +157,10 @@ impl CrudTextCodec {
             parse: Arc::new(|text| {
                 serde_json::from_str(text)
                     .map(Value::Json)
-                    .map_err(|err| err.to_string())
+                    .map_err(|err| CrudInputError::Json {
+                        line: err.line() as u64,
+                        column: err.column() as u64,
+                    })
             }),
         }
     }
@@ -120,7 +168,7 @@ impl CrudTextCodec {
     /// Codec for `Value::Uuid` fields.
     #[must_use]
     pub fn uuid() -> Self {
-        Self::parsed(Value::Uuid, Value::as_uuid)
+        Self::parsed_or(Value::Uuid, Value::as_uuid, |_| CrudInputError::Uuid)
     }
 
     /// Codec for `Value::PrimitiveDateTime` fields in the form `YYYY-MM-DDTHH:MM:SS`.
@@ -136,7 +184,7 @@ impl CrudTextCodec {
             parse: Arc::new(|text| {
                 parse_date_time_input(text)
                     .map(Value::PrimitiveDateTime)
-                    .map_err(|err| err.to_string())
+                    .map_err(|_| CrudInputError::DateTime)
             }),
         }
     }
@@ -154,7 +202,7 @@ impl CrudTextCodec {
             parse: Arc::new(|text| {
                 time::OffsetDateTime::parse(text.trim(), &Rfc3339)
                     .map(Value::OffsetDateTime)
-                    .map_err(|err| err.to_string())
+                    .map_err(|_| CrudInputError::OffsetDateTime)
             }),
         }
     }
@@ -172,17 +220,33 @@ impl CrudTextCodec {
             parse: Arc::new(|text| {
                 text.parse::<DurationParts>()
                     .map(|parts| Value::Duration(TimeDuration(parts.to_duration())))
-                    .map_err(|err| err.to_string())
+                    .map_err(|_| CrudInputError::Duration)
             }),
         }
     }
 
-    /// Codec for values that format with `Display` and parse with `FromStr`, e.g. UUIDs or
-    /// 64-bit and 128-bit integers.
+    /// Codec for values that format with `Display` and parse with `FromStr`. Text that does not
+    /// parse shows the parse error's `Display` text ([`CrudInputError::Message`]), so choose a
+    /// type whose errors are written in the user's language.
     pub fn parsed<T>(to_value: fn(T) -> Value, from_value: fn(&Value) -> Option<T>) -> Self
     where
         T: fmt::Display + std::str::FromStr + 'static,
         T::Err: fmt::Display,
+    {
+        Self::parsed_or(to_value, from_value, |err| {
+            CrudInputError::Message(err.to_string())
+        })
+    }
+
+    /// Codec for values that format with `Display` and parse with `FromStr`, reporting text that
+    /// does not parse as `invalid` returns.
+    fn parsed_or<T>(
+        to_value: fn(T) -> Value,
+        from_value: fn(&Value) -> Option<T>,
+        invalid: fn(T::Err) -> CrudInputError,
+    ) -> Self
+    where
+        T: fmt::Display + std::str::FromStr + 'static,
     {
         Self {
             format: Arc::new(move |value| {
@@ -190,12 +254,7 @@ impl CrudTextCodec {
                     .map(|it| it.to_string())
                     .unwrap_or_default()
             }),
-            parse: Arc::new(move |text| {
-                text.trim()
-                    .parse::<T>()
-                    .map(to_value)
-                    .map_err(|err| err.to_string())
-            }),
+            parse: Arc::new(move |text| text.trim().parse::<T>().map(to_value).map_err(invalid)),
         }
     }
 }
@@ -216,7 +275,7 @@ pub struct UseCrudTextInputReturn {
 /// Binds the rendered field to a text input using `codec`.
 ///
 /// Empty input becomes `Value::Null` for optional fields. Input the codec rejects is reported as an
-/// input error and leaves the field's value unchanged.
+/// input error, in the user's language, and leaves the field's value unchanged.
 ///
 /// # Panics
 ///
@@ -228,6 +287,7 @@ pub fn use_crud_text_input(codec: CrudTextCodec) -> UseCrudTextInputReturn {
     let is_optional = field.is_optional;
     let value = field.value;
     let set = field.set;
+    let texts = use_crud_texts();
     let CrudTextCodec { format, parse } = codec;
 
     // Show external changes, e.g. a reloaded entity, but keep text the user is still typing: text
@@ -256,7 +316,9 @@ pub fn use_crud_text_input(codec: CrudTextCodec) -> UseCrudTextInputReturn {
         } else {
             parse(&input)
         };
-        set.run(result.map_err(|err| Arc::new(InvalidInput(err)) as Arc<dyn std::error::Error>));
+        set.run(result.map_err(|err| {
+            Arc::new(InvalidInput(err.message(texts))) as Arc<dyn std::error::Error>
+        }));
     });
 
     UseCrudTextInputReturn {
@@ -268,7 +330,7 @@ pub fn use_crud_text_input(codec: CrudTextCodec) -> UseCrudTextInputReturn {
 
 /// Formats `value` as text for display, e.g. in a table cell or a read-only view.
 ///
-/// Numbers show their digits, booleans [`CrudUiTexts::yes`] or [`CrudUiTexts::no`], date-times
+/// Numbers show their digits, booleans [`CrudText::ValueYes`] or [`CrudText::ValueNo`], date-times
 /// without offset follow `date_time_display`, lists their formatted elements separated by commas,
 /// and everything else the text its input shows. Absent values (`Null` and the unit value) are
 /// empty.
@@ -276,12 +338,12 @@ pub fn use_crud_text_input(codec: CrudTextCodec) -> UseCrudTextInputReturn {
 pub fn format_crud_value(
     value: &Value,
     date_time_display: DateTimeDisplay,
-    texts: &CrudUiTexts,
+    texts: CrudTexts,
 ) -> String {
     match value {
         Value::Null | Value::Void(()) => String::new(),
-        Value::Bool(true) => texts.yes.to_string(),
-        Value::Bool(false) => texts.no.to_string(),
+        Value::Bool(true) => texts.get(CrudText::ValueYes),
+        Value::Bool(false) => texts.get(CrudText::ValueNo),
         Value::U8(it) => it.to_string(),
         Value::U16(it) => it.to_string(),
         Value::U32(it) => it.to_string(),

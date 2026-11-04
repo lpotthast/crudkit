@@ -50,7 +50,7 @@ CrudKit's atoms follow Leptonic's atom guardrails:
   fit (a selection cell in a table that is not selectable, a field of another model than its form's), panics with a
   message naming the atom, like Leptonic's atoms: that is a mistake in the application's markup. Configuration
   problems that depend on data, such as a field the model does not have, are logged and shown instead.
-- Defaults keep applications short: atoms showing text show `CrudUiTexts` unless given children, and iterators render
+- Defaults keep applications short: atoms showing text show CrudKit's texts unless given children, and iterators render
   their one obvious atom (a `CrudTableCell` per column, a `CrudPageButton` per page). Defaults are compositions of the
   same public atoms, so an application can take over at any level.
 
@@ -190,9 +190,34 @@ instance counts its mounted dialogs and reports a confirmation becoming pending 
 would otherwise wait forever. An action button renders its action's view (an overlay) itself and owns its requested
 and executing state; the completion it hands to the action stays valid after the view is gone.
 
-User-facing texts come from `CrudUiTexts`, provided with `provide_crud_texts` as a signal, so that a change of language
-updates rendered atoms. Atoms read the texts where they render them; hooks read them when they notify. The defaults
-are German; `CrudUiTexts::english` provides English texts.
+## Texts
+
+Every text that CrudKit shows or announces is a `CrudText`: the default content of atoms, accessible names, the
+messages of notifications, and the explanations of errors. A text has a stable ID, `crudkit-` and the name of its
+variant in kebab case (`crudkit-form-save`), named arguments, which are the fields of its variant (`count`), and an
+English default, which chooses its plural forms itself. IDs and argument names are identifiers of Fluent, and change
+only in a breaking release.
+
+An application provides one `CrudTranslator` with `provide_crud_translator`, normally at its root, like the notifier.
+The translator receives a text and returns it in the user's language, or `None`, which shows the English default, so
+a translator may translate or rephrase some texts only. Without a translator, CrudKit shows English. CrudKit depends
+on no translation library: a translator over a library looks a text up by its ID and passes its arguments, numbers as
+numbers, so that each translation chooses its own plural forms. Translators are `Send + Sync`, because servers render
+on several threads.
+
+`use_crud_texts` returns `CrudTexts`, a `Copy` handle. Atoms look texts up where they render them, so a translator that
+reads reactive state, such as the user's language, switches rendered texts when it changes. Hooks look texts up
+without tracking when they notify, also after their view is gone. Once the owner that provided the translator is
+gone, texts fall back to English.
+
+- Errors of data sources show through the text of their kind (`CrudText::ErrorForbidden`, ...), not through the
+  `Display` of `RequestError`, which stays for logs. Messages of data sources, such as a refusal's reason, are
+  arguments and stay in the language of the data source.
+- Codecs report a typed `CrudInputError`, which the text input translates when the user enters text. An input error
+  keeps its language until the next input.
+- Configuration errors, such as a field without a renderer or a view opened with the wrong subject, are texts too, and
+  are logged with their English default.
+- A message of several sentences, such as the outcome of a mass deletion, joins its translated sentences with a space.
 
 ## Views
 

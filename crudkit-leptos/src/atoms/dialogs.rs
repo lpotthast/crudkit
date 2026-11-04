@@ -1,7 +1,7 @@
 //! Dialogs confirming deletions and leaving views with unsaved changes.
 
 use crate::atoms::content::content_or_default;
-use crate::config::CrudUiTexts;
+use crate::config::CrudText;
 use crate::hooks::delete::use_crud_delete;
 use crate::hooks::instance::use_crud_instance;
 use crate::hooks::leave::use_crud_leave_confirmation;
@@ -38,20 +38,32 @@ struct Confirmation {
 
 impl Confirmation {
     /// The question the dialog asks.
-    fn title(&self, texts: &CrudUiTexts) -> String {
+    fn title(&self) -> CrudText<'static> {
         match self.kind {
-            ConfirmationKind::Delete => texts.delete_title.to_string(),
-            ConfirmationKind::DeleteMany => (texts.delete_many_title)(self.count.get() as u64),
-            ConfirmationKind::Leave => texts.leave_title.to_string(),
+            ConfirmationKind::Delete => CrudText::DeleteDialogTitle,
+            ConfirmationKind::DeleteMany => CrudText::DeleteManyDialogTitle {
+                count: self.count.get() as u64,
+            },
+            ConfirmationKind::Leave => CrudText::LeaveDialogTitle,
         }
     }
 
     /// What confirming means.
-    fn message(&self, texts: &CrudUiTexts) -> String {
+    fn message(&self) -> CrudText<'static> {
         match self.kind {
-            ConfirmationKind::Delete => texts.delete_body.to_string(),
-            ConfirmationKind::DeleteMany => (texts.delete_many_body)(self.count.get() as u64),
-            ConfirmationKind::Leave => texts.leave_body.to_string(),
+            ConfirmationKind::Delete => CrudText::DeleteDialogMessage,
+            ConfirmationKind::DeleteMany => CrudText::DeleteManyDialogMessage {
+                count: self.count.get() as u64,
+            },
+            ConfirmationKind::Leave => CrudText::LeaveDialogMessage,
+        }
+    }
+
+    /// What the confirm button does.
+    fn confirm(&self) -> CrudText<'static> {
+        match self.kind {
+            ConfirmationKind::Delete | ConfirmationKind::DeleteMany => CrudText::EntityDelete,
+            ConfirmationKind::Leave => CrudText::LeaveDialogConfirm,
         }
     }
 
@@ -217,14 +229,14 @@ fn use_confirmation(atom: &'static str) -> Confirmation {
 
 /// The title of the surrounding confirmation dialog: a Leptonic `DialogTitle` inside its `Dialog`.
 ///
-/// Default content: [`CrudUiTexts::delete_title`], [`CrudUiTexts::delete_many_title`] (given the
-/// number of entities), or [`CrudUiTexts::leave_title`].
+/// Default content: [`CrudText::DeleteDialogTitle`], [`CrudText::DeleteManyDialogTitle`] (given
+/// the number of entities), or [`CrudText::LeaveDialogTitle`].
 ///
 /// Default classes: `leptonic-DialogTitle crudkit-ConfirmationTitle`.
 ///
-/// [`CrudUiTexts::delete_title`]: crate::config::CrudUiTexts::delete_title
-/// [`CrudUiTexts::delete_many_title`]: crate::config::CrudUiTexts::delete_many_title
-/// [`CrudUiTexts::leave_title`]: crate::config::CrudUiTexts::leave_title
+/// [`CrudText::DeleteDialogTitle`]: crate::config::CrudText::DeleteDialogTitle
+/// [`CrudText::DeleteManyDialogTitle`]: crate::config::CrudText::DeleteManyDialogTitle
+/// [`CrudText::LeaveDialogTitle`]: crate::config::CrudText::LeaveDialogTitle
 #[component]
 pub fn CrudConfirmationTitle(
     /// The heading level. Defaults to `h2`.
@@ -239,7 +251,7 @@ pub fn CrudConfirmationTitle(
         .merge(classes, MergeStrategy::UnionConditions);
     let confirmation = use_confirmation("CrudConfirmationTitle");
     let texts = use_crud_texts();
-    let text = move || confirmation.title(&texts.read());
+    let text = move || texts.get(confirmation.title());
     view! {
         <DialogTitle level classes styles>
             {content_or_default(children, text)}
@@ -250,14 +262,14 @@ pub fn CrudConfirmationTitle(
 /// The message of the surrounding confirmation dialog: a Leptonic `DialogDescription` inside its
 /// `Dialog`.
 ///
-/// Default content: [`CrudUiTexts::delete_body`], [`CrudUiTexts::delete_many_body`] (given the
-/// number of entities), or [`CrudUiTexts::leave_body`].
+/// Default content: [`CrudText::DeleteDialogMessage`], [`CrudText::DeleteManyDialogMessage`]
+/// (given the number of entities), or [`CrudText::LeaveDialogMessage`].
 ///
 /// Default classes: `leptonic-DialogDescription crudkit-ConfirmationMessage`.
 ///
-/// [`CrudUiTexts::delete_body`]: crate::config::CrudUiTexts::delete_body
-/// [`CrudUiTexts::delete_many_body`]: crate::config::CrudUiTexts::delete_many_body
-/// [`CrudUiTexts::leave_body`]: crate::config::CrudUiTexts::leave_body
+/// [`CrudText::DeleteDialogMessage`]: crate::config::CrudText::DeleteDialogMessage
+/// [`CrudText::DeleteManyDialogMessage`]: crate::config::CrudText::DeleteManyDialogMessage
+/// [`CrudText::LeaveDialogMessage`]: crate::config::CrudText::LeaveDialogMessage
 #[component]
 pub fn CrudConfirmationMessage(
     #[prop(into, optional)] classes: Classes,
@@ -269,7 +281,7 @@ pub fn CrudConfirmationMessage(
         .merge(classes, MergeStrategy::UnionConditions);
     let confirmation = use_confirmation("CrudConfirmationMessage");
     let texts = use_crud_texts();
-    let text = move || confirmation.message(&texts.read());
+    let text = move || texts.get(confirmation.message());
     view! {
         <DialogDescription classes styles>
             {content_or_default(children, text)}
@@ -279,15 +291,15 @@ pub fn CrudConfirmationMessage(
 
 /// Confirms the surrounding dialog: deletes, or leaves the view. Pending while the deletion runs.
 ///
-/// Default content: [`CrudUiTexts::delete`] in delete dialogs, [`CrudUiTexts::leave`] in the leave
-/// dialog.
+/// Default content: [`CrudText::EntityDelete`] in delete dialogs, [`CrudText::LeaveDialogConfirm`]
+/// in the leave dialog.
 ///
 /// Data attributes: those of Leptonic's `Button`, e.g. `data-pending`.
 ///
 /// Default classes: `leptonic-Button crudkit-ConfirmButton`.
 ///
-/// [`CrudUiTexts::delete`]: crate::config::CrudUiTexts::delete
-/// [`CrudUiTexts::leave`]: crate::config::CrudUiTexts::leave
+/// [`CrudText::EntityDelete`]: crate::config::CrudText::EntityDelete
+/// [`CrudText::LeaveDialogConfirm`]: crate::config::CrudText::LeaveDialogConfirm
 #[component]
 pub fn CrudConfirmButton(
     #[prop(into, optional)] is_disabled: Signal<bool>,
@@ -303,10 +315,7 @@ pub fn CrudConfirmButton(
         .merge(classes, MergeStrategy::UnionConditions);
     let confirmation = use_confirmation("CrudConfirmButton");
     let texts = use_crud_texts();
-    let text = move || match confirmation.kind {
-        ConfirmationKind::Leave => texts.read().leave.to_string(),
-        ConfirmationKind::Delete | ConfirmationKind::DeleteMany => texts.read().delete.to_string(),
-    };
+    let text = move || texts.get(confirmation.confirm());
     view! {
         <Button
             on_press=move |_| confirmation.confirm.run(())
@@ -324,13 +333,13 @@ pub fn CrudConfirmButton(
 /// Cancels the surrounding dialog, keeping the entities or the view. Disabled while the deletion
 /// runs.
 ///
-/// Default content: [`CrudUiTexts::cancel`].
+/// Default content: [`CrudText::DialogCancel`].
 ///
 /// Data attributes: those of Leptonic's `Button`.
 ///
 /// Default classes: `leptonic-Button crudkit-CancelButton`.
 ///
-/// [`CrudUiTexts::cancel`]: crate::config::CrudUiTexts::cancel
+/// [`CrudText::DialogCancel`]: crate::config::CrudText::DialogCancel
 #[component]
 pub fn CrudCancelButton(
     #[prop(into, optional)] is_disabled: Signal<bool>,
@@ -346,7 +355,7 @@ pub fn CrudCancelButton(
         .merge(classes, MergeStrategy::UnionConditions);
     let confirmation = use_confirmation("CrudCancelButton");
     let texts = use_crud_texts();
-    let text = move || texts.read().cancel.to_string();
+    let text = move || texts.get(CrudText::DialogCancel);
     view! {
         <Button
             on_press=move |_| confirmation.cancel.run(())

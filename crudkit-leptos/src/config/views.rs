@@ -1,5 +1,7 @@
 //! Registry of the views an instance can show.
 
+use crate::config::CrudText;
+use crate::hooks::texts::use_crud_texts;
 use crudkit_core::id::SerializableId;
 use crudkit_web::view::{CREATE_VIEW, CrudView, EDIT_VIEW, READ_VIEW, TABLE_VIEW};
 use leptos::prelude::*;
@@ -128,13 +130,13 @@ impl CrudViewRegistry {
     fn with_standard(
         mut self,
         name: &'static str,
-        render: impl Fn(CrudView) -> Result<AnyView, String> + Send + Sync + 'static,
+        render: impl Fn(CrudView) -> Result<AnyView, ViewProblem> + Send + Sync + 'static,
     ) -> Self {
         self.renderers.insert(
             name.to_owned(),
             Arc::new(move |view: CrudView| {
-                render(view).unwrap_or_else(|message| {
-                    view! { <ViewError view=name.to_owned() message /> }.into_any()
+                render(view).unwrap_or_else(|problem| {
+                    view! { <ViewError view=name.to_owned() problem /> }.into_any()
                 })
             }),
         );
@@ -177,47 +179,70 @@ impl CrudViewRegistry {
         if let Some(render) = self.renderers.get(&view.name) {
             render(view)
         } else {
-            let message = format!("No CrudKit renderer is registered for `{}`", view.name);
-            view! { <ViewError view=view.name message /> }.into_any()
+            view! { <ViewError view=view.name problem=ViewProblem::NotRegistered /> }.into_any()
+        }
+    }
+}
+
+/// Why a view cannot be rendered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ViewProblem {
+    /// No renderer is registered for the view.
+    NotRegistered,
+    /// A standard view without an entity was opened with one.
+    RejectsSubject,
+    /// A standard view of an entity was opened without one.
+    NeedsSubject,
+    /// A standard view was opened with a payload.
+    RejectsPayload,
+}
+
+impl ViewProblem {
+    /// The text explaining this problem of the view named `view`.
+    fn text(self, view: &str) -> CrudText<'_> {
+        match self {
+            Self::NotRegistered => CrudText::ViewNotRegistered { view },
+            Self::RejectsSubject => CrudText::ViewRejectsSubject { view },
+            Self::NeedsSubject => CrudText::ViewNeedsSubject { view },
+            Self::RejectsPayload => CrudText::ViewRejectsPayload { view },
         }
     }
 }
 
 /// Checks that a standard view without an entity has neither a subject nor a payload.
-fn check_without_subject(view: &CrudView) -> Result<(), String> {
+fn check_without_subject(view: &CrudView) -> Result<(), ViewProblem> {
     check_without_payload(view)?;
     if view.subject.is_some() {
-        return Err(format!(
-            "The view `{}` does not accept an entity subject",
-            view.name
-        ));
+        return Err(ViewProblem::RejectsSubject);
     }
     Ok(())
 }
 
 /// Returns the entity subject of a standard view of an entity, which has no payload.
-fn entity_subject(view: CrudView) -> Result<SerializableId, String> {
+fn entity_subject(view: CrudView) -> Result<SerializableId, ViewProblem> {
     check_without_payload(&view)?;
-    view.subject
-        .ok_or_else(|| format!("The view `{}` requires an entity subject", view.name))
+    view.subject.ok_or(ViewProblem::NeedsSubject)
 }
 
 /// Checks that a standard view has no payload.
-fn check_without_payload(view: &CrudView) -> Result<(), String> {
+fn check_without_payload(view: &CrudView) -> Result<(), ViewProblem> {
     if view.payload.is_null() {
         Ok(())
     } else {
-        Err(format!(
-            "The view `{}` does not accept a payload",
-            view.name
-        ))
+        Err(ViewProblem::RejectsPayload)
     }
 }
 
-/// A visible error in place of the view named `view`, explained by `message`.
+/// A visible error in place of the view named `view`, explained by `problem`.
 #[component]
-fn ViewError(view: String, message: String) -> impl IntoView {
-    tracing::error!(view, error = %message, "Could not render CrudKit view");
+fn ViewError(view: String, problem: ViewProblem) -> impl IntoView {
+    tracing::error!(
+        view,
+        error = %problem.text(&view).english(),
+        "Could not render CrudKit view"
+    );
+    let texts = use_crud_texts();
+    let message = move || texts.get(problem.text(&view));
     view! {
         <div class="crudkit-ViewError" role="alert">
             {message}

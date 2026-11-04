@@ -1,8 +1,8 @@
 //! Forms creating, editing, and showing one entity.
 
 use crate::atoms::content::content_or_default;
-use crate::atoms::status::{StatusRegion, status_content};
-use crate::config::{CrudEntityViewKind, FieldRendererRegistry};
+use crate::atoms::status::{StatusRegion, failed_status_text, status_content};
+use crate::config::{CrudEntityViewKind, CrudText, FieldRendererRegistry};
 use crate::hooks::entity::CrudEntityHandle;
 use crate::hooks::form::{
     CrudEntityLoadStatus, CrudFormHandle, CrudFormState, CrudSaveFollowUp, CrudSaveNotifications,
@@ -437,17 +437,17 @@ fn data_status(status: &CrudEntityLoadStatus) -> &'static str {
 /// (`role="status"`), stating that the entity loads, does not exist, or failed to load, and empty
 /// while the form shows the entity.
 ///
-/// Default content: the matching prop, else [`CrudUiTexts::loading`], [`CrudUiTexts::not_found`],
-/// or [`CrudUiTexts::data_unavailable`] with the reason. The form's
+/// Default content: the matching prop, else [`CrudText::StatusLoading`],
+/// [`CrudText::StatusNotFound`], or [`CrudText::StatusFailed`] with the reason. The form's
 /// [`status`](crate::hooks::CrudFormHandle::status) tells the reason too.
 ///
 /// Data attributes: `data-status` (`loading`, `not-found`, `failed`, or `ready`).
 ///
 /// Default class: `crudkit-EntityStatus`.
 ///
-/// [`CrudUiTexts::loading`]: crate::config::CrudUiTexts::loading
-/// [`CrudUiTexts::not_found`]: crate::config::CrudUiTexts::not_found
-/// [`CrudUiTexts::data_unavailable`]: crate::config::CrudUiTexts::data_unavailable
+/// [`CrudText::StatusLoading`]: crate::config::CrudText::StatusLoading
+/// [`CrudText::StatusNotFound`]: crate::config::CrudText::StatusNotFound
+/// [`CrudText::StatusFailed`]: crate::config::CrudText::StatusFailed
 #[component]
 pub fn CrudEntityStatus(
     /// Shown while the entity loads.
@@ -468,20 +468,16 @@ pub fn CrudEntityStatus(
     let status = expect_crud_form("CrudEntityStatus").status;
     let texts = use_crud_texts();
     let data_status = Signal::derive(move || status.with(data_status));
-    let content = move || {
-        let texts = texts.read();
-        match status.get() {
-            CrudEntityLoadStatus::Ready => ().into_any(),
-            CrudEntityLoadStatus::Loading => {
-                status_content(loading.as_ref(), texts.loading.to_string())
-            }
-            CrudEntityLoadStatus::NotFound => {
-                status_content(not_found.as_ref(), texts.not_found.to_string())
-            }
-            CrudEntityLoadStatus::Failed(error) => status_content(
-                failed.as_ref(),
-                format!("{}: {error}", texts.data_unavailable),
-            ),
+    let content = move || match status.get() {
+        CrudEntityLoadStatus::Ready => ().into_any(),
+        CrudEntityLoadStatus::Loading => {
+            status_content(loading.as_ref(), texts.get(CrudText::StatusLoading))
+        }
+        CrudEntityLoadStatus::NotFound => {
+            status_content(not_found.as_ref(), texts.get(CrudText::StatusNotFound))
+        }
+        CrudEntityLoadStatus::Failed(error) => {
+            status_content(failed.as_ref(), failed_status_text(texts, &error))
         }
     };
     view! {
@@ -502,18 +498,19 @@ pub fn CrudEntityStatus(
 /// [`save_error`](crate::hooks::CrudFormHandle::save_error):
 ///
 /// - a save refused because someone else changed the entity ([`RequestError::Outdated`]):
-///   [`CrudUiTexts::outdated`], or [`CrudUiTexts::rebase_failed`] once a reload could not apply
+///   [`CrudText::FormOutdated`], or [`CrudText::FormRebaseFailed`] once a reload could not apply
 ///   the user's changes, and a [`CrudReloadButton`] in an edit form;
 /// - problems with fields ([`RequestError::InvalidFields`]): the failure's message;
-/// - any other failure: the error;
+/// - any other failure: the error's text (e.g. [`CrudText::ErrorForbidden`]);
 /// - no failure, but [conflicts](crate::hooks::CrudFormState::conflicts) found by a reload:
-///   [`CrudUiTexts::conflicts`].
+///   [`CrudText::FormConflicts`].
 ///
 /// A list follows with every problem and every conflict, also of fields that show no error
 /// themselves, such as switches, and of fields in other tabs. Each entry names its field by its
 /// label, or else by its name, and links to the field while a
 /// [`CrudField`](crate::atoms::CrudField) of it is mounted: following the link selects the tabs
-/// the field is in and focuses it. Entries keep their elements while other entries change.
+/// the field is in and focuses it ([`CrudText::FormProblem`]). Entries keep their elements while
+/// other entries change.
 ///
 /// While mounted, the summary takes over the feedback about failed saves: the form notifies no
 /// failure, so that screen readers announce each once.
@@ -523,9 +520,11 @@ pub fn CrudEntityStatus(
 ///
 /// Default class: `crudkit-FormError`.
 ///
-/// [`CrudUiTexts::outdated`]: crate::config::CrudUiTexts::outdated
-/// [`CrudUiTexts::rebase_failed`]: crate::config::CrudUiTexts::rebase_failed
-/// [`CrudUiTexts::conflicts`]: crate::config::CrudUiTexts::conflicts
+/// [`CrudText::FormOutdated`]: crate::config::CrudText::FormOutdated
+/// [`CrudText::FormRebaseFailed`]: crate::config::CrudText::FormRebaseFailed
+/// [`CrudText::ErrorForbidden`]: crate::config::CrudText::ErrorForbidden
+/// [`CrudText::FormConflicts`]: crate::config::CrudText::FormConflicts
+/// [`CrudText::FormProblem`]: crate::config::CrudText::FormProblem
 #[component]
 pub fn CrudFormError(
     #[prop(into, optional)] classes: Classes,
@@ -571,12 +570,11 @@ pub fn CrudFormError(
                 Some(RequestError::Outdated(_)) => {
                     let reload = form.reload.map(|_| view! { <CrudReloadButton /> });
                     let text = move || {
-                        let texts = texts.read();
-                        if rebase_failed.get() {
-                            texts.rebase_failed.to_string()
+                        texts.get(if rebase_failed.get() {
+                            CrudText::FormRebaseFailed
                         } else {
-                            texts.outdated.to_string()
-                        }
+                            CrudText::FormOutdated
+                        })
                     };
                     view! {
                         {text}
@@ -585,8 +583,8 @@ pub fn CrudFormError(
                     .into_any()
                 }
                 Some(RequestError::InvalidFields { message, .. }) => message.into_any(),
-                Some(error) => error.to_string().into_any(),
-                None => (move || texts.read().conflicts.to_string()).into_any(),
+                Some(error) => (move || texts.get(CrudText::from(&error))).into_any(),
+                None => (move || texts.get(CrudText::FormConflicts)).into_any(),
             };
             view! {
                 {message}
@@ -620,26 +618,24 @@ fn SummaryList(form: CrudFormHandle) -> impl IntoView {
     let texts = use_crud_texts();
     let (problems, conflicts, targets) = (form.problems, form.conflicts, form.field_targets);
     let items = Memo::new(move |_| {
-        texts.with(|texts| {
-            let problems = problems.read();
-            let conflicts = conflicts.read();
-            let problems = problems.iter().map(|problem| SummaryItem {
-                key: format!("problem {} {}", problem.pointer, problem.detail),
-                field: problem.field.clone(),
-                path: problem.path_in_field().to_owned(),
-                message: problem.detail.clone(),
-            });
-            let conflicts = conflicts.iter().map(|conflict| {
-                let message = conflict_message(texts, conflict);
-                SummaryItem {
-                    key: format!("conflict {} {message}", conflict.pointer),
-                    field: conflict.field.clone(),
-                    path: conflict.path_in_field().to_owned(),
-                    message,
-                }
-            });
-            problems.chain(conflicts).collect::<Vec<_>>()
-        })
+        let problems = problems.read();
+        let conflicts = conflicts.read();
+        let problems = problems.iter().map(|problem| SummaryItem {
+            key: format!("problem {} {}", problem.pointer, problem.detail),
+            field: problem.field.clone(),
+            path: problem.path_in_field().to_owned(),
+            message: problem.detail.clone(),
+        });
+        let conflicts = conflicts.iter().map(|conflict| {
+            let message = conflict_message(texts, conflict);
+            SummaryItem {
+                key: format!("conflict {} {message}", conflict.pointer),
+                field: conflict.field.clone(),
+                path: conflict.path_in_field().to_owned(),
+                message,
+            }
+        });
+        problems.chain(conflicts).collect::<Vec<_>>()
     });
     view! {
         <Show when=move || !items.read().is_empty()>
@@ -661,6 +657,7 @@ fn SummaryEntry(
     message: String,
     targets: Signal<HashMap<String, Vec<FieldTarget>>>,
 ) -> impl IntoView {
+    let texts = use_crud_texts();
     let target = {
         let field = field.clone();
         Signal::derive(move || {
@@ -670,27 +667,34 @@ fn SummaryEntry(
                 .and_then(|mounted| mounted.first().cloned())
         })
     };
-    move || match target.get() {
-        Some(target) => {
-            let label = target.label.as_deref().unwrap_or(&field);
-            let text = format!("{label}{path}: {message}");
-            let href = format!("#{}", target.dom_id);
-            view! {
-                <li>
-                    <a
-                        href=href
-                        on:click=move |event| {
-                            event.prevent_default();
-                            go_to_field(&target);
-                        }
-                    >
-                        {text}
-                    </a>
-                </li>
-            }
-            .into_any()
+    move || {
+        let target = target.get();
+        let label = target
+            .as_ref()
+            .and_then(|target| target.label.as_deref())
+            .unwrap_or(&field);
+        let text = texts.get(CrudText::FormProblem {
+            location: &format!("{label}{path}"),
+            message: &message,
+        });
+        let Some(target) = target else {
+            return view! { <li>{text}</li> }.into_any();
+        };
+        let href = format!("#{}", target.dom_id);
+        view! {
+            <li>
+                <a
+                    href=href
+                    on:click=move |event| {
+                        event.prevent_default();
+                        go_to_field(&target);
+                    }
+                >
+                    {text}
+                </a>
+            </li>
         }
-        None => view! { <li>{format!("{field}{path}: {message}")}</li> }.into_any(),
+        .into_any()
     }
 }
 
@@ -735,13 +739,13 @@ fn failure_kind(error: &RequestError) -> &'static str {
 /// after a save was refused because someone else changed the entity. An edit form keeps its
 /// unsaved changes, which then apply to the reloaded version. Disabled while the form saves.
 ///
-/// Default content: [`CrudUiTexts::show_current`].
+/// Default content: [`CrudText::FormReload`].
 ///
 /// Data attributes: those of Leptonic's `Button`.
 ///
 /// Default classes: `leptonic-Button crudkit-ReloadButton`.
 ///
-/// [`CrudUiTexts::show_current`]: crate::config::CrudUiTexts::show_current
+/// [`CrudText::FormReload`]: crate::config::CrudText::FormReload
 ///
 /// # Panics
 ///
@@ -767,7 +771,7 @@ pub fn CrudReloadButton(
         );
     };
     let texts = use_crud_texts();
-    let text = move || texts.read().show_current.to_string();
+    let text = move || texts.get(CrudText::FormReload);
     // A reload while a save is in flight would make the save's outcome refer to another version.
     let is_saving = form.is_saving;
     view! {
@@ -789,16 +793,16 @@ pub fn CrudReloadButton(
 /// Without `follow_up`, it is the form's submit button: it saves with the form's follow-up, and
 /// pressing Enter in a field of the form saves too.
 ///
-/// Default content: [`CrudUiTexts::save_and_back`] for `follow_up` `Return`,
-/// [`CrudUiTexts::save_and_new`] for `CreateAnother`, else [`CrudUiTexts::save`].
+/// Default content: [`CrudText::FormSaveAndReturn`] for `follow_up` `Return`,
+/// [`CrudText::FormSaveAndNew`] for `CreateAnother`, else [`CrudText::FormSave`].
 ///
 /// Data attributes: those of Leptonic's `Button`, e.g. `data-pending`.
 ///
 /// Default classes: `leptonic-Button crudkit-SaveButton`.
 ///
-/// [`CrudUiTexts::save`]: crate::config::CrudUiTexts::save
-/// [`CrudUiTexts::save_and_back`]: crate::config::CrudUiTexts::save_and_back
-/// [`CrudUiTexts::save_and_new`]: crate::config::CrudUiTexts::save_and_new
+/// [`CrudText::FormSave`]: crate::config::CrudText::FormSave
+/// [`CrudText::FormSaveAndReturn`]: crate::config::CrudText::FormSaveAndReturn
+/// [`CrudText::FormSaveAndNew`]: crate::config::CrudText::FormSaveAndNew
 ///
 /// # Panics
 ///
@@ -840,12 +844,11 @@ pub fn CrudSaveButton(
     };
     let texts = use_crud_texts();
     let text = move || {
-        let texts = texts.read();
-        match follow_up {
-            Some(CrudSaveFollowUp::Return) => texts.save_and_back.to_string(),
-            Some(CrudSaveFollowUp::CreateAnother) => texts.save_and_new.to_string(),
-            _ => texts.save.to_string(),
-        }
+        texts.get(match follow_up {
+            Some(CrudSaveFollowUp::Return) => CrudText::FormSaveAndReturn,
+            Some(CrudSaveFollowUp::CreateAnother) => CrudText::FormSaveAndNew,
+            _ => CrudText::FormSave,
+        })
     };
     view! {
         <Button
@@ -867,13 +870,13 @@ pub fn CrudSaveButton(
 /// Returns from the current view, e.g. from an edit view to the list. Asks for confirmation while
 /// a form of the view has unsaved changes.
 ///
-/// Default content: [`CrudUiTexts::back`].
+/// Default content: [`CrudText::FormReturn`].
 ///
 /// Data attributes: those of Leptonic's `Button`.
 ///
 /// Default classes: `leptonic-Button crudkit-ReturnButton`.
 ///
-/// [`CrudUiTexts::back`]: crate::config::CrudUiTexts::back
+/// [`CrudText::FormReturn`]: crate::config::CrudText::FormReturn
 #[component]
 pub fn CrudReturnButton(
     #[prop(into, optional)] is_disabled: Signal<bool>,
@@ -889,7 +892,7 @@ pub fn CrudReturnButton(
         .merge(classes, MergeStrategy::UnionConditions);
     let navigation = use_crud_navigation();
     let texts = use_crud_texts();
-    let text = move || texts.read().back.to_string();
+    let text = move || texts.get(CrudText::FormReturn);
     view! {
         <Button
             on_press=move |_| navigation.return_from_current()

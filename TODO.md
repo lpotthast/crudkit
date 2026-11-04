@@ -157,9 +157,11 @@ Priorities are relative:
   sources, whose trait currently allows futures that are not `Send`.
 - [ ] **P2 - Show the range of a page of a list paged by cursor.** Without a total, `CrudPaginationState::range` is
   `None`, although the page's first and last positions, e.g. "21-30", are known.
-- [ ] **P2 - Add localization.** `CrudUiTexts` offers German (the default) and English texts, but value formatting
-  (`format_crud_value`: dates, booleans, numbers) is fixed and not locale-aware, and applications cannot provide their
+- [ ] **P2 - Format values for the user's locale.** Texts are translated through a `CrudTranslator`, but
+  `format_crud_value` formats numbers and dates the same way in every locale, and applications cannot provide their
   own formatter.
+- [ ] **P2 - Carry the status of unexpected responses as data.** `RequestError::Request` of a response with an
+  unexpected status holds the English text `Code: …, Text: …`, which forms and notifications show in every language.
 - [ ] **P2 - Add an application-defined entity label for destructive confirmation.** The delete dialog's default
   message does not name the entity it deletes.
 - [ ] **P1 - Manage focus across view changes.** Opening a view, saving (the clean form disables its save button),

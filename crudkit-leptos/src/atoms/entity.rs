@@ -1,7 +1,7 @@
 //! Buttons opening and deleting entities of the surrounding instance.
 
 use crate::atoms::content::content_or_default;
-use crate::config::CrudUiTexts;
+use crate::config::CrudText;
 use crate::hooks::entity::use_crud_entity;
 use crate::hooks::instance::use_crud_navigation;
 use crate::hooks::texts::use_crud_texts;
@@ -14,13 +14,13 @@ use leptos::prelude::*;
 
 /// Opens the create view of the surrounding instance.
 ///
-/// Default content: [`CrudUiTexts::new`].
+/// Default content: [`CrudText::EntityCreate`].
 ///
 /// Data attributes: those of Leptonic's `Button`.
 ///
 /// Default classes: `leptonic-Button crudkit-CreateButton`.
 ///
-/// [`CrudUiTexts::new`]: crate::config::CrudUiTexts::new
+/// [`CrudText::EntityCreate`]: crate::config::CrudText::EntityCreate
 #[component]
 pub fn CrudCreateButton(
     #[prop(into, optional)] is_disabled: Signal<bool>,
@@ -36,7 +36,7 @@ pub fn CrudCreateButton(
         .merge(classes, MergeStrategy::UnionConditions);
     let navigation = use_crud_navigation();
     let texts = use_crud_texts();
-    let text = move || texts.read().new.to_string();
+    let text = move || texts.get(CrudText::EntityCreate);
     view! {
         <Button
             on_press=move |_| navigation.navigate(CrudView::create())
@@ -54,13 +54,13 @@ pub fn CrudCreateButton(
 ///
 /// Disabled while the entity is unknown, e.g. while a form loads it.
 ///
-/// Default content: [`CrudUiTexts::view`].
+/// Default content: [`CrudText::EntityRead`].
 ///
 /// Data attributes: those of Leptonic's `Button`.
 ///
 /// Default classes: `leptonic-Button crudkit-ReadButton`.
 ///
-/// [`CrudUiTexts::view`]: crate::config::CrudUiTexts::view
+/// [`CrudText::EntityRead`]: crate::config::CrudText::EntityRead
 #[component]
 pub fn CrudReadButton(
     /// The entity to open. Defaults to the entity of the surrounding row or form.
@@ -82,7 +82,7 @@ pub fn CrudReadButton(
             atom="CrudReadButton"
             id
             open=CrudView::read
-            text=|texts: &CrudUiTexts| texts.view.to_string()
+            text=CrudText::EntityRead
             is_disabled
             aria_label
             classes
@@ -96,13 +96,13 @@ pub fn CrudReadButton(
 ///
 /// Disabled while the entity is unknown, e.g. while a form loads it.
 ///
-/// Default content: [`CrudUiTexts::edit`].
+/// Default content: [`CrudText::EntityEdit`].
 ///
 /// Data attributes: those of Leptonic's `Button`.
 ///
 /// Default classes: `leptonic-Button crudkit-EditButton`.
 ///
-/// [`CrudUiTexts::edit`]: crate::config::CrudUiTexts::edit
+/// [`CrudText::EntityEdit`]: crate::config::CrudText::EntityEdit
 #[component]
 pub fn CrudEditButton(
     /// The entity to open. Defaults to the entity of the surrounding row or form.
@@ -124,7 +124,7 @@ pub fn CrudEditButton(
             atom="CrudEditButton"
             id
             open=CrudView::edit
-            text=|texts: &CrudUiTexts| texts.edit.to_string()
+            text=CrudText::EntityEdit
             is_disabled
             aria_label
             classes
@@ -141,7 +141,7 @@ fn OpenEntityButton(
     atom: &'static str,
     id: MaybeProp<SerializableId>,
     open: fn(SerializableId) -> CrudView,
-    text: fn(&CrudUiTexts) -> String,
+    text: CrudText<'static>,
     is_disabled: Signal<bool>,
     aria_label: MaybeProp<String>,
     classes: Classes,
@@ -163,7 +163,7 @@ fn OpenEntityButton(
             classes
             styles
         >
-            {content_or_default(children, move || text(&texts.read()))}
+            {content_or_default(children, move || texts.get(text))}
         </Button>
     }
 }
@@ -189,13 +189,13 @@ fn entity_id(id: MaybeProp<SerializableId>, atom: &'static str) -> Signal<Option
 ///
 /// Disabled while the entity cannot be deleted, e.g. while a form loads it.
 ///
-/// Default content: [`CrudUiTexts::delete`].
+/// Default content: [`CrudText::EntityDelete`].
 ///
 /// Data attributes: those of Leptonic's `Button`.
 ///
 /// Default classes: `leptonic-Button crudkit-DeleteButton`.
 ///
-/// [`CrudUiTexts::delete`]: crate::config::CrudUiTexts::delete
+/// [`CrudText::EntityDelete`]: crate::config::CrudText::EntityDelete
 #[component]
 pub fn CrudDeleteButton(
     #[prop(into, optional)] is_disabled: Signal<bool>,
@@ -213,7 +213,7 @@ pub fn CrudDeleteButton(
         panic!("`CrudDeleteButton` must be rendered inside a table row or an entity form");
     };
     let texts = use_crud_texts();
-    let text = move || texts.read().delete.to_string();
+    let text = move || texts.get(CrudText::EntityDelete);
     view! {
         <Button
             on_press=move |_| entity.delete.run(())

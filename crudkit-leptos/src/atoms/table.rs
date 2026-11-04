@@ -7,7 +7,7 @@
 
 use crate::atoms::content::content_or_default;
 use crate::atoms::value::{CrudValue, data_kind};
-use crate::config::{CrudUiTexts, Header};
+use crate::config::{CrudText, Header};
 use crate::hooks::delete::use_crud_delete;
 use crate::hooks::entity::CrudEntityHandle;
 use crate::hooks::instance::{use_crud_instance, use_crud_navigation};
@@ -281,11 +281,11 @@ pub fn CrudTableSelectAllHeader(
 /// [`CrudTableSelectAllHeader`]. It is checked while all rows are selected and indeterminate while
 /// some are.
 ///
-/// Labeled [`CrudUiTexts::select_all`] unless given `aria_label`.
+/// Labeled [`CrudText::TableSelectAll`] unless given `aria_label`.
 ///
 /// Default class: `crudkit-SelectAllCheckbox`.
 ///
-/// [`CrudUiTexts::select_all`]: crate::config::CrudUiTexts::select_all
+/// [`CrudText::TableSelectAll`]: crate::config::CrudText::TableSelectAll
 #[component]
 pub fn CrudSelectAllCheckbox(
     #[prop(into, optional)] aria_label: MaybeProp<String>,
@@ -299,20 +299,20 @@ pub fn CrudSelectAllCheckbox(
     selection_column(&table, "CrudSelectAllCheckbox");
     let mut input =
         use_table_select_all_checkbox(UseTableSelectAllCheckboxInput { table: table.data });
-    input.options.aria_label = checkbox_label(aria_label, |texts| texts.select_all.to_string());
+    input.options.aria_label = checkbox_label(aria_label, CrudText::TableSelectAll);
     let (attrs, checkbox_styles) = use_checkbox(input).input.attrs();
     view! { <input {..attrs} class=classes style=checkbox_styles.merge(styles) /> }
 }
 
 /// The `<th>` of the actions column of a [`CrudTable`] with actions.
 ///
-/// Default content: [`CrudUiTexts::actions`].
+/// Default content: [`CrudText::TableActions`].
 ///
 /// Data attributes: `data-focused`, `data-focus-visible`, `data-pressed`.
 ///
 /// Default class: `crudkit-TableActionsHeader`.
 ///
-/// [`CrudUiTexts::actions`]: crate::config::CrudUiTexts::actions
+/// [`CrudText::TableActions`]: crate::config::CrudText::TableActions
 #[component]
 pub fn CrudTableActionsHeader(
     #[prop(into, optional)] classes: Classes,
@@ -323,7 +323,7 @@ pub fn CrudTableActionsHeader(
         .add("crudkit-TableActionsHeader")
         .merge(classes, MergeStrategy::UnionConditions);
     let texts = use_crud_texts();
-    let text = move || texts.read().actions.to_string();
+    let text = move || texts.get(CrudText::TableActions);
     view! {
         <ColumnHeader atom="CrudTableActionsHeader" key=Key::from(ACTIONS_COLUMN) classes styles>
             {content_or_default(children, text)}
@@ -538,11 +538,11 @@ pub fn CrudTableSelectionCell(
 /// The checkbox selecting the surrounding row: a native `<input>` inside a
 /// [`CrudTableSelectionCell`].
 ///
-/// Labeled [`CrudUiTexts::select_row`] unless given `aria_label`.
+/// Labeled [`CrudText::TableSelectRow`] unless given `aria_label`.
 ///
 /// Default class: `crudkit-RowCheckbox`.
 ///
-/// [`CrudUiTexts::select_row`]: crate::config::CrudUiTexts::select_row
+/// [`CrudText::TableSelectRow`]: crate::config::CrudText::TableSelectRow
 #[component]
 pub fn CrudRowCheckbox(
     #[prop(into, optional)] aria_label: MaybeProp<String>,
@@ -561,7 +561,7 @@ pub fn CrudRowCheckbox(
         key: row,
         is_selected: Signal::derive(move || selection.is_selected(&selected_row)),
     });
-    input.options.aria_label = checkbox_label(aria_label, |texts| texts.select_row.to_string());
+    input.options.aria_label = checkbox_label(aria_label, CrudText::TableSelectRow);
     let (attrs, checkbox_styles) = use_checkbox(input).input.attrs();
     view! { <input {..attrs} class=classes style=checkbox_styles.merge(styles) /> }
 }
@@ -679,14 +679,11 @@ pub fn CrudTableActionsCell(
 }
 
 /// The accessible name of a selection checkbox: `aria_label`, else CrudKit's `text`. Leptonic
-/// names the checkboxes in English until its localized strings land; overriding the hook input is
-/// the supported way to use CrudKit's texts meanwhile.
-fn checkbox_label(
-    aria_label: MaybeProp<String>,
-    text: fn(&CrudUiTexts) -> String,
-) -> MaybeProp<String> {
+/// names the checkboxes in the language of its own locale. CrudKit names them with its texts, so
+/// that the application's translator names them like every other text of CrudKit.
+fn checkbox_label(aria_label: MaybeProp<String>, text: CrudText<'static>) -> MaybeProp<String> {
     let texts = use_crud_texts();
-    Signal::derive(move || Some(aria_label.get().unwrap_or_else(|| text(&texts.read())))).into()
+    Signal::derive(move || Some(aria_label.get().unwrap_or_else(|| texts.get(text)))).into()
 }
 
 /// Returns the key of the selection column of `table`, for `atom`.
