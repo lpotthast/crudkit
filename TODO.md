@@ -79,8 +79,10 @@ Priorities are relative:
   to distinguish repository, hook, validation, cleanup, and notification outcomes and to resume partial work safely.
 - [ ] **P1 - Make batch-delete traversal deterministic.** Re-fetching the same unbounded condition without a cursor
   can let one entirely undeletable batch stop processing even when later matching rows could be deleted.
-- [ ] **P1 - Add an optimistic-concurrency contract.** Updates currently have no revision, compare-and-swap condition,
-  or conflict response, so concurrent edits can overwrite one another.
+- [ ] **P1 - Add an optimistic-concurrency contract to `crudkit-rs`.** Its updates have no revision, compare-and-swap
+  condition, or conflict response, so concurrent edits can overwrite one another. The frontend's data sources already
+  carry versions and refuse outdated requests ([Data Sources](design/data-sources.md#versions)); give the generated
+  routes and the REST data source versions too, in a new wire format version.
 - [ ] **P2 - Replace the batch-size memory heuristic.** `size_of::<Model>() * 3` does not measure heap-owned data.
   Use a configurable row limit, storage-side batching, or a measured budget.
 

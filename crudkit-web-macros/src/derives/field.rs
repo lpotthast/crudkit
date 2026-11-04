@@ -96,6 +96,11 @@ struct CkFieldConfig {
 
     /// The Rust type of this field (from syn).
     ty: syn::Type,
+
+    /// Whether this field holds the version of the entity (`#[ck_field(version)]`), a
+    /// `CrudVersion` or `Option<CrudVersion>`. The version is no field of the field enum.
+    #[darling(default)]
+    version: bool,
 }
 
 impl CkFieldConfig {
@@ -123,6 +128,60 @@ impl CkFieldInputReceiver {
         match &self.data {
             ast::Data::Enum(_) => panic!("Only structs are supported"),
             ast::Data::Struct(fields) => fields,
+        }
+    }
+
+    /// Returns the fields of the field enum: every field except the version.
+    fn model_fields(&self) -> Vec<&CkFieldConfig> {
+        self.fields()
+            .iter()
+            .filter(|field| !field.version)
+            .collect()
+    }
+
+    /// Returns the field holding the version of the entity, if any.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if more than one field is marked as the version.
+    fn version_field(&self) -> syn::Result<Option<&CkFieldConfig>> {
+        let mut versions = self.fields().iter().filter(|field| field.version);
+        let version = versions.next();
+        match versions.next() {
+            Some(second) => Err(syn::Error::new_spanned(
+                second.ident.as_ref().expect("Expected named field!"),
+                "crudkit: derive-field: only one field can hold the version",
+            )),
+            None => Ok(version),
+        }
+    }
+}
+
+/// Generates the `ErasedModel` implementation of `name`, which returns the version held by
+/// `version_field`, if any.
+fn generate_erased_model_impl(name: &Ident, version_field: Option<&CkFieldConfig>) -> TokenStream {
+    let Some(version_field) = version_field else {
+        return quote! {
+            #[typetag::serde]
+            impl crudkit_web::model::ErasedModel for #name {}
+        };
+    };
+    let field_ident = version_field.ident.as_ref().expect("Expected named field!");
+    let is_optional = matches!(
+        &version_field.ty,
+        syn::Type::Path(type_path) if strip_option_path(&type_path.path).is_some()
+    );
+    let version = if is_optional {
+        quote! { self.#field_ident.as_ref() }
+    } else {
+        quote! { Some(&self.#field_ident) }
+    };
+    quote! {
+        #[typetag::serde]
+        impl crudkit_web::model::ErasedModel for #name {
+            fn version(&self) -> Option<&crudkit_web::data_source::CrudVersion> {
+                #version
+            }
         }
     }
 }
@@ -356,10 +415,13 @@ pub fn expand_derive_field(input: &DeriveInput) -> syn::Result<TokenStream> {
     let input_receiver: CkFieldInputReceiver =
         FromDeriveInput::from_derive_input(input).map_err(|e| syn::Error::new_spanned(input, e))?;
 
+    let fields = input_receiver.model_fields();
+    let erased_model_impl =
+        generate_erased_model_impl(&input_receiver.ident, input_receiver.version_field()?);
+
     // Field enums serialize as their field names, the same names `Named::name()` returns, so that
     // ordering keys and condition field names share one spelling.
-    let typified_fields = input_receiver
-        .fields()
+    let typified_fields = fields
         .iter()
         .map(|field| {
             let name = field
@@ -372,11 +434,10 @@ pub fn expand_derive_field(input: &DeriveInput) -> syn::Result<TokenStream> {
         })
         .collect::<Vec<TokenStream>>();
 
-    let fields = input_receiver.fields();
     let name = &input_receiver.ident;
     let field_name = Ident::new(format!("{name}Field").as_str(), name.span());
 
-    let direct_field_accessors = input_receiver.fields().iter().map(|field| {
+    let direct_field_accessors = fields.iter().map(|field| {
         let name = field.ident.as_ref().expect("Expected named field!");
         let type_name = to_pascal_case(&name.to_string());
         let type_ident = Ident::new(type_name.as_str(), Span::call_site());
@@ -384,7 +445,7 @@ pub fn expand_derive_field(input: &DeriveInput) -> syn::Result<TokenStream> {
         quote! { pub const #type_ident: #field_name = #field_name::#type_ident; }
     });
 
-    let (get_name_impl, get_field_impl) = generate_name_lookups(fields, &field_name);
+    let (get_name_impl, get_field_impl) = generate_name_lookups(&fields, &field_name);
     let all_field_enum_accessors = fields.iter().map(|field| {
         let name = field.ident.as_ref().expect("Expected named field!");
         let name = name.to_string();
@@ -400,7 +461,7 @@ pub fn expand_derive_field(input: &DeriveInput) -> syn::Result<TokenStream> {
         .model
         .gen_erased_field_impl(&field_name, name);
 
-    let field_value_trait_impl = generate_field_access_impl(fields, name, &field_name)?;
+    let field_value_trait_impl = generate_field_access_impl(&fields, name, &field_name)?;
 
     Ok(quote! {
         impl #name {
@@ -445,8 +506,7 @@ pub fn expand_derive_field(input: &DeriveInput) -> syn::Result<TokenStream> {
 
         #model_type_based_field_trait_impl
 
-        #[typetag::serde]
-        impl crudkit_web::model::ErasedModel for #name {}
+        #erased_model_impl
 
         #field_value_trait_impl
     })
@@ -454,7 +514,7 @@ pub fn expand_derive_field(input: &DeriveInput) -> syn::Result<TokenStream> {
 
 /// Generates the bodies of `Named::name` and `Model::field`, which map fields to their names and back.
 fn generate_name_lookups(
-    fields: &ast::Fields<CkFieldConfig>,
+    fields: &[&CkFieldConfig],
     field_name: &Ident,
 ) -> (TokenStream, TokenStream) {
     let match_field_name_to_str_arms = fields.iter().map(|field| {
@@ -500,7 +560,7 @@ fn generate_name_lookups(
 
 /// Generates the `FieldAccess` implementation of `field_name` for the model `name`.
 fn generate_field_access_impl(
-    fields: &ast::Fields<CkFieldConfig>,
+    fields: &[&CkFieldConfig],
     name: &Ident,
     field_name: &Ident,
 ) -> syn::Result<TokenStream> {

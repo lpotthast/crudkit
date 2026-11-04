@@ -28,13 +28,13 @@ They are the frontend's own types, not the backend's `Saved` or `Deleted`, so th
 without breaking data sources:
 
 - `CrudUpdateRequest` holds the ID, the changed entity, and the `baseline` that the user's change started from: the
-  version that was loaded or saved last. A data source that sends only what changed, e.g. as a JSON merge patch,
-  compares the entity with it.
+  version that was loaded or saved last. A data source that sends only what changed compares the entity with it; see
+  [Changes](#changes).
 - `CrudDeleteRequest` and `CrudDeleteManyRequest` hold the entities as the user last saw them, not only their IDs.
-- A version that names what a change or a deletion is based on, such as an `ETag` for `If-Match`, belongs to the
-  models, so that it reaches the data source with the baseline and with the deleted entities.
-- `CrudSaved` and `CrudDeleted` describe the outcome, so that an outcome such as an accepted change, whose resource
-  is still changing, becomes another field instead of another trait.
+- The models carry the [version](#versions) of their entity, so that it reaches the data source with the baseline and
+  with the deleted entities.
+- `CrudSaved` and `CrudDeleted` describe the outcome, including whether the data source completed the change or only
+  [accepted](#accepted-changes) it.
 
 A data source works on erased models, because the instance is non-generic after configuration. An adapter of another
 API converts between that API's types and the resource's concrete models and wraps them, e.g. with
@@ -43,12 +43,73 @@ API converts between that API's types and the resource's concrete models and wra
 
 Every failure is a `RequestError`. A data source that cannot honor a part of a request, such as an ordering it does
 not support, refuses the request with `RequestError::InvalidRequest` instead of ignoring that part, so that a
-misconfigured instance fails visibly instead of showing or changing the wrong entities.
+misconfigured instance fails visibly instead of showing or changing the wrong entities. Two failures have a meaning
+that forms act on: a request based on an outdated version ([Versions](#versions)) and problems with the fields of an
+entity ([Problems](#problems)).
+
+Versions, merge patches, accepted outcomes, and problems serve APIs that have them, such as a product's typed REST
+API. A data source of an API without them, such as the [REST data source](http-and-data-providers.md#rest-data-source),
+ignores them: its models carry no version, it sends whole entities, its outcomes are complete, and its failures name no
+fields.
 
 The futures of the operations need not be `Send` (`#[async_trait(?Send)]`, re-exported as
 `crudkit_web::data_source::async_trait`). Instances load and save in the browser, through `LocalResource` and local
 actions, which run on one thread. The trait object itself is `Send + Sync`, so the instance's configuration can hold it
 in an `Arc`. Loading on the server during rendering would need `Send` futures; see the [backlog](../TODO.md).
+
+## Versions
+
+A `CrudVersion` is an opaque version of an entity, such as the entity tag that an API names in `ETag` and expects back
+in `If-Match`. Like a cursor, CrudKit stores it and hands it back, and never reads it. A model carries the version of
+its entity in a field marked `#[ck_field(version)]`, a `CrudVersion` or `Option<CrudVersion>`, which the erased models
+return with `version()`. The version is no field of the model's field enum, so forms neither show nor change it, and a
+conversion from the read model into the update model copies it. A model without such a field has no version.
+
+Requests name the version they are based on:
+
+- `CrudUpdateRequest::version` is the version of the baseline, the entity as it was loaded or saved last.
+- `CrudDeleteRequest::version` is the version of the entity as the user last saw it, in a list or in a form.
+
+A data source refuses a request that names a version other than the current one with `RequestError::Outdated`, e.g.
+for an API answering 412 Precondition Failed. Forms keep the user's input then and ask the user to look at the current
+state, see [Leptos Hooks and Atoms](leptos-hooks-and-atoms.md#forms). An outdated deletion reloads the instance, so
+that the user sees what changed before deleting again.
+
+## Changes
+
+`CrudUpdateRequest::merge_patch` returns what the user changed: the JSON merge patch (RFC 7396) that turns the
+baseline into the changed entity, both serialized as the model serializes them. It names each changed field with its
+new value, a cleared optional field with `null`, and leaves unchanged fields out, also the version. A merge patch
+cannot set a field to `null`, so a field that is `null` counts as absent. `crudkit_web::data_source::merge_patch`
+computes the patch between any two JSON values, e.g. between the declarations that a data source converts the baseline
+and the entity into, when its API's shape differs from the model's.
+
+The baseline is the entity as the data source last returned it. After a reload of an entity with unsaved changes, the
+form applies the user's changes to the reloaded version, so the merge patch names only what the user changed, not the
+changes of others since; see [Instances and Composition](instances-and-composition.md#list-state-ownership).
+
+## Accepted Changes
+
+An API that reconciles its resources in the background accepts a change or a deletion without completing it, e.g. with
+202 Accepted, and returns the resource in its new state, e.g. `deleting`. `CrudCompletion` records how far an outcome
+got: `Completed` or `Accepted`.
+
+- `CrudSaved::accepted(entity)` is an accepted creation or change, with the entity in its state at the time of the
+  answer. The form continues from that entity, as after a completed save.
+- `CrudDeleted::accepted(entity)` is an accepted deletion, with the entity in its new state. The entity still exists,
+  so lists show it, in its state, until the data source deletes it.
+
+Notifications tell an accepted outcome from a completed one, e.g. "The changes were accepted and are being applied."
+or "1 entry is being deleted.".
+
+## Problems
+
+A data source refuses an entity because of problems with its fields with `RequestError::InvalidFields`: a message about
+the request as a whole and a `CrudFieldProblem` per problem, which names the field as the model's field enum names it
+(`Named::name`) and says what is wrong. A data source of an API answering with problem details (RFC 9457) converts the
+JSON pointer of each problem into the field it names. A form shows each problem at its field, and the message with
+the problems of fields that it does not show, such as a name the model does not have; see
+[Leptos Hooks and Atoms](leptos-hooks-and-atoms.md#forms).
 
 ## Mass Deletion
 
@@ -56,15 +117,17 @@ The default `delete_many` deletes one entity after the other with `delete`, and 
 `CrudDeletedMany`:
 
 - `deleted` holds the IDs of the entities whose deletion affected an entity;
+- `accepted` holds the IDs of the entities whose deletion the data source accepted and still runs;
 - `failed` holds the other entities with their typed `RequestError`;
 - `skipped` holds the entities that were not tried.
 
 A failure that concerns only its entity, such as `Forbidden`, `NotFound`, `UnprocessableEntity`,
-`CriticalValidationErrors`, `BadRequest`, or `InvalidRequest`, lets the deletion go on. Any other failure, such as a
-lost connection, `Unauthorized`, or a server error, would fail the remaining deletions too, so it stops the deletion,
-and the remaining entities are skipped. A data source that can delete many entities at once overrides `delete_many`.
-Notifications count `Forbidden` and `UnprocessableEntity` as aborted, `CriticalValidationErrors` as failed validation,
-other failures as errors, and the skipped entities separately (`crudkit_web::delete::DeleteManyOutcome`).
+`CriticalValidationErrors`, `Outdated`, `InvalidFields`, `BadRequest`, or `InvalidRequest`, lets the deletion go on.
+Any other failure, such as a lost connection, `Unauthorized`, or a server error, would fail the remaining deletions
+too, so it stops the deletion, and the remaining entities are skipped. A data source that can delete many entities at
+once overrides `delete_many`. Notifications count `Forbidden`, `UnprocessableEntity`, `Outdated`, and `InvalidFields`
+as aborted, `CriticalValidationErrors` as failed validation, other failures as errors, and the accepted and the skipped
+entities separately (`crudkit_web::delete::DeleteManyOutcome`).
 
 ## Scope
 

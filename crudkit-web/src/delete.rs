@@ -6,14 +6,16 @@ use crate::http::RequestError;
 /// Classification of a [`CrudDeletedMany`] outcome for user feedback.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeleteManyOutcome {
-    /// Every targeted entity was deleted.
+    /// Every targeted entity was deleted, or is being deleted.
     Complete {
         /// Number of deleted entities.
         deleted: u64,
+        /// Number of entities whose deletion was accepted and still runs.
+        accepted: u64,
     },
-    /// Some, but not all, targeted entities were deleted.
+    /// Some, but not all, targeted entities were deleted or are being deleted.
     Partial(DeleteManyCounts),
-    /// No entity was deleted.
+    /// No entity was deleted, and no deletion was accepted.
     Failed(DeleteManyCounts),
 }
 
@@ -22,7 +24,10 @@ pub enum DeleteManyOutcome {
 pub struct DeleteManyCounts {
     /// Number of deleted entities.
     pub deleted: u64,
-    /// Number of deletions refused or rejected, e.g. by lifecycle hooks.
+    /// Number of entities whose deletion was accepted and still runs.
+    pub accepted: u64,
+    /// Number of deletions refused or rejected, e.g. by lifecycle hooks or because the entity
+    /// changed since the user saw it.
     pub aborted: usize,
     /// Number of deletions prevented by critical validation errors.
     pub validation_failed: usize,
@@ -36,6 +41,7 @@ impl From<&CrudDeletedMany> for DeleteManyOutcome {
     fn from(result: &CrudDeletedMany) -> Self {
         let mut counts = DeleteManyCounts {
             deleted: result.deleted.len() as u64,
+            accepted: result.accepted.len() as u64,
             aborted: 0,
             validation_failed: 0,
             errors: 0,
@@ -43,7 +49,10 @@ impl From<&CrudDeletedMany> for DeleteManyOutcome {
         };
         for (_, error) in &result.failed {
             match error {
-                RequestError::Forbidden(_) | RequestError::UnprocessableEntity(_) => {
+                RequestError::Forbidden(_)
+                | RequestError::UnprocessableEntity(_)
+                | RequestError::Outdated(_)
+                | RequestError::InvalidFields { .. } => {
                     counts.aborted += 1;
                 }
                 RequestError::CriticalValidationErrors { .. } => counts.validation_failed += 1,
@@ -51,9 +60,12 @@ impl From<&CrudDeletedMany> for DeleteManyOutcome {
             }
         }
         let has_failures = !result.failed.is_empty() || counts.skipped > 0;
-        match (counts.deleted, has_failures) {
+        match (counts.deleted + counts.accepted, has_failures) {
             (0, _) => Self::Failed(counts),
-            (deleted, false) => Self::Complete { deleted },
+            (_, false) => Self::Complete {
+                deleted: counts.deleted,
+                accepted: counts.accepted,
+            },
             (_, true) => Self::Partial(counts),
         }
     }
@@ -76,8 +88,12 @@ mod tests {
 
     #[test]
     fn delete_many_outcomes_are_classified() {
-        assert_that!(DeleteManyOutcome::from(&deleted_many(3, Vec::new(), 0)))
-            .is_equal_to(DeleteManyOutcome::Complete { deleted: 3 });
+        assert_that!(DeleteManyOutcome::from(&deleted_many(3, Vec::new(), 0))).is_equal_to(
+            DeleteManyOutcome::Complete {
+                deleted: 3,
+                accepted: 0,
+            },
+        );
         assert_that!(DeleteManyOutcome::from(&deleted_many(
             2,
             vec![
@@ -88,6 +104,7 @@ mod tests {
         )))
         .is_equal_to(DeleteManyOutcome::Partial(DeleteManyCounts {
             deleted: 2,
+            accepted: 0,
             aborted: 1,
             validation_failed: 0,
             errors: 1,
@@ -107,5 +124,28 @@ mod tests {
             DeleteManyOutcome::Failed(_)
         ))
         .is_true();
+    }
+
+    #[test]
+    fn accepted_deletions_count_as_success_and_outdated_ones_as_aborted() {
+        let mut accepted = deleted_many(1, Vec::new(), 0);
+        accepted.accepted = vec![SerializableId(Vec::new()); 2];
+        assert_that!(DeleteManyOutcome::from(&accepted)).is_equal_to(DeleteManyOutcome::Complete {
+            deleted: 1,
+            accepted: 2,
+        });
+
+        let mut outdated = deleted_many(0, vec![RequestError::Outdated(String::new())], 0);
+        outdated.accepted = vec![SerializableId(Vec::new())];
+        assert_that!(DeleteManyOutcome::from(&outdated)).is_equal_to(DeleteManyOutcome::Partial(
+            DeleteManyCounts {
+                deleted: 0,
+                accepted: 1,
+                aborted: 1,
+                validation_failed: 0,
+                errors: 0,
+                skipped: 0,
+            },
+        ));
     }
 }

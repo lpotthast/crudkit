@@ -1,3 +1,4 @@
+use crate::data_source::CrudFieldProblem;
 use crudkit_core::validation::PartialSerializableAggregateViolations;
 use crudkit_wire_format::v1::{ErrorResponseV1, ErrorV1};
 use thiserror::Error as ThisError;
@@ -17,6 +18,8 @@ use thiserror::Error as ThisError;
 /// | `NotFound` | The selected entity does not exist (404). |
 /// | `UnprocessableEntity` | Business rules rejected the operation (422). |
 /// | `CriticalValidationErrors` | Critical validation errors prevent the operation (422). |
+/// | `Outdated` | The entity changed since the version the request is based on (412). |
+/// | `InvalidFields` | Problems with fields of the entity refused the request (422). |
 /// | `InternalServerError` | The server failed (500). |
 /// | `InvalidRequest` | The request could not be built or honored; nothing was sent. |
 /// | `Request` | The request failed in transport or the server responded with another status. |
@@ -60,6 +63,22 @@ pub enum RequestError {
         message: String,
         /// The violations that prevent the operation.
         violations: PartialSerializableAggregateViolations,
+    },
+
+    /// The entity changed since the version that the request is based on, so the data source
+    /// refused the request instead of overwriting the other change (HTTP 412). Reading the entity
+    /// again shows its current state.
+    #[error("Outdated: {0}")]
+    Outdated(String),
+
+    /// Problems with fields of the entity refused the request, e.g. problem details (RFC 9457)
+    /// that name the fields (usually HTTP 422).
+    #[error("Invalid input: {message}")]
+    InvalidFields {
+        /// What is wrong with the request as a whole, and what to do.
+        message: String,
+        /// The problems of the fields. Forms show each at its field.
+        problems: Vec<CrudFieldProblem>,
     },
 
     /// An internal server error occurred (HTTP 500).

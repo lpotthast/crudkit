@@ -41,6 +41,7 @@
 //! - `downcast_ref<T>()` - Borrow as concrete type (panics on mismatch)
 //! - `downcast_mut<T>()` - Mutably borrow as concrete type (panics on mismatch)
 
+use crate::data_source::CrudVersion;
 use crudkit_core::{Named, Value};
 use dyn_clone::DynClone;
 use dyn_eq::DynEq;
@@ -127,6 +128,13 @@ pub use crudkit_core::id::ErasedIdentifiable;
 pub trait ErasedModel:
     ErasedIdentifiable + Debug + DynClone + DynEq + downcast_rs::Downcast + Send + Sync
 {
+    /// Returns the version of the entity that the model holds, as its data source named it.
+    /// `None` for models without a version, as by default.
+    ///
+    /// The `CkField` derive returns the field marked `#[ck_field(version)]`.
+    fn version(&self) -> Option<&CrudVersion> {
+        None
+    }
 }
 dyn_eq::eq_trait_object!(ErasedModel);
 dyn_clone::clone_trait_object!(ErasedModel);
@@ -265,6 +273,15 @@ impl DynReadOrUpdateModel {
         match self {
             Self::Read(model) => model.id(),
             Self::Update(model) => model.id(),
+        }
+    }
+
+    /// Returns the version of the entity, if the model has one.
+    #[must_use]
+    pub fn version(&self) -> Option<&CrudVersion> {
+        match self {
+            Self::Read(model) => model.version(),
+            Self::Update(model) => model.version(),
         }
     }
 }

@@ -87,6 +87,8 @@ impl CrudDataSource for Wizards {
             }),
             "gone" => Ok(CrudDeleted::new(0)),
             "offline" => Err(RequestError::Request("offline".to_owned())),
+            "outdated" => Err(RequestError::Outdated("changed meanwhile".to_owned())),
+            "slow" => Ok(CrudDeleted::accepted(wizard.clone())),
             _ => Ok(CrudDeleted::new(1)),
         }
     }
@@ -113,6 +115,7 @@ fn delete_many(wizards: &Wizards, entities: Vec<DynReadOrUpdateModel>) -> CrudDe
     .expect("the default never fails as a whole");
     CrudDeletedOutcome {
         deleted: outcome.deleted,
+        accepted: outcome.accepted,
         failed: outcome
             .failed
             .into_iter()
@@ -126,6 +129,7 @@ fn delete_many(wizards: &Wizards, entities: Vec<DynReadOrUpdateModel>) -> CrudDe
 #[derive(Debug, PartialEq)]
 struct CrudDeletedOutcome {
     deleted: Vec<SerializableId>,
+    accepted: Vec<SerializableId>,
     failed: Vec<(SerializableId, String)>,
     skipped: Vec<SerializableId>,
 }
@@ -153,6 +157,27 @@ fn failures_of_one_entity_do_not_stop_the_deletion_of_the_others() {
         (id(4), "Not found: the entity was not deleted".to_owned()),
     ]);
     assert_that!(outcome.skipped).is_empty();
+}
+
+#[test]
+fn accepted_deletions_are_reported_apart_and_outdated_ones_do_not_stop_the_others() {
+    let wizards = Wizards::default();
+
+    let outcome = delete_many(
+        &wizards,
+        vec![
+            wizard(1, "slow"),
+            wizard(2, "outdated"),
+            wizard(3, "hufflepuff"),
+        ],
+    );
+
+    assert_that!(outcome).is_equal_to(CrudDeletedOutcome {
+        deleted: vec![id(3)],
+        accepted: vec![id(1)],
+        failed: vec![(id(2), "Outdated: changed meanwhile".to_owned())],
+        skipped: Vec::new(),
+    });
 }
 
 #[test]

@@ -1,20 +1,28 @@
 //! Where an instance reads and changes its resource: the data source contract, the parents of its
-//! entities, the requests and outcomes of its operations, and CrudKit's REST routes as the default
-//! data source.
+//! entities, the requests and outcomes of its operations, the versions of entities, the merge
+//! patches of changes, and CrudKit's REST routes as the default data source.
 //!
 //! See [Data Sources](https://github.com/lpotthast/crudkit/blob/main/design/data-sources.md).
 
+mod completion;
 mod deletion;
 mod entity;
+mod merge_patch;
 mod page;
+mod problem;
 mod rest;
 mod scope;
+mod version;
 
+pub use completion::CrudCompletion;
 pub use deletion::{CrudDeleteManyRequest, CrudDeleteRequest, CrudDeleted, CrudDeletedMany};
 pub use entity::{CrudCreateRequest, CrudReadRequest, CrudSaved, CrudUpdateRequest};
+pub use merge_patch::merge_patch;
 pub use page::{CrudCountRequest, CrudCursor, CrudListRequest, CrudPage, CrudPaging};
+pub use problem::CrudFieldProblem;
 pub use rest::CrudRestDataSource;
 pub use scope::CrudScope;
+pub use version::CrudVersion;
 
 /// The macro with which implementations of [`CrudDataSource`] are written, as
 /// `#[async_trait(?Send)]`.
@@ -40,6 +48,14 @@ use std::fmt::Debug;
 ///
 /// Every failure is a [`RequestError`]. A data source that cannot honor a part of a request
 /// refuses the request with [`RequestError::InvalidRequest`] instead of ignoring that part.
+///
+/// A data source of an API with optimistic concurrency names the [`CrudVersion`] of an update or
+/// deletion request as the version the request is based on, and refuses a request based on an
+/// older version with [`RequestError::Outdated`]. It refuses an entity because of problems with
+/// its fields with [`RequestError::InvalidFields`], so that forms show each problem at its field.
+/// A change or deletion that an API accepted without completing it, e.g. with `202 Accepted`,
+/// answers with [`CrudSaved::accepted`] or [`CrudDeleted::accepted`], and the entity in its new
+/// state.
 #[async_trait(?Send)]
 pub trait CrudDataSource: Debug + Send + Sync {
     /// The name of the resource, e.g. `clubs`. Instances name it as the origin of their
@@ -89,6 +105,9 @@ pub trait CrudDataSource: Debug + Send + Sync {
     ) -> Result<CrudSaved, RequestError>;
 
     /// Changes an entity in `scope`, and returns it as stored.
+    ///
+    /// The request holds the version the change is based on ([`CrudUpdateRequest::version`]) and
+    /// what the user changed ([`CrudUpdateRequest::merge_patch`]).
     async fn update(
         &self,
         scope: &CrudScope,

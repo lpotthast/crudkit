@@ -59,9 +59,10 @@ pub mod prelude {
 
     pub use super::data_provider::CrudRestDataProvider;
     pub use super::data_source::{
-        CrudCountRequest, CrudCreateRequest, CrudCursor, CrudDataSource, CrudDeleteManyRequest,
-        CrudDeleteRequest, CrudDeleted, CrudDeletedMany, CrudListRequest, CrudPage, CrudPaging,
-        CrudReadRequest, CrudRestDataSource, CrudSaved, CrudScope, CrudUpdateRequest,
+        CrudCompletion, CrudCountRequest, CrudCreateRequest, CrudCursor, CrudDataSource,
+        CrudDeleteManyRequest, CrudDeleteRequest, CrudDeleted, CrudDeletedMany, CrudFieldProblem,
+        CrudListRequest, CrudPage, CrudPaging, CrudReadRequest, CrudRestDataSource, CrudSaved,
+        CrudScope, CrudUpdateRequest, CrudVersion,
     };
 
     // CRUD request bodies.

@@ -109,6 +109,11 @@ on the field that refers to it, and the clauses are combined with AND. The base 
 the request with `RequestError::InvalidRequest`, because leaving it out would widen the operation. A creation sends the
 entity as it is: the instance fills the fields that refer to the scope's parents in the create model.
 
+The generated routes have no [versions](data-sources.md#versions), merge patches, accepted outcomes, or problems of
+fields. So the data source sends whole entities, as the update route expects, its outcomes are complete, and it never
+refuses a request with `RequestError::Outdated` or `RequestError::InvalidFields`. The models of a resource on
+`crudkit-rs` carry no version.
+
 The `delete-many` route reports its outcome as `DeletedManyV1`. The data source turns it into a `CrudDeletedMany`: the
 deleted IDs, the deletions aborted by lifecycle hooks as `UnprocessableEntity` with their reason, because the route does
 not tell a refusal from a rejection, the deletions prevented by validation as `CriticalValidationErrors`, and the
@@ -178,4 +183,6 @@ The web client classifies a failure by the body's `kind`, not by the status, so 
 not part of the contract. Only a response without a version 1 error body, e.g. from a proxy, is classified by its
 status. `RequestError` is also the error type of failure callbacks; `CriticalValidationErrors` carries the violations.
 Requests the client cannot build (`InvalidRequest`), transport failures (`Request`), and successful-body
-deserialization failures (`Deserialize`) are represented separately from server failures.
+deserialization failures (`Deserialize`) are represented separately from server failures. `Outdated` and
+`InvalidFields` serve data sources of other APIs ([Data Sources](data-sources.md)); the generated routes report
+neither.

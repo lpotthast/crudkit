@@ -55,6 +55,10 @@ or `DynUpdateField`), so that `crudkit-leptos`' `CrudField` atom binds a typed f
 Optional Rust fields map absence to `Value::Null`; they do not generate optional `Value` variants. Unsupported custom
 types classify as `Other` and require application rendering or conversion behavior.
 
+`#[ck_field(version)]` marks the field that holds the entity's [version](data-sources.md#versions), a `CrudVersion` or
+`Option<CrudVersion>`. The derive returns it from `ErasedModel::version` and leaves it out of the field enum, so that
+layouts, forms, and orderings never name it. At most one field of a model holds the version.
+
 The generated setter uses fail-fast value access for non-optional built-in fields. Supplying a `Value` of the wrong kind
 is a configuration/programming error and may panic.
 

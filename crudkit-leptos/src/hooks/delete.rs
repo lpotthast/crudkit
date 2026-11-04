@@ -221,7 +221,7 @@ pub(crate) fn delete_many_notification(
     let title = texts.deletion.to_string();
     match result {
         Ok(deleted_many) => match DeleteManyOutcome::from(deleted_many) {
-            DeleteManyOutcome::Complete { deleted } => {
+            DeleteManyOutcome::Complete { deleted, .. } => {
                 CrudNotification::success(title, (texts.deleted)(deleted))
             }
             DeleteManyOutcome::Partial(counts) => CrudNotification::warning(

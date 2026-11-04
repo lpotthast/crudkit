@@ -49,6 +49,9 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// # Attributes
 ///
 /// - `#[ck_field(model = Create|Read|Update)]` - Required: specifies which model type this is
+/// - `#[ck_field(version)]` on a field - Optional: the field holds the version of the entity, a
+///   `CrudVersion` or `Option<CrudVersion>`, which `ErasedModel::version` returns. It is no
+///   variant of the field enum, so forms neither show nor change it.
 #[proc_macro_derive(CkField, attributes(ck_field, ck_id))]
 pub fn derive_field(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
