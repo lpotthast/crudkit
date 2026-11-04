@@ -6,13 +6,14 @@ use crate::config::{CrudEntityViewKind, FieldRendererRegistry};
 use crate::hooks::entity::CrudEntityHandle;
 use crate::hooks::form::{
     CrudEntityLoadStatus, CrudFormHandle, CrudFormState, CrudSaveFollowUp, CrudSaveNotifications,
-    UseCrudCreateFormInput, UseCrudCreateFormReturn, UseCrudEditFormInput, UseCrudEditFormReturn,
-    UseCrudReadReturn, expect_crud_form, use_crud_create_form, use_crud_edit_form, use_crud_read,
+    FieldTarget, UseCrudCreateFormInput, UseCrudCreateFormReturn, UseCrudEditFormInput,
+    UseCrudEditFormReturn, UseCrudReadReturn, conflict_message, expect_crud_form,
+    register_error_summary, use_crud_create_form, use_crud_edit_form, use_crud_read,
 };
 use crate::hooks::instance::{use_crud_instance, use_crud_navigation};
 use crate::hooks::texts::use_crud_texts;
 use crudkit_core::id::SerializableId;
-use crudkit_web::data_source::{CrudFieldProblem, CrudSaved};
+use crudkit_web::data_source::CrudSaved;
 use crudkit_web::field::FieldMode;
 use crudkit_web::http::RequestError;
 use crudkit_web::layout::Elem;
@@ -119,8 +120,11 @@ pub fn CrudCreateForm(
         follow_up: follow_up.unwrap_or(CrudSaveFollowUp::Edit),
         draft: Signal::stored(None),
         save_error: state.save_error,
-        unshown_problems: state.unshown_problems(),
+        problems: state.problems,
+        conflicts: state.conflicts,
         reload: None,
+        field_targets: state.field_targets(),
+        error_summaries: state.error_summaries(),
         field_type: TypeId::of::<DynCreateField>(),
         submits: !is_inside_form_element(),
     };
@@ -209,8 +213,11 @@ pub fn CrudEditForm(
         follow_up: follow_up.unwrap_or(CrudSaveFollowUp::Stay),
         draft: state.draft,
         save_error: state.save_error,
-        unshown_problems: state.unshown_problems(),
+        problems: state.problems,
+        conflicts: state.conflicts,
         reload: Some(reload),
+        field_targets: state.field_targets(),
+        error_summaries: state.error_summaries(),
         field_type: TypeId::of::<DynUpdateField>(),
         submits: !is_inside_form_element(),
     };
@@ -283,8 +290,11 @@ pub fn CrudDetails(
         follow_up: CrudSaveFollowUp::Stay,
         draft: state.draft,
         save_error: Signal::stored(None),
-        unshown_problems: Signal::stored(Vec::new()),
+        problems: Signal::stored(Vec::new()),
+        conflicts: Signal::stored(Vec::new()),
         reload: Some(reload),
+        field_targets: state.field_targets(),
+        error_summaries: state.error_summaries(),
         field_type: TypeId::of::<DynUpdateField>(),
         submits: false,
     };
@@ -336,7 +346,7 @@ fn FormRoot(
                 validation_behavior=ValidationBehavior::Aria
                 classes
                 styles
-                on:submit=move |event| save_on_submit(&event, form)
+                on:submit=move |event| save_on_submit(&event, &form)
                 attr:data-status=data_status
                 attr:data-dirty=flag(form.is_dirty)
                 attr:data-saving=flag(form.is_saving)
@@ -357,7 +367,7 @@ fn FormRoot(
                 role="group"
                 class=classes
                 style=styles
-                on:keydown=move |event| save_on_enter(&event, form)
+                on:keydown=move |event| save_on_enter(&event, &form)
                 data-status=data_status
                 data-dirty=flag(form.is_dirty)
                 data-saving=flag(form.is_saving)
@@ -372,14 +382,14 @@ fn FormRoot(
 }
 
 /// Saves `form` instead of letting the browser submit it.
-fn save_on_submit(event: &SubmitEvent, form: CrudFormHandle) {
+fn save_on_submit(event: &SubmitEvent, form: &CrudFormHandle) {
     event.prevent_default();
     save_with_default_follow_up(form);
 }
 
 /// Saves `form` on Enter in one of its single-line inputs, as browsers submit a form then. Keeps
 /// the form element around it from submitting itself.
-fn save_on_enter(event: &KeyboardEvent, form: CrudFormHandle) {
+fn save_on_enter(event: &KeyboardEvent, form: &CrudFormHandle) {
     let in_text_input = event
         .target()
         .and_then(|target| target.dyn_into::<web_sys::Element>().ok())
@@ -399,7 +409,7 @@ fn save_on_enter(event: &KeyboardEvent, form: CrudFormHandle) {
 }
 
 /// Saves `form` with its own follow-up, if it can be saved now.
-fn save_with_default_follow_up(form: CrudFormHandle) {
+fn save_with_default_follow_up(form: &CrudFormHandle) {
     if let Some(save) = form.save
         && form.can_save.get_untracked()
     {
@@ -475,32 +485,44 @@ pub fn CrudEntityStatus(
     }
 }
 
-/// Why the last save of the surrounding form failed: a `<div>` that is an assertive live region
-/// (`role="alert"`), empty while the last save did not fail, so that screen readers announce a
-/// failure when it appears.
+/// The error summary of the surrounding form: why its last save failed, and every problem and
+/// conflict of its fields. A `<div>` that is an assertive live region (`role="alert"`), empty
+/// while there is nothing to explain, so that screen readers announce what appears.
 ///
 /// Default content, by the failure in the form's
 /// [`save_error`](crate::hooks::CrudFormHandle::save_error):
 ///
 /// - a save refused because someone else changed the entity ([`RequestError::Outdated`]):
 ///   [`CrudUiTexts::outdated`], and a [`CrudReloadButton`] in an edit form;
-/// - problems with fields ([`RequestError::InvalidFields`]): the failure's message, and a list of
-///   the problems of fields that the form does not show. Each
-///   [`CrudField`](crate::atoms::CrudField) shows the problems of its field;
-/// - any other failure: the error.
+/// - problems with fields ([`RequestError::InvalidFields`]): the failure's message;
+/// - any other failure: the error;
+/// - no failure, but [conflicts](crate::hooks::CrudFormState::conflicts) found by a reload:
+///   [`CrudUiTexts::conflicts`].
 ///
-/// Data attributes: `data-kind` (`outdated`, `invalid`, or `failed`), absent while the last save
-/// did not fail.
+/// A list follows with every problem and every conflict, also of fields that show no error
+/// themselves, such as switches, and of fields in other tabs. Each entry names its field by its
+/// label, or else by its name, and links to the field while a
+/// [`CrudField`](crate::atoms::CrudField) of it is mounted: following the link selects the tabs
+/// the field is in and focuses it.
+///
+/// While mounted, the summary shows the failures of the form's saves, so the form does not also
+/// notify them.
+///
+/// Data attributes: `data-kind` (`outdated`, `invalid`, `failed`, or `conflict`), absent while
+/// there is nothing to explain.
 ///
 /// Default class: `crudkit-FormError`.
 ///
 /// [`CrudUiTexts::outdated`]: crate::config::CrudUiTexts::outdated
+/// [`CrudUiTexts::conflicts`]: crate::config::CrudUiTexts::conflicts
 #[component]
 pub fn CrudFormError(
     #[prop(into, optional)] classes: Classes,
     #[prop(into, optional)] styles: Styles,
-    /// Replaces the default content while the last save failed. The form's
-    /// [`save_error`](crate::hooks::CrudFormHandle::save_error) tells why.
+    /// Replaces the default content while there is something to explain. The form's
+    /// [`save_error`](crate::hooks::CrudFormHandle::save_error),
+    /// [`problems`](crate::hooks::CrudFormHandle::problems), and
+    /// [`conflicts`](crate::hooks::CrudFormHandle::conflicts) tell what.
     #[prop(optional)]
     children: Option<ChildrenFn>,
 ) -> impl IntoView {
@@ -508,16 +530,22 @@ pub fn CrudFormError(
         .add("crudkit-FormError")
         .merge(classes, MergeStrategy::UnionConditions);
     let form = expect_crud_form("CrudFormError");
-    let error = form.save_error;
-    let kind = move || error.with(|error| error.as_ref().map(failure_kind));
+    register_error_summary(form.error_summaries);
+    let (error, conflicts) = (form.save_error, form.conflicts);
+    let kind = Memo::new(move |_| match &*error.read() {
+        Some(error) => Some(failure_kind(error)),
+        None => (!conflicts.read().is_empty()).then_some("conflict"),
+    });
     let texts = use_crud_texts();
     let children = StoredValue::new(children);
     let content = move || {
-        let error = error.get()?;
-        let content = children.with_value(|children| match children {
-            Some(children) => children().into_any(),
-            None => match error {
-                RequestError::Outdated(_) => {
+        kind.get()?;
+        let content = children.with_value(|children| {
+            if let Some(children) = children {
+                return children().into_any();
+            }
+            let message = match error.get() {
+                Some(RequestError::Outdated(_)) => {
                     let reload = form.reload.map(|_| view! { <CrudReloadButton /> });
                     view! {
                         {move || texts.read().outdated.to_string()}
@@ -525,37 +553,125 @@ pub fn CrudFormError(
                     }
                     .into_any()
                 }
-                RequestError::InvalidFields { message, .. } => view! {
-                    {message}
-                    <UnshownProblems problems=form.unshown_problems />
-                }
-                .into_any(),
-                error => error.to_string().into_any(),
-            },
+                Some(RequestError::InvalidFields { message, .. }) => message.into_any(),
+                Some(error) => error.to_string().into_any(),
+                None => (move || texts.read().conflicts.to_string()).into_any(),
+            };
+            view! {
+                {message}
+                <SummaryList form />
+            }
+            .into_any()
         });
         Some(content)
     };
     view! {
-        <div class=classes style=styles role="alert" data-kind=kind>
+        <div class=classes style=styles role="alert" data-kind=move || kind.get()>
             {content}
         </div>
     }
 }
 
-/// The problems of fields that a form does not show, as a list. Empty without such problems.
+/// The problems and conflicts of the fields of `form`, as a list of links to the fields. Empty
+/// without problems and conflicts.
 #[component]
-fn UnshownProblems(problems: Signal<Vec<CrudFieldProblem>>) -> impl IntoView {
+fn SummaryList(form: CrudFormHandle) -> impl IntoView {
+    let texts = use_crud_texts();
+    let (problems, conflicts, targets) = (form.problems, form.conflicts, form.field_targets);
     move || {
-        let problems = problems.get();
-        (!problems.is_empty()).then(|| {
-            let items = problems
-                .into_iter()
-                .map(
-                    |problem| view! { <li>{format!("{}: {}", problem.field, problem.detail)}</li> },
+        let entries = texts.with(|texts| {
+            let problems = problems.read();
+            let conflicts = conflicts.read();
+            let problems = problems.iter().map(|problem| {
+                (
+                    problem.field.clone(),
+                    problem.path_in_field().to_owned(),
+                    problem.detail.clone(),
                 )
+            });
+            let conflicts = conflicts.iter().map(|conflict| {
+                (
+                    conflict.field.clone(),
+                    conflict.path_in_field().to_owned(),
+                    conflict_message(texts, conflict),
+                )
+            });
+            problems.chain(conflicts).collect::<Vec<_>>()
+        });
+        (!entries.is_empty()).then(|| {
+            let items = entries
+                .into_iter()
+                .map(|(field, path, message)| {
+                    view! { <SummaryEntry field path message targets /> }
+                })
                 .collect_view();
             view! { <ul>{items}</ul> }
         })
+    }
+}
+
+/// An entry of an error summary: `message` about the member at `path` below `field`, linking to
+/// the field while it is rendered.
+#[component]
+fn SummaryEntry(
+    field: String,
+    path: String,
+    message: String,
+    targets: Signal<HashMap<String, FieldTarget>>,
+) -> impl IntoView {
+    let target = {
+        let field = field.clone();
+        Signal::derive(move || targets.read().get(&field).cloned())
+    };
+    move || match target.get() {
+        Some(target) => {
+            let label = target.label.as_deref().unwrap_or(&field);
+            let text = format!("{label}{path}: {message}");
+            let href = format!("#{}", target.dom_id);
+            view! {
+                <li>
+                    <a
+                        href=href
+                        on:click=move |event| {
+                            event.prevent_default();
+                            go_to_field(&target);
+                        }
+                    >
+                        {text}
+                    </a>
+                </li>
+            }
+            .into_any()
+        }
+        None => view! { <li>{format!("{field}{path}: {message}")}</li> }.into_any(),
+    }
+}
+
+/// Selects the tabs that `target` is in, then focuses it once the tabs show it.
+fn go_to_field(target: &FieldTarget) {
+    for location in &target.tabs {
+        location.select();
+    }
+    let dom_id = target.dom_id.clone();
+    request_animation_frame(move || focus_element(dom_id.as_str()));
+}
+
+/// Focuses the element `id`, or else the first element inside that takes focus.
+fn focus_element(id: &str) {
+    const FOCUSABLE: &str = "input, textarea, select, button, [tabindex]";
+    let Some(element) = document().get_element_by_id(id) else {
+        return;
+    };
+    let focusable = if element.matches(FOCUSABLE).unwrap_or(false) {
+        Some(element)
+    } else {
+        element.query_selector(FOCUSABLE).ok().flatten()
+    };
+    if let Some(element) =
+        focusable.and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok())
+        && let Err(err) = element.focus()
+    {
+        tracing::debug!(?err, "could not focus a field");
     }
 }
 
@@ -570,7 +686,7 @@ fn failure_kind(error: &RequestError) -> &'static str {
 
 /// Reloads the entity of the surrounding edit form or details, to show its current state, e.g.
 /// after a save was refused because someone else changed the entity. An edit form keeps its
-/// unsaved changes, which then apply to the reloaded version.
+/// unsaved changes, which then apply to the reloaded version. Disabled while the form saves.
 ///
 /// Default content: [`CrudUiTexts::show_current`].
 ///
@@ -605,8 +721,16 @@ pub fn CrudReloadButton(
     };
     let texts = use_crud_texts();
     let text = move || texts.read().show_current.to_string();
+    // A reload while a save is in flight would make the save's outcome refer to another version.
+    let is_saving = form.is_saving;
     view! {
-        <Button on_press=move |_| reload.run(()) is_disabled aria_label classes styles>
+        <Button
+            on_press=move |_| reload.run(())
+            is_disabled=Signal::derive(move || is_disabled.get() || is_saving.get())
+            aria_label
+            classes
+            styles
+        >
             {content_or_default(children, text)}
         </Button>
     }

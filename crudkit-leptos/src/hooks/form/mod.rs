@@ -1,19 +1,21 @@
 //! Create, edit, and read forms.
 
+mod state;
+
+pub use state::{CrudFieldConflict, CrudFormState};
+pub(crate) use state::{FieldTarget, conflict_message, register_error_summary};
+
 use crate::config::{CrudEntityViewKind, CrudUiTexts};
-use crate::hooks::field::CrudFieldMap;
-use crate::hooks::field::{ReactiveField, reactive_fields};
 use crate::hooks::instance::use_crud_instance;
 use crate::hooks::notify::{CrudNotification, CrudNotifier};
 use crate::hooks::texts::{use_crud_texts, with_texts};
 use crate::instance::CrudInstanceContext;
 use crate::instance::CrudNavigation;
-use crudkit_core::Value;
 use crudkit_core::id::SerializableId;
 use crudkit_core::validation::PartialSerializableAggregateViolations;
 use crudkit_web::data_source::{
     CrudCompletion, CrudCreateRequest, CrudFieldProblem, CrudReadRequest, CrudSaved,
-    CrudUpdateRequest,
+    CrudUpdateRequest, CrudVersion,
 };
 use crudkit_web::http::RequestError;
 use crudkit_web::load_state::LoadState;
@@ -21,7 +23,7 @@ use crudkit_web::prelude::*;
 use crudkit_web::view::CrudView;
 use leptos::prelude::*;
 use std::any::TypeId;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 
 /// What happens after an entity was saved successfully.
@@ -103,14 +105,18 @@ pub struct CrudFormHandle {
     /// Why the last save failed, while it applies, see [`CrudFormState::save_error`]. Always
     /// `None` in details.
     pub save_error: Signal<Option<RequestError>>,
-    /// The problems of fields that the last save reported for fields the form does not show. The
-    /// form shows them with the failure's message, e.g. in a
-    /// [`CrudFormError`](crate::atoms::CrudFormError).
-    pub unshown_problems: Signal<Vec<CrudFieldProblem>>,
+    /// The problems of fields that the last save reported, see [`CrudFormState::problems`].
+    pub problems: Signal<Vec<CrudFieldProblem>>,
+    /// The members that someone else changed too, see [`CrudFormState::conflicts`].
+    pub conflicts: Signal<Vec<CrudFieldConflict>>,
     /// Reloads the form's entity to show its current state, e.g. after a save was refused as
     /// [outdated](RequestError::Outdated). A form with unsaved changes keeps them. `None` in create
     /// forms.
     pub reload: Option<Callback<()>>,
+    /// Where the form's fields are rendered, by the names of the fields.
+    pub(crate) field_targets: Signal<HashMap<String, FieldTarget>>,
+    /// The number of mounted error summaries of the form.
+    pub(crate) error_summaries: StoredValue<usize>,
     /// The `TypeId` of the form's field type, e.g. `DynCreateField`.
     pub(crate) field_type: TypeId,
     /// Whether the form is a `<form>` element, which its save button submits. A form nested in
@@ -151,302 +157,6 @@ pub(crate) fn expect_crud_form(atom: &'static str) -> CrudFormHandle {
     try_use_crud_form().unwrap_or_else(|| {
         panic!("`{atom}` must be rendered inside a CrudKit form, e.g. a `CrudEditForm`")
     })
-}
-
-/// Draft state of a form editing one entity, with one [`ReactiveField`] per field.
-///
-/// The form keeps the complete draft model for saving and dirty checks, and one reactive value per
-/// field for fine-grained rendering. [`Self::set_field`] keeps both in sync.
-pub struct CrudFormState<F: TypeErasedField> {
-    /// The reactive values of all fields. Changes when an entity (re)loads.
-    pub fields: Signal<CrudFieldMap<F>>,
-    /// The current draft, or `None` while no entity is loaded.
-    pub draft: Signal<Option<F::Model>>,
-    /// Input errors keyed by field.
-    pub errors: Signal<HashMap<F, String>>,
-    /// Why the last save failed, while it applies. A successful save and loading another entity
-    /// clear it, and so does reloading the entity after a save was refused as
-    /// [outdated](RequestError::Outdated).
-    pub save_error: Signal<Option<RequestError>>,
-    /// The problems of fields that the last save reported ([`RequestError::InvalidFields`]),
-    /// without those of fields the user changed since. They do not keep the form from saving.
-    pub problems: Signal<Vec<CrudFieldProblem>>,
-    field_values: RwSignal<CrudFieldMap<F>>,
-    draft_model: RwSignal<Option<F::Model>>,
-    baseline: RwSignal<Option<F::Model>>,
-    input_errors: RwSignal<HashMap<F, String>>,
-    failure: RwSignal<SaveFailure>,
-    /// The names of the fields that the form shows, each with the number of its mounted atoms.
-    shown_fields: RwSignal<HashMap<String, usize>>,
-    /// The fields the user set since the form loaded or saved its entity.
-    touched: StoredValue<HashSet<F>>,
-    /// Whether the draft differs from the loaded or default entity.
-    pub is_dirty: Signal<bool>,
-    /// Whether the form holds an entity. Field values exist only while this is `true`.
-    pub is_ready: Signal<bool>,
-    /// Whether some field holds input that could not be converted into a value. Such a draft is
-    /// not saved, because it does not reflect what the user sees.
-    pub has_errors: Signal<bool>,
-    /// Whether a save request is in flight. Fields are read-only meanwhile, so that the saved
-    /// entity, which becomes the form's new state, cannot overwrite input made during the request.
-    pub is_saving: Signal<bool>,
-}
-
-// Deriving `Clone` and `Copy` would require `F: Clone` and `F: Copy`. The handle is `Copy` for every
-// field type, so both are implemented manually.
-#[allow(clippy::expl_impl_clone_on_copy)]
-impl<F: TypeErasedField> Clone for CrudFormState<F> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<F: TypeErasedField> Copy for CrudFormState<F> {}
-
-impl<F: TypeErasedField> fmt::Debug for CrudFormState<F> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CrudFormState").finish_non_exhaustive()
-    }
-}
-
-impl<F: TypeErasedField> CrudFormState<F> {
-    fn new(is_saving: Signal<bool>) -> Self {
-        let draft = RwSignal::new(None::<F::Model>);
-        let baseline = RwSignal::new(None::<F::Model>);
-        let errors = RwSignal::new(HashMap::new());
-        let fields = RwSignal::new(StoredValue::new(HashMap::new()));
-        let failure = RwSignal::new(SaveFailure::default());
-        Self {
-            fields: fields.into(),
-            draft: draft.into(),
-            errors: errors.into(),
-            save_error: Memo::new(move |_| failure.read().error.clone()).into(),
-            problems: Memo::new(move |_| failure.read().problems.clone()).into(),
-            field_values: fields,
-            draft_model: draft,
-            baseline,
-            input_errors: errors,
-            failure,
-            shown_fields: RwSignal::new(HashMap::new()),
-            touched: StoredValue::new(HashSet::new()),
-            is_dirty: Memo::new(move |_| match (&*draft.read(), &*baseline.read()) {
-                (Some(draft), Some(baseline)) => draft != baseline,
-                _ => false,
-            })
-            .into(),
-            // A memo, so that views keyed on readiness do not re-render on every draft change.
-            is_ready: Memo::new(move |_| draft.read().is_some()).into(),
-            has_errors: Memo::new(move |_| !errors.read().is_empty()).into(),
-            is_saving,
-        }
-    }
-
-    /// Returns the reactive value of `field`. Tracks entity (re)loads.
-    pub fn field(&self, field: &F) -> Option<ReactiveField> {
-        self.fields
-            .get()
-            .with_value(|fields| fields.get(field).copied())
-    }
-
-    /// Returns why `field` is invalid, if it is: its input error, or else the problems that the
-    /// last save reported for it.
-    pub fn field_error(&self, field: F) -> Signal<Option<String>> {
-        let (errors, problems) = (self.errors, self.problems);
-        Signal::derive(move || {
-            errors.read().get(&field).cloned().or_else(|| {
-                let name = field.name();
-                let details = problems
-                    .read()
-                    .iter()
-                    .filter(|problem| problem.field == name)
-                    .map(|problem| problem.detail.clone())
-                    .collect::<Vec<_>>();
-                (!details.is_empty()).then(|| details.join(" "))
-            })
-        })
-    }
-
-    /// Applies user input for `field`.
-    ///
-    /// A value updates both the draft model and the field's reactive value and clears the field's
-    /// input error. An error records the input error and leaves the draft unchanged. Either way,
-    /// the problems that the last save reported for the field no longer apply.
-    pub fn set_field(&self, field: F, value: Result<Value, String>) {
-        let name = field.name();
-        let has_problems = self
-            .failure
-            .with_untracked(|failure| failure.problems.iter().any(|problem| problem.field == name));
-        if has_problems {
-            self.failure.update(|failure| {
-                failure.problems.retain(|problem| problem.field != name);
-            });
-        }
-        self.touched.update_value(|touched| {
-            touched.insert(field.clone());
-        });
-        match value {
-            Ok(value) => {
-                self.draft_model.update(|draft| {
-                    if let Some(draft) = draft {
-                        field.set_value(draft, value.clone());
-                    }
-                });
-                self.input_errors.update(|errors| {
-                    errors.remove(&field);
-                });
-                if let Some(reactive) = self.field(&field) {
-                    reactive.set(value);
-                } else {
-                    tracing::error!(?field, "form has no reactive value for field");
-                }
-            }
-            Err(err) => self.input_errors.update(|errors| {
-                errors.insert(field, err);
-            }),
-        }
-    }
-
-    /// Replaces draft, baseline, and field values with `model`.
-    fn load(&self, model: F::Model, fields: HashMap<F, ReactiveField>) {
-        self.field_values.set(StoredValue::new(fields));
-        self.baseline.set(Some(model.clone()));
-        self.draft_model.set(Some(model));
-        self.input_errors.update(HashMap::clear);
-        self.touched.update_value(HashSet::clear);
-        self.record_save_error(None);
-    }
-
-    /// Makes `model` the version the draft is compared against, and applies the user's changes to
-    /// it, so that the form shows the current state of the entity and keeps the user's input.
-    ///
-    /// The fields that the user changed keep their draft value: those the user set to another
-    /// value than the old baseline's, and those whose input could not be read. The other fields
-    /// take the value of `model`, and so does what the model holds besides its fields, e.g. its
-    /// version. `values` returns the value of every field of a model. A save refused as outdated
-    /// no longer applies.
-    fn rebase(&self, model: F::Model, values: impl Fn(&F::Model) -> Vec<(F, Value)>) {
-        let (Some(draft), Some(baseline)) = (
-            self.draft_model.get_untracked(),
-            self.baseline.get_untracked(),
-        ) else {
-            self.baseline.set(Some(model));
-            return;
-        };
-        let touched = self.touched.get_value();
-        let changes = self.input_errors.with_untracked(|input_errors| {
-            values(&draft)
-                .into_iter()
-                .filter(|(field, value)| {
-                    touched.contains(field)
-                        && (input_errors.contains_key(field) || {
-                            // Values cannot be compared, models can.
-                            let mut changed = baseline.clone();
-                            field.set_value(&mut changed, value.clone());
-                            changed != baseline
-                        })
-                })
-                .collect::<HashMap<_, _>>()
-        });
-        let mut rebased = model.clone();
-        for (field, value) in &changes {
-            field.set_value(&mut rebased, value.clone());
-        }
-        let shown = self.fields.get_untracked();
-        for (field, value) in values(&rebased) {
-            if changes.contains_key(&field) {
-                continue;
-            }
-            if let Some(reactive) = shown.with_value(|shown| shown.get(&field).copied()) {
-                reactive.set(value);
-            }
-        }
-        self.baseline.set(Some(model));
-        self.draft_model.set(Some(rebased));
-        self.clear_outdated();
-    }
-
-    /// Replaces draft, baseline, and field values with `model`, keeping the existing reactive
-    /// values, so that rendered fields update in place.
-    fn sync(&self, model: F::Model, fields: HashMap<F, ReactiveField>) {
-        let current = self.fields.get_untracked();
-        for (field, reactive) in fields {
-            let existing = current.with_value(|current| current.get(&field).copied());
-            match existing {
-                Some(existing) => existing.set(reactive.get_untracked()),
-                None => current.update_value(|current| {
-                    current.insert(field, reactive);
-                }),
-            }
-        }
-        self.baseline.set(Some(model.clone()));
-        self.draft_model.set(Some(model));
-        self.input_errors.update(HashMap::clear);
-        self.touched.update_value(HashSet::clear);
-        self.record_save_error(None);
-    }
-
-    /// Records why the last save failed, or `None` after a successful save. The problems of fields
-    /// that `error` reports replace those of earlier saves.
-    fn record_save_error(&self, error: Option<RequestError>) {
-        let problems = match &error {
-            Some(RequestError::InvalidFields { problems, .. }) => problems.clone(),
-            _ => Vec::new(),
-        };
-        let failure = SaveFailure { error, problems };
-        if self.failure.with_untracked(|current| *current != failure) {
-            self.failure.set(failure);
-        }
-    }
-
-    /// Forgets a save refused as outdated, e.g. once the entity is reloaded.
-    fn clear_outdated(&self) {
-        let is_outdated = self
-            .failure
-            .with_untracked(|failure| matches!(failure.error, Some(RequestError::Outdated(_))));
-        if is_outdated {
-            self.failure.update(|failure| failure.error = None);
-        }
-    }
-
-    /// Records that the field named `name` is shown, until the current owner is cleaned up. Field
-    /// atoms call it, so that the form shows the problems of other fields with its failure.
-    pub(crate) fn show_field(&self, name: String) {
-        self.shown_fields
-            .update(|shown| *shown.entry(name.clone()).or_default() += 1);
-        let shown_fields = self.shown_fields;
-        on_cleanup(move || {
-            shown_fields.try_update(|shown| {
-                if let Some(count) = shown.get_mut(&name) {
-                    *count -= 1;
-                    if *count == 0 {
-                        shown.remove(&name);
-                    }
-                }
-            });
-        });
-    }
-
-    /// Returns the problems that the last save reported for fields that the form does not show.
-    pub(crate) fn unshown_problems(&self) -> Signal<Vec<CrudFieldProblem>> {
-        let (problems, shown_fields) = (self.problems, self.shown_fields);
-        Signal::derive(move || {
-            let shown = shown_fields.read();
-            problems
-                .read()
-                .iter()
-                .filter(|problem| !shown.contains_key(&problem.field))
-                .cloned()
-                .collect()
-        })
-    }
-}
-
-/// Why the last save of a form failed, and the problems of fields it reported that still apply.
-#[derive(Debug, Clone, Default, PartialEq)]
-struct SaveFailure {
-    /// `None` after a successful save.
-    error: Option<RequestError>,
-    problems: Vec<CrudFieldProblem>,
 }
 
 /// Which outcomes of saving a form notify the user, through the instance's [`CrudNotifier`].
@@ -508,33 +218,35 @@ pub fn use_crud_create_form(input: UseCrudCreateFormInput) -> UseCrudCreateFormR
     let navigation = ctx.navigation;
     let violations = RwSignal::new(None::<PartialSerializableAggregateViolations>);
 
-    let save_action = create_action(&ctx, notifications);
+    let form = CrudFormState::<DynCreateField>::new();
+    let save_action = create_action(&ctx, notifications, &form);
     let is_saving: Signal<bool> = save_action.pending().into();
-    let form = CrudFormState::<DynCreateField>::new(is_saving);
+    let form = form.saving_while(is_saving);
     let default_model = default_create_model(&ctx);
-    let fields = reactive_fields(
-        ctx.static_config
-            .read_value()
-            .model_handler
-            .create_model_values(&default_model),
-    );
-    form.load(default_model, fields);
+    let values = ctx
+        .static_config
+        .read_value()
+        .model_handler
+        .create_model_values(&default_model);
+    form.load(default_model, values);
     navigation.guard(form.is_dirty);
 
     let save_result = save_action.value();
     let reset = move || {
         let model = default_create_model(&ctx);
-        let fields = reactive_fields(
-            ctx.static_config
-                .read_value()
-                .model_handler
-                .create_model_values(&model),
-        );
-        form.sync(model, fields);
+        let values = ctx
+            .static_config
+            .read_value()
+            .model_handler
+            .create_model_values(&model);
+        form.sync(model, values);
     };
     // The outcome was already notified by the request. The form applies it while it is mounted.
     Effect::new(move |_prev| {
-        let Some((result, follow_up)) = save_result.get() else {
+        let Some(SaveOutcome {
+            result, follow_up, ..
+        }) = save_result.get()
+        else {
             return;
         };
         // Callbacks may read signals. They must not become dependencies of this effect, or a
@@ -559,7 +271,7 @@ pub fn use_crud_create_form(input: UseCrudCreateFormInput) -> UseCrudCreateFormR
     });
 
     let save = Callback::new(move |follow_up: CrudSaveFollowUp| {
-        if let Some(draft) = savable_draft(form) {
+        if let Some(draft) = savable_draft(&form) {
             save_action.dispatch((draft, follow_up));
         }
     });
@@ -591,8 +303,9 @@ pub enum CrudEntityLoadStatus {
 /// Returns the status of `entity`, shown through `form`.
 fn entity_status<F: TypeErasedField>(
     entity: Signal<LoadState<DynUpdateModel>>,
-    form: CrudFormState<F>,
+    form: &CrudFormState<F>,
 ) -> Signal<CrudEntityLoadStatus> {
+    let form = *form;
     // A memo, so that views keyed on the status re-render only when it changes.
     Memo::new(move |_| match &*entity.read() {
         LoadState::Loaded(_) if form.is_ready.get() => CrudEntityLoadStatus::Ready,
@@ -603,17 +316,27 @@ fn entity_status<F: TypeErasedField>(
     .into()
 }
 
-/// Result of a save request, together with the follow-up requested for it.
-type SaveOutcome = (Result<CrudSaved, RequestError>, CrudSaveFollowUp);
+/// The outcome of a save request.
+#[derive(Debug, Clone)]
+struct SaveOutcome {
+    result: Result<CrudSaved, RequestError>,
+    /// What the form does after a successful save.
+    follow_up: CrudSaveFollowUp,
+    /// Whether the outcome no longer applies: a refusal as outdated of a version that a reload
+    /// replaced while the request was in flight. Saving again is based on the reloaded version.
+    stale: bool,
+}
 
-/// Creates the action sending create requests for the instance of `ctx`. It notifies the outcome
-/// as `notifications` ask, also when the form is gone by then.
+/// Creates the action sending create requests for the instance of `ctx` from `form`. It notifies
+/// the outcome as `notifications` ask, also when the form is gone by then, but no failure while
+/// the form's error summary shows it.
 // TODO: Can we get rid of new_local?
 fn create_action(
     ctx: &CrudInstanceContext,
     notifications: CrudSaveNotifications,
+    form: &CrudFormState<DynCreateField>,
 ) -> Action<(DynCreateModel, CrudSaveFollowUp), SaveOutcome> {
-    let ctx = *ctx;
+    let (ctx, form) = (*ctx, *form);
     let notify = SaveNotifier::new(&ctx, notifications);
     Action::new_local(
         move |(create_model, follow_up): &(DynCreateModel, CrudSaveFollowUp)| {
@@ -632,41 +355,70 @@ fn create_action(
                         accepted: |texts| &texts.creation_accepted,
                         failed: |texts| &texts.create_failed,
                     },
+                    form.shows_failures(),
                 );
-                (result, follow_up)
+                SaveOutcome {
+                    result,
+                    follow_up,
+                    stale: false,
+                }
             }
         },
     )
 }
 
-/// Creates the action sending update requests for the instance of `ctx`. It notifies the outcome
-/// as `notifications` ask, also when the form is gone by then.
+/// Creates the action sending update requests for the instance of `ctx` from `form`. It notifies
+/// the outcome as `notifications` ask, also when the form is gone by then, but no failure while
+/// the form's error summary shows it, and no stale outcome.
 fn update_action(
     ctx: &CrudInstanceContext,
     notifications: CrudSaveNotifications,
+    form: &CrudFormState<DynUpdateField>,
 ) -> Action<(CrudUpdateRequest, CrudSaveFollowUp), SaveOutcome> {
-    let ctx = *ctx;
+    let (ctx, form) = (*ctx, *form);
     let notify = SaveNotifier::new(&ctx, notifications);
     Action::new_local(
         move |(request, follow_up): &(CrudUpdateRequest, CrudSaveFollowUp)| {
             let request = request.clone();
+            let based_on = request.version().cloned();
             let follow_up = *follow_up;
             let data_source = ctx.data_source();
             let scope = ctx.scope.get_untracked();
             async move {
                 let result = data_source.update(&scope, request).await;
-                notify.outcome(
-                    &result,
-                    SaveTexts {
-                        completed: |texts| &texts.saved,
-                        accepted: |texts| &texts.change_accepted,
-                        failed: |texts| &texts.update_failed,
-                    },
-                );
-                (result, follow_up)
+                let stale = matches!(result, Err(RequestError::Outdated(_)))
+                    && is_replaced(&form, based_on.as_ref());
+                if !stale {
+                    notify.outcome(
+                        &result,
+                        SaveTexts {
+                            completed: |texts| &texts.saved,
+                            accepted: |texts| &texts.change_accepted,
+                            failed: |texts| &texts.update_failed,
+                        },
+                        form.shows_failures(),
+                    );
+                }
+                SaveOutcome {
+                    result,
+                    follow_up,
+                    stale,
+                }
             }
         },
     )
+}
+
+/// Returns whether `form` holds another version of its entity than `version` by now, because a
+/// reload replaced it. `false` once the form is gone.
+fn is_replaced(form: &CrudFormState<DynUpdateField>, version: Option<&CrudVersion>) -> bool {
+    form.baseline
+        .try_with_untracked(|baseline| {
+            baseline
+                .as_ref()
+                .is_some_and(|baseline| baseline.version() != version)
+        })
+        .unwrap_or(false)
 }
 
 /// The messages of the outcomes of one kind of save.
@@ -698,8 +450,21 @@ impl SaveNotifier {
     }
 
     /// Notifies `result` with one of `messages`, as the notifications ask. A save refused as
-    /// outdated is a warning, which asks the user to look at the current state.
-    fn outcome(self, result: &Result<CrudSaved, RequestError>, messages: SaveTexts) {
+    /// outdated is a warning, which asks the user to look at the current state. A failure that
+    /// the form's error summary shows (`form_shows_failures`) is not notified, so that screen
+    /// readers do not announce it twice.
+    fn outcome(
+        self,
+        result: &Result<CrudSaved, RequestError>,
+        messages: SaveTexts,
+        form_shows_failures: bool,
+    ) {
+        if result.is_err() && form_shows_failures {
+            if let Err(error) = result {
+                tracing::warn!(%error, "could not save the entity");
+            }
+            return;
+        }
         let notification = match result {
             Ok(saved) if self.notifications == CrudSaveNotifications::All => {
                 let message = match saved.completion {
@@ -738,7 +503,7 @@ impl SaveNotifier {
 }
 
 /// Returns the draft of `form`, unless it is missing or holds rejected input.
-fn savable_draft<F: TypeErasedField>(form: CrudFormState<F>) -> Option<F::Model> {
+fn savable_draft<F: TypeErasedField>(form: &CrudFormState<F>) -> Option<F::Model> {
     if form.has_errors.get_untracked() {
         tracing::warn!("not saving a draft with input errors");
         return None;
@@ -832,32 +597,40 @@ pub fn use_crud_edit_form(input: UseCrudEditFormInput) -> UseCrudEditFormReturn 
     let violations = RwSignal::new(None::<PartialSerializableAggregateViolations>);
 
     let entity = use_entity(&ctx, id);
-    let save_action = update_action(&ctx, notifications);
+    let form = CrudFormState::<DynUpdateField>::new();
+    let save_action = update_action(&ctx, notifications, &form);
     let is_saving: Signal<bool> = save_action.pending().into();
-    let form = CrudFormState::<DynUpdateField>::new(is_saving);
-    load_into_form(&ctx, entity, form);
+    let form = form.saving_while(is_saving);
+    load_into_form(&ctx, entity, &form);
     navigation.guard(form.is_dirty);
 
     let save_result = save_action.value();
     // The outcome was already notified by the request. The form applies it while it is mounted.
     Effect::new(move |_prev| {
-        let Some((result, follow_up)) = save_result.get() else {
+        let Some(SaveOutcome {
+            result,
+            follow_up,
+            stale,
+        }) = save_result.get()
+        else {
             return;
         };
+        if stale {
+            return;
+        }
         // Callbacks may read signals. They must not become dependencies of this effect, or a
         // change would replay the save result.
         untrack(move || match result {
             Ok(saved) => {
                 violations.set(Some(saved.violations.clone()));
                 // The server may have normalized the entity. The form continues from its version.
-                let fields = reactive_fields(
-                    ctx.static_config
-                        .read_value()
-                        .model_handler
-                        .update_model_values(&saved.entity),
-                );
+                let values = ctx
+                    .static_config
+                    .read_value()
+                    .model_handler
+                    .update_model_values(&saved.entity);
                 let saved_id = saved.entity.id();
-                form.sync(saved.entity.clone(), fields);
+                form.sync(saved.entity.clone(), values);
                 if let Some(on_saved) = on_saved {
                     on_saved.run(saved);
                 }
@@ -876,7 +649,7 @@ pub fn use_crud_edit_form(input: UseCrudEditFormInput) -> UseCrudEditFormReturn 
 
     let is_dirty = form.is_dirty;
     let save = Callback::new(move |follow_up: CrudSaveFollowUp| {
-        let (Some(draft), Some(baseline)) = (savable_draft(form), form.baseline.get_untracked())
+        let (Some(draft), Some(baseline)) = (savable_draft(&form), form.baseline.get_untracked())
         else {
             return;
         };
@@ -898,7 +671,7 @@ pub fn use_crud_edit_form(input: UseCrudEditFormInput) -> UseCrudEditFormReturn 
 
     UseCrudEditFormReturn {
         entity,
-        status: entity_status(entity, form),
+        status: entity_status(entity, &form),
         violations: violations.into(),
         form,
         save,
@@ -939,8 +712,8 @@ pub fn use_crud_read(id: impl Into<Signal<SerializableId>>) -> UseCrudReadReturn
     let navigation = ctx.navigation;
 
     let entity = use_entity(&ctx, id.into());
-    let form = CrudFormState::<DynUpdateField>::new(Signal::stored(false));
-    load_into_form(&ctx, entity, form);
+    let form = CrudFormState::<DynUpdateField>::new();
+    load_into_form(&ctx, entity, &form);
 
     let delete = Callback::new(move |()| {
         if let Some(entity) = entity.get_untracked().into_loaded() {
@@ -950,7 +723,7 @@ pub fn use_crud_read(id: impl Into<Signal<SerializableId>>) -> UseCrudReadReturn
 
     UseCrudReadReturn {
         entity,
-        status: entity_status(entity, form),
+        status: entity_status(entity, &form),
         form,
         delete,
         can_delete: Signal::derive(move || entity.read().loaded().is_some()),
@@ -988,43 +761,35 @@ fn use_entity(
 
 /// Resets `form` to every newly loaded version of `entity`.
 ///
-/// A reload of the entity the form holds unsaved changes of keeps those changes: they apply to the
-/// reloaded version, which becomes what they are compared against, and the fields the user did not
-/// change show the reloaded values. Discarding the changes is up to the user, e.g. by leaving the
-/// view.
+/// A reload of the entity the form holds unsaved changes or unreadable input of keeps them: the
+/// changes apply to the reloaded version, which becomes what they are compared against, see
+/// [`CrudFormState::rebase`]. Discarding them is up to the user, e.g. by leaving the view. A clean
+/// form takes the reloaded version, and its rendered fields update in place. Another entity
+/// replaces the form's field values.
 fn load_into_form(
     ctx: &CrudInstanceContext,
     entity: Signal<LoadState<DynUpdateModel>>,
-    form: CrudFormState<DynUpdateField>,
+    form: &CrudFormState<DynUpdateField>,
 ) {
-    let ctx = *ctx;
-    // The values of the fields outlive the run of the effect that creates them, which disposes
-    // what it created when it runs again.
-    let owner = Owner::current();
+    let (ctx, form) = (*ctx, *form);
     Effect::new(move |_prev| {
         if let LoadState::Loaded(model) = entity.get() {
-            let values_of = |model: &DynUpdateModel| {
-                ctx.static_config
-                    .read_value()
-                    .model_handler
-                    .update_model_values(model)
-            };
-            let shows_this_entity = form.draft.with_untracked(|draft| {
-                draft.as_ref().is_some_and(|draft| draft.id() == model.id())
+            let models = ctx.static_config.read_value().model_handler;
+            // The baseline, not the draft, because the user may have changed ID fields.
+            let shows_this_entity = form.baseline.with_untracked(|baseline| {
+                baseline
+                    .as_ref()
+                    .is_some_and(|baseline| baseline.id() == model.id())
             });
-            if shows_this_entity && form.is_dirty.get_untracked() {
-                form.rebase(model, values_of);
+            let holds_input = form.is_dirty.get_untracked() || form.has_errors.get_untracked();
+            if shows_this_entity && holds_input {
+                form.rebase(model, models);
             } else if shows_this_entity {
-                // Rendered fields update in place.
-                let fields = reactive_fields(values_of(&model));
-                form.sync(model, fields);
+                let values = models.update_model_values(&model);
+                form.sync(model, values);
             } else {
-                let values = values_of(&model);
-                let load = move || form.load(model, reactive_fields(values));
-                match &owner {
-                    Some(owner) => owner.with(load),
-                    None => load(),
-                }
+                let values = models.update_model_values(&model);
+                form.load(model, values);
             }
         }
     });

@@ -66,7 +66,7 @@ Atoms find what they act on in context rather than in props:
   id, so a reload that changes an entity updates its row in place.
 - The form: `CrudCreateForm`, `CrudEditForm`, and `CrudDetails` provide a typed form context for their fields and a
   `CrudFormHandle` (kind, status, dirty, error, and saving state, save, default follow-up, violations, draft, the error
-  of the last save with the problems of fields the form does not show, and reload) read with `use_crud_form`.
+  of the last save, the problems and conflicts of fields, and reload) read with `use_crud_form`.
 - The entity: table rows and entity forms provide the `CrudEntityHandle` entity-related buttons act on (its id,
   deleting it), read with `use_crud_entity`. A `CrudDeleteButton` therefore deletes the entity of the row or form it
   is in.
@@ -216,24 +216,37 @@ A form does not save while a field holds input its codec rejects, and its fields
 save request reports its outcome through the instance's notifier, also when the form is gone by then: a success or an
 error notification, as the form's `CrudSaveNotifications` select (all by default, failures only, or none). A change
 that the data source [accepted](data-sources.md#accepted-changes) without completing it is a success that says so,
-and a save refused as outdated is a warning. `on_saved` and `on_save_failed` run while the form is mounted.
+and a save refused as outdated is a warning. While a `CrudFormError` of the form is mounted, the form notifies no
+failure, because the summary shows it and screen readers would announce it twice; successes are notified still.
+`on_saved` and `on_save_failed` run while the form is mounted.
 
 A failed save keeps the draft, and `CrudFormState::save_error` holds the failure until a save succeeds or the form
 loads another entity:
 
 - A save refused because someone else changed the entity ([`Outdated`](data-sources.md#versions)) asks the user to
-  look at the current state. `CrudReloadButton` and the edit form's `reload` reload the entity, which applies the
-  draft's changes to the current version, as described in
-  [Instances and Composition](instances-and-composition.md#list-state-ownership), and resolves the failure.
-- The problems of a refusal by [fields](data-sources.md#problems) reach their fields: a field's error is its input
-  error, or else the problems of the last save for it. Changing a field resolves its problems. Problems do not keep
-  the form from saving, because only the data source can tell whether they still apply.
-- `CrudFormError` explains the failure in an assertive live region (`role="alert"`) that stays rendered, empty
-  without a failure: the outdated text with a `CrudReloadButton`, the message of the refusal with the problems of
-  fields the form does not show, or any other error. `data-kind` (`outdated`, `invalid`, `failed`) lets applications
-  give each a tone. Every mounted `CrudField` registers its field with the form, so the problems of other fields, such
-  as one in a tab that is not mounted or one the model does not have, appear in `CrudFormError` instead of getting
-  lost.
+  look at the current state. `CrudReloadButton` and the edit form's `reload` reload the entity, which rebases the
+  draft onto the current version, as described in
+  [Instances and Composition](instances-and-composition.md#list-state-ownership), and resolves the failure. The rebase
+  can find conflicts, which `CrudFormState::conflicts` holds. The button is disabled while the form saves. A refusal
+  as outdated of a version that a reload replaced while the save was in flight no longer applies: the form ignores
+  it, and does not notify it.
+- The problems of a refusal by [fields](data-sources.md#problems) and the conflicts reach their fields: a field's
+  error is its input error, or else its problems and conflicts, each with the path below the field where it is, e.g.
+  `0/count: must be positive`. Changing a field resolves its problems and conflicts. Problems do not keep the form from
+  saving, because only the data source can tell whether they still apply.
+- `CrudFormError` is the form's error summary, an assertive live region (`role="alert"`) that stays rendered, empty
+  while there is nothing to explain. It explains the failure (the outdated text with a `CrudReloadButton`, the message
+  of the refusal, any other error, or the conflicts) and lists every problem and every conflict as a link to its
+  field, the established pattern of accessible error summaries. So problems also reach fields that show no error,
+  such as switches, checkboxes, fields in display mode, and custom renderers, and fields in tabs that are not
+  selected. `data-kind` (`outdated`, `invalid`, `failed`, `conflict`) lets applications give each a tone.
+- Every mounted `CrudField` registers its field with the form: the id of its input, its label, and the tabs it is in,
+  which each `CrudFormTabPanel` adds to the context of its content. A summary entry names its field by the label, or
+  else by the field's name, and following its link selects the tabs and focuses the field. A `CrudFormTab` is
+  `data-invalid` while a registered field in its panel has problems or conflicts. Fields that are not mounted, such as
+  those in a panel that is not force-mounted, are listed by name and without a link. On the server, a registration
+  inside a panel ends when the panel's HTML is written; the summary is empty there anyway, because forms save in the
+  browser.
 
 `CrudSaveFollowUp` selects what happens after a successful save: `Stay` (a create form starts a fresh draft), `Return`,
 `Edit` (the saved entity, which stays after editing), `CreateAnother` (a fresh draft in a create form), or a view
@@ -270,8 +283,9 @@ State hooks are unit-tested on a native single-threaded executor against data in
 source of items in memory, paged by offset or by cursor, which records every operation with its scope,
 `CrudTestServer` answers the requests of the REST data source from a handler and records them, and `settle` runs
 pending tasks. Like an API with optimistic concurrency, `MemorySource` versions its items, refuses outdated changes and
-deletions, applies the merge patches of changes, refuses one name with problems of fields, and accepts changes and
-deletions instead of completing them on request. The test dev-dependencies enable
+deletions, applies the merge patches of changes, refuses one name with problems of fields, accepts changes and
+deletions instead of completing them on request, changes items as another user would, and holds an update in flight
+until the test releases it. The test dev-dependencies enable
 `reactive_graph`'s `effects` feature, because Leptos only runs effects in client builds.
 
 The atoms' markup (elements, default classes, data attributes, misplacement panics) is tested by rendering atoms to

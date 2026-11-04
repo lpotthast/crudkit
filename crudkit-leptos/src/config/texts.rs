@@ -108,6 +108,14 @@ pub struct CrudUiTexts {
     pub outdated: Text,
     /// Reloads the entity of a form, to show its current state while keeping the input.
     pub show_current: Text,
+    /// Explains that someone else changed fields that the user changed too, which a reload of the
+    /// form's entity found.
+    pub conflicts: Text,
+    /// Explains that someone else changed a value that the user changed too, given the other
+    /// value.
+    pub changed_meanwhile: ReasonText,
+    /// Explains that someone else removed a value that the user changed.
+    pub removed_meanwhile: Text,
     /// Title of deletion notifications.
     pub deletion: Text,
     /// Message after entities were deleted, given their number.
@@ -218,6 +226,13 @@ impl CrudUiTexts {
                        aktuellen Stand zeigen und speichere erneut. Deine Eingaben bleiben erhalten."
                 .into(),
             show_current: "Aktuellen Stand zeigen".into(),
+            conflicts: "Jemand anderes hat inzwischen auch Felder geändert, die du geändert hast. \
+                        Prüfe sie und speichere erneut."
+                .into(),
+            changed_meanwhile: Arc::new(|value| {
+                format!("Inzwischen von jemand anderem zu „{value}“ geändert.")
+            }),
+            removed_meanwhile: "Inzwischen von jemand anderem entfernt.".into(),
             deletion: "Löschen".into(),
             deleted: Arc::new(move |count| {
                 format!("{count} {} erfolgreich gelöscht.", entries(count))
@@ -307,6 +322,13 @@ impl CrudUiTexts {
                        then save again. Your input is kept."
                 .into(),
             show_current: "Show current state".into(),
+            conflicts: "Someone else also changed fields that you changed. Check them, then save \
+                        again."
+                .into(),
+            changed_meanwhile: Arc::new(|value| {
+                format!("Someone else changed this to \"{value}\" meanwhile.")
+            }),
+            removed_meanwhile: "Someone else removed this meanwhile.".into(),
             deletion: "Deletion".into(),
             deleted: Arc::new(move |count| format!("{count} {} deleted.", entries(count))),
             deleted_partially: Arc::new(move |count| {

@@ -2,6 +2,7 @@
 
 use crate::hooks::instance::use_crud_instance;
 use crate::hooks::table::dom_safe;
+use crate::instance::CrudInstanceContext;
 use crudkit_web::layout::TabId;
 use leptonic::hooks::collections::Key;
 use leptos::prelude::*;
@@ -46,6 +47,32 @@ pub fn use_crud_tab_selection(tabs: Vec<TabId>) -> UseCrudTabSelectionReturn {
         }),
     }
 }
+
+/// A tab that must be selected to show something, e.g. a field: the tab `tab` of the tab group
+/// consisting of `group`, whose selection the instance `instance` remembers.
+#[derive(Debug, Clone)]
+pub(crate) struct TabLocation {
+    pub(crate) instance: CrudInstanceContext,
+    pub(crate) group: Vec<TabId>,
+    pub(crate) tab: TabId,
+}
+
+impl TabLocation {
+    /// Selects the tab in its group.
+    pub(crate) fn select(&self) {
+        self.instance.select_tab(&self.group, self.tab.clone());
+    }
+
+    /// Returns whether this is the tab `tab` of the tab group consisting of `group`.
+    pub(crate) fn is(&self, group: &[TabId], tab: &TabId) -> bool {
+        self.tab == *tab && self.group == group
+    }
+}
+
+/// The tabs that the surrounding tab panels belong to, outermost first. Selecting all of them
+/// shows what the innermost panel holds.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct EnclosingTabs(pub(crate) Vec<TabLocation>);
 
 /// Returns the key of the tab `id` in a tabs collection: `id` encoded for use in element ids.
 pub(crate) fn tab_key(id: &TabId) -> Key {

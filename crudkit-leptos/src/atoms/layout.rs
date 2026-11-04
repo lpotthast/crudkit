@@ -4,12 +4,16 @@ use crate::atoms::content::content_or_default;
 use crate::atoms::field::{CrudField, CrudFieldControl};
 use crate::atoms::form::FormContext;
 use crate::config::CrudEntityViewKind;
-use crate::hooks::form::expect_crud_form;
-use crate::hooks::tabs::{UseCrudTabSelectionReturn, tab_key, use_crud_tab_selection};
+use crate::hooks::form::{expect_crud_form, try_use_crud_form};
+use crate::hooks::instance::use_crud_instance;
+use crate::hooks::tabs::{
+    EnclosingTabs, TabLocation, UseCrudTabSelectionReturn, tab_key, use_crud_tab_selection,
+};
 use crudkit_web::layout::{Elem, Enclosing, Group, Layout, Tab as LayoutTab, TabId};
 use crudkit_web::prelude::*;
 use leptonic::atoms::separator::Separator;
 use leptonic::atoms::tabs::{Tab, TabList, TabPanel, Tabs};
+use leptonic::flag;
 use leptonic::hooks::collections::use_collection;
 use leptonic::leptos_classes::{Classes, MergeStrategy};
 use leptonic::leptos_styles::Styles;
@@ -275,6 +279,16 @@ pub struct CrudTab {
 #[derive(Debug, Clone)]
 struct FormTabs(Vec<CrudTab>);
 
+impl FormTabs {
+    /// Returns the ids of the tabs of the surrounding [`CrudFormTabs`], in order. Empty outside of
+    /// tabs.
+    fn ids() -> Vec<TabId> {
+        use_context::<FormTabs>()
+            .map(|FormTabs(tabs)| tabs.into_iter().map(|tab| tab.id).collect())
+            .unwrap_or_default()
+    }
+}
+
 /// Tabs of a form: a Leptonic `Tabs` whose selection is the instance's, so it survives switching
 /// views. Compose it from a Leptonic `TabList` with a [`CrudFormTab`] per tab, and a
 /// [`CrudFormTabPanel`] per tab.
@@ -318,7 +332,10 @@ pub fn CrudFormTabs(
 ///
 /// Default content: the tab's label.
 ///
-/// Data attributes: those of Leptonic's `Tab`.
+/// Data attributes: those of Leptonic's `Tab`, and `data-invalid` while a field in the tab's panel
+/// has problems or conflicts of the surrounding form, see
+/// [`CrudFormError`](crate::atoms::CrudFormError). Only mounted fields count, so keep panels
+/// mounted with `should_force_mount`, as [`CrudFormLayout`] does.
 ///
 /// Default classes: `leptonic-Tab crudkit-FormTab`.
 #[component]
@@ -336,15 +353,39 @@ pub fn CrudFormTab(
         .and_then(|FormTabs(tabs)| tabs.into_iter().find(|tab| tab.id == id))
         .map(|tab| tab.label)
         .unwrap_or_default();
+    let key = tab_key(&id);
+    let (group, form) = (FormTabs::ids(), try_use_crud_form());
+    let is_invalid = Signal::derive(move || {
+        let Some(form) = form else {
+            return false;
+        };
+        let targets = form.field_targets.read();
+        let in_tab = |field: &str| {
+            targets
+                .get(field)
+                .is_some_and(|target| target.tabs.iter().any(|location| location.is(&group, &id)))
+        };
+        form.problems
+            .read()
+            .iter()
+            .any(|problem| in_tab(&problem.field))
+            || form
+                .conflicts
+                .read()
+                .iter()
+                .any(|conflict| in_tab(&conflict.field))
+    });
     view! {
-        <Tab key=tab_key(&id) classes styles>
+        <Tab key classes styles attr:data-invalid=flag(is_invalid)>
             {content_or_default(children, label)}
         </Tab>
     }
 }
 
 /// The panel of the tab `id` of the surrounding [`CrudFormTabs`]: a Leptonic `TabPanel`, holding
-/// the tab's content while the tab is selected, or always with `should_force_mount`.
+/// the tab's content while the tab is selected, or always with `should_force_mount`. Fields inside
+/// know the tab, so that the form's [`CrudFormError`](crate::atoms::CrudFormError) selects it
+/// when it links to them, and the [`CrudFormTab`] is marked while they have problems.
 ///
 /// Data attributes: those of Leptonic's `TabPanel`.
 ///
@@ -354,7 +395,8 @@ pub fn CrudFormTabPanel(
     /// The tab's id.
     id: TabId,
     /// Keeps the panel mounted, hidden and inert, while another tab is selected. Its fields then
-    /// keep input that could not be read yet, and its error, when the user switches tabs.
+    /// keep input that could not be read yet, and its error, when the user switches tabs, and the
+    /// form's error summary links to them.
     #[prop(optional)]
     should_force_mount: bool,
     #[prop(into, optional)] classes: Classes,
@@ -364,9 +406,16 @@ pub fn CrudFormTabPanel(
     let classes = Classes::new()
         .add("crudkit-FormTabPanel")
         .merge(classes, MergeStrategy::UnionConditions);
+    let mut enclosing = use_context::<EnclosingTabs>().unwrap_or_default();
+    enclosing.0.push(TabLocation {
+        instance: use_crud_instance(),
+        group: FormTabs::ids(),
+        tab: id.clone(),
+    });
+    let children = StoredValue::new(children);
     view! {
         <TabPanel key=tab_key(&id) should_force_mount classes styles>
-            {children()}
+            <Provider value=enclosing.clone()>{children.with_value(|children| children())}</Provider>
         </TabPanel>
     }
 }

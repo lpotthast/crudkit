@@ -114,13 +114,28 @@ became empty, it moves to the first or to the previous page. The list acts only 
 generation, because a page of an earlier one may arrive late. The instance only orders by fields the data source can
 order by.
 
-An edit form keeps its unsaved changes when its entity reloads: it applies them to the reloaded version, which becomes
-the draft's baseline. The fields that the user changed keep their input: those the user set to another value than the
-old baseline's, and those holding input that could not be read. The other fields take the reloaded values, and so does
-what the model holds besides its fields, such as its [version](data-sources.md#versions). So the form shows the
-current state of the entity, and saving changes only what the user changed. Other forms and clean drafts take the
-reloaded version; when it is a version of the entity they show, their rendered fields update in place. The values of
-the fields belong to the form's owner, not to the effect that loads them, so they survive the effect's next run.
+An edit form keeps its unsaved changes and its unreadable input when its entity reloads: it rebases the draft onto the
+reloaded version, which becomes the draft's baseline. The rebase is a three-way merge of JSON, built from
+[merge patches](data-sources.md#changes):
+
+- the user's changes are the merge patch from the old baseline to the draft, without the fields holding input that
+  could not be read;
+- the patch applies to the reloaded version, and the result, read back through the `ModelHandler`, becomes the draft.
+  So a change of one member of an object field, such as one key of a map, keeps the changes of others to the other
+  members, and what the model holds besides its fields, such as its [version](data-sources.md#versions), is the
+  reloaded one;
+- a member that the user changed and someone else changed to another value is a conflict (`CrudFieldConflict`): the
+  draft keeps the user's value, and the field and the error summary say what the other value is, until the user
+  changes the field or saves;
+- a field holding input that could not be read takes the reloaded value and keeps its input error.
+
+So the form shows the current state of the entity, and saving changes only what the user changed. The form recognizes
+its entity by the baseline's ID, because the user may have changed ID fields in the draft. Other forms and clean drafts
+take the reloaded version; when it is a version of the entity they show, their rendered fields update in place.
+
+The values of a form's fields belong to an owner of their own below the form's, not to the effect that loads them, so
+they survive the effect's next run. Loading another entity creates the next owner and disposes the previous one after
+the form switched to the new values, so a form that shows many entities in turn holds the values of one.
 
 Selection belongs to the mounted list's `CrudListState`, not `CrudInstanceContext`. It is a
 `crudkit_web::list::Selection`. Select-all reads only the currently loaded page. Whenever the loaded page changes,

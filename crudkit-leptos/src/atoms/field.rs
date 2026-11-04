@@ -6,12 +6,13 @@ use crate::atoms::value::CrudValue;
 use crate::hooks::field::{
     CrudFieldBinding, CrudFieldInputError, CrudFieldState, dom_id, use_crud_field_binding,
 };
-use crate::hooks::form::{CrudFormState, expect_crud_form};
+use crate::hooks::form::{CrudFormState, FieldTarget, expect_crud_form};
 use crate::hooks::inputs::{
     CrudInputKind, CrudNumber, CrudNumberKind, CrudTextCodec, UseCrudNumberInputReturn,
     UseCrudTextInputReturn, UseCrudToggleInputReturn, use_crud_number_input, use_crud_text_input,
     use_crud_toggle_input,
 };
+use crate::hooks::tabs::EnclosingTabs;
 use crate::hooks::texts::use_crud_texts;
 use crudkit_core::Value;
 use crudkit_web::field::{FieldMode, FieldOptions};
@@ -46,8 +47,10 @@ struct RegisteredRenderer(Option<ViewFn>);
 /// not have shows a visible configuration error instead: a
 /// `<div class="crudkit-UnknownField" role="alert">`.
 ///
-/// While mounted, the field shows the problems that the form's last save reported for it, so the
-/// form's [`CrudFormError`](crate::atoms::CrudFormError) leaves them out.
+/// The field's error shows the problems that the form's last save reported for it, and its
+/// conflicts with changes of someone else. While mounted, the field tells the form where it is
+/// rendered, so that the form's [`CrudFormError`](crate::atoms::CrudFormError) names it by its
+/// label and links to it.
 ///
 /// [`CrudCreateForm`]: crate::atoms::CrudCreateForm
 /// [`CrudEditForm`]: crate::atoms::CrudEditForm
@@ -68,18 +71,30 @@ pub fn CrudField<T: IntoDynField>(
 ) -> impl IntoView {
     let field = field.into_dyn();
     let form = use_form_of::<T::Dyn>(&field);
-    form.state.show_field(field.name().into_owned());
     let options = options.unwrap_or_else(|| {
         form.elements
             .with_untracked(|elements| configured_options(elements, &field))
             .unwrap_or_default()
     });
+    // One id for every render of the field, so that links to the field keep working.
+    let dom_id = dom_id();
+    form.state.register_field(
+        field.name().into_owned(),
+        FieldTarget {
+            dom_id: dom_id.clone(),
+            label: options.label.as_ref().map(|label| label.name.clone()),
+            tabs: use_context::<EnclosingTabs>()
+                .map(|EnclosingTabs(tabs)| tabs)
+                .unwrap_or_default(),
+        },
+    );
     let mode = mode.unwrap_or(form.mode);
     let renderer = form
         .renderers
         .with_value(|renderers| renderers.get(&field).cloned());
     let name = field.name().to_string();
-    let field_state = move || form_field_state(form.state, &field, options.clone(), mode);
+    let field_state =
+        move || form_field_state(&form.state, &field, options.clone(), mode, dom_id.clone());
     (move || {
         let Some(state) = field_state() else {
             // A form still loading its entity has no values yet.
@@ -165,14 +180,16 @@ fn configured_options<F: TypeErasedField>(elements: &[Elem<F>], field: &F) -> Op
     })
 }
 
-/// Returns the state of `field` in `form`, or `None` if the form has no value for it. Tracks the
-/// form's values, so a reloaded entity yields new state.
+/// Returns the state of `field` in `form`, whose input has the id `dom_id`, or `None` if the
+/// form has no value for it. Tracks the form's values, so another entity yields new state.
 fn form_field_state<F: TypeErasedField>(
-    form: CrudFormState<F>,
+    form: &CrudFormState<F>,
     field: &F,
     options: FieldOptions,
     mode: FieldMode,
+    dom_id: Id,
 ) -> Option<CrudFieldState<F>> {
+    let form = *form;
     let value = form.field(field)?;
     let target = field.clone();
     Some(CrudFieldState {
@@ -186,7 +203,7 @@ fn form_field_state<F: TypeErasedField>(
         }),
         error: form.field_error(field.clone()),
         is_saving: form.is_saving,
-        dom_id: dom_id(),
+        dom_id,
     })
 }
 
@@ -587,7 +604,8 @@ pub fn CrudFieldLabel(
 /// The error of the surrounding field: a Leptonic `FieldError` inside a field atom, e.g. a
 /// [`CrudTextField`], rendered only while the field is invalid.
 ///
-/// Default content: why the field's input could not be read.
+/// Default content: why the field's input could not be read, or else the problems that the
+/// form's last save reported for the field and its conflicts with changes of someone else.
 ///
 /// Default classes: `leptonic-FieldError crudkit-FieldError`.
 #[component]

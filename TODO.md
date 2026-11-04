@@ -80,9 +80,10 @@ Priorities are relative:
 - [ ] **P1 - Make batch-delete traversal deterministic.** Re-fetching the same unbounded condition without a cursor
   can let one entirely undeletable batch stop processing even when later matching rows could be deleted.
 - [ ] **P1 - Add an optimistic-concurrency contract to `crudkit-rs`.** Its updates have no revision, compare-and-swap
-  condition, or conflict response, so concurrent edits can overwrite one another. The frontend's data sources already
-  carry versions and refuse outdated requests ([Data Sources](design/data-sources.md#versions)); give the generated
-  routes and the REST data source versions too, in a new wire format version.
+  condition, or conflict response, so concurrent edits can overwrite one another. The frontend's data source contract
+  already carries versions, and forms handle APIs that refuse outdated requests
+  ([Data Sources](design/data-sources.md#versions)); give the generated routes versions too, so that they refuse
+  outdated requests, and let the REST data source send them, in a new wire format version.
 - [ ] **P2 - Replace the batch-size memory heuristic.** `size_of::<Model>() * 3` does not measure heap-owned data.
   Use a configurable row limit, storage-side batching, or a measured budget.
 
@@ -165,12 +166,9 @@ Priorities are relative:
   confirming a deletion whose trigger disappears, and leaving a view all drop focus to `<body>`. `CrudViewOutlet` could
   focus the new view (e.g. its first heading or the view's root, as routers do), and confirmation dialogs could return
   focus to a stable element when their trigger is gone.
-- [ ] **P2 - Let forms leave the failures they explain to `CrudFormError`.** A failed save notifies its failure, as the
-  form's `CrudSaveNotifications` select, also when `CrudFormError` explains it in the form, so screen readers announce
-  it twice. A choice that notifies successes only would let applications avoid that.
-- [ ] **P2 - Label the problems of fields that a form does not show.** `CrudFormError` names such a field by its name
-  in the model, because the form knows no label for a field it does not show. A label from the form's layout would read
-  better.
+- [ ] **P2 - Label and link the problems of fields that are not mounted.** `CrudFormError` names such a field by its
+  name in the model and cannot link to it, e.g. a field in a tab panel that is not force-mounted, because only mounted
+  fields tell the form their label, id, and tabs. The form's layout could supply them.
 - [ ] **P2 - Show save violations.** `CrudFormHandle::violations` carries the non-critical violations of the last save,
   but no atom shows them, and the example does not either.
 - [ ] **P2 - Format read-only values in inputs.** Disabled or read-only text inputs show their codec's edit format

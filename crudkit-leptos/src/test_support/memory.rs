@@ -4,7 +4,8 @@
 use crate::config::CrudInstanceConfig;
 use crate::prelude::*;
 use crate::test_support::items::{CreateItem, CrudItemResource, Item, ReadItem};
-use crudkit_web::data_source::async_trait;
+use crudkit_web::data_source::{apply_merge_patch, async_trait};
+use futures::channel::oneshot;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 /// How a [`MemorySource`] pages its lists.
@@ -57,6 +58,8 @@ pub(crate) struct MemorySource {
     items: Mutex<Vec<ReadItem>>,
     operations: Mutex<Vec<(MemoryOperation, CrudScope)>>,
     completion: Mutex<CrudCompletion>,
+    /// Holds the next update until the test releases it, see [`MemorySource::hold_next_update`].
+    held_update: Mutex<Option<oneshot::Receiver<()>>>,
 }
 
 impl MemorySource {
@@ -74,6 +77,7 @@ impl MemorySource {
             ),
             operations: Mutex::default(),
             completion: Mutex::new(CrudCompletion::Completed),
+            held_update: Mutex::default(),
         })
     }
 
@@ -86,15 +90,26 @@ impl MemorySource {
             .unwrap_or_else(PoisonError::into_inner) = CrudCompletion::Accepted;
     }
 
-    /// Changes the note of the item `id` as another user would, which raises its version.
-    pub(crate) fn change_elsewhere(&self, id: i64, note: &str) {
+    /// Changes the item `id` with `change`, as another user would, which raises its version.
+    pub(crate) fn change_elsewhere(&self, id: i64, change: impl FnOnce(&mut ReadItem)) {
         let mut items = self.items();
         let item = items
             .iter_mut()
             .find(|item| item.id == id)
             .expect("the item exists");
-        note.clone_into(&mut item.note);
+        change(item);
         item.version = Some(next_version(item.version.as_ref()));
+    }
+
+    /// Holds the next update in flight until the returned sender sends, or is dropped. The update
+    /// checks the version when it is released.
+    pub(crate) fn hold_next_update(&self) -> oneshot::Sender<()> {
+        let (release, held) = oneshot::channel();
+        *self
+            .held_update
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = Some(held);
+        release
     }
 
     /// Returns the item `id` as the source holds it.
@@ -222,29 +237,6 @@ fn taken_name() -> RequestError {
     }
 }
 
-/// Applies the JSON merge patch (RFC 7396) `patch` to `target`.
-fn apply_merge_patch(target: &mut serde_json::Value, patch: &serde_json::Value) {
-    let serde_json::Value::Object(patch) = patch else {
-        patch.clone_into(target);
-        return;
-    };
-    if !target.is_object() {
-        *target = serde_json::Value::Object(serde_json::Map::new());
-    }
-    if let serde_json::Value::Object(target) = target {
-        for (key, value) in patch {
-            if value.is_null() {
-                target.remove(key);
-            } else {
-                apply_merge_patch(
-                    target.entry(key.clone()).or_insert(serde_json::Value::Null),
-                    value,
-                );
-            }
-        }
-    }
-}
-
 /// The ID value of the item `id`.
 fn item_id(id: &SerializableId) -> Result<i64, RequestError> {
     match id.entries().next().map(|entry| &entry.value) {
@@ -327,6 +319,15 @@ impl CrudDataSource for MemorySource {
         request: CrudUpdateRequest,
     ) -> Result<CrudSaved, RequestError> {
         self.record(MemoryOperation::Update(request.clone()), scope);
+        let held = self
+            .held_update
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
+        if let Some(held) = held {
+            // A dropped sender releases the update too.
+            let _ = held.await;
+        }
         let id = item_id(&request.id)?;
         let patch = request
             .merge_patch()

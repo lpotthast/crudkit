@@ -16,6 +16,9 @@ pub struct Item {
     pub name: String,
     #[serde(default)]
     pub note: String,
+    /// An object, whose members two users may change independently.
+    #[serde(default)]
+    pub tags: serde_json::Value,
     /// Set by data sources with versions, e.g. the `MemorySource`. CrudKit's REST routes have none.
     #[ck_field(version)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -26,6 +29,8 @@ pub struct Item {
 #[ck_field(model = Create)]
 pub struct CreateItem {
     pub name: String,
+    #[serde(default)]
+    pub active: bool,
 }
 
 impl ErasedIdentifiable for CreateItem {
@@ -41,6 +46,8 @@ pub struct ReadItem {
     pub name: String,
     #[serde(default)]
     pub note: String,
+    #[serde(default)]
+    pub tags: serde_json::Value,
     #[ck_field(version)]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<CrudVersion>,
@@ -53,6 +60,7 @@ impl ReadItem {
             id,
             name: format!("item {id}"),
             note: String::new(),
+            tags: serde_json::Value::Null,
             version: None,
         }
     }
@@ -64,6 +72,7 @@ impl From<ReadItem> for Item {
             id: read.id,
             name: read.name,
             note: read.note,
+            tags: read.tags,
             version: read.version,
         }
     }

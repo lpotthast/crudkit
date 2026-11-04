@@ -461,18 +461,23 @@ mounted while another tab is shown, so input that cannot be read yet survives sw
 stays. A save button without a `follow_up` of its own is the form's submit button, so pressing Enter in a field saves
 the form the same way; its text follows its follow-up. The form's fields are read-only while it saves. While a form
 has unsaved changes, leaving its view asks for confirmation (see [Confirmations](#confirmations)), and a reload of its
-entity keeps those changes and applies them to the reloaded version. Saving notifies its outcome (see [Notifications](#notifications)), as the form's
-`notifications` prop selects; `on_saved` and `on_save_failed` let the view react itself.
+entity applies those changes to the reloaded version. Saving notifies its outcome (see
+[Notifications](#notifications)), as the form's `notifications` prop selects; `on_saved` and `on_save_failed` let the
+view react itself.
 
-A failed save keeps the draft. [`CrudFormError`](atoms::CrudFormError) explains the failure in the form, with a
-`data-kind` for each kind of failure:
+A failed save keeps the draft. [`CrudFormError`](atoms::CrudFormError) is the form's error summary: it explains the
+failure, with a `data-kind` for each kind, and lists every problem and every conflict of a field as a link that selects
+the field's tabs and focuses the field. While it is mounted, the form does not also notify failures, so that screen
+readers announce them once.
 
 - `outdated`: someone else changed the entity since the form loaded it, and the data source refused to overwrite that
   change. The atom offers a [`CrudReloadButton`](atoms::CrudReloadButton), which shows the current state of the entity
-  and applies the user's changes to it, so that saving again changes only what the user changed.
-- `invalid`: the data source refused the values of fields. Each field shows its problems, as it shows input it cannot
-  read, until the user changes it. The atom shows the refusal's message, and the problems of fields that the form
-  does not show.
+  and applies the user's changes to it, so that saving again changes only what the user changed. Members that both
+  changed, e.g. the same key of a JSON field, become conflicts: the form keeps the user's value, and the summary and the
+  field say what the other value is (`data-kind="conflict"` while no save failed).
+- `invalid`: the data source refused the values of fields. The summary lists their problems. Fields that show errors,
+  such as text fields with a [`CrudFieldError`](atoms::CrudFieldError), show their problems too, until the user changes
+  them, and a [`CrudFormTab`](atoms::CrudFormTab) is `data-invalid` while a field in its panel has problems.
 - `failed`: any other failure, e.g. a refusal by business rules.
 
 When a data source accepts a change without completing it, e.g. because its API applies changes in the background, the
@@ -705,17 +710,21 @@ after the other unless the data source overrides it, and stops at a failure that
 
 An API with optimistic concurrency gives every entity a version, e.g. in `ETag`. Keep it in a field of the read and
 update models marked `#[ck_field(version)]`, of type
-[`CrudVersion`](crudkit_web::data_source::CrudVersion) or `Option<CrudVersion>`; forms neither show nor change it.
+[`CrudVersion`](crudkit_web::data_source::CrudVersion) or `Option<CrudVersion>`, which deserializes from a string or a
+number; forms neither show nor change it. Copy the version in your `From<ReadModel> for UpdateModel`, because edit
+forms convert the read model, and an update model without the version names no version to `If-Match`.
 Updates and deletions name the version they are based on
 ([`CrudUpdateRequest::version`](crudkit_web::data_source::CrudUpdateRequest::version),
 [`CrudDeleteRequest::version`](crudkit_web::data_source::CrudDeleteRequest::version)), e.g. for `If-Match`, and a
 data source refuses a request based on another version with `RequestError::Outdated`.
 [`CrudUpdateRequest::merge_patch`](crudkit_web::data_source::CrudUpdateRequest::merge_patch) returns what the user
 changed as a JSON merge patch (RFC 7396). A data source refuses values of fields with `RequestError::InvalidFields`,
-whose [`CrudFieldProblem`](crudkit_web::data_source::CrudFieldProblem)s name the fields, e.g. converted from the JSON
-pointers of problem details (RFC 9457). It answers a change or deletion that the API accepted without completing it
-with [`CrudSaved::accepted`](crudkit_web::data_source::CrudSaved::accepted) or
-[`CrudDeleted::accepted`](crudkit_web::data_source::CrudDeleted::accepted), with the entity in its new state.
+whose [`CrudFieldProblem`](crudkit_web::data_source::CrudFieldProblem)s name the fields, e.g. built with
+[`CrudFieldProblem::at`](crudkit_web::data_source::CrudFieldProblem::at) from the JSON pointers of problem details
+(RFC 9457), which keeps the path below the field. It answers a change that the API accepted without completing it with
+[`CrudSaved::accepted`](crudkit_web::data_source::CrudSaved::accepted) and the entity in its new state, and such a
+deletion with [`CrudDeleted::accepted`](crudkit_web::data_source::CrudDeleted::accepted); lists show the entity's new
+state once they reload.
 
 # Views and navigation
 
@@ -909,7 +918,8 @@ Leptonic documents. A stylesheet typically covers:
 .crudkit-TextField[data-invalid] .leptonic-Input { border-color: #cf222e; }
 .crudkit-FieldError { color: #cf222e; }
 .crudkit-FormError[data-kind] { padding: 0.75rem; border: 1px solid #cf222e; }
-.crudkit-FormError[data-kind="outdated"] { border-color: #9a6700; }
+.crudkit-FormError:is([data-kind="outdated"], [data-kind="conflict"]) { border-color: #9a6700; }
+.crudkit-FormTab[data-invalid] { color: #cf222e; }
 
 /* Dialogs and buttons, through the classes of the Leptonic atoms they build on. */
 .crudkit-DeleteDialog { position: fixed; inset: 0; display: grid; place-items: center; background: #0006; }

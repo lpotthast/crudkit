@@ -1,6 +1,8 @@
 //! Tests of the markup atoms render: their elements, default classes, and data attributes.
 
 use crate::config::{CrudInstanceConfig, FieldRenderer, FieldRendererRegistry};
+use crate::hooks::form::FieldTarget;
+use crate::hooks::tabs::TabLocation;
 use crate::instance::{provide_crud_instance, provide_view_context};
 use crate::prelude::*;
 use crate::test_support::items::{
@@ -441,9 +443,9 @@ fn form_errors_are_empty_alerts_until_a_save_fails() {
     assert_that!(errors[0]).does_not_contain("data-kind");
 }
 
-/// Renders a `CrudFormError` in an edit form whose last save failed with `error`, and which does
-/// not show the fields of `unshown`.
-fn render_failed_save(error: RequestError, unshown: Vec<CrudFieldProblem>) -> String {
+/// Renders a `CrudFormError` in an edit form whose last save failed with `error`, if any, and
+/// whose fields have `conflicts`.
+fn render_failed_save(error: Option<RequestError>, conflicts: Vec<CrudFieldConflict>) -> String {
     render_in_instance(items_config(), move || {
         let form = CrudFormHandle {
             kind: CrudEntityViewKind::Update,
@@ -456,9 +458,12 @@ fn render_failed_save(error: RequestError, unshown: Vec<CrudFieldProblem>) -> St
             violations: Signal::stored(None),
             follow_up: CrudSaveFollowUp::Stay,
             draft: Signal::stored(None),
-            save_error: Signal::stored(Some(error)),
-            unshown_problems: Signal::stored(unshown),
+            save_error: Signal::stored(error),
+            problems: Signal::stored(Vec::new()),
+            conflicts: Signal::stored(conflicts),
             reload: Some(Callback::new(|()| {})),
+            field_targets: Signal::stored(std::collections::HashMap::new()),
+            error_summaries: StoredValue::new(0),
             field_type: std::any::TypeId::of::<DynUpdateField>(),
             submits: false,
         };
@@ -472,7 +477,10 @@ fn render_failed_save(error: RequestError, unshown: Vec<CrudFieldProblem>) -> St
 
 #[test]
 fn form_errors_offer_the_current_state_of_an_outdated_entity() {
-    let html = render_failed_save(RequestError::Outdated("changed".to_owned()), Vec::new());
+    let html = render_failed_save(
+        Some(RequestError::Outdated("changed".to_owned())),
+        Vec::new(),
+    );
 
     let errors = elements_with_class(&html, "crudkit-FormError");
     assert_that!(errors.len()).is_equal_to(1);
@@ -483,30 +491,156 @@ fn form_errors_offer_the_current_state_of_an_outdated_entity() {
     assert_that!(reload[0]).contains("leptonic-Button");
 }
 
-#[test]
-fn form_errors_list_the_problems_of_fields_that_the_form_does_not_show() {
-    let html = render_failed_save(
-        RequestError::InvalidFields {
+/// The tabs of the surrounding form's `CrudFormTabs` in the tests.
+fn general_and_more() -> Vec<CrudTab> {
+    vec![
+        CrudTab {
+            id: TabId::from("general"),
+            label: "General".to_owned(),
+        },
+        CrudTab {
+            id: TabId::from("more"),
+            label: "More".to_owned(),
+        },
+    ]
+}
+
+/// Makes the last save of the surrounding create form fail with problems of the fields `name`
+/// and `active`, and renders `name` in the tab `more`, as a field in that tab's panel would.
+#[component]
+fn FailedSave() -> impl IntoView {
+    let form = expect_context::<super::form::FormContext<DynCreateField>>();
+    form.state.register_field(
+        "name".to_owned(),
+        FieldTarget {
+            dom_id: leptonic::Id::from("name-input"),
+            label: Some("Name".to_owned()),
+            tabs: vec![TabLocation {
+                instance: use_crud_instance(),
+                group: general_and_more().into_iter().map(|tab| tab.id).collect(),
+                tab: TabId::from("more"),
+            }],
+        },
+    );
+    form.state
+        .record_save_error(Some(RequestError::InvalidFields {
             message: "The item is invalid.".to_owned(),
             problems: vec![
                 CrudFieldProblem::new("name", "Another item has this name."),
-                CrudFieldProblem::new("secret", "The secret is wrong."),
+                CrudFieldProblem::new("active", "Must be active."),
             ],
-        },
-        vec![CrudFieldProblem::new("secret", "The secret is wrong.")],
-    );
+        }));
+}
+
+#[test]
+fn error_summaries_list_every_problem_and_mark_the_tabs_of_their_fields() {
+    let html = render_in_create_form(items_config(), move || {
+        view! {
+            <FailedSave />
+            // A switch shows no error text of its own.
+            <CrudField field=CreateItemField::Active>
+                <CrudSwitch />
+            </CrudField>
+            <CrudFormTabs tabs=general_and_more()>
+                <TabList>
+                    <CrudFormTab id=TabId::from("general") />
+                    <CrudFormTab id=TabId::from("more") />
+                </TabList>
+                <CrudFormTabPanel id=TabId::from("general") should_force_mount=true>
+                    "Nothing to fix"
+                </CrudFormTabPanel>
+                <CrudFormTabPanel id=TabId::from("more") should_force_mount=true>
+                    "The name"
+                </CrudFormTabPanel>
+            </CrudFormTabs>
+            <CrudFormError />
+        }
+    });
 
     assert_that!(elements_with_class(&html, "crudkit-FormError")[0])
         .contains("data-kind=\"invalid\"");
     assert_that!(html.as_str()).contains("The item is invalid.");
-    assert_that!(html.as_str()).contains("<li>secret: The secret is wrong.</li>");
-    // The field shows its problem itself.
-    assert_that!(html.as_str()).does_not_contain("Another item has this name.");
+    // Every problem links to its field, by the field's label or else its name.
+    let links = html
+        .split("<a ")
+        .skip(1)
+        .map(|link| link.split("</a>").next().unwrap_or_default())
+        .collect::<Vec<_>>();
+    assert_that!(links.len()).is_equal_to(2);
+    assert_that!(links[0]).is_equal_to("href=\"#name-input\">Name: Another item has this name.");
+    assert_that!(links[1]).starts_with("href=\"#crudkit-field-");
+    assert_that!(links[1]).ends_with(">active: Must be active.");
+    let tabs = elements_with_class(&html, "crudkit-FormTab");
+    assert_that!(tabs.len()).is_equal_to(2);
+    assert_that!(tabs[0]).does_not_contain("data-invalid");
+    assert_that!(tabs[1]).contains("data-invalid");
+}
+
+/// The tabs that the field `name` of the surrounding create form is rendered in, as text.
+#[component]
+fn TabsOfName() -> impl IntoView {
+    let form = expect_context::<super::form::FormContext<DynCreateField>>();
+    form.state
+        .field_targets()
+        .get_untracked()
+        .get("name")
+        .map(|target| {
+            target
+                .tabs
+                .iter()
+                .map(|location| location.tab.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        })
+        .unwrap_or_default()
+}
+
+#[test]
+fn fields_in_tab_panels_know_their_tabs() {
+    let html = render_in_create_form(items_config(), move || {
+        view! {
+            <CrudFormTabs tabs=general_and_more()>
+                <CrudFormTabPanel id=TabId::from("more") should_force_mount=true>
+                    <CrudField field=CreateItemField::Name>
+                        <span class="app-tabs">
+                            <TabsOfName />
+                        </span>
+                    </CrudField>
+                </CrudFormTabPanel>
+            </CrudFormTabs>
+        }
+    });
+
+    assert_that!(html.as_str()).contains("<span class=\"app-tabs\">more</span>");
+}
+
+#[test]
+fn error_summaries_explain_conflicts_found_by_a_reload() {
+    let html = render_failed_save(
+        None,
+        vec![CrudFieldConflict {
+            field: "tags".to_owned(),
+            pointer: "/tags/team".to_owned(),
+            theirs: Some(serde_json::json!("blue")),
+        }],
+    );
+
+    let texts = CrudUiTexts::default();
+    assert_that!(elements_with_class(&html, "crudkit-FormError")[0])
+        .contains("data-kind=\"conflict\"");
+    assert_that!(html.as_str()).contains(texts.conflicts.as_ref());
+    assert_that!(html.as_str()).contains(format!(
+        "<li>tags/team: {}</li>",
+        (texts.changed_meanwhile)("blue").replace('"', "&quot;")
+    ));
 }
 
 #[test]
 fn form_errors_explain_other_failures() {
-    let html = render_failed_save(RequestError::Forbidden("not yours".to_owned()), Vec::new());
+    let html = render_failed_save(
+        Some(RequestError::Forbidden("not yours".to_owned())),
+        Vec::new(),
+    );
 
     assert_that!(elements_with_class(&html, "crudkit-FormError")[0])
         .contains("data-kind=\"failed\"");
