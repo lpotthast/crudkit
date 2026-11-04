@@ -100,8 +100,12 @@ merge patch cannot set a member to `null`, so a member that is `null` counts as 
 The baseline is the entity as the data source last returned it. After a reload of an entity with unsaved changes, the
 form applies the user's changes to the reloaded version with these operations, so the merge patch names only what the
 user changed, not the changes of others since; see
-[Instances and Composition](instances-and-composition.md#list-state-ownership). The JSON of a model names each field by
-its field name, so a model whose serialization renames fields cannot tell its fields' members apart.
+[Instances and Composition](instances-and-composition.md#list-state-ownership).
+
+Forms work on the JSON of update models, so an update model must come back unchanged from a serde round trip: its
+serde names are its field names, and no field is skipped. A renamed field's problems and conflicts would miss the
+field, whose name they carry, and a reload with unsaved changes would reset a skipped field to its default, or find no
+valid model and keep the form outdated.
 
 ## Accepted Changes
 

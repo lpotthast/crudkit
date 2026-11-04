@@ -16,8 +16,8 @@ pub struct Item {
     pub name: String,
     #[serde(default)]
     pub note: String,
-    /// An object, whose members two users may change independently.
-    #[serde(default)]
+    /// An object, whose members two users may change independently. Required, so that a merge
+    /// patch that removes it yields no item.
     pub tags: serde_json::Value,
     /// Set by data sources with versions, e.g. the `MemorySource`. CrudKit's REST routes have none.
     #[ck_field(version)]
@@ -109,7 +109,7 @@ fn respond(
     let saved = |name: &serde_json::Value| {
         serde_json::json!({
             "wire_format_version": 1,
-            "entity": { "id": 99, "name": name },
+            "entity": { "id": 99, "name": name, "tags": null },
             "violations": { "general": null, "create": null, "by_entity": [] },
         })
     };
@@ -137,6 +137,7 @@ fn respond(
             "entity": {
                 "id": body["entity"]["id"],
                 "name": body["entity"]["name"].as_str().map(str::trim),
+                "tags": body["entity"]["tags"],
             },
             "violations": { "general": null, "create": null, "by_entity": [] },
         }),

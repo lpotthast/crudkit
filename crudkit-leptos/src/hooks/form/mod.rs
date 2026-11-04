@@ -109,12 +109,18 @@ pub struct CrudFormHandle {
     pub problems: Signal<Vec<CrudFieldProblem>>,
     /// The members that someone else changed too, see [`CrudFormState::conflicts`].
     pub conflicts: Signal<Vec<CrudFieldConflict>>,
+    /// Whether the last reload could not apply the user's changes, see
+    /// [`CrudFormState::rebase_failed`].
+    pub rebase_failed: Signal<bool>,
+    /// Grows whenever the form asks for the user's attention, see [`CrudFormState::alerts`].
+    pub alerts: Signal<u64>,
     /// Reloads the form's entity to show its current state, e.g. after a save was refused as
     /// [outdated](RequestError::Outdated). A form with unsaved changes keeps them. `None` in create
     /// forms.
     pub reload: Option<Callback<()>>,
-    /// Where the form's fields are rendered, by the names of the fields.
-    pub(crate) field_targets: Signal<HashMap<String, FieldTarget>>,
+    /// Where the form's fields are rendered, by the names of the fields, once for every mounted
+    /// field atom.
+    pub(crate) field_targets: Signal<HashMap<String, Vec<FieldTarget>>>,
     /// The number of mounted error summaries of the form.
     pub(crate) error_summaries: StoredValue<usize>,
     /// The `TypeId` of the form's field type, e.g. `DynCreateField`.
@@ -664,10 +670,7 @@ pub fn use_crud_edit_form(input: UseCrudEditFormInput) -> UseCrudEditFormReturn 
             ctx.deletion.for_navigation(navigation).request(entity);
         }
     });
-    let reload = Callback::new(move |()| {
-        form.clear_outdated();
-        ctx.reload();
-    });
+    let reload = Callback::new(move |()| ctx.reload());
 
     UseCrudEditFormReturn {
         entity,

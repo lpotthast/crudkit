@@ -467,14 +467,20 @@ view react itself.
 
 A failed save keeps the draft. [`CrudFormError`](atoms::CrudFormError) is the form's error summary: it explains the
 failure, with a `data-kind` for each kind, and lists every problem and every conflict of a field as a link that selects
-the field's tabs and focuses the field. While it is mounted, the form does not also notify failures, so that screen
-readers announce them once.
+the field's tabs and focuses the field. A mounted summary takes over the feedback about failures: it takes the focus
+after every failed save, also one that fails like the one before, which scrolls it into view and makes screen readers
+read it, and the form no longer notifies failures, so that they are announced once. A form without a summary notifies
+failures as before.
 
 - `outdated`: someone else changed the entity since the form loaded it, and the data source refused to overwrite that
   change. The atom offers a [`CrudReloadButton`](atoms::CrudReloadButton), which shows the current state of the entity
   and applies the user's changes to it, so that saving again changes only what the user changed. Members that both
   changed, e.g. the same key of a JSON field, become conflicts: the form keeps the user's value, and the summary and the
-  field say what the other value is (`data-kind="conflict"` while no save failed).
+  field say what the other value is (`data-kind="conflict"` while no save failed), until the user changes the field
+  or the other value meets the user's. A field whose input could not be read shows the other value too. When the
+  user's changes cannot be applied to the current version, e.g. because the result is no valid model, the form keeps
+  its draft and the version it is based on, so that saving is refused again instead of replacing the other change,
+  and the summary says so ([`CrudUiTexts::rebase_failed`](config::CrudUiTexts::rebase_failed)).
 - `invalid`: the data source refused the values of fields. The summary lists their problems. Fields that show errors,
   such as text fields with a [`CrudFieldError`](atoms::CrudFieldError), show their problems too, until the user changes
   them, and a [`CrudFormTab`](atoms::CrudFormTab) is `data-invalid` while a field in its panel has problems.
@@ -713,6 +719,12 @@ update models marked `#[ck_field(version)]`, of type
 [`CrudVersion`](crudkit_web::data_source::CrudVersion) or `Option<CrudVersion>`, which deserializes from a string or a
 number; forms neither show nor change it. Copy the version in your `From<ReadModel> for UpdateModel`, because edit
 forms convert the read model, and an update model without the version names no version to `If-Match`.
+
+Forms compute merge patches and apply the user's changes to reloaded versions through the update model's JSON, so an
+update model must come back unchanged from a serde round trip: its serde names are its field names (no `rename`), and
+no field is skipped (no `skip`, and no `skip_serializing_if` without a matching `default`). Otherwise a renamed field's
+problems and conflicts miss the field, and a reload with unsaved changes resets a skipped field, or finds no valid model
+and keeps the form outdated.
 Updates and deletions name the version they are based on
 ([`CrudUpdateRequest::version`](crudkit_web::data_source::CrudUpdateRequest::version),
 [`CrudDeleteRequest::version`](crudkit_web::data_source::CrudDeleteRequest::version)), e.g. for `If-Match`, and a

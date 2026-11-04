@@ -438,14 +438,21 @@ fn form_errors_are_empty_alerts_until_a_save_fails() {
     let errors = elements_with_class(&html, "crudkit-FormError");
     assert_that!(errors.len()).is_equal_to(1);
     assert_that!(errors[0]).starts_with("div");
-    assert_that!(errors[0]).contains("role=\"alert\"");
+    // The summary takes the focus on failures, which makes screen readers read it.
+    assert_that!(errors[0]).contains("tabindex=\"-1\"");
+    assert_that!(errors[0]).does_not_contain("role=");
     assert_that!(errors[0]).contains("app-error");
     assert_that!(errors[0]).does_not_contain("data-kind");
 }
 
-/// Renders a `CrudFormError` in an edit form whose last save failed with `error`, if any, and
-/// whose fields have `conflicts`.
-fn render_failed_save(error: Option<RequestError>, conflicts: Vec<CrudFieldConflict>) -> String {
+/// Renders a `CrudFormError` in an edit form whose last save failed with `error`, if any, whose
+/// fields have `conflicts`, and whose last reload could not apply the user's changes if
+/// `rebase_failed`.
+fn render_failed_save(
+    error: Option<RequestError>,
+    conflicts: Vec<CrudFieldConflict>,
+    rebase_failed: bool,
+) -> String {
     render_in_instance(items_config(), move || {
         let form = CrudFormHandle {
             kind: CrudEntityViewKind::Update,
@@ -461,6 +468,8 @@ fn render_failed_save(error: Option<RequestError>, conflicts: Vec<CrudFieldConfl
             save_error: Signal::stored(error),
             problems: Signal::stored(Vec::new()),
             conflicts: Signal::stored(conflicts),
+            rebase_failed: Signal::stored(rebase_failed),
+            alerts: Signal::stored(1),
             reload: Some(Callback::new(|()| {})),
             field_targets: Signal::stored(std::collections::HashMap::new()),
             error_summaries: StoredValue::new(0),
@@ -480,6 +489,7 @@ fn form_errors_offer_the_current_state_of_an_outdated_entity() {
     let html = render_failed_save(
         Some(RequestError::Outdated("changed".to_owned())),
         Vec::new(),
+        false,
     );
 
     let errors = elements_with_class(&html, "crudkit-FormError");
@@ -489,6 +499,21 @@ fn form_errors_offer_the_current_state_of_an_outdated_entity() {
     let reload = elements_with_class(&html, "crudkit-ReloadButton");
     assert_that!(reload.len()).is_equal_to(1);
     assert_that!(reload[0]).contains("leptonic-Button");
+}
+
+#[test]
+fn form_errors_explain_changes_that_cannot_apply_to_the_current_version() {
+    let html = render_failed_save(
+        Some(RequestError::Outdated("changed".to_owned())),
+        Vec::new(),
+        true,
+    );
+
+    let texts = CrudUiTexts::default();
+    assert_that!(elements_with_class(&html, "crudkit-FormError")[0])
+        .contains("data-kind=\"outdated\"");
+    assert_that!(html.as_str()).contains(texts.rebase_failed.as_ref());
+    assert_that!(html.as_str()).does_not_contain(texts.outdated.as_ref());
 }
 
 /// The tabs of the surrounding form's `CrudFormTabs` in the tests.
@@ -584,6 +609,7 @@ fn TabsOfName() -> impl IntoView {
         .field_targets()
         .get_untracked()
         .get("name")
+        .and_then(|mounted| mounted.first().cloned())
         .map(|target| {
             target
                 .tabs
@@ -623,6 +649,7 @@ fn error_summaries_explain_conflicts_found_by_a_reload() {
             pointer: "/tags/team".to_owned(),
             theirs: Some(serde_json::json!("blue")),
         }],
+        false,
     );
 
     let texts = CrudUiTexts::default();
@@ -640,6 +667,7 @@ fn form_errors_explain_other_failures() {
     let html = render_failed_save(
         Some(RequestError::Forbidden("not yours".to_owned())),
         Vec::new(),
+        false,
     );
 
     assert_that!(elements_with_class(&html, "crudkit-FormError")[0])

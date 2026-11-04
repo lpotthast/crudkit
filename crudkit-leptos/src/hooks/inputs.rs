@@ -231,13 +231,15 @@ pub fn use_crud_text_input(codec: CrudTextCodec) -> UseCrudTextInputReturn {
     let CrudTextCodec { format, parse } = codec;
 
     // Show external changes, e.g. a reloaded entity, but keep text the user is still typing: text
-    // that parses to the current value, or that does not parse yet, stays untouched.
+    // that parses to the current value, or that does not parse yet, stays untouched. Empty text
+    // is the absent value of an optional field, and is read like other text in a required one,
+    // so that an emptied required field keeps showing what makes it invalid.
     let text = RwSignal::new(format(&value.get_untracked()));
     let effect_parse = parse.clone();
     Effect::new(move |_| {
         let formatted = format(&value.get());
         let shown = text.get_untracked();
-        let shown_formatted = if shown.trim().is_empty() {
+        let shown_formatted = if shown.trim().is_empty() && is_optional {
             Some(String::new())
         } else {
             effect_parse(&shown).ok().map(|parsed| format(&parsed))

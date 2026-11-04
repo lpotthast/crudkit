@@ -1665,13 +1665,31 @@ fn unreadable_input_takes_the_reloaded_value_and_keeps_its_error() {
             move || edit.form.errors.get_untracked().get(&note).cloned()
         };
 
-        // A form whose only input cannot be read keeps that input's error over a reload.
-        edit.form.set_field(note, Err("unreadable".to_owned()));
+        let other_note = move || {
+            edit.form
+                .conflicts
+                .get_untracked()
+                .into_iter()
+                .map(|conflict| (conflict.pointer, conflict.theirs))
+                .collect::<Vec<_>>()
+        };
+
+        // A form whose only input cannot be read keeps that input's error over a reload, and
+        // shows the other value next to it, so that the user sees it before typing again.
+        edit.form
+            .set_field(note.clone(), Err("unreadable".to_owned()));
         source.change_elsewhere(1, |item| "theirs".clone_into(&mut item.note));
         ctx.reload();
         settle();
         assert_that!(input_error()).is_equal_to(Some("unreadable".to_owned()));
         assert_that!(text_of(&edit.form, ItemField::Note)).is_equal_to(Some("theirs".to_owned()));
+        assert_that!(other_note()).is_equal_to(vec![(
+            "/note".to_owned(),
+            Some(serde_json::json!("theirs")),
+        )]);
+        let changed = (CrudUiTexts::default().changed_meanwhile)("theirs");
+        assert_that!(edit.form.field_error(note).get_untracked())
+            .is_equal_to(Some(format!("unreadable {changed}")));
 
         // Next to a change, too.
         enter(
@@ -1685,7 +1703,8 @@ fn unreadable_input_takes_the_reloaded_value_and_keeps_its_error() {
         assert_that!(input_error()).is_equal_to(Some("unreadable".to_owned()));
         assert_that!(text_of(&edit.form, ItemField::Note)).is_equal_to(Some("again".to_owned()));
         assert_that!(text_of(&edit.form, ItemField::Name)).is_equal_to(Some("mine".to_owned()));
-        assert_that!(edit.form.conflicts.get_untracked()).is_empty();
+        assert_that!(other_note())
+            .is_equal_to(vec![("/note".to_owned(), Some(serde_json::json!("again")))]);
     });
 }
 
@@ -1836,5 +1855,191 @@ fn switching_the_edited_entity_loads_its_values() {
             Value::String("typed".to_owned()),
         );
         assert_that!(text_of(&edit.form, ItemField::Name)).is_equal_to(Some("typed".to_owned()));
+    });
+}
+
+#[test]
+fn changes_that_cannot_apply_to_the_current_version_keep_the_form_outdated() {
+    let source = MemorySource::with_items(1, MemoryPaging::Offset);
+    source.change_elsewhere(1, |item| item.tags = serde_json::json!({ "a": "1" }));
+    with_config(source.config(), |_ctx| {
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
+        settle();
+        // A merge patch removes a member set to `null`, but items require their tags.
+        enter(
+            &edit.form,
+            ItemField::Tags,
+            Value::Json(serde_json::Value::Null),
+        );
+        source.change_elsewhere(1, |item| "theirs".clone_into(&mut item.note));
+        edit.save.run(CrudSaveFollowUp::Stay);
+        settle();
+        let alerts = edit.form.alerts.get_untracked();
+
+        edit.reload.run(());
+        settle();
+        assert_that!(edit.form.rebase_failed.get_untracked()).is_true();
+        assert_that!(matches!(
+            edit.form.save_error.get_untracked(),
+            Some(RequestError::Outdated(_))
+        ))
+        .is_true();
+        assert_that!(edit.form.alerts.get_untracked()).is_equal_to(alerts + 1);
+        // The draft and the version it is based on stay.
+        assert_that!(json_of(&edit.form, ItemField::Tags))
+            .is_equal_to(Some(serde_json::Value::Null));
+        assert_that!(text_of(&edit.form, ItemField::Note)).is_equal_to(Some(String::new()));
+
+        // Saving is refused again instead of replacing the other change.
+        edit.save.run(CrudSaveFollowUp::Stay);
+        settle();
+        assert_that!(matches!(
+            edit.form.save_error.get_untracked(),
+            Some(RequestError::Outdated(_))
+        ))
+        .is_true();
+    });
+
+    let stored = source.item(1).expect("the item");
+    assert_that!((stored.tags, stored.note))
+        .is_equal_to((serde_json::json!({ "a": "1" }), "theirs".to_owned()));
+    let versions = update_requests(&source)
+        .iter()
+        .map(|request| request.version().cloned())
+        .collect::<Vec<_>>();
+    assert_that!(versions).is_equal_to(vec![Some(CrudVersion::new("2")); 2]);
+}
+
+#[test]
+fn every_failed_save_asks_for_attention_also_one_like_the_last() {
+    let source = MemorySource::with_items(1, MemoryPaging::Offset);
+    with_config(source.config(), |_ctx| {
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
+        settle();
+        enter(
+            &edit.form,
+            ItemField::Name,
+            Value::String(TAKEN_NAME.to_owned()),
+        );
+        let mut alerts = vec![edit.form.alerts.get_untracked()];
+        for _ in 0..2 {
+            edit.save.run(CrudSaveFollowUp::Stay);
+            settle();
+            alerts.push(edit.form.alerts.get_untracked());
+        }
+        // Error summaries take the focus whenever the count grows.
+        assert_that!(alerts).is_equal_to(vec![0, 1, 2]);
+    });
+}
+
+#[test]
+fn conflicts_follow_the_other_change_and_end_when_it_meets_the_users() {
+    let source = MemorySource::with_items(1, MemoryPaging::Offset);
+    with_config(source.config(), |ctx| {
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
+        settle();
+        enter(
+            &edit.form,
+            ItemField::Name,
+            Value::String("mine".to_owned()),
+        );
+        let conflicts = move || {
+            edit.form
+                .conflicts
+                .get_untracked()
+                .into_iter()
+                .map(|conflict| (conflict.pointer, conflict.theirs))
+                .collect::<Vec<_>>()
+        };
+        let alerts = edit.form.alerts.get_untracked();
+
+        for other in ["theirs", "third"] {
+            source.change_elsewhere(1, |item| other.clone_into(&mut item.name));
+            ctx.reload();
+            settle();
+            assert_that!(conflicts())
+                .is_equal_to(vec![("/name".to_owned(), Some(serde_json::json!(other)))]);
+        }
+        // Only the new conflict asked for attention, not the one that changed its value.
+        assert_that!(edit.form.alerts.get_untracked()).is_equal_to(alerts + 1);
+
+        source.change_elsewhere(1, |item| "mine".clone_into(&mut item.name));
+        ctx.reload();
+        settle();
+        assert_that!(conflicts()).is_empty();
+        assert_that!(text_of(&edit.form, ItemField::Name)).is_equal_to(Some("mine".to_owned()));
+    });
+}
+
+#[test]
+fn fields_shown_twice_stay_registered_while_one_is_mounted() {
+    let source = MemorySource::with_items(1, MemoryPaging::Offset);
+    with_config(source.config(), |_ctx| {
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
+        let target = |dom_id: &str| crate::hooks::form::FieldTarget {
+            dom_id: leptonic::Id::from(dom_id.to_owned()),
+            label: None,
+            tabs: Vec::new(),
+        };
+        let mounted = move || {
+            edit.form
+                .field_targets()
+                .get_untracked()
+                .get("name")
+                .map(|targets| {
+                    targets
+                        .iter()
+                        .map(|target| target.dom_id.as_str().to_owned())
+                        .collect::<Vec<_>>()
+                })
+        };
+        let first = Owner::new();
+        first.with(|| edit.form.register_field("name".to_owned(), target("first")));
+        let second = Owner::new();
+        second.with(|| {
+            edit.form
+                .register_field("name".to_owned(), target("second"));
+        });
+        assert_that!(mounted()).is_equal_to(Some(vec!["first".to_owned(), "second".to_owned()]));
+
+        drop(first);
+        assert_that!(mounted()).is_equal_to(Some(vec!["second".to_owned()]));
+        drop(second);
+        assert_that!(mounted()).is_none();
+    });
+}
+
+#[test]
+fn emptied_required_text_stays_while_the_value_changes() {
+    with_crud_manager(|| {
+        let (before, after) = (uuid::Uuid::from_u128(1), uuid::Uuid::from_u128(2));
+        let value = ReactiveField::new(Value::Uuid(before));
+        let reported = Arc::new(Mutex::new(Vec::new()));
+        let sink = reported.clone();
+        provide_context(CrudFieldBinding {
+            name: "owner".to_owned(),
+            value_kind: crudkit_core::ValueKind::Uuid,
+            is_optional: false,
+            value,
+            mode: FieldMode::Editable,
+            options: FieldOptions::default(),
+            set: Callback::new(move |result: Result<Value, CrudFieldInputError>| {
+                sink.lock().expect("lock").push(result.is_ok());
+            }),
+            error: Signal::stored(None),
+            is_saving: Signal::stored(false),
+            dom_id: leptonic::Id::from("owner"),
+            has_renderer: false,
+        });
+        let input = use_crud_text_input(CrudTextCodec::uuid());
+        settle();
+
+        input.set_value.run(String::new());
+        // E.g. a reload brings another value, while the field cannot read its input.
+        value.set(Value::Uuid(after));
+        settle();
+
+        assert_that!(reported.lock().expect("lock").clone()).is_equal_to(vec![false]);
+        assert_that!(input.value.get_untracked()).is_equal_to(String::new());
     });
 }

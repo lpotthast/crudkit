@@ -108,6 +108,9 @@ pub struct CrudUiTexts {
     pub outdated: Text,
     /// Reloads the entity of a form, to show its current state while keeping the input.
     pub show_current: Text,
+    /// Explains that the user's changes cannot be applied to the current version of the entity,
+    /// which someone else changed, so that saving them is refused.
+    pub rebase_failed: Text,
     /// Explains that someone else changed fields that the user changed too, which a reload of the
     /// form's entity found.
     pub conflicts: Text,
@@ -162,6 +165,8 @@ impl Default for CrudUiTexts {
 impl CrudUiTexts {
     /// German texts.
     #[must_use]
+    // One line or a few per text, so the function grows with the texts.
+    #[allow(clippy::too_many_lines)]
     pub fn german() -> Self {
         let entries = |count: u64| if count == 1 { "Eintrag" } else { "Einträge" };
         Self {
@@ -226,6 +231,10 @@ impl CrudUiTexts {
                        aktuellen Stand zeigen und speichere erneut. Deine Eingaben bleiben erhalten."
                 .into(),
             show_current: "Aktuellen Stand zeigen".into(),
+            rebase_failed: "Deine Änderungen lassen sich nicht auf den aktuellen Stand dieses \
+                            Eintrags anwenden, den jemand anderes geändert hat. Verlasse den \
+                            Eintrag, um deine Änderungen zu verwerfen, und öffne ihn erneut."
+                .into(),
             conflicts: "Jemand anderes hat inzwischen auch Felder geändert, die du geändert hast. \
                         Prüfe sie und speichere erneut."
                 .into(),
@@ -322,6 +331,10 @@ impl CrudUiTexts {
                        then save again. Your input is kept."
                 .into(),
             show_current: "Show current state".into(),
+            rebase_failed: "Your changes cannot be applied to the current version of this entry, \
+                            which someone else changed. Leave the entry to discard your changes, \
+                            then open it again."
+                .into(),
             conflicts: "Someone else also changed fields that you changed. Check them, then save \
                         again."
                 .into(),

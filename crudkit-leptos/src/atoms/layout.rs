@@ -361,9 +361,11 @@ pub fn CrudFormTab(
         };
         let targets = form.field_targets.read();
         let in_tab = |field: &str| {
-            targets
-                .get(field)
-                .is_some_and(|target| target.tabs.iter().any(|location| location.is(&group, &id)))
+            targets.get(field).is_some_and(|mounted| {
+                mounted
+                    .iter()
+                    .any(|target| target.tabs.iter().any(|location| location.is(&group, &id)))
+            })
         };
         form.problems
             .read()

@@ -125,9 +125,19 @@ reloaded version, which becomes the draft's baseline. The rebase is a three-way 
   members, and what the model holds besides its fields, such as its [version](data-sources.md#versions), is the
   reloaded one;
 - a member that the user changed and someone else changed to another value is a conflict (`CrudFieldConflict`): the
-  draft keeps the user's value, and the field and the error summary say what the other value is, until the user
-  changes the field or saves;
-- a field holding input that could not be read takes the reloaded value and keeps its input error.
+  draft keeps the user's value, and the field and the error summary say what the other value is. When the other side
+  replaced or removed an object that encloses the user's change, the conflict is that object. A conflict stays while
+  the draft differs from the latest reloaded version at its member, with that version's value, until the user changes
+  the field or saves. A conflict that a reload newly finds asks for the user's attention, so that a reload repeated
+  in the background does not move the focus every time;
+- a field holding input that could not be read takes the reloaded value and keeps its input error. When someone else
+  changed the field, it becomes a conflict too, so that the user sees the other value before typing again.
+
+When the result is no valid model, e.g. because the patch removed a member that the model requires, the form keeps its
+draft and the old baseline instead. So saving is refused as outdated again, rather than replacing the other change
+with a draft based on the reloaded version. The form stays outdated, and `CrudFormState::rebase_failed` tells the
+error summary to explain that the changes cannot be applied to the current version. Update models must therefore
+survive a serde round trip unchanged ([Data Sources](data-sources.md#changes)).
 
 So the form shows the current state of the entity, and saving changes only what the user changed. The form recognizes
 its entity by the baseline's ID, because the user may have changed ID fields in the draft. Other forms and clean drafts

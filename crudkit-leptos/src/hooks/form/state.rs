@@ -10,7 +10,7 @@ use crudkit_web::data_source::{
     CrudFieldProblem, apply_merge_patch, merge_patch, merge_patch_conflicts,
 };
 use crudkit_web::http::RequestError;
-use crudkit_web::json_pointer::split_first_token;
+use crudkit_web::json_pointer::{escape_token, split_first_token};
 use crudkit_web::model_handler::ModelHandler;
 use crudkit_web::prelude::*;
 use leptonic::Id;
@@ -67,6 +67,10 @@ struct SaveFailure {
     error: Option<RequestError>,
     problems: Vec<CrudFieldProblem>,
     conflicts: Vec<CrudFieldConflict>,
+    /// Whether the last reload could not apply the user's changes to the reloaded version.
+    rebase_failed: bool,
+    /// The number of times the form asked for attention, which only grows.
+    alerts: u64,
 }
 
 /// Draft state of a form editing one entity, with one [`ReactiveField`] per field.
@@ -82,15 +86,25 @@ pub struct CrudFormState<F: TypeErasedField> {
     pub errors: Signal<HashMap<F, String>>,
     /// Why the last save failed, while it applies. A successful save and loading another entity
     /// clear it, and so does reloading the entity after a save was refused as
-    /// [outdated](RequestError::Outdated).
+    /// [outdated](RequestError::Outdated), unless the reload cannot apply the user's changes, see
+    /// [`Self::rebase_failed`].
     pub save_error: Signal<Option<RequestError>>,
     /// The problems of fields that the last save reported ([`RequestError::InvalidFields`]),
     /// without those of fields the user changed since. They do not keep the form from saving.
     pub problems: Signal<Vec<CrudFieldProblem>>,
     /// The members that someone else changed too, found when reloads applied the user's unsaved
-    /// changes to the reloaded versions, without those of fields the user changed since. A
-    /// successful save and loading another entity clear them.
+    /// changes to the reloaded versions, without those of fields the user changed since and those
+    /// that the draft no longer changes. A successful save and loading another entity clear them.
     pub conflicts: Signal<Vec<CrudFieldConflict>>,
+    /// Whether the last reload could not apply the user's unsaved changes to the reloaded
+    /// version, e.g. because the result is no valid model. The form then keeps its draft and the
+    /// version it is based on, so that saving is refused as outdated again instead of replacing
+    /// the other change, and the [save error](Self::save_error) stays outdated.
+    pub rebase_failed: Signal<bool>,
+    /// Counts the times the form asked for the user's attention: every failed save, also one that
+    /// fails like the one before, and every reload that found conflicts or could not apply the
+    /// user's changes. It only grows. Error summaries take the focus whenever it grows.
+    pub alerts: Signal<u64>,
     /// Whether the draft differs from the loaded or default entity.
     pub is_dirty: Signal<bool>,
     /// Whether the form holds an entity. Field values exist only while this is `true`.
@@ -108,8 +122,9 @@ pub struct CrudFormState<F: TypeErasedField> {
     input_errors: RwSignal<HashMap<F, String>>,
     failure: RwSignal<SaveFailure>,
     owners: StoredValue<FieldOwners>,
-    /// Where the fields of the form are rendered, by the names of the fields.
-    targets: RwSignal<HashMap<String, FieldTarget>>,
+    /// Where the fields of the form are rendered, by the names of the fields, once for every
+    /// mounted field atom.
+    targets: RwSignal<HashMap<String, Vec<FieldTarget>>>,
     /// The number of mounted error summaries that show why the form's saves failed.
     error_summaries: StoredValue<usize>,
 }
@@ -147,6 +162,8 @@ impl<F: TypeErasedField> CrudFormState<F> {
             save_error: Memo::new(move |_| failure.read().error.clone()).into(),
             problems: Memo::new(move |_| failure.read().problems.clone()).into(),
             conflicts: Memo::new(move |_| failure.read().conflicts.clone()).into(),
+            rebase_failed: Memo::new(move |_| failure.read().rebase_failed).into(),
+            alerts: Memo::new(move |_| failure.read().alerts).into(),
             is_dirty: Memo::new(move |_| match (&*draft.read(), &*baseline.read()) {
                 (Some(draft), Some(baseline)) => draft != baseline,
                 _ => false,
@@ -182,22 +199,26 @@ impl<F: TypeErasedField> CrudFormState<F> {
             .with_value(|fields| fields.get(field).copied())
     }
 
-    /// Returns why `field` is invalid, if it is: its input error, or else the problems that the
-    /// last save reported for it and its conflicts with changes of someone else.
+    /// Returns why `field` is invalid, if it is: its input error, the problems that the last save
+    /// reported for it, and its conflicts with changes of someone else, in this order.
     pub fn field_error(&self, field: F) -> Signal<Option<String>> {
         let (errors, problems, conflicts) = (self.errors, self.problems, self.conflicts);
         let texts = use_crud_texts();
         Signal::derive(move || {
-            if let Some(error) = errors.read().get(&field) {
-                return Some(error.clone());
-            }
             let name = field.name();
-            let mut messages = problems
+            let mut messages = errors
                 .read()
-                .iter()
-                .filter(|problem| problem.field == name)
-                .map(|problem| at_path(problem.path_in_field(), &problem.detail))
+                .get(&field)
+                .cloned()
+                .into_iter()
                 .collect::<Vec<_>>();
+            messages.extend(
+                problems
+                    .read()
+                    .iter()
+                    .filter(|problem| problem.field == name)
+                    .map(|problem| at_path(problem.path_in_field(), &problem.detail)),
+            );
             texts.with(|texts| {
                 messages.extend(
                     conflicts
@@ -311,9 +332,14 @@ impl<F: TypeErasedField> CrudFormState<F> {
 
     /// Records why the last save failed, or `None` after a successful save, which also resolves
     /// the conflicts. The problems of fields that `error` reports replace those of earlier saves.
+    /// Every failure asks for attention, also one like the one before.
     pub(crate) fn record_save_error(&self, error: Option<RequestError>) {
+        let alerts = self.failure.with_untracked(|failure| failure.alerts);
         let failure = match error {
-            None => SaveFailure::default(),
+            None => SaveFailure {
+                alerts,
+                ..SaveFailure::default()
+            },
             Some(error) => SaveFailure {
                 problems: match &error {
                     RequestError::InvalidFields { problems, .. } => problems.clone(),
@@ -323,6 +349,8 @@ impl<F: TypeErasedField> CrudFormState<F> {
                     .failure
                     .with_untracked(|failure| failure.conflicts.clone()),
                 error: Some(error),
+                rebase_failed: false,
+                alerts: alerts + 1,
             },
         };
         if self.failure.with_untracked(|current| *current != failure) {
@@ -330,38 +358,32 @@ impl<F: TypeErasedField> CrudFormState<F> {
         }
     }
 
-    /// Forgets a save refused as outdated, e.g. once the entity is reloaded.
-    pub(super) fn clear_outdated(&self) {
-        let is_outdated = self
-            .failure
-            .with_untracked(|failure| matches!(failure.error, Some(RequestError::Outdated(_))));
-        if is_outdated {
-            self.failure.update(|failure| failure.error = None);
-        }
-    }
-
     /// Records where the field named `name` is rendered, until the current owner is cleaned up.
     /// Field atoms call it, so that the form's error summary links to them.
+    ///
+    /// Every mounted field atom has a registration of its own, so that a field that the form shows
+    /// twice stays registered while one of its atoms is mounted.
     pub(crate) fn register_field(&self, name: String, target: FieldTarget) {
         let dom_id = target.dom_id.clone();
         self.targets.update(|targets| {
-            targets.insert(name.clone(), target);
+            targets.entry(name.clone()).or_default().push(target);
         });
         let targets = self.targets;
         on_cleanup(move || {
             targets.try_update(|targets| {
-                if targets
-                    .get(&name)
-                    .is_some_and(|target| target.dom_id == dom_id)
-                {
-                    targets.remove(&name);
+                if let Some(mounted) = targets.get_mut(&name) {
+                    mounted.retain(|target| target.dom_id != dom_id);
+                    if mounted.is_empty() {
+                        targets.remove(&name);
+                    }
                 }
             });
         });
     }
 
-    /// Returns where the fields of the form are rendered, by the names of the fields.
-    pub(crate) fn field_targets(&self) -> Signal<HashMap<String, FieldTarget>> {
+    /// Returns where the fields of the form are rendered, by the names of the fields, once for
+    /// every mounted field atom, the earliest mounted first.
+    pub(crate) fn field_targets(&self) -> Signal<HashMap<String, Vec<FieldTarget>>> {
         self.targets.into()
     }
 
@@ -387,9 +409,18 @@ impl CrudFormState<DynUpdateField> {
     /// serialized as the model serializes them, so a change of one member of an object field
     /// keeps the changes of others to the other members. The patch applies to `model`, and the
     /// result becomes the draft, also what the model holds besides its fields, e.g. its version.
+    /// A field whose input could not be read takes the value of `model`, and keeps its input
+    /// error. A save refused as outdated no longer applies.
+    ///
     /// Members that someone else changed to another value become [conflicts](Self::conflicts),
-    /// and keep the user's value. A field whose input could not be read takes the value of
-    /// `model`, and keeps its input error. A save refused as outdated no longer applies.
+    /// and keep the user's value. So does a field whose input could not be read, when someone
+    /// else changed it, so that the user sees the other value before typing again. A conflict
+    /// stays while the draft still differs from the reloaded version at its member, or its
+    /// field's input could not be read. New conflicts ask for attention.
+    ///
+    /// When the result is no model, e.g. because the patch removed a member that the model
+    /// requires, the form keeps its draft and its baseline, so that saving is refused as outdated
+    /// again instead of replacing the other change, and [`Self::rebase_failed`] tells why.
     pub(super) fn rebase(&self, model: DynUpdateModel, models: ModelHandler) {
         let (Some(draft), Some(baseline)) = (
             self.draft_model.get_untracked(),
@@ -400,51 +431,65 @@ impl CrudFormState<DynUpdateField> {
         };
         let json = |model: &DynUpdateModel| model.to_untagged_json();
         let (Ok(base), Ok(mine), Ok(theirs)) = (json(&baseline), json(&draft), json(&model)) else {
-            tracing::error!("cannot serialize the form's models; keeping the draft as it is");
-            self.baseline.set(Some(model));
-            self.clear_outdated();
+            tracing::error!(
+                "cannot serialize the form's models; keeping the draft and its baseline"
+            );
+            self.refuse_rebase();
             return;
         };
+        let unreadable = self.input_errors.with_untracked(|input_errors| {
+            input_errors
+                .keys()
+                .map(|field| field.name().into_owned())
+                .collect::<Vec<_>>()
+        });
         let mut patch = merge_patch(&base, &mine);
         if let serde_json::Value::Object(members) = &mut patch {
-            self.input_errors.with_untracked(|input_errors| {
-                for field in input_errors.keys() {
-                    members.remove(field.name().as_ref());
-                }
-            });
+            for field in &unreadable {
+                members.remove(field);
+            }
         }
         let mut merged = theirs.clone();
         apply_merge_patch(&mut merged, &patch);
         let rebased = match models.deserialize_update_model(merged.clone()) {
             Ok(rebased) => rebased,
             Err(err) => {
-                tracing::error!(%err, "cannot apply the draft's changes to the reloaded entity");
-                self.baseline.set(Some(model));
-                self.clear_outdated();
+                tracing::warn!(%err, "cannot apply the draft's changes to the reloaded entity");
+                self.refuse_rebase();
                 return;
             }
         };
-        let found = merge_patch_conflicts(&patch, &base, &theirs)
-            .into_iter()
-            .filter_map(|conflict| {
-                let (field, _) = split_first_token(&conflict.pointer)?;
-                Some(CrudFieldConflict {
-                    field,
-                    pointer: conflict.pointer,
-                    theirs: conflict.theirs,
-                })
-            })
-            .collect::<Vec<_>>();
-        let changes = |field: &str| patch.get(field).is_some();
+        let found = rebase_conflicts(&patch, &base, &theirs, &unreadable);
         self.failure.update(|failure| {
-            // Earlier conflicts stay while the user's change still applies to their field.
-            failure.conflicts.retain(|conflict| {
-                changes(&conflict.field)
-                    && found.iter().all(|found| found.pointer != conflict.pointer)
+            let is_new = |conflict: &CrudFieldConflict| {
+                failure
+                    .conflicts
+                    .iter()
+                    .all(|known| known.pointer != conflict.pointer)
+            };
+            let asks_for_attention = found.iter().any(is_new);
+            let mut conflicts = std::mem::take(&mut failure.conflicts);
+            conflicts.retain(|known| {
+                found
+                    .iter()
+                    .all(|conflict| conflict.pointer != known.pointer)
             });
-            failure.conflicts.extend(found);
+            conflicts.extend(found);
+            conflicts.retain(|conflict| {
+                unreadable.contains(&conflict.field)
+                    || present(merged.pointer(&conflict.pointer))
+                        != present(theirs.pointer(&conflict.pointer))
+            });
+            for conflict in &mut conflicts {
+                conflict.theirs = present(theirs.pointer(&conflict.pointer));
+            }
+            failure.conflicts = conflicts;
             if matches!(failure.error, Some(RequestError::Outdated(_))) {
                 failure.error = None;
+            }
+            failure.rebase_failed = false;
+            if asks_for_attention {
+                failure.alerts += 1;
             }
         });
         let shown = self.fields.get_untracked();
@@ -460,6 +505,58 @@ impl CrudFormState<DynUpdateField> {
         self.baseline.set(Some(model));
         self.draft_model.set(Some(rebased));
     }
+
+    /// Keeps the draft and its baseline, because the user's changes cannot be applied to a
+    /// reloaded version, and keeps the form outdated, so that saving is refused again. Asks for
+    /// attention when the last reload could apply the changes.
+    fn refuse_rebase(&self) {
+        self.failure.update(|failure| {
+            if !matches!(failure.error, Some(RequestError::Outdated(_))) {
+                failure.error = Some(RequestError::Outdated(
+                    "the changes cannot be applied to the reloaded version".to_owned(),
+                ));
+            }
+            if !failure.rebase_failed {
+                failure.rebase_failed = true;
+                failure.alerts += 1;
+            }
+        });
+    }
+}
+
+/// Returns the conflicts of a rebase of `patch`, the user's changes of `base`, onto `theirs`: the
+/// members that the patch changes and `theirs` changed to another value, and the `unreadable`
+/// fields, whose input could not be read, that `theirs` changed.
+fn rebase_conflicts(
+    patch: &serde_json::Value,
+    base: &serde_json::Value,
+    theirs: &serde_json::Value,
+    unreadable: &[String],
+) -> Vec<CrudFieldConflict> {
+    let changed = merge_patch_conflicts(patch, base, theirs)
+        .into_iter()
+        .filter_map(|conflict| {
+            let (field, _) = split_first_token(&conflict.pointer)?;
+            Some(CrudFieldConflict {
+                field,
+                pointer: conflict.pointer,
+                theirs: conflict.theirs,
+            })
+        });
+    let unread = unreadable.iter().filter_map(|field| {
+        let other = present(theirs.get(field));
+        (present(base.get(field)) != other).then(|| CrudFieldConflict {
+            pointer: format!("/{}", escape_token(field)),
+            field: field.clone(),
+            theirs: other,
+        })
+    });
+    changed.chain(unread).collect()
+}
+
+/// Returns `value` unless it is absent or `null`, which a merge patch cannot tell apart.
+fn present(value: Option<&serde_json::Value>) -> Option<serde_json::Value> {
+    value.filter(|value| !value.is_null()).cloned()
 }
 
 /// Registers a mounted error summary of the form whose summaries `error_summaries` counts, until

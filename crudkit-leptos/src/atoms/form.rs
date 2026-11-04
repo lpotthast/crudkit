@@ -122,6 +122,8 @@ pub fn CrudCreateForm(
         save_error: state.save_error,
         problems: state.problems,
         conflicts: state.conflicts,
+        rebase_failed: state.rebase_failed,
+        alerts: state.alerts,
         reload: None,
         field_targets: state.field_targets(),
         error_summaries: state.error_summaries(),
@@ -215,6 +217,8 @@ pub fn CrudEditForm(
         save_error: state.save_error,
         problems: state.problems,
         conflicts: state.conflicts,
+        rebase_failed: state.rebase_failed,
+        alerts: state.alerts,
         reload: Some(reload),
         field_targets: state.field_targets(),
         error_summaries: state.error_summaries(),
@@ -292,6 +296,8 @@ pub fn CrudDetails(
         save_error: Signal::stored(None),
         problems: Signal::stored(Vec::new()),
         conflicts: Signal::stored(Vec::new()),
+        rebase_failed: Signal::stored(false),
+        alerts: Signal::stored(0),
         reload: Some(reload),
         field_targets: state.field_targets(),
         error_summaries: state.error_summaries(),
@@ -486,14 +492,18 @@ pub fn CrudEntityStatus(
 }
 
 /// The error summary of the surrounding form: why its last save failed, and every problem and
-/// conflict of its fields. A `<div>` that is an assertive live region (`role="alert"`), empty
-/// while there is nothing to explain, so that screen readers announce what appears.
+/// conflict of its fields, following the established pattern of accessible error summaries. A
+/// `<div>` that takes the focus (`tabindex="-1"`) whenever the form asks for attention: after
+/// every failed save, also one that fails like the one before, and after a reload that found
+/// conflicts or could not apply the user's changes. Taking the focus scrolls the summary into view
+/// and makes screen readers read it. Empty while there is nothing to explain.
 ///
 /// Default content, by the failure in the form's
 /// [`save_error`](crate::hooks::CrudFormHandle::save_error):
 ///
 /// - a save refused because someone else changed the entity ([`RequestError::Outdated`]):
-///   [`CrudUiTexts::outdated`], and a [`CrudReloadButton`] in an edit form;
+///   [`CrudUiTexts::outdated`], or [`CrudUiTexts::rebase_failed`] once a reload could not apply
+///   the user's changes, and a [`CrudReloadButton`] in an edit form;
 /// - problems with fields ([`RequestError::InvalidFields`]): the failure's message;
 /// - any other failure: the error;
 /// - no failure, but [conflicts](crate::hooks::CrudFormState::conflicts) found by a reload:
@@ -503,10 +513,10 @@ pub fn CrudEntityStatus(
 /// themselves, such as switches, and of fields in other tabs. Each entry names its field by its
 /// label, or else by its name, and links to the field while a
 /// [`CrudField`](crate::atoms::CrudField) of it is mounted: following the link selects the tabs
-/// the field is in and focuses it.
+/// the field is in and focuses it. Entries keep their elements while other entries change.
 ///
-/// While mounted, the summary shows the failures of the form's saves, so the form does not also
-/// notify them.
+/// While mounted, the summary takes over the feedback about failed saves: the form notifies no
+/// failure, so that screen readers announce each once.
 ///
 /// Data attributes: `data-kind` (`outdated`, `invalid`, `failed`, or `conflict`), absent while
 /// there is nothing to explain.
@@ -514,6 +524,7 @@ pub fn CrudEntityStatus(
 /// Default class: `crudkit-FormError`.
 ///
 /// [`CrudUiTexts::outdated`]: crate::config::CrudUiTexts::outdated
+/// [`CrudUiTexts::rebase_failed`]: crate::config::CrudUiTexts::rebase_failed
 /// [`CrudUiTexts::conflicts`]: crate::config::CrudUiTexts::conflicts
 #[component]
 pub fn CrudFormError(
@@ -531,10 +542,22 @@ pub fn CrudFormError(
         .merge(classes, MergeStrategy::UnionConditions);
     let form = expect_crud_form("CrudFormError");
     register_error_summary(form.error_summaries);
-    let (error, conflicts) = (form.save_error, form.conflicts);
+    let (error, conflicts, rebase_failed) = (form.save_error, form.conflicts, form.rebase_failed);
     let kind = Memo::new(move |_| match &*error.read() {
         Some(error) => Some(failure_kind(error)),
         None => (!conflicts.read().is_empty()).then_some("conflict"),
+    });
+    let element = NodeRef::<leptos::html::Div>::new();
+    let alerts = form.alerts;
+    Effect::new(move |previous: Option<u64>| {
+        let current = alerts.get();
+        if previous.is_some_and(|previous| current > previous)
+            && let Some(element) = element.get_untracked()
+            && let Err(err) = element.focus()
+        {
+            tracing::debug!(?err, "could not focus the error summary");
+        }
+        current
     });
     let texts = use_crud_texts();
     let children = StoredValue::new(children);
@@ -547,8 +570,16 @@ pub fn CrudFormError(
             let message = match error.get() {
                 Some(RequestError::Outdated(_)) => {
                     let reload = form.reload.map(|_| view! { <CrudReloadButton /> });
+                    let text = move || {
+                        let texts = texts.read();
+                        if rebase_failed.get() {
+                            texts.rebase_failed.to_string()
+                        } else {
+                            texts.outdated.to_string()
+                        }
+                    };
                     view! {
-                        {move || texts.read().outdated.to_string()}
+                        {text}
                         {reload}
                     }
                     .into_any()
@@ -566,10 +597,20 @@ pub fn CrudFormError(
         Some(content)
     };
     view! {
-        <div class=classes style=styles role="alert" data-kind=move || kind.get()>
+        <div node_ref=element class=classes style=styles tabindex="-1" data-kind=move || kind.get()>
             {content}
         </div>
     }
+}
+
+/// An entry of an error summary: `message` about the member at `path` below `field`.
+#[derive(Debug, Clone, PartialEq)]
+struct SummaryItem {
+    /// Tells the entry apart from the others: its kind, its pointer, and its message.
+    key: String,
+    field: String,
+    path: String,
+    message: String,
 }
 
 /// The problems and conflicts of the fields of `form`, as a list of links to the fields. Empty
@@ -578,35 +619,36 @@ pub fn CrudFormError(
 fn SummaryList(form: CrudFormHandle) -> impl IntoView {
     let texts = use_crud_texts();
     let (problems, conflicts, targets) = (form.problems, form.conflicts, form.field_targets);
-    move || {
-        let entries = texts.with(|texts| {
+    let items = Memo::new(move |_| {
+        texts.with(|texts| {
             let problems = problems.read();
             let conflicts = conflicts.read();
-            let problems = problems.iter().map(|problem| {
-                (
-                    problem.field.clone(),
-                    problem.path_in_field().to_owned(),
-                    problem.detail.clone(),
-                )
+            let problems = problems.iter().map(|problem| SummaryItem {
+                key: format!("problem {} {}", problem.pointer, problem.detail),
+                field: problem.field.clone(),
+                path: problem.path_in_field().to_owned(),
+                message: problem.detail.clone(),
             });
             let conflicts = conflicts.iter().map(|conflict| {
-                (
-                    conflict.field.clone(),
-                    conflict.path_in_field().to_owned(),
-                    conflict_message(texts, conflict),
-                )
+                let message = conflict_message(texts, conflict);
+                SummaryItem {
+                    key: format!("conflict {} {message}", conflict.pointer),
+                    field: conflict.field.clone(),
+                    path: conflict.path_in_field().to_owned(),
+                    message,
+                }
             });
             problems.chain(conflicts).collect::<Vec<_>>()
-        });
-        (!entries.is_empty()).then(|| {
-            let items = entries
-                .into_iter()
-                .map(|(field, path, message)| {
-                    view! { <SummaryEntry field path message targets /> }
-                })
-                .collect_view();
-            view! { <ul>{items}</ul> }
         })
+    });
+    view! {
+        <Show when=move || !items.read().is_empty()>
+            <ul>
+                <For each=move || items.get() key=|item| item.key.clone() let:item>
+                    <SummaryEntry field=item.field path=item.path message=item.message targets />
+                </For>
+            </ul>
+        </Show>
     }
 }
 
@@ -617,11 +659,16 @@ fn SummaryEntry(
     field: String,
     path: String,
     message: String,
-    targets: Signal<HashMap<String, FieldTarget>>,
+    targets: Signal<HashMap<String, Vec<FieldTarget>>>,
 ) -> impl IntoView {
     let target = {
         let field = field.clone();
-        Signal::derive(move || targets.read().get(&field).cloned())
+        Signal::derive(move || {
+            targets
+                .read()
+                .get(&field)
+                .and_then(|mounted| mounted.first().cloned())
+        })
     };
     move || match target.get() {
         Some(target) => {

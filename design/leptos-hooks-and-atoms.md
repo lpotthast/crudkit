@@ -122,7 +122,8 @@ Conventions:
   `CrudFieldBinding`) to Leptonic's `TextField`, `NumberField<T>`, and `Checkbox`/`Switch` state. They are not generic
   over the field type. A `CrudTextCodec` converts between values and text. Optional fields map empty input to
   `Value::Null`; input the codec rejects becomes an input error of the form and leaves the value unchanged. Text that
-  does not parse yet is kept while the user types.
+  does not parse yet is kept while the user types, and so is the empty text of a required field, so that the input
+  and the field's error agree when the value changes meanwhile, e.g. by a reload.
 - `use_crud_table` renders a `CrudListState` through Leptonic's table hooks as an ARIA grid. Ordering and selection
   stay owned by CrudKit and are bound into Leptonic's table state. A column sorts if its header options allow it and
   the instance's data source can order by its field ([Data Sources](data-sources.md#ordering)). A header press
@@ -216,8 +217,9 @@ A form does not save while a field holds input its codec rejects, and its fields
 save request reports its outcome through the instance's notifier, also when the form is gone by then: a success or an
 error notification, as the form's `CrudSaveNotifications` select (all by default, failures only, or none). A change
 that the data source [accepted](data-sources.md#accepted-changes) without completing it is a success that says so,
-and a save refused as outdated is a warning. While a `CrudFormError` of the form is mounted, the form notifies no
-failure, because the summary shows it and screen readers would announce it twice; successes are notified still.
+and a save refused as outdated is a warning. While a `CrudFormError` of the form is mounted, the summary takes over the
+feedback about failures with the focus, and the form notifies no failure, so that screen readers announce it once;
+successes are notified still.
 `on_saved` and `on_save_failed` run while the form is mounted.
 
 A failed save keeps the draft, and `CrudFormState::save_error` holds the failure until a save succeeds or the form
@@ -227,26 +229,32 @@ loads another entity:
   look at the current state. `CrudReloadButton` and the edit form's `reload` reload the entity, which rebases the
   draft onto the current version, as described in
   [Instances and Composition](instances-and-composition.md#list-state-ownership), and resolves the failure. The rebase
-  can find conflicts, which `CrudFormState::conflicts` holds. The button is disabled while the form saves. A refusal
-  as outdated of a version that a reload replaced while the save was in flight no longer applies: the form ignores
-  it, and does not notify it.
+  can find conflicts, which `CrudFormState::conflicts` holds, or fail to apply the changes, which keeps the failure and
+  sets `CrudFormState::rebase_failed`. The button is disabled while the form saves. A refusal as outdated of a version
+  that a reload replaced while the save was in flight no longer applies: the form ignores it, and does not notify it.
 - The problems of a refusal by [fields](data-sources.md#problems) and the conflicts reach their fields: a field's
   error is its input error, or else its problems and conflicts, each with the path below the field where it is, e.g.
   `0/count: must be positive`. Changing a field resolves its problems and conflicts. Problems do not keep the form from
   saving, because only the data source can tell whether they still apply.
-- `CrudFormError` is the form's error summary, an assertive live region (`role="alert"`) that stays rendered, empty
-  while there is nothing to explain. It explains the failure (the outdated text with a `CrudReloadButton`, the message
-  of the refusal, any other error, or the conflicts) and lists every problem and every conflict as a link to its
-  field, the established pattern of accessible error summaries. So problems also reach fields that show no error,
-  such as switches, checkboxes, fields in display mode, and custom renderers, and fields in tabs that are not
-  selected. `data-kind` (`outdated`, `invalid`, `failed`, `conflict`) lets applications give each a tone.
+- `CrudFormError` is the form's error summary, following the established pattern of accessible error summaries. It
+  stays rendered, empty while there is nothing to explain, and takes the focus (`tabindex="-1"`) whenever
+  `CrudFormState::alerts` grows: after every failed save, also one that fails like the one before, and after a reload
+  that newly found conflicts or could not apply the changes. The focus scrolls the summary into view and makes screen
+  readers read it, so the summary is no live region, which would announce it a second time. It explains the failure
+  (the outdated text with a `CrudReloadButton`, the text of a failed rebase, the message of the refusal, any other
+  error, or the conflicts) and lists every problem and every conflict as a link to its field. So problems also reach
+  fields that show no error, such as switches, checkboxes, fields in display mode, and custom renderers, and fields in
+  tabs that are not selected. The entries are keyed by their kind, pointer, and message, so that resolving one entry
+  leaves the others' elements alone. `data-kind` (`outdated`, `invalid`, `failed`, `conflict`) lets applications give
+  each a tone.
 - Every mounted `CrudField` registers its field with the form: the id of its input, its label, and the tabs it is in,
-  which each `CrudFormTabPanel` adds to the context of its content. A summary entry names its field by the label, or
-  else by the field's name, and following its link selects the tabs and focuses the field. A `CrudFormTab` is
-  `data-invalid` while a registered field in its panel has problems or conflicts. Fields that are not mounted, such as
-  those in a panel that is not force-mounted, are listed by name and without a link. On the server, a registration
-  inside a panel ends when the panel's HTML is written; the summary is empty there anyway, because forms save in the
-  browser.
+  which each `CrudFormTabPanel` adds to the context of its content. Each mounted atom has a registration of its own,
+  so a field that the form shows twice stays registered while one of its atoms is mounted. A summary entry names its
+  field by the label, or else by the field's name, and following its link selects the tabs and focuses the field. A
+  `CrudFormTab` is `data-invalid` while a registered field in its panel has problems or conflicts. Fields that are not
+  mounted, such as those in a panel that is not force-mounted, are listed by name and without a link. On the server, a
+  registration inside a panel ends when the panel's HTML is written; the summary is empty there anyway, because forms
+  save in the browser.
 
 `CrudSaveFollowUp` selects what happens after a successful save: `Stay` (a create form starts a fresh draft), `Return`,
 `Edit` (the saved entity, which stays after editing), `CreateAnother` (a fresh draft in a create form), or a view
