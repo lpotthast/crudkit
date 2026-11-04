@@ -13,6 +13,7 @@ pub mod data_source;
 pub mod delete;
 pub mod field;
 pub mod http;
+pub mod json_pointer;
 pub mod layout;
 pub mod list;
 pub mod load_state;

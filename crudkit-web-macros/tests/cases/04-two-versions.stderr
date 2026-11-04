@@ -1,0 +1,5 @@
+error: crudkit: derive-field: only one field can hold the version
+  --> tests/cases/04-two-versions.rs:11:9
+   |
+11 |     pub etag: CrudVersion,
+   |         ^^^^

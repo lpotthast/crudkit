@@ -17,7 +17,7 @@ mod version;
 pub use completion::CrudCompletion;
 pub use deletion::{CrudDeleteManyRequest, CrudDeleteRequest, CrudDeleted, CrudDeletedMany};
 pub use entity::{CrudCreateRequest, CrudReadRequest, CrudSaved, CrudUpdateRequest};
-pub use merge_patch::merge_patch;
+pub use merge_patch::{MergePatchConflict, apply_merge_patch, merge_patch, merge_patch_conflicts};
 pub use page::{CrudCountRequest, CrudCursor, CrudListRequest, CrudPage, CrudPaging};
 pub use problem::CrudFieldProblem;
 pub use rest::CrudRestDataSource;
@@ -54,8 +54,8 @@ use std::fmt::Debug;
 /// older version with [`RequestError::Outdated`]. It refuses an entity because of problems with
 /// its fields with [`RequestError::InvalidFields`], so that forms show each problem at its field.
 /// A change or deletion that an API accepted without completing it, e.g. with `202 Accepted`,
-/// answers with [`CrudSaved::accepted`] or [`CrudDeleted::accepted`], and the entity in its new
-/// state.
+/// answers with [`CrudSaved::accepted`], with the entity in its new state, or with
+/// [`CrudDeleted::accepted`].
 #[async_trait(?Send)]
 pub trait CrudDataSource: Debug + Send + Sync {
     /// The name of the resource, e.g. `clubs`. Instances name it as the origin of their

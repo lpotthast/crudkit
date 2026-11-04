@@ -3,7 +3,7 @@
 
 use super::{CrudCompletion, CrudDataSource, CrudScope, CrudVersion};
 use crate::http::RequestError;
-use crate::model::{DynReadModel, DynReadOrUpdateModel};
+use crate::model::DynReadOrUpdateModel;
 use crudkit_core::id::SerializableId;
 
 /// The entity that [`CrudDataSource::delete`] deletes.
@@ -40,11 +40,10 @@ impl CrudDeleteRequest {
 pub struct CrudDeleted {
     /// The number of entities deleted, `1` once the entity is gone or its deletion is accepted.
     pub entities_affected: u64,
-    /// Whether the deletion is complete, or accepted while the entity is still being deleted.
+    /// Whether the deletion is complete, or accepted while the entity is still being deleted. The
+    /// entity of an accepted deletion still exists, e.g. in the state `deleting`, which instances
+    /// show once they reload.
     pub completion: CrudCompletion,
-    /// The entity in its state at the time of the answer, e.g. `deleting`, while an accepted
-    /// deletion runs. `None` once the entity is gone.
-    pub entity: Option<DynReadModel>,
 }
 
 impl CrudDeleted {
@@ -54,19 +53,16 @@ impl CrudDeleted {
         Self {
             entities_affected,
             completion: CrudCompletion::Completed,
-            entity: None,
         }
     }
 
-    /// The outcome of an accepted deletion, which still runs, e.g. because an API answered
-    /// `202 Accepted`. `entity` is the entity in its state at the time of the answer, e.g.
-    /// `deleting`.
+    /// The outcome of an accepted deletion of one entity, which still runs, e.g. because an API
+    /// answered `202 Accepted`.
     #[must_use]
-    pub fn accepted(entity: DynReadModel) -> Self {
+    pub fn accepted() -> Self {
         Self {
             entities_affected: 1,
             completion: CrudCompletion::Accepted,
-            entity: Some(entity),
         }
     }
 }

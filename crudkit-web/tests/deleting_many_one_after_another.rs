@@ -88,7 +88,7 @@ impl CrudDataSource for Wizards {
             "gone" => Ok(CrudDeleted::new(0)),
             "offline" => Err(RequestError::Request("offline".to_owned())),
             "outdated" => Err(RequestError::Outdated("changed meanwhile".to_owned())),
-            "slow" => Ok(CrudDeleted::accepted(wizard.clone())),
+            "slow" => Ok(CrudDeleted::accepted()),
             _ => Ok(CrudDeleted::new(1)),
         }
     }

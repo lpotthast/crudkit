@@ -372,7 +372,7 @@ impl CrudDataSource for MemorySource {
         if let Some(item) = items.iter().find(|item| item.id == id) {
             check_version(item, request.version())?;
             if completion == CrudCompletion::Accepted {
-                return Ok(CrudDeleted::accepted(DynReadModel::from(item.clone())));
+                return Ok(CrudDeleted::accepted());
             }
         }
         let before = items.len();

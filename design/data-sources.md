@@ -62,8 +62,14 @@ in an `Arc`. Loading on the server during rendering would need `Send` futures; s
 A `CrudVersion` is an opaque version of an entity, such as the entity tag that an API names in `ETag` and expects back
 in `If-Match`. Like a cursor, CrudKit stores it and hands it back, and never reads it. A model carries the version of
 its entity in a field marked `#[ck_field(version)]`, a `CrudVersion` or `Option<CrudVersion>`, which the erased models
-return with `version()`. The version is no field of the model's field enum, so forms neither show nor change it, and a
-conversion from the read model into the update model copies it. A model without such a field has no version.
+return with `version()`. The version is no field of the model's field enum, so forms neither show nor change it. A
+model has at most one version; the derive refuses a second field marked as one. A version deserializes from a string or
+from a number, as APIs that count versions return them, and serializes as a string. A model without such a field has no
+version.
+
+Edit forms load the read model and convert it into the update model, so the application's
+`From<ReadModel> for UpdateModel` must copy the version. A conversion that drops it makes every update name no version,
+which an API with optimistic concurrency refuses, or worse, accepts as an update of any version.
 
 Requests name the version they are based on:
 
@@ -79,14 +85,23 @@ that the user sees what changed before deleting again.
 
 `CrudUpdateRequest::merge_patch` returns what the user changed: the JSON merge patch (RFC 7396) that turns the
 baseline into the changed entity, both serialized as the model serializes them. It names each changed field with its
-new value, a cleared optional field with `null`, and leaves unchanged fields out, also the version. A merge patch
-cannot set a field to `null`, so a field that is `null` counts as absent. `crudkit_web::data_source::merge_patch`
-computes the patch between any two JSON values, e.g. between the declarations that a data source converts the baseline
-and the entity into, when its API's shape differs from the model's.
+new value, a cleared optional field with `null`, and the changed members of an object field, such as a map, as a
+nested patch. It leaves unchanged fields and members out, also the version, and a nested patch that changes nothing. A
+merge patch cannot set a member to `null`, so a member that is `null` counts as absent.
+
+`crudkit_web::data_source` also holds the other operations on merge patches, for any JSON values:
+
+- `merge_patch` computes the patch between two values, e.g. between the declarations that a data source converts the
+  baseline and the entity into, when its API's shape differs from the model's;
+- `apply_merge_patch` applies a patch, as RFC 7396 defines it;
+- `merge_patch_conflicts` returns the members that a patch changes and that another version changed to another value,
+  each by its JSON pointer and with the other version's value.
 
 The baseline is the entity as the data source last returned it. After a reload of an entity with unsaved changes, the
-form applies the user's changes to the reloaded version, so the merge patch names only what the user changed, not the
-changes of others since; see [Instances and Composition](instances-and-composition.md#list-state-ownership).
+form applies the user's changes to the reloaded version with these operations, so the merge patch names only what the
+user changed, not the changes of others since; see
+[Instances and Composition](instances-and-composition.md#list-state-ownership). The JSON of a model names each field by
+its field name, so a model whose serialization renames fields cannot tell its fields' members apart.
 
 ## Accepted Changes
 
@@ -96,8 +111,8 @@ got: `Completed` or `Accepted`.
 
 - `CrudSaved::accepted(entity)` is an accepted creation or change, with the entity in its state at the time of the
   answer. The form continues from that entity, as after a completed save.
-- `CrudDeleted::accepted(entity)` is an accepted deletion, with the entity in its new state. The entity still exists,
-  so lists show it, in its state, until the data source deletes it.
+- `CrudDeleted::accepted()` is an accepted deletion. The entity still exists, so lists show it in its new state, such
+  as `deleting`, once they reload after the deletion, until the data source deletes it.
 
 Notifications tell an accepted outcome from a completed one, e.g. "The changes were accepted and are being applied."
 or "1 entry is being deleted.".
@@ -105,10 +120,12 @@ or "1 entry is being deleted.".
 ## Problems
 
 A data source refuses an entity because of problems with its fields with `RequestError::InvalidFields`: a message about
-the request as a whole and a `CrudFieldProblem` per problem, which names the field as the model's field enum names it
-(`Named::name`) and says what is wrong. A data source of an API answering with problem details (RFC 9457) converts the
-JSON pointer of each problem into the field it names. A form shows each problem at its field, and the message with
-the problems of fields that it does not show, such as a name the model does not have; see
+the request as a whole and a `CrudFieldProblem` per problem. A problem names its field as the model's field enum names
+it (`Named::name`), keeps its JSON pointer into the entity, e.g. `/groups/0/count`, so that forms can show where in the
+field it is, and says what is wrong. A data source of an API answering with problem details (RFC 9457) builds each
+problem with `CrudFieldProblem::at` from the problem's pointer, after removing what the pointer names outside of the
+entity, such as `/patch`. `crudkit_web::json_pointer` splits and escapes pointers. A form lists every problem in its
+error summary, and fields that show errors show their problems too; see
 [Leptos Hooks and Atoms](leptos-hooks-and-atoms.md#forms).
 
 ## Mass Deletion

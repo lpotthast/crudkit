@@ -5,4 +5,5 @@ fn tests() {
     // implemented. The macro itself is tested via the full crudkit-web workspace tests.
     t.pass("tests/cases/02-action-payload-parse.rs");
     t.pass("tests/cases/03-action-payload-use.rs");
+    t.compile_fail("tests/cases/04-two-versions.rs");
 }
