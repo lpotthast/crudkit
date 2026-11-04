@@ -2062,15 +2062,16 @@ fn emptied_required_text_stays_while_the_value_changes() {
 /// its English default.
 fn german_notifications(text: &CrudText<'_>) -> Option<String> {
     Some(match *text {
-        CrudText::DeleteTitle => "Löschen".to_owned(),
+        CrudText::DeleteCompletedTitle { count } => match count {
+            1 => "Eintrag gelöscht".to_owned(),
+            _ => "Einträge gelöscht".to_owned(),
+        },
         CrudText::DeleteCompleted { count } => match count {
             1 => "1 Eintrag gelöscht.".to_owned(),
             _ => format!("{count} Einträge gelöscht."),
         },
-        CrudText::SaveErrorTitle => "Fehler".to_owned(),
-        CrudText::SaveUpdateFailed { error } => {
-            format!("Eintrag konnte nicht gespeichert werden. {error}")
-        }
+        CrudText::SaveUpdateFailedTitle => "Änderungen nicht gespeichert".to_owned(),
+        CrudText::ErrorInvalidResponse => "Ungültige Antwort".to_owned(),
         _ => return None,
     })
 }
@@ -2106,13 +2107,14 @@ fn notifications_show_the_texts_of_the_provided_translator() {
         .map(|notification| (notification.title.clone(), notification.message.clone()))
         .collect::<Vec<_>>();
     assert_that!(titles_and_messages).has_length(2);
-    assert_that!(titles_and_messages[0].clone())
-        .is_equal_to(("Löschen".to_owned(), "2 Einträge gelöscht.".to_owned()));
+    assert_that!(titles_and_messages[0].clone()).is_equal_to((
+        "Einträge gelöscht".to_owned(),
+        "2 Einträge gelöscht.".to_owned(),
+    ));
     let (title, message) = titles_and_messages[1].clone();
-    assert_that!(title).is_equal_to("Fehler".to_owned());
-    // The translator leaves the text of the error, an unreadable response, to its English default.
-    assert_that!(message.as_str())
-        .starts_with("Eintrag konnte nicht gespeichert werden. Invalid response: ");
+    assert_that!(title).is_equal_to("Änderungen nicht gespeichert".to_owned());
+    // The translator leaves the composition with the technical detail to its English default.
+    assert_that!(message.as_str()).starts_with("Ungültige Antwort: ");
 }
 
 #[test]

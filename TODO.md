@@ -160,8 +160,11 @@ Priorities are relative:
 - [ ] **P2 - Format values for the user's locale.** Texts are translated through a `CrudTranslator`, but
   `format_crud_value` formats numbers and dates the same way in every locale, and applications cannot provide their
   own formatter.
-- [ ] **P2 - Carry the status of unexpected responses as data.** `RequestError::Request` of a response with an
-  unexpected status holds the English text `Code: …, Text: …`, which forms and notifications show in every language.
+- [ ] **P2 - Keep technical English out of what users read.** `RequestError::Request`, `Deserialize`, and
+  `InvalidRequest` carry details in English: the messages of reqwest and serde, CrudKit's own messages about requests
+  it cannot build, and `Code: …, Text: …` of a response with an unexpected status. Forms and notifications show them
+  after the translated kind of the error (`CrudText::ErrorDetail`), unless a translation leaves them out. Carry what
+  users need as data instead, such as the status of an unexpected response, and keep the English details for logs.
 - [ ] **P2 - Add an application-defined entity label for destructive confirmation.** The delete dialog's default
   message does not name the entity it deletes.
 - [ ] **P1 - Manage focus across view changes.** Opening a view, saving (the clean form disables its save button),

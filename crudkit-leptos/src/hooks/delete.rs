@@ -100,10 +100,11 @@ impl CrudDeleteState {
                     .collect(),
             );
             let scope = scope.get_untracked();
+            let requested = entities.len() as u64;
             async move {
                 let result = data_source.delete_many(&scope, request).await;
                 pending_many.set(None);
-                notifier.notify(delete_many_notification(texts, &result));
+                notifier.notify(delete_many_notification(texts, requested, &result));
                 // The instance may have been unmounted while the request was in flight.
                 reload.try_run(());
             }
@@ -203,54 +204,71 @@ pub(crate) fn delete_notification(
     result: &Result<CrudDeleted, RequestError>,
 ) -> CrudNotification {
     let text = |text: CrudText<'_>| texts.get_untracked(text);
-    let title = text(CrudText::DeleteTitle);
     match result {
         Ok(deleted) => {
             let count = deleted.entities_affected;
-            let message = match deleted.completion {
-                CrudCompletion::Completed => text(CrudText::DeleteCompleted { count }),
-                CrudCompletion::Accepted => text(CrudText::DeleteAccepted { count }),
+            let (title, message) = match deleted.completion {
+                CrudCompletion::Completed => (
+                    CrudText::DeleteCompletedTitle { count },
+                    CrudText::DeleteCompleted { count },
+                ),
+                CrudCompletion::Accepted => (
+                    CrudText::DeleteAcceptedTitle { count },
+                    CrudText::DeleteAccepted { count },
+                ),
             };
-            CrudNotification::success(title, message)
+            CrudNotification::success(text(title), text(message))
         }
-        Err(RequestError::Forbidden(reason)) => {
-            CrudNotification::warning(title, text(CrudText::DeleteForbidden { reason }))
-        }
-        Err(RequestError::Outdated(_)) => {
-            CrudNotification::warning(title, text(CrudText::DeleteOutdated))
-        }
+        Err(RequestError::Outdated(_)) => CrudNotification::warning(
+            text(CrudText::DeleteRefusedTitle),
+            text(CrudText::DeleteOutdated),
+        ),
         Err(
-            RequestError::UnprocessableEntity(reason)
-            | RequestError::CriticalValidationErrors {
-                message: reason, ..
-            }
-            | RequestError::InvalidFields {
-                message: reason, ..
-            },
-        ) => CrudNotification::warning(title, text(CrudText::DeleteRejected { reason })),
-        Err(error) => CrudNotification::error(title, deletion_failed(texts, error)),
+            error @ (RequestError::Forbidden(_)
+            | RequestError::UnprocessableEntity(_)
+            | RequestError::CriticalValidationErrors { .. }
+            | RequestError::InvalidFields { .. }),
+        ) => CrudNotification::warning(
+            text(CrudText::DeleteRefusedTitle),
+            texts.request_error_untracked(error),
+        ),
+        Err(error) => CrudNotification::error(
+            text(CrudText::DeleteFailedTitle { count: 1 }),
+            texts.request_error_untracked(error),
+        ),
     }
 }
 
-/// Describes the outcome of a mass deletion.
+/// Describes the outcome of a mass deletion of `requested` entities.
 pub(crate) fn delete_many_notification(
     texts: CrudTexts,
+    requested: u64,
     result: &Result<CrudDeletedMany, RequestError>,
 ) -> CrudNotification {
-    let title = texts.get_untracked(CrudText::DeleteTitle);
+    let text = |text: CrudText<'_>| texts.get_untracked(text);
+    let failed_title = || text(CrudText::DeleteFailedTitle { count: requested });
     match result {
         Ok(deleted_many) => match DeleteManyOutcome::from(deleted_many) {
-            DeleteManyOutcome::Complete { deleted, accepted } => CrudNotification::success(
-                title,
-                with_accepted(
-                    texts,
-                    |count| CrudText::DeleteCompleted { count },
-                    deleted,
-                    accepted,
-                ),
-            ),
+            DeleteManyOutcome::Complete { deleted, accepted } => {
+                let title = if deleted == 0 && accepted > 0 {
+                    CrudText::DeleteAcceptedTitle { count: accepted }
+                } else {
+                    CrudText::DeleteCompletedTitle {
+                        count: deleted + accepted,
+                    }
+                };
+                CrudNotification::success(
+                    text(title),
+                    with_accepted(
+                        texts,
+                        |count| CrudText::DeleteCompleted { count },
+                        deleted,
+                        accepted,
+                    ),
+                )
+            }
             DeleteManyOutcome::Partial(counts) => CrudNotification::warning(
-                title,
+                text(CrudText::DeleteManyPartialTitle),
                 with_failures(
                     texts,
                     with_accepted(
@@ -263,18 +281,12 @@ pub(crate) fn delete_many_notification(
                 ),
             ),
             DeleteManyOutcome::Failed(counts) => CrudNotification::error(
-                title,
-                with_failures(texts, texts.get_untracked(CrudText::DeleteManyNone), counts),
+                failed_title(),
+                with_failures(texts, text(CrudText::DeleteManyNone), counts),
             ),
         },
-        Err(error) => CrudNotification::error(title, deletion_failed(texts, error)),
+        Err(error) => CrudNotification::error(failed_title(), texts.request_error_untracked(error)),
     }
-}
-
-/// Reports a deletion that failed with `error`.
-fn deletion_failed(texts: CrudTexts, error: &RequestError) -> String {
-    let error = texts.get_untracked(CrudText::from(error));
-    texts.get_untracked(CrudText::DeleteFailed { error: &error })
 }
 
 /// Reports `deleted` deleted entities with `deleted_text`, followed by the `accepted` entities
@@ -344,20 +356,22 @@ mod tests {
         let texts = CrudTexts::default();
         let ok = delete_notification(texts, &Ok(CrudDeleted::new(1)));
         assert_that!(ok.kind).is_equal_to(CrudNotificationKind::Success);
-        assert_that!(ok.title).is_equal_to("Deletion".to_owned());
+        assert_that!(ok.title).is_equal_to("Entry deleted".to_owned());
         assert_that!(ok.message).is_equal_to("1 entry deleted.".to_owned());
 
         let forbidden =
             delete_notification(texts, &Err(RequestError::Forbidden("nope".to_owned())));
         assert_that!(forbidden.kind).is_equal_to(CrudNotificationKind::Warning);
+        assert_that!(forbidden.title).is_equal_to("Entry not deleted".to_owned());
+        assert_that!(forbidden.message).is_equal_to("Permission denied: nope".to_owned());
 
         let failed = delete_notification(texts, &Err(RequestError::Request("offline".to_owned())));
         assert_that!(failed.kind).is_equal_to(CrudNotificationKind::Error);
-        assert_that!(failed.message)
-            .is_equal_to("Deletion failed: Network error: offline".to_owned());
+        assert_that!(failed.title).is_equal_to("Entry not deleted".to_owned());
+        assert_that!(failed.message).is_equal_to("Network error: offline".to_owned());
     }
 
-    /// A mass deletion that deleted two entities, aborted one, and left one untried.
+    /// A mass deletion of four entities that deleted two, refused one, and left one untried.
     fn partial_deletion() -> CrudDeletedMany {
         let id = || SerializableId(Vec::new());
         let mut outcome = CrudDeletedMany::new();
@@ -370,14 +384,16 @@ mod tests {
     #[test]
     fn mass_deletion_outcomes_map_to_notification_kinds() {
         let texts = CrudTexts::default();
-        let partial = delete_many_notification(texts, &Ok(partial_deletion()));
+        let partial = delete_many_notification(texts, 4, &Ok(partial_deletion()));
         assert_that!(partial.kind).is_equal_to(CrudNotificationKind::Warning);
+        assert_that!(partial.title).is_equal_to("Some entries not deleted".to_owned());
         assert_that!(partial.message)
-            .is_equal_to("2 entries deleted. 1 aborted. 1 not attempted.".to_owned());
+            .is_equal_to("2 entries deleted. 1 refused. 1 not attempted.".to_owned());
 
         let failed =
-            delete_many_notification(texts, &Err(RequestError::Request("offline".to_owned())));
+            delete_many_notification(texts, 4, &Err(RequestError::Request("offline".to_owned())));
         assert_that!(failed.kind).is_equal_to(CrudNotificationKind::Error);
+        assert_that!(failed.title).is_equal_to("Entries not deleted".to_owned());
     }
 
     #[test]
@@ -385,28 +401,28 @@ mod tests {
         Owner::new().with(|| {
             // Translates some texts only, so the others show their English defaults.
             let texts = CrudTexts::new(|text: &CrudText<'_>| match *text {
-                CrudText::DeleteTitle => Some("Löschen".to_owned()),
+                CrudText::DeleteManyPartialTitle => Some("Nicht alle gelöscht".to_owned()),
                 CrudText::DeleteManyPartial { count } => Some(match count {
                     1 => "1 Eintrag gelöscht.".to_owned(),
                     _ => format!("{count} Einträge gelöscht."),
                 }),
-                CrudText::DeleteManyAborted { count } => Some(format!("{count} abgebrochen.")),
-                CrudText::DeleteFailed { error } => {
-                    Some(format!("Löschen fehlgeschlagen: {error}"))
-                }
-                CrudText::ErrorNetwork { message } => Some(format!("Netzwerkfehler: {message}")),
+                CrudText::DeleteManyAborted { count } => Some(format!("{count} abgelehnt.")),
+                CrudText::DeleteFailedTitle { count: 1 } => Some("Nicht gelöscht".to_owned()),
+                CrudText::ErrorNetwork => Some("Netzwerkfehler".to_owned()),
+                // Leaves out the technical detail, which is English.
+                CrudText::ErrorDetail { error, .. } => Some(error.to_owned()),
                 _ => None,
             });
 
-            let partial = delete_many_notification(texts, &Ok(partial_deletion()));
+            let partial = delete_many_notification(texts, 4, &Ok(partial_deletion()));
             let failed =
                 delete_notification(texts, &Err(RequestError::Request("offline".to_owned())));
 
-            assert_that!(partial.title).is_equal_to("Löschen".to_owned());
+            assert_that!(partial.title).is_equal_to("Nicht alle gelöscht".to_owned());
             assert_that!(partial.message)
-                .is_equal_to("2 Einträge gelöscht. 1 abgebrochen. 1 not attempted.".to_owned());
-            assert_that!(failed.message)
-                .is_equal_to("Löschen fehlgeschlagen: Netzwerkfehler: offline".to_owned());
+                .is_equal_to("2 Einträge gelöscht. 1 abgelehnt. 1 not attempted.".to_owned());
+            assert_that!(failed.title).is_equal_to("Nicht gelöscht".to_owned());
+            assert_that!(failed.message).is_equal_to("Netzwerkfehler".to_owned());
         });
     }
 }

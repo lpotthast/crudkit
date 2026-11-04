@@ -419,27 +419,30 @@ enum SaveKind {
 }
 
 impl SaveKind {
-    /// The message after a completed save.
-    fn completed(self) -> CrudText<'static> {
+    /// The title and the message after a completed save.
+    fn completed(self) -> (CrudText<'static>, CrudText<'static>) {
         match self {
-            Self::Create => CrudText::SaveCreated,
-            Self::Update => CrudText::SaveUpdated,
+            Self::Create => (CrudText::SaveCreatedTitle, CrudText::SaveCreated),
+            Self::Update => (CrudText::SaveUpdatedTitle, CrudText::SaveUpdated),
         }
     }
 
-    /// The message after a save that the data source accepted, and still applies.
-    fn accepted(self) -> CrudText<'static> {
+    /// The title and the message after a save that the data source accepted, and still applies.
+    fn accepted(self) -> (CrudText<'static>, CrudText<'static>) {
         match self {
-            Self::Create => CrudText::SaveCreateAccepted,
-            Self::Update => CrudText::SaveUpdateAccepted,
+            Self::Create => (CrudText::SaveCreatedTitle, CrudText::SaveCreateAccepted),
+            Self::Update => (
+                CrudText::SaveUpdateAcceptedTitle,
+                CrudText::SaveUpdateAccepted,
+            ),
         }
     }
 
-    /// The message after a save that failed with `error`.
-    fn failed(self, error: &str) -> CrudText<'_> {
+    /// The title after a failed save, whose message is the error.
+    fn failed(self) -> CrudText<'static> {
         match self {
-            Self::Create => CrudText::SaveCreateFailed { error },
-            Self::Update => CrudText::SaveUpdateFailed { error },
+            Self::Create => CrudText::SaveCreateFailedTitle,
+            Self::Update => CrudText::SaveUpdateFailedTitle,
         }
     }
 }
@@ -480,22 +483,27 @@ impl SaveNotifier {
         let text = |text: CrudText<'_>| self.texts.get_untracked(text);
         let notification = match result {
             Ok(saved) if self.notifications == CrudSaveNotifications::All => {
-                let message = match saved.completion {
+                let (title, message) = match saved.completion {
                     CrudCompletion::Completed => kind.completed(),
                     CrudCompletion::Accepted => kind.accepted(),
                 };
-                CrudNotification::success(text(CrudText::SaveTitle), text(message))
+                CrudNotification::success(text(title), text(message))
             }
             Err(error @ RequestError::Outdated(_))
                 if self.notifications != CrudSaveNotifications::None =>
             {
                 tracing::warn!(%error, "could not save the entity");
-                CrudNotification::warning(text(CrudText::SaveTitle), text(CrudText::FormOutdated))
+                CrudNotification::warning(
+                    text(CrudText::SaveOutdatedTitle),
+                    text(CrudText::FormOutdated),
+                )
             }
             Err(error) if self.notifications != CrudSaveNotifications::None => {
                 tracing::warn!(%error, "could not save the entity");
-                let error = text(CrudText::from(error));
-                CrudNotification::error(text(CrudText::SaveErrorTitle), text(kind.failed(&error)))
+                CrudNotification::error(
+                    text(kind.failed()),
+                    self.texts.request_error_untracked(error),
+                )
             }
             Ok(_) => return,
             Err(error) => {

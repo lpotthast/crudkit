@@ -579,15 +579,56 @@ fn at_path(texts: CrudTexts, path: &str, message: &str) -> String {
     }
 }
 
-/// Describes how someone else changed the member of `conflict`.
+/// Describes how someone else changed the member of `conflict`. A string shows as it is, the
+/// value of a boolean field as [`CrudText::ValueYes`] or [`CrudText::ValueNo`], as the field
+/// shows it, and any other value as JSON.
 pub(crate) fn conflict_message(texts: CrudTexts, conflict: &CrudFieldConflict) -> String {
-    match &conflict.theirs {
-        Some(serde_json::Value::String(value)) => {
-            texts.get(CrudText::FormChangedMeanwhile { value })
+    let value = match &conflict.theirs {
+        None => return texts.get(CrudText::FormRemovedMeanwhile),
+        Some(serde_json::Value::String(value)) => value.clone(),
+        Some(serde_json::Value::Bool(value)) if conflict.path_in_field().is_empty() => {
+            texts.get(if *value {
+                CrudText::ValueYes
+            } else {
+                CrudText::ValueNo
+            })
         }
-        Some(value) => texts.get(CrudText::FormChangedMeanwhile {
-            value: &value.to_string(),
-        }),
-        None => texts.get(CrudText::FormRemovedMeanwhile),
+        Some(value) => value.to_string(),
+    };
+    texts.get(CrudText::FormChangedMeanwhile { value: &value })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assertr::prelude::*;
+
+    fn conflict(pointer: &str, theirs: Option<serde_json::Value>) -> CrudFieldConflict {
+        CrudFieldConflict {
+            field: pointer
+                .trim_start_matches('/')
+                .split('/')
+                .next()
+                .unwrap_or_default()
+                .to_owned(),
+            pointer: pointer.to_owned(),
+            theirs,
+        }
+    }
+
+    #[test]
+    fn conflicts_show_the_other_value_as_its_field_shows_it() {
+        let texts = CrudTexts::default();
+        let message = |pointer: &str, theirs| conflict_message(texts, &conflict(pointer, theirs));
+
+        assert_that!(message("/active", Some(serde_json::json!(true))))
+            .is_equal_to("Someone else changed this to “Yes” in the meantime.".to_owned());
+        assert_that!(message("/name", Some(serde_json::json!("blue"))))
+            .is_equal_to("Someone else changed this to “blue” in the meantime.".to_owned());
+        // A member of a JSON field shows as JSON.
+        assert_that!(message("/tags/on", Some(serde_json::json!(true))))
+            .is_equal_to("Someone else changed this to “true” in the meantime.".to_owned());
+        assert_that!(message("/tags", None))
+            .is_equal_to("Someone else removed this in the meantime.".to_owned());
     }
 }

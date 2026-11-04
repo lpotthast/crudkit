@@ -501,7 +501,8 @@ pub fn CrudEntityStatus(
 ///   [`CrudText::FormOutdated`], or [`CrudText::FormRebaseFailed`] once a reload could not apply
 ///   the user's changes, and a [`CrudReloadButton`] in an edit form;
 /// - problems with fields ([`RequestError::InvalidFields`]): the failure's message;
-/// - any other failure: the error's text (e.g. [`CrudText::ErrorForbidden`]);
+/// - any other failure: the error's text
+///   ([`CrudTexts::request_error`](crate::hooks::CrudTexts::request_error));
 /// - no failure, but [conflicts](crate::hooks::CrudFormState::conflicts) found by a reload:
 ///   [`CrudText::FormConflicts`].
 ///
@@ -522,7 +523,6 @@ pub fn CrudEntityStatus(
 ///
 /// [`CrudText::FormOutdated`]: crate::config::CrudText::FormOutdated
 /// [`CrudText::FormRebaseFailed`]: crate::config::CrudText::FormRebaseFailed
-/// [`CrudText::ErrorForbidden`]: crate::config::CrudText::ErrorForbidden
 /// [`CrudText::FormConflicts`]: crate::config::CrudText::FormConflicts
 /// [`CrudText::FormProblem`]: crate::config::CrudText::FormProblem
 #[component]
@@ -583,7 +583,7 @@ pub fn CrudFormError(
                     .into_any()
                 }
                 Some(RequestError::InvalidFields { message, .. }) => message.into_any(),
-                Some(error) => (move || texts.get(CrudText::from(&error))).into_any(),
+                Some(error) => (move || texts.request_error(&error)).into_any(),
                 None => (move || texts.get(CrudText::FormConflicts)).into_any(),
             };
             view! {

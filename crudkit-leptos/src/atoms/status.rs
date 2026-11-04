@@ -37,6 +37,6 @@ pub(crate) fn status_content(content: Option<&ViewFn>, text: String) -> AnyView 
 /// The default content for the status of a list or an entity that could not be loaded because of
 /// `error` ([`CrudText::StatusFailed`]).
 pub(crate) fn failed_status_text(texts: CrudTexts, error: &RequestError) -> String {
-    let error = texts.get(CrudText::from(error));
+    let error = texts.request_error(error);
     texts.get(CrudText::StatusFailed { error: &error })
 }

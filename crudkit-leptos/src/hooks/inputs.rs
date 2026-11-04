@@ -93,11 +93,20 @@ pub enum CrudInputError {
     Json {
         /// The line of the first error, counted from one.
         line: u64,
-        /// The column of the first error, counted from one.
+        /// The column of the first error in characters, counted from one.
         column: u64,
     },
+    /// The text ends before its JSON is complete ([`CrudText::InputIncompleteJson`]).
+    JsonIncomplete,
     /// A message of the application, e.g. of its own codec, shown as it is.
     Message(String),
+}
+
+impl From<String> for CrudInputError {
+    /// The application's `message`.
+    fn from(message: String) -> Self {
+        Self::Message(message)
+    }
 }
 
 impl CrudInputError {
@@ -113,6 +122,7 @@ impl CrudInputError {
                 line: *line,
                 column: *column,
             },
+            Self::JsonIncomplete => CrudText::InputIncompleteJson,
             Self::Message(message) => return message.clone(),
         };
         texts.get_untracked(text)
@@ -157,10 +167,7 @@ impl CrudTextCodec {
             parse: Arc::new(|text| {
                 serde_json::from_str(text)
                     .map(Value::Json)
-                    .map_err(|err| CrudInputError::Json {
-                        line: err.line() as u64,
-                        column: err.column() as u64,
-                    })
+                    .map_err(|err| json_error(text, &err))
             }),
         }
     }
@@ -238,9 +245,10 @@ impl CrudTextCodec {
         })
     }
 
-    /// Codec for values that format with `Display` and parse with `FromStr`, reporting text that
-    /// does not parse as `invalid` returns.
-    fn parsed_or<T>(
+    /// Codec for values that format with `Display` and parse with `FromStr`, e.g. a type of the
+    /// application. Text that does not parse reports what `invalid` returns for the parse error,
+    /// e.g. [`CrudInputError::Message`] in the user's language.
+    pub fn parsed_or<T>(
         to_value: fn(T) -> Value,
         from_value: fn(&Value) -> Option<T>,
         invalid: fn(T::Err) -> CrudInputError,
@@ -256,6 +264,24 @@ impl CrudTextCodec {
             }),
             parse: Arc::new(move |text| text.trim().parse::<T>().map(to_value).map_err(invalid)),
         }
+    }
+}
+
+/// Returns why `text` is not JSON, given the error of its parser. The parser counts columns in
+/// bytes, so this counts the characters of the error's line up to that byte.
+fn json_error(text: &str, err: &serde_json::Error) -> CrudInputError {
+    if err.is_eof() {
+        return CrudInputError::JsonIncomplete;
+    }
+    let line = err.line().max(1);
+    let column = text.split('\n').nth(line - 1).map_or(err.column(), |line| {
+        line.char_indices()
+            .take_while(|(index, _)| *index < err.column())
+            .count()
+    });
+    CrudInputError::Json {
+        line: line as u64,
+        column: column.max(1) as u64,
     }
 }
 
@@ -566,5 +592,52 @@ pub fn use_crud_toggle_input() -> UseCrudToggleInputReturn {
         is_selected: Signal::derive(move || value.get().as_bool().unwrap_or_default()),
         set_selected: Callback::new(move |selected: bool| set.run(Ok(Value::Bool(selected)))),
         props,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assertr::prelude::*;
+
+    #[test]
+    fn json_errors_name_their_line_and_their_column_in_characters() {
+        let parse = CrudTextCodec::json().parse;
+
+        let error = parse("{\n  \"größe\": x\n}").err();
+
+        assert_that!(error).is_equal_to(Some(CrudInputError::Json {
+            line: 2,
+            column: 12,
+        }));
+        assert_that!(
+            error
+                .map(|error| error.message(CrudTexts::default()))
+                .unwrap_or_default()
+        )
+        .is_equal_to("Invalid JSON at line 2, column 12.".to_owned());
+    }
+
+    #[test]
+    fn json_that_ends_early_is_incomplete() {
+        let parse = CrudTextCodec::json().parse;
+
+        assert_that!(parse("[1, 2").err()).is_equal_to(Some(CrudInputError::JsonIncomplete));
+        assert_that!(parse("").err()).is_equal_to(Some(CrudInputError::JsonIncomplete));
+    }
+
+    #[test]
+    fn messages_of_the_application_show_as_they_are() {
+        let codec = CrudTextCodec::parsed_or(Value::Uuid, Value::as_uuid, |_| {
+            "Gib eine Kennung ein.".to_owned().into()
+        });
+
+        let error = (codec.parse)("not an id").err();
+
+        assert_that!(error.clone()).is_equal_to(Some(CrudInputError::Message(
+            "Gib eine Kennung ein.".to_owned(),
+        )));
+        assert_that!(error.map(|error| error.message(CrudTexts::default())))
+            .is_equal_to(Some("Gib eine Kennung ein.".to_owned()));
     }
 }

@@ -195,10 +195,13 @@ and executing state; the completion it hands to the action stays valid after the
 ## Texts
 
 Every text that CrudKit shows or announces is a `CrudText`: the default content of atoms, accessible names, the
-messages of notifications, and the explanations of errors. A text has a stable ID, `crudkit-` and the name of its
-variant in kebab case (`crudkit-form-save`), named arguments, which are the fields of its variant (`count`), and an
-English default, which chooses its plural forms itself. IDs and argument names are identifiers of Fluent, and change
-only in a breaking release.
+titles and messages of notifications, and the explanations of errors. A text has a stable ID, `crudkit-` and the name
+of its variant in kebab case (`crudkit-form-save`), named arguments, which are the fields of its variant (`count`),
+and an English default, which chooses its plural forms itself. IDs and argument names are identifiers of Fluent, and
+change only in a breaking release. One list in `config::texts` defines the enum with an example of each argument, and
+a macro generates the IDs, the arguments, and `CrudText::catalog`, so that the catalog, which products check their
+translations against, lists every text. `CrudText` is exhaustive on purpose: a new text is a breaking change, so that
+translators written in Rust learn of it when they compile.
 
 An application provides one `CrudTranslator` with `provide_crud_translator`, normally at its root, like the notifier.
 The translator receives a text and returns it in the user's language, or `None`, which shows the English default, so
@@ -212,14 +215,27 @@ reads reactive state, such as the user's language, switches rendered texts when 
 without tracking when they notify, also after their view is gone. Once the owner that provided the translator is
 gone, texts fall back to English.
 
-- Errors of data sources show through the text of their kind (`CrudText::ErrorForbidden`, ...), not through the
-  `Display` of `RequestError`, which stays for logs. Messages of data sources, such as a refusal's reason, are
-  arguments and stay in the language of the data source.
+- Notifications follow the form of a product's toasts: a title of their own per outcome, which says what happened or
+  what failed (`SaveCreatedTitle`, `DeleteRefusedTitle`, ...), and a message with the detail or the reason.
+- Errors of data sources show the text of their kind (`ErrorForbidden`, ...), not the `Display` of `RequestError`,
+  which stays for logs. The data source's message follows through `ErrorMessage`, and stays in the language of the
+  data source. The technical detail of a failure in transport, of an unreadable response, or of a request that could
+  not be built follows through `ErrorDetail`, which a translation may leave out, because the detail is English. An
+  error without a message or detail shows the text of its kind alone, so that no text ends in an empty argument.
 - Codecs report a typed `CrudInputError`, which the text input translates when the user enters text. An input error
   keeps its language until the next input.
 - Configuration errors, such as a field without a renderer or a view opened with the wrong subject, are texts too, and
   are logged with their English default.
 - A message of several sentences, such as the outcome of a mass deletion, joins its translated sentences with a space.
+- A conflict's other value shows as its field shows it where the JSON of the value allows it: a string as it is, a
+  boolean field's value as `ValueYes` or `ValueNo`, and other values as JSON.
+
+Leptonic's hooks have texts of their own, which CrudKit does not translate: a table's announcements of its sorting and
+selection, a number field's stepper buttons, a dialog's hidden dismiss button, and the description of a select's
+options. Leptonic looks them up in the locale of its `I18nProvider`, translated only with its `intl-strings` feature,
+which CrudKit's dependency leaves off, so that applications choose. An application in another language than English
+provides the `I18nProvider` with its translator's locale, and enables the feature or overrides those texts. CrudKit
+names a table's selection checkboxes with its own texts.
 
 ## Views
 

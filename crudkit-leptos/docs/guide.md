@@ -145,8 +145,9 @@ fn clubs_config() -> CrudInstanceConfig {
 
 # Layers
 
-- [`config`]: what an application declares per resource: columns, form layouts, actions, field renderers, views,
-  texts. Plain data, no markup apart from the renderers an application registers.
+- [`config`]: what an application declares: per resource its columns, form layouts, actions, field renderers, and
+  views, and once for the whole application the translator of CrudKit's texts. Plain data, no markup apart from the
+  renderers an application registers.
 - [`instance`]: the runtime of a mounted resource: [`CrudInstanceMgr`](instance::CrudInstanceMgr),
   [`CrudInstance`](instance::CrudInstance), navigation between views, and [`CrudViewOutlet`](instance::CrudViewOutlet).
 - [`hooks`]: CrudKit's behavior as reactive state, e.g. [`use_crud_list`](hooks::use_crud_list) or
@@ -884,9 +885,11 @@ fn App(children: Children) -> impl IntoView {
 # Texts
 
 Atoms show CrudKit's texts unless given children: button labels, statuses, dialog texts, accessible names, and the
-messages of notifications and errors. Each text is a [`CrudText`](config::CrudText) with a stable ID, such as
-`crudkit-form-save`, named arguments, such as the `count` of `crudkit-selection-count`, and an English default.
-[`CrudText`](config::CrudText) lists every text with its English default.
+titles and messages of notifications and errors. Each text is a [`CrudText`](config::CrudText) with a stable ID, such
+as `crudkit-form-save`, named arguments, such as the `count` of `crudkit-selection-count`, and an English default.
+[`CrudText`](config::CrudText) documents every text with its English default, and
+[`CrudText::catalog`](config::CrudText::catalog) returns every text with example arguments, e.g. to check that a
+translation names only CrudKit's IDs and their arguments.
 
 CrudKit shows its English texts. To show another language, such as German, provide a
 [`CrudTranslator`](config::CrudTranslator) once at the root of the application with
@@ -914,6 +917,10 @@ fn App(children: Children) -> impl IntoView {
 }
 # fn main() {}
 ```
+
+[`CrudText`](config::CrudText) is exhaustive on purpose: a release that adds a text is a breaking release. A
+translator that matches the texts without a wildcard arm then fails to compile, and so names every new text, which
+the example above shows in English instead.
 
 A translator that reads reactive state switches everything rendered when that state changes, such as a signal holding
 the user's language. CrudKit also looks texts up for notifications after their view is gone, so a translator reads
@@ -968,9 +975,39 @@ crudkit-delete-completed = { $count ->
 }
 ```
 
+An error of a data source shows the text of its kind, such as `crudkit-error-forbidden` ("Permission denied"),
+followed by the data source's message (`crudkit-error-message`) or by a technical detail in English
+(`crudkit-error-detail`), which a translation may leave out. An error without a message shows the text of its kind
+alone. [`CrudTexts::request_error`](hooks::CrudTexts::request_error) shows errors the same way in markup of your own.
+
 Server rendering and hydration show the same texts when the server and the browser provide translators for the same
 language. [`format_crud_value`](hooks::format_crud_value) formats values, such as numbers and dates, the same way in
 every language.
+
+## Leptonic's texts
+
+Some texts come from Leptonic's hooks, which CrudKit's atoms build on, not from CrudKit: a table announces changes of
+its sorting and its selection, a number field names its stepper buttons, a dialog has a hidden button that closes it
+for screen readers, and the page size selection describes its options. Leptonic looks these texts up in the locale of
+its `I18nProvider`. It has their translations only with its `intl-strings` feature, which CrudKit leaves to the
+application, and else shows them in English. An application that shows another language than English therefore:
+
+- provides Leptonic's `I18nProvider` with the same locale as its translator, and
+- enables Leptonic's `intl-strings` feature (`leptonic = { ..., features = ["intl-strings"] }`), or overrides these
+  texts through the props of Leptonic's atoms and hooks where it renders them itself.
+
+CrudKit names the selection checkboxes of tables with its own texts, so the translator names them too.
+
+## Migrating from `CrudUiTexts`
+
+Before translators, CrudKit showed German texts by default, from `CrudUiTexts`, and offered English ones. Now its texts
+are English, and every other language comes from a translator:
+
+- An application that provided `CrudUiTexts::english()` removes that call.
+- An application that showed the German defaults now shows English. To show German again, it provides a translator for
+  German, such as the one above, with a translation of every text of [`CrudText`](config::CrudText).
+- An application that changed single texts of `CrudUiTexts` provides a translator that returns its texts for those
+  texts and `None` for every other one.
 
 # Styling
 
