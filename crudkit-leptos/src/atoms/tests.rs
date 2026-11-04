@@ -297,7 +297,7 @@ fn table_headers_expose_their_column() {
     let html = render_in_instance(listed_items_config(), || {
         view! {
             <CrudList>
-                <CrudTable selectable=true with_actions=true>
+                <CrudTable selectable=true with_actions=true aria_label="Items">
                     <CrudTableHeader>
                         <CrudTableHeaderRow>
                             <CrudTableSelectAllHeader>
@@ -314,7 +314,7 @@ fn table_headers_expose_their_column() {
     let tables = elements_with_class(&html, "crudkit-Table");
     assert_that!(tables.len()).is_equal_to(1);
     assert_that!(tables[0]).contains("role=\"grid\"");
-    assert_that!(tables[0]).contains("aria-label=\"items\"");
+    assert_that!(tables[0]).contains("aria-label=\"Items\"");
     let headers = elements_with_class(&html, "crudkit-TableColumnHeader");
     assert_that!(headers.len()).is_equal_to(1);
     assert_that!(headers[0]).starts_with("th");

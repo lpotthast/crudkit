@@ -90,8 +90,8 @@ pub fn CrudTable(
     /// What activating a row does.
     #[prop(optional)]
     row_action: CrudRowAction,
-    /// Accessible name of the table. Defaults to the instance's resource name, unless
-    /// `aria_labelledby` names the table.
+    /// Accessible name of the table, in the user's language. A table needs a name, given either
+    /// as `aria_label` or by `aria_labelledby`. Without one, CrudKit logs a warning.
     #[prop(into, optional)]
     aria_label: MaybeProp<String>,
     /// Ids of elements naming the table, e.g. a heading.
@@ -106,6 +106,12 @@ pub fn CrudTable(
         .merge(classes, MergeStrategy::UnionConditions);
     let ctx = use_crud_instance();
     let navigation = use_crud_navigation();
+    if aria_labelledby.is_none() && aria_label.with_untracked(Option::is_none) {
+        tracing::warn!(
+            resource = ctx.resource_name(),
+            "a `CrudTable` has no accessible name; give it `aria_label` or `aria_labelledby`"
+        );
+    }
     let on_row_action = match row_action {
         CrudRowAction::None => None,
         CrudRowAction::Read => Some(Callback::new(move |entity: DynReadModel| {
@@ -121,7 +127,7 @@ pub fn CrudTable(
         columns: columns.unwrap_or_else(|| ctx.list_columns()),
         selectable: Signal::stored(selectable),
         with_actions: Signal::stored(with_actions),
-        aria_label: table_label(aria_label, aria_labelledby.is_some(), ctx.resource_name()),
+        aria_label,
         aria_labelledby: aria_labelledby.map(Id::from),
         on_row_action,
     });
@@ -131,21 +137,6 @@ pub fn CrudTable(
                 {children()}
             </table>
         </Provider>
-    }
-}
-
-/// The accessible name of a table: `aria_label`, else `resource_name` unless the table is named by
-/// other elements.
-fn table_label(
-    aria_label: MaybeProp<String>,
-    is_labelled_by: bool,
-    resource_name: String,
-) -> MaybeProp<String> {
-    if is_labelled_by {
-        aria_label
-    } else {
-        Signal::derive(move || Some(aria_label.get().unwrap_or_else(|| resource_name.clone())))
-            .into()
     }
 }
 

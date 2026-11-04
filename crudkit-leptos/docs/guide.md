@@ -239,7 +239,12 @@ fn ListView() -> impl IntoView {
                 <CrudResourceActions/>
                 <CrudCreateButton/>
             </div>
-            <CrudTable selectable=true with_actions=true row_action=CrudRowAction::Edit>
+            <CrudTable
+                aria_label="Clubs"
+                selectable=true
+                with_actions=true
+                row_action=CrudRowAction::Edit
+            >
                 <CrudTableHeader>
                     <CrudTableHeaderRow>
                         <CrudTableSelectAllHeader>
@@ -279,8 +284,9 @@ fn ListView() -> impl IntoView {
 
 [`CrudTable`](atoms::CrudTable) shows the instance's configured columns. Its `selectable` and `with_actions` props add
 the selection and actions columns, whose header and cells the rows then render; the selection atoms panic in a table
-that is not selectable. The table's accessible name defaults to the resource name; give it a better one with
-`aria_label` or `aria_labelledby`. Inside a row, [`use_crud_table_row`](hooks::use_crud_table_row) returns its entity,
+that is not selectable. Name every table with `aria_label` or `aria_labelledby`, e.g. by its heading. CrudKit gives a
+table no name of its own, because the name of the resource is no text for users, and logs a warning for a table
+without a name. Inside a row, [`use_crud_table_row`](hooks::use_crud_table_row) returns its entity,
 the instance's read model.
 
 A cell shows the read renderer registered for its field (see [Field renderers](#field-renderers)), else the value as
@@ -1028,7 +1034,7 @@ Leptonic's atoms supply keyboard interaction, focus management, and ARIA semanti
 accessible around them:
 
 - Icon-only buttons need an `aria_label`, e.g. `<CrudDeleteButton aria_label="Delete club">`.
-- Name tables with `aria_label` or `aria_labelledby` when the resource name does not read well.
+- Name every table with `aria_label` or `aria_labelledby`.
 - Keep heading levels in order: views of a nested instance sit below the heading naming it in the parent.
 - Style keyboard focus through `data-focus-visible`, so that mouse presses leave no focus rings.
 - Mark decorative generated content as such, e.g. `content: "↑" / ""`, so that screen readers skip it.

@@ -63,6 +63,7 @@ fn ListPanel() -> impl IntoView {
             </div>
             <div class="ui-table-scroll">
                 <CrudTable
+                    aria_label=noun.plural
                     selectable=!read_only
                     with_actions=true
                     row_action=if read_only { CrudRowAction::Read } else { CrudRowAction::Edit }

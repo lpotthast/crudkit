@@ -165,7 +165,9 @@ value of a row's ID injectively into `[A-Za-z0-9_]`; a row's key joins its ID's 
 | Values        | `CrudValue`, `CrudIcon`                                                                       |
 
 `CrudTable` takes `selectable` and `with_actions` explicitly, because they add columns to the grid whose header and
-cells the application renders; `row_action` (`CrudRowAction`) decides what activating a row does. Column headers and
+cells the application renders; `row_action` (`CrudRowAction`) decides what activating a row does. The application names
+the table with `aria_label` or `aria_labelledby`: the name of the resource is no text for users, so a table has no
+name of its own, and one without a name logs a warning. Column headers and
 cells expose the column's kind of value as `data-kind`, like `CrudValue`, so number columns can be aligned. Like
 Leptonic's table atoms, rows, column headers, and cells expose `data-focus-visible` and `data-hovered`, and a cell
 renders again when its column moves, e.g. when the table's columns change.
