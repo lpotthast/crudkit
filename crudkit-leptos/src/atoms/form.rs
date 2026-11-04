@@ -12,7 +12,7 @@ use crate::hooks::form::{
 use crate::hooks::instance::{use_crud_instance, use_crud_navigation};
 use crate::hooks::texts::use_crud_texts;
 use crudkit_core::id::SerializableId;
-use crudkit_web::data_source::CrudSaved;
+use crudkit_web::data_source::{CrudFieldProblem, CrudSaved};
 use crudkit_web::field::FieldMode;
 use crudkit_web::http::RequestError;
 use crudkit_web::layout::Elem;
@@ -118,6 +118,9 @@ pub fn CrudCreateForm(
         violations,
         follow_up: follow_up.unwrap_or(CrudSaveFollowUp::Edit),
         draft: Signal::stored(None),
+        save_error: state.save_error,
+        unshown_problems: state.unshown_problems(),
+        reload: None,
         field_type: TypeId::of::<DynCreateField>(),
         submits: !is_inside_form_element(),
     };
@@ -180,6 +183,7 @@ pub fn CrudEditForm(
         delete,
         can_delete,
         violations,
+        reload,
         ..
     } = use_crud_edit_form(UseCrudEditFormInput {
         id,
@@ -204,6 +208,9 @@ pub fn CrudEditForm(
         violations,
         follow_up: follow_up.unwrap_or(CrudSaveFollowUp::Stay),
         draft: state.draft,
+        save_error: state.save_error,
+        unshown_problems: state.unshown_problems(),
+        reload: Some(reload),
         field_type: TypeId::of::<DynUpdateField>(),
         submits: !is_inside_form_element(),
     };
@@ -255,6 +262,7 @@ pub fn CrudDetails(
         form: state,
         delete,
         can_delete,
+        reload,
         ..
     } = use_crud_read(id);
     let fields = FormContext {
@@ -274,6 +282,9 @@ pub fn CrudDetails(
         violations: Signal::stored(None),
         follow_up: CrudSaveFollowUp::Stay,
         draft: state.draft,
+        save_error: Signal::stored(None),
+        unshown_problems: Signal::stored(Vec::new()),
+        reload: Some(reload),
         field_type: TypeId::of::<DynUpdateField>(),
         submits: false,
     };
@@ -461,6 +472,143 @@ pub fn CrudEntityStatus(
         <StatusRegion data_status classes styles>
             {content.clone()}
         </StatusRegion>
+    }
+}
+
+/// Why the last save of the surrounding form failed: a `<div>` that is an assertive live region
+/// (`role="alert"`), empty while the last save did not fail, so that screen readers announce a
+/// failure when it appears.
+///
+/// Default content, by the failure in the form's
+/// [`save_error`](crate::hooks::CrudFormHandle::save_error):
+///
+/// - a save refused because someone else changed the entity ([`RequestError::Outdated`]):
+///   [`CrudUiTexts::outdated`], and a [`CrudReloadButton`] in an edit form;
+/// - problems with fields ([`RequestError::InvalidFields`]): the failure's message, and a list of
+///   the problems of fields that the form does not show. Each
+///   [`CrudField`](crate::atoms::CrudField) shows the problems of its field;
+/// - any other failure: the error.
+///
+/// Data attributes: `data-kind` (`outdated`, `invalid`, or `failed`), absent while the last save
+/// did not fail.
+///
+/// Default class: `crudkit-FormError`.
+///
+/// [`CrudUiTexts::outdated`]: crate::config::CrudUiTexts::outdated
+#[component]
+pub fn CrudFormError(
+    #[prop(into, optional)] classes: Classes,
+    #[prop(into, optional)] styles: Styles,
+    /// Replaces the default content while the last save failed. The form's
+    /// [`save_error`](crate::hooks::CrudFormHandle::save_error) tells why.
+    #[prop(optional)]
+    children: Option<ChildrenFn>,
+) -> impl IntoView {
+    let classes = Classes::new()
+        .add("crudkit-FormError")
+        .merge(classes, MergeStrategy::UnionConditions);
+    let form = expect_crud_form("CrudFormError");
+    let error = form.save_error;
+    let kind = move || error.with(|error| error.as_ref().map(failure_kind));
+    let texts = use_crud_texts();
+    let children = StoredValue::new(children);
+    let content = move || {
+        let error = error.get()?;
+        let content = children.with_value(|children| match children {
+            Some(children) => children().into_any(),
+            None => match error {
+                RequestError::Outdated(_) => {
+                    let reload = form.reload.map(|_| view! { <CrudReloadButton /> });
+                    view! {
+                        {move || texts.read().outdated.to_string()}
+                        {reload}
+                    }
+                    .into_any()
+                }
+                RequestError::InvalidFields { message, .. } => view! {
+                    {message}
+                    <UnshownProblems problems=form.unshown_problems />
+                }
+                .into_any(),
+                error => error.to_string().into_any(),
+            },
+        });
+        Some(content)
+    };
+    view! {
+        <div class=classes style=styles role="alert" data-kind=kind>
+            {content}
+        </div>
+    }
+}
+
+/// The problems of fields that a form does not show, as a list. Empty without such problems.
+#[component]
+fn UnshownProblems(problems: Signal<Vec<CrudFieldProblem>>) -> impl IntoView {
+    move || {
+        let problems = problems.get();
+        (!problems.is_empty()).then(|| {
+            let items = problems
+                .into_iter()
+                .map(
+                    |problem| view! { <li>{format!("{}: {}", problem.field, problem.detail)}</li> },
+                )
+                .collect_view();
+            view! { <ul>{items}</ul> }
+        })
+    }
+}
+
+/// The `data-kind` value of a failed save.
+fn failure_kind(error: &RequestError) -> &'static str {
+    match error {
+        RequestError::Outdated(_) => "outdated",
+        RequestError::InvalidFields { .. } => "invalid",
+        _ => "failed",
+    }
+}
+
+/// Reloads the entity of the surrounding edit form or details, to show its current state, e.g.
+/// after a save was refused because someone else changed the entity. An edit form keeps its
+/// unsaved changes, which then apply to the reloaded version.
+///
+/// Default content: [`CrudUiTexts::show_current`].
+///
+/// Data attributes: those of Leptonic's `Button`.
+///
+/// Default classes: `leptonic-Button crudkit-ReloadButton`.
+///
+/// [`CrudUiTexts::show_current`]: crate::config::CrudUiTexts::show_current
+///
+/// # Panics
+///
+/// Panics outside of an edit form or details, e.g. inside a [`CrudCreateForm`], which has no
+/// entity to reload.
+#[component]
+pub fn CrudReloadButton(
+    #[prop(into, optional)] is_disabled: Signal<bool>,
+    /// Labels the button when its content doesn't, e.g. an icon.
+    #[prop(into, optional)]
+    aria_label: MaybeProp<String>,
+    #[prop(into, optional)] classes: Classes,
+    #[prop(into, optional)] styles: Styles,
+    #[prop(optional)] children: Option<Children>,
+) -> impl IntoView {
+    let classes = Classes::new()
+        .add("crudkit-ReloadButton")
+        .merge(classes, MergeStrategy::UnionConditions);
+    let form = expect_crud_form("CrudReloadButton");
+    let Some(reload) = form.reload else {
+        panic!(
+            "`CrudReloadButton` must be rendered inside an edit form or details, not in a create form"
+        );
+    };
+    let texts = use_crud_texts();
+    let text = move || texts.read().show_current.to_string();
+    view! {
+        <Button on_press=move |_| reload.run(()) is_disabled aria_label classes styles>
+            {content_or_default(children, text)}
+        </Button>
     }
 }
 

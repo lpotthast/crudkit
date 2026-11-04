@@ -6,8 +6,8 @@ use crate::hooks::notify::{CrudNotification, CrudNotifier};
 use crate::hooks::texts::with_texts;
 use crate::instance::{CommittedReturnDestination, CrudNavigation};
 use crudkit_web::data_source::{
-    CrudDataSource, CrudDeleteManyRequest, CrudDeleteRequest, CrudDeleted, CrudDeletedMany,
-    CrudScope,
+    CrudCompletion, CrudDataSource, CrudDeleteManyRequest, CrudDeleteRequest, CrudDeleted,
+    CrudDeletedMany, CrudScope,
 };
 use crudkit_web::delete::{DeleteManyCounts, DeleteManyOutcome};
 use crudkit_web::http::RequestError;
@@ -68,6 +68,12 @@ impl CrudDeleteState {
                     notifier.notify(with_texts(texts, |texts| {
                         delete_notification(texts, &result)
                     }));
+                    // Someone else changed the entity since the user saw it. Reloading shows its
+                    // current state, so that the user can decide again.
+                    if matches!(result, Err(RequestError::Outdated(_))) {
+                        reload.try_run(());
+                        return;
+                    }
                     // The requesting view may have been unmounted while the request was in flight.
                     if result.is_err() || navigation.is_disposed() {
                         return;
@@ -130,7 +136,10 @@ impl CrudDeleteState {
 
     /// Requests deleting `entity`. After a confirmed deletion, a requesting view showing `entity`
     /// (whose view [`subject`](crudkit_web::view::CrudView::subject) is its ID) returns, e.g. from
-    /// an edit view to the list. Other views, such as the list, stay and reload.
+    /// an edit view to the list, also when the data source only accepted the deletion and the
+    /// entity is still being deleted. Other views, such as the list, stay and reload. A deletion
+    /// refused because someone else changed the entity reloads the instance, so that it shows the
+    /// current state.
     pub fn request(&self, entity: impl Into<DynReadOrUpdateModel>) {
         self.requested.set(Some((entity.into(), self.navigation)));
     }
@@ -199,13 +208,25 @@ pub(crate) fn delete_notification(
 ) -> CrudNotification {
     let title = texts.deletion.to_string();
     match result {
-        Ok(deleted) => CrudNotification::success(title, (texts.deleted)(deleted.entities_affected)),
+        Ok(deleted) => {
+            let message = match deleted.completion {
+                CrudCompletion::Completed => (texts.deleted)(deleted.entities_affected),
+                CrudCompletion::Accepted => (texts.deletion_accepted)(deleted.entities_affected),
+            };
+            CrudNotification::success(title, message)
+        }
         Err(RequestError::Forbidden(reason)) => {
             CrudNotification::warning(title, (texts.deletion_forbidden)(reason))
+        }
+        Err(RequestError::Outdated(_)) => {
+            CrudNotification::warning(title, texts.deletion_outdated.to_string())
         }
         Err(
             RequestError::UnprocessableEntity(reason)
             | RequestError::CriticalValidationErrors {
+                message: reason, ..
+            }
+            | RequestError::InvalidFields {
                 message: reason, ..
             },
         ) => CrudNotification::warning(title, (texts.deletion_rejected)(reason)),
@@ -221,12 +242,22 @@ pub(crate) fn delete_many_notification(
     let title = texts.deletion.to_string();
     match result {
         Ok(deleted_many) => match DeleteManyOutcome::from(deleted_many) {
-            DeleteManyOutcome::Complete { deleted, .. } => {
-                CrudNotification::success(title, (texts.deleted)(deleted))
-            }
+            DeleteManyOutcome::Complete { deleted, accepted } => CrudNotification::success(
+                title,
+                with_accepted(texts, texts.deleted.as_ref(), deleted, accepted),
+            ),
             DeleteManyOutcome::Partial(counts) => CrudNotification::warning(
                 title,
-                with_failures(texts, (texts.deleted_partially)(counts.deleted), counts),
+                with_failures(
+                    texts,
+                    with_accepted(
+                        texts,
+                        texts.deleted_partially.as_ref(),
+                        counts.deleted,
+                        counts.accepted,
+                    ),
+                    counts,
+                ),
             ),
             DeleteManyOutcome::Failed(counts) => CrudNotification::error(
                 title,
@@ -234,6 +265,26 @@ pub(crate) fn delete_many_notification(
             ),
         },
         Err(err) => CrudNotification::error(title, (texts.deletion_failed)(&err.to_string())),
+    }
+}
+
+/// Reports `deleted` deleted entities with `deleted_text`, followed by the `accepted` entities that
+/// are still being deleted. Leaves out the deleted entities when there are none, but some accepted
+/// ones.
+fn with_accepted(
+    texts: &CrudUiTexts,
+    deleted_text: &(dyn Fn(u64) -> String + Send + Sync),
+    deleted: u64,
+    accepted: u64,
+) -> String {
+    match (deleted, accepted) {
+        (_, 0) => deleted_text(deleted),
+        (0, accepted) => (texts.deletion_accepted)(accepted),
+        (deleted, accepted) => format!(
+            "{} {}",
+            deleted_text(deleted),
+            (texts.deletion_accepted)(accepted)
+        ),
     }
 }
 

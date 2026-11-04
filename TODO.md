@@ -165,6 +165,12 @@ Priorities are relative:
   confirming a deletion whose trigger disappears, and leaving a view all drop focus to `<body>`. `CrudViewOutlet` could
   focus the new view (e.g. its first heading or the view's root, as routers do), and confirmation dialogs could return
   focus to a stable element when their trigger is gone.
+- [ ] **P2 - Let forms leave the failures they explain to `CrudFormError`.** A failed save notifies its failure, as the
+  form's `CrudSaveNotifications` select, also when `CrudFormError` explains it in the form, so screen readers announce
+  it twice. A choice that notifies successes only would let applications avoid that.
+- [ ] **P2 - Label the problems of fields that a form does not show.** `CrudFormError` names such a field by its name
+  in the model, because the form knows no label for a field it does not show. A label from the form's layout would read
+  better.
 - [ ] **P2 - Show save violations.** `CrudFormHandle::violations` carries the non-critical violations of the last save,
   but no atom shows them, and the example does not either.
 - [ ] **P2 - Format read-only values in inputs.** Disabled or read-only text inputs show their codec's edit format

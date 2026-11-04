@@ -65,8 +65,8 @@ Atoms find what they act on in context rather than in props:
   follows reloads, read with `use_crud_table_row`) and its fields, shared by the row's cells. Rows are keyed by entity
   id, so a reload that changes an entity updates its row in place.
 - The form: `CrudCreateForm`, `CrudEditForm`, and `CrudDetails` provide a typed form context for their fields and a
-  `CrudFormHandle` (kind, status, dirty, error, and saving state, save, default follow-up, violations, draft) read with
-  `use_crud_form`.
+  `CrudFormHandle` (kind, status, dirty, error, and saving state, save, default follow-up, violations, draft, the error
+  of the last save with the problems of fields the form does not show, and reload) read with `use_crud_form`.
 - The entity: table rows and entity forms provide the `CrudEntityHandle` entity-related buttons act on (its id,
   deleting it), read with `use_crud_entity`. A `CrudDeleteButton` therefore deletes the entity of the row or form it
   is in.
@@ -152,8 +152,8 @@ value of a row's ID injectively into `[A-Za-z0-9_]`; a row's key joins its ID's 
 | Pagination    | `CrudPagination`, `CrudPageButtons`, `CrudPageButton`, `CrudPageGap`,                         |
 |               | `CrudPreviousPageButton`, `CrudNextPageButton`, `CrudItemsPerPage`, `CrudItemsPerPageOptions` |
 | Entities      | `CrudReadButton`, `CrudEditButton`, `CrudDeleteButton`                                        |
-| Forms         | `CrudCreateForm`, `CrudEditForm`, `CrudDetails`, `CrudEntityStatus`, `CrudSaveButton`,        |
-|               | `CrudReturnButton`                                                                            |
+| Forms         | `CrudCreateForm`, `CrudEditForm`, `CrudDetails`, `CrudEntityStatus`, `CrudFormError`,         |
+|               | `CrudSaveButton`, `CrudReloadButton`, `CrudReturnButton`                                      |
 | Layout        | `CrudFormLayout`, `CrudFormGroup`, `CrudFormCard`, `CrudFormTabs`, `CrudFormTab`,             |
 |               | `CrudFormTabPanel`, `CrudFormSeparator`                                                       |
 | Fields        | `CrudField`, `CrudFieldControl`, `CrudTextField`, `CrudNumberField`, `CrudSwitch`,            |
@@ -204,17 +204,36 @@ navigation scope. A view without a renderer, or opened with the wrong subject, r
 
 ## Forms
 
-`CrudFormState` holds the draft model, the baseline it is compared against, input errors, and one `ReactiveField` per
-field. `set_field` updates the draft and the field's reactive value together. Create forms start from the create
-model's default, with a nested instance's parent reference filled in. Edit and read forms reload whenever the entity
-loads; the edit and read hooks combine loading and field values into a `CrudEntityLoadStatus` (loading, ready, not
-found, or failed). After a successful update, the saved entity becomes the baseline, so the draft is clean again. A
-list's `CrudListLoadStatus` (loading, ready, empty, or failed) likewise drives `CrudListStatus`.
+`CrudFormState` holds the draft model, the baseline it is compared against, input errors, the failure of the last
+save with the problems of fields it reported, and one `ReactiveField` per field. `set_field` updates the draft and the
+field's reactive value together. Create forms start from the create model's default, with a nested instance's parent
+reference filled in. Edit and read forms reload whenever the entity loads; the edit and read hooks combine loading and
+field values into a `CrudEntityLoadStatus` (loading, ready, not found, or failed). After a successful update, the
+saved entity becomes the baseline, so the draft is clean again. A list's `CrudListLoadStatus` (loading, ready, empty,
+or failed) likewise drives `CrudListStatus`.
 
 A form does not save while a field holds input its codec rejects, and its fields are read-only while it saves. The
 save request reports its outcome through the instance's notifier, also when the form is gone by then: a success or an
-error notification, as the form's `CrudSaveNotifications` select (all by default, failures only, or none).
-`on_saved` and `on_save_failed` run while the form is mounted.
+error notification, as the form's `CrudSaveNotifications` select (all by default, failures only, or none). A change
+that the data source [accepted](data-sources.md#accepted-changes) without completing it is a success that says so,
+and a save refused as outdated is a warning. `on_saved` and `on_save_failed` run while the form is mounted.
+
+A failed save keeps the draft, and `CrudFormState::save_error` holds the failure until a save succeeds or the form
+loads another entity:
+
+- A save refused because someone else changed the entity ([`Outdated`](data-sources.md#versions)) asks the user to
+  look at the current state. `CrudReloadButton` and the edit form's `reload` reload the entity, which applies the
+  draft's changes to the current version, as described in
+  [Instances and Composition](instances-and-composition.md#list-state-ownership), and resolves the failure.
+- The problems of a refusal by [fields](data-sources.md#problems) reach their fields: a field's error is its input
+  error, or else the problems of the last save for it. Changing a field resolves its problems. Problems do not keep
+  the form from saving, because only the data source can tell whether they still apply.
+- `CrudFormError` explains the failure in an assertive live region (`role="alert"`) that stays rendered, empty
+  without a failure: the outdated text with a `CrudReloadButton`, the message of the refusal with the problems of
+  fields the form does not show, or any other error. `data-kind` (`outdated`, `invalid`, `failed`) lets applications
+  give each a tone. Every mounted `CrudField` registers its field with the form, so the problems of other fields, such
+  as one in a tab that is not mounted or one the model does not have, appear in `CrudFormError` instead of getting
+  lost.
 
 `CrudSaveFollowUp` selects what happens after a successful save: `Stay` (a create form starts a fresh draft), `Return`,
 `Edit` (the saved entity, which stays after editing), `CreateAnother` (a fresh draft in a create form), or a view
@@ -250,7 +269,9 @@ State hooks are unit-tested on a native single-threaded executor against data in
 `test_support` module provides this setup: `with_crud_manager` runs a test below a manager, `MemorySource` is a data
 source of items in memory, paged by offset or by cursor, which records every operation with its scope,
 `CrudTestServer` answers the requests of the REST data source from a handler and records them, and `settle` runs
-pending tasks. The test dev-dependencies enable
+pending tasks. Like an API with optimistic concurrency, `MemorySource` versions its items, refuses outdated changes and
+deletions, applies the merge patches of changes, refuses one name with problems of fields, and accepts changes and
+deletions instead of completing them on request. The test dev-dependencies enable
 `reactive_graph`'s `effects` feature, because Leptos only runs effects in client builds.
 
 The atoms' markup (elements, default classes, data attributes, misplacement panics) is tested by rendering atoms to

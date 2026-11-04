@@ -10,6 +10,7 @@ use crate::test_support::memory::{MemoryPaging, MemorySource};
 use crate::test_support::with_crud_manager;
 use assertr::prelude::*;
 use leptonic::atoms::tabs::TabList;
+use leptos::context::Provider;
 use leptos::prelude::*;
 
 /// Renders `view` to HTML inside a mounted `items` instance configured by `config`.
@@ -425,4 +426,98 @@ fn closed_confirmation_dialogs_render_nothing() {
         }
     });
     assert_that!(elements_with_class(&html, "app-dialog").len()).is_equal_to(0);
+}
+
+#[test]
+fn form_errors_are_empty_alerts_until_a_save_fails() {
+    let html = render_in_create_form(items_config(), || {
+        view! { <CrudFormError classes="app-error" /> }
+    });
+    let errors = elements_with_class(&html, "crudkit-FormError");
+    assert_that!(errors.len()).is_equal_to(1);
+    assert_that!(errors[0]).starts_with("div");
+    assert_that!(errors[0]).contains("role=\"alert\"");
+    assert_that!(errors[0]).contains("app-error");
+    assert_that!(errors[0]).does_not_contain("data-kind");
+}
+
+/// Renders a `CrudFormError` in an edit form whose last save failed with `error`, and which does
+/// not show the fields of `unshown`.
+fn render_failed_save(error: RequestError, unshown: Vec<CrudFieldProblem>) -> String {
+    render_in_instance(items_config(), move || {
+        let form = CrudFormHandle {
+            kind: CrudEntityViewKind::Update,
+            status: Signal::stored(CrudEntityLoadStatus::Ready),
+            is_dirty: Signal::stored(true),
+            has_errors: Signal::stored(false),
+            is_saving: Signal::stored(false),
+            can_save: Signal::stored(true),
+            save: None,
+            violations: Signal::stored(None),
+            follow_up: CrudSaveFollowUp::Stay,
+            draft: Signal::stored(None),
+            save_error: Signal::stored(Some(error)),
+            unshown_problems: Signal::stored(unshown),
+            reload: Some(Callback::new(|()| {})),
+            field_type: std::any::TypeId::of::<DynUpdateField>(),
+            submits: false,
+        };
+        view! {
+            <Provider value=Some(form)>
+                <CrudFormError />
+            </Provider>
+        }
+    })
+}
+
+#[test]
+fn form_errors_offer_the_current_state_of_an_outdated_entity() {
+    let html = render_failed_save(RequestError::Outdated("changed".to_owned()), Vec::new());
+
+    let errors = elements_with_class(&html, "crudkit-FormError");
+    assert_that!(errors.len()).is_equal_to(1);
+    assert_that!(errors[0]).contains("data-kind=\"outdated\"");
+    assert_that!(html.as_str()).contains(CrudUiTexts::default().outdated.as_ref());
+    let reload = elements_with_class(&html, "crudkit-ReloadButton");
+    assert_that!(reload.len()).is_equal_to(1);
+    assert_that!(reload[0]).contains("leptonic-Button");
+}
+
+#[test]
+fn form_errors_list_the_problems_of_fields_that_the_form_does_not_show() {
+    let html = render_failed_save(
+        RequestError::InvalidFields {
+            message: "The item is invalid.".to_owned(),
+            problems: vec![
+                CrudFieldProblem::new("name", "Another item has this name."),
+                CrudFieldProblem::new("secret", "The secret is wrong."),
+            ],
+        },
+        vec![CrudFieldProblem::new("secret", "The secret is wrong.")],
+    );
+
+    assert_that!(elements_with_class(&html, "crudkit-FormError")[0])
+        .contains("data-kind=\"invalid\"");
+    assert_that!(html.as_str()).contains("The item is invalid.");
+    assert_that!(html.as_str()).contains("<li>secret: The secret is wrong.</li>");
+    // The field shows its problem itself.
+    assert_that!(html.as_str()).does_not_contain("Another item has this name.");
+}
+
+#[test]
+fn form_errors_explain_other_failures() {
+    let html = render_failed_save(RequestError::Forbidden("not yours".to_owned()), Vec::new());
+
+    assert_that!(elements_with_class(&html, "crudkit-FormError")[0])
+        .contains("data-kind=\"failed\"");
+    assert_that!(html.as_str()).contains("Permission denied: not yours");
+    assert_that!(elements_with_class(&html, "crudkit-ReloadButton")).is_empty();
+}
+
+#[test]
+#[should_panic(
+    expected = "`CrudReloadButton` must be rendered inside an edit form or details, not in a create form"
+)]
+fn reload_buttons_need_an_entity_to_reload() {
+    render_in_create_form(items_config(), || view! { <CrudReloadButton /> });
 }

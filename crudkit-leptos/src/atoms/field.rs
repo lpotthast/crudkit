@@ -46,6 +46,9 @@ struct RegisteredRenderer(Option<ViewFn>);
 /// not have shows a visible configuration error instead: a
 /// `<div class="crudkit-UnknownField" role="alert">`.
 ///
+/// While mounted, the field shows the problems that the form's last save reported for it, so the
+/// form's [`CrudFormError`](crate::atoms::CrudFormError) leaves them out.
+///
 /// [`CrudCreateForm`]: crate::atoms::CrudCreateForm
 /// [`CrudEditForm`]: crate::atoms::CrudEditForm
 /// [`CrudDetails`]: crate::atoms::CrudDetails
@@ -65,6 +68,7 @@ pub fn CrudField<T: IntoDynField>(
 ) -> impl IntoView {
     let field = field.into_dyn();
     let form = use_form_of::<T::Dyn>(&field);
+    form.state.show_field(field.name().into_owned());
     let options = options.unwrap_or_else(|| {
         form.elements
             .with_untracked(|elements| configured_options(elements, &field))

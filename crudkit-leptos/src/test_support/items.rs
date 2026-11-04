@@ -14,6 +14,12 @@ use std::sync::{Arc, Mutex};
 pub struct Item {
     pub id: i64,
     pub name: String,
+    #[serde(default)]
+    pub note: String,
+    /// Set by data sources with versions, e.g. the `MemorySource`. CrudKit's REST routes have none.
+    #[ck_field(version)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<CrudVersion>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Default, CkField, Serialize, Deserialize)]
@@ -33,6 +39,23 @@ impl ErasedIdentifiable for CreateItem {
 pub struct ReadItem {
     pub id: i64,
     pub name: String,
+    #[serde(default)]
+    pub note: String,
+    #[ck_field(version)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<CrudVersion>,
+}
+
+impl ReadItem {
+    /// The item `id`, named `item {id}`, without a note or version.
+    pub(crate) fn numbered(id: i64) -> Self {
+        Self {
+            id,
+            name: format!("item {id}"),
+            note: String::new(),
+            version: None,
+        }
+    }
 }
 
 impl From<ReadItem> for Item {
@@ -40,6 +63,8 @@ impl From<ReadItem> for Item {
         Self {
             id: read.id,
             name: read.name,
+            note: read.note,
+            version: read.version,
         }
     }
 }
@@ -52,14 +77,7 @@ pub(crate) struct FakeServer {
 
 impl FakeServer {
     pub(crate) fn with_items(count: i64) -> Arc<Self> {
-        let items = Mutex::new(
-            (1..=count)
-                .map(|id| ReadItem {
-                    id,
-                    name: format!("item {id}"),
-                })
-                .collect::<Vec<_>>(),
-        );
+        let items = Mutex::new((1..=count).map(ReadItem::numbered).collect::<Vec<_>>());
         Arc::new(Self {
             http: CrudTestServer::new(move |request| {
                 CrudTestResponse::json(respond(&items, &request.operation, &request.body))
@@ -152,10 +170,7 @@ pub(crate) fn with_config(config: CrudInstanceConfig, test: impl FnOnce(CrudInst
 }
 
 pub(crate) fn item(id: i64) -> DynReadModel {
-    DynReadModel::from(ReadItem {
-        id,
-        name: format!("item {id}"),
-    })
+    DynReadModel::from(ReadItem::numbered(id))
 }
 
 /// The input mounting `config` as `name`, without parent or own navigation.

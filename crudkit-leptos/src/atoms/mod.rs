@@ -44,7 +44,8 @@ pub use field::{
     CrudFieldValue, CrudNumberField, CrudSwitch, CrudTextField,
 };
 pub use form::{
-    CrudCreateForm, CrudDetails, CrudEditForm, CrudEntityStatus, CrudReturnButton, CrudSaveButton,
+    CrudCreateForm, CrudDetails, CrudEditForm, CrudEntityStatus, CrudFormError, CrudReloadButton,
+    CrudReturnButton, CrudSaveButton,
 };
 pub use icon::CrudIcon;
 pub use layout::{

@@ -14,7 +14,7 @@ use crate::hooks::notify::{
 use crate::instance::{provide_crud_instance, provide_view_context};
 use crate::prelude::*;
 use crate::test_support::items::*;
-use crate::test_support::memory::{MemoryOperation, MemoryPaging, MemorySource};
+use crate::test_support::memory::{MemoryOperation, MemoryPaging, MemorySource, TAKEN_NAME};
 use crate::test_support::{CrudTestResponse, CrudTestServer, settle, with_crud_manager};
 use assertr::prelude::*;
 use indexmap::IndexMap;
@@ -658,8 +658,8 @@ fn row_fields_follow_their_entity() {
         .is_equal_to(Some("item 1".to_owned()));
 
         entity.set(DynReadModel::from(ReadItem {
-            id: 1,
             name: "renamed".to_owned(),
+            ..ReadItem::numbered(1)
         }));
         settle();
 
@@ -1195,5 +1195,346 @@ fn rest_lists_show_their_page_when_counting_fails() {
         assert_that!(listed_ids(&list)).is_equal_to(vec![1, 2]);
         assert_that!(list.status.get_untracked()).is_equal_to(CrudListLoadStatus::Ready);
         assert_that!(list.item_count.get_untracked()).is_none();
+    });
+}
+
+/// Provides a notifier in the current owner that records every notification in `recorded`.
+fn record_notifications(recorded: &Arc<Mutex<Vec<CrudNotification>>>) {
+    let sink = recorded.clone();
+    provide_crud_notifier(CrudNotifier::new(move |notification| {
+        sink.lock().expect("lock").push(notification);
+    }));
+}
+
+/// Returns the kind and message of each notification in `recorded`, oldest first.
+fn kinds_and_messages(
+    recorded: &Mutex<Vec<CrudNotification>>,
+) -> Vec<(CrudNotificationKind, String)> {
+    recorded
+        .lock()
+        .expect("lock")
+        .iter()
+        .map(|notification| (notification.kind, notification.message.clone()))
+        .collect()
+}
+
+/// Returns the update requests that `source` received, oldest first.
+fn update_requests(source: &MemorySource) -> Vec<CrudUpdateRequest> {
+    source
+        .operations()
+        .into_iter()
+        .filter_map(|(operation, _)| match operation {
+            MemoryOperation::Update(request) => Some(request),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Returns the text that `form` holds for `field`.
+fn text_of(form: CrudFormState<DynUpdateField>, field: ItemField) -> Option<String> {
+    form.field(&DynUpdateField::from(field))
+        .and_then(|value| value.get_untracked().as_string().cloned())
+}
+
+/// Returns the item `id` of `source` as a listed entity, with its version.
+fn listed(source: &MemorySource, id: i64) -> DynReadModel {
+    DynReadModel::from(source.item(id).expect("the item exists"))
+}
+
+#[test]
+fn changes_send_what_changed_and_the_version_they_are_based_on() {
+    let source = MemorySource::with_items(1, MemoryPaging::Offset);
+    with_config(source.config(), |_ctx| {
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
+        settle();
+        for renamed in ["first", "second"] {
+            edit.form.set_field(
+                DynUpdateField::from(ItemField::Name),
+                Ok(Value::String(renamed.to_owned())),
+            );
+            edit.save.run(CrudSaveFollowUp::Stay);
+            settle();
+        }
+    });
+
+    let based_on = update_requests(&source)
+        .iter()
+        .map(|request| {
+            (
+                request.version().map(|version| version.as_str().to_owned()),
+                request.merge_patch().expect("a merge patch"),
+            )
+        })
+        .collect::<Vec<_>>();
+    // The second change is based on the version that the first one saved.
+    assert_that!(based_on).is_equal_to(vec![
+        (Some("1".to_owned()), serde_json::json!({ "name": "first" })),
+        (
+            Some("2".to_owned()),
+            serde_json::json!({ "name": "second" }),
+        ),
+    ]);
+    let stored = source.item(1).expect("the item");
+    assert_that!(stored.version).is_equal_to(Some(CrudVersion::new("3")));
+}
+
+#[test]
+fn outdated_changes_keep_the_input_and_apply_it_to_the_current_state() {
+    let source = MemorySource::with_items(1, MemoryPaging::Offset);
+    let notifications = Arc::new(Mutex::new(Vec::new()));
+    with_crud_manager(|| {
+        record_notifications(&notifications);
+        provide_crud_instance(instance_input("items", source.config()));
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
+        settle();
+        edit.form.set_field(
+            DynUpdateField::from(ItemField::Name),
+            Ok(Value::String("mine".to_owned())),
+        );
+        source.change_elsewhere(1, "theirs");
+
+        edit.save.run(CrudSaveFollowUp::Stay);
+        settle();
+        assert_that!(matches!(
+            edit.form.save_error.get_untracked(),
+            Some(RequestError::Outdated(_))
+        ))
+        .is_true();
+        assert_that!(edit.form.is_dirty.get_untracked()).is_true();
+        assert_that!(text_of(edit.form, ItemField::Name)).is_equal_to(Some("mine".to_owned()));
+
+        // The current state shows the other change, and the input stays.
+        edit.reload.run(());
+        settle();
+        assert_that!(edit.form.save_error.get_untracked()).is_none();
+        assert_that!(text_of(edit.form, ItemField::Name)).is_equal_to(Some("mine".to_owned()));
+        assert_that!(text_of(edit.form, ItemField::Note)).is_equal_to(Some("theirs".to_owned()));
+        assert_that!(edit.form.is_dirty.get_untracked()).is_true();
+
+        edit.save.run(CrudSaveFollowUp::Stay);
+        settle();
+        assert_that!(edit.form.save_error.get_untracked()).is_none();
+        assert_that!(edit.form.is_dirty.get_untracked()).is_false();
+    });
+
+    // The change applied to the current version, and kept the other change.
+    let retried = update_requests(&source).pop().expect("an update");
+    assert_that!(retried.version()).is_equal_to(Some(&CrudVersion::new("2")));
+    assert_that!(retried.merge_patch()).is_equal_to(Ok(serde_json::json!({ "name": "mine" })));
+    let stored = source.item(1).expect("the item");
+    assert_that!((stored.name.as_str(), stored.note.as_str())).is_equal_to(("mine", "theirs"));
+    let texts = CrudUiTexts::default();
+    assert_that!(kinds_and_messages(&notifications)).is_equal_to(vec![
+        (CrudNotificationKind::Warning, texts.outdated.to_string()),
+        (CrudNotificationKind::Success, texts.saved.to_string()),
+    ]);
+}
+
+#[test]
+fn problems_reach_the_fields_they_name_until_the_user_changes_them() {
+    let source = MemorySource::with_items(1, MemoryPaging::Offset);
+    with_config(source.config(), |_ctx| {
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
+        settle();
+        let name = DynUpdateField::from(ItemField::Name);
+        edit.form
+            .set_field(name.clone(), Ok(Value::String(TAKEN_NAME.to_owned())));
+        edit.save.run(CrudSaveFollowUp::Stay);
+        settle();
+
+        assert_that!(edit.form.field_error(name.clone()).get_untracked())
+            .is_equal_to(Some("Another item has this name.".to_owned()));
+        assert_that!(matches!(
+            edit.form.save_error.get_untracked(),
+            Some(RequestError::InvalidFields { .. })
+        ))
+        .is_true();
+        let unshown = edit.form.unshown_problems();
+        let unshown_fields = move || {
+            unshown
+                .get_untracked()
+                .into_iter()
+                .map(|problem| problem.field)
+                .collect::<Vec<_>>()
+        };
+        assert_that!(unshown_fields()).is_equal_to(vec!["name".to_owned(), "secret".to_owned()]);
+
+        // A shown field shows its problem itself, so the form leaves it out.
+        let field = Owner::new();
+        field.with(|| edit.form.show_field("name".to_owned()));
+        assert_that!(unshown_fields()).is_equal_to(vec!["secret".to_owned()]);
+
+        // Changing the field resolves its problem, but not the others.
+        edit.form
+            .set_field(name.clone(), Ok(Value::String("free".to_owned())));
+        assert_that!(edit.form.field_error(name).get_untracked()).is_none();
+        assert_that!(unshown_fields()).is_equal_to(vec!["secret".to_owned()]);
+
+        edit.save.run(CrudSaveFollowUp::Stay);
+        settle();
+        assert_that!(edit.form.save_error.get_untracked()).is_none();
+        assert_that!(edit.form.problems.get_untracked()).is_empty();
+    });
+}
+
+#[test]
+fn problems_of_new_entities_reach_their_fields() {
+    let source = MemorySource::with_items(0, MemoryPaging::Offset);
+    with_config(source.config(), |_ctx| {
+        let create = use_crud_create_form(UseCrudCreateFormInput::default());
+        let name = DynCreateField::from(CreateItemField::Name);
+        create
+            .form
+            .set_field(name.clone(), Ok(Value::String(TAKEN_NAME.to_owned())));
+        create.save.run(CrudSaveFollowUp::Stay);
+        settle();
+
+        assert_that!(create.form.field_error(name).get_untracked())
+            .is_equal_to(Some("Another item has this name.".to_owned()));
+        // The draft stays, so that the user can correct it.
+        assert_that!(create.form.is_dirty.get_untracked()).is_true();
+    });
+}
+
+#[test]
+fn accepted_changes_continue_from_the_state_they_return() {
+    let source = MemorySource::with_items(1, MemoryPaging::Offset);
+    source.accept_changes();
+    let notifications = Arc::new(Mutex::new(Vec::new()));
+    let completions = Arc::new(Mutex::new(Vec::new()));
+    with_crud_manager(|| {
+        record_notifications(&notifications);
+        provide_crud_instance(instance_input("items", source.config()));
+        let saved = completions.clone();
+        let edit = use_crud_edit_form(UseCrudEditFormInput {
+            on_saved: Some(Callback::new(move |outcome: CrudSaved| {
+                saved.lock().expect("lock").push(outcome.completion);
+            })),
+            ..edit_input(item(1).id())
+        });
+        settle();
+        for renamed in ["first", "second"] {
+            edit.form.set_field(
+                DynUpdateField::from(ItemField::Name),
+                Ok(Value::String(renamed.to_owned())),
+            );
+            edit.save.run(CrudSaveFollowUp::Stay);
+            settle();
+            assert_that!(edit.form.is_dirty.get_untracked()).is_false();
+            assert_that!(edit.form.save_error.get_untracked()).is_none();
+        }
+    });
+
+    // The second change is based on the version that the first one returned.
+    let versions = update_requests(&source)
+        .iter()
+        .map(|request| request.version().cloned())
+        .collect::<Vec<_>>();
+    assert_that!(versions).is_equal_to(vec![
+        Some(CrudVersion::new("1")),
+        Some(CrudVersion::new("2")),
+    ]);
+    assert_that!(completions.lock().expect("lock").clone())
+        .is_equal_to(vec![CrudCompletion::Accepted; 2]);
+    let accepted = CrudUiTexts::default().change_accepted.to_string();
+    assert_that!(kinds_and_messages(&notifications)).is_equal_to(vec![
+        (
+            CrudNotificationKind::Success,
+            accepted
+        );
+        2
+    ]);
+}
+
+#[test]
+fn accepted_and_outdated_deletions_are_reported_as_such() {
+    let source = MemorySource::with_items(3, MemoryPaging::Offset);
+    source.accept_changes();
+    let notifications = Arc::new(Mutex::new(Vec::new()));
+    let mut reloaded = false;
+    with_crud_manager(|| {
+        record_notifications(&notifications);
+        let ctx = provide_crud_instance(instance_input("items", source.config()));
+        let deletion = use_crud_delete();
+        deletion.request(listed(&source, 1));
+        deletion.confirm();
+        settle();
+        deletion.request_many(vec![listed(&source, 2), listed(&source, 3)]);
+        deletion.confirm_many();
+        settle();
+
+        // Someone else changes the entity that the user is about to delete.
+        let seen = listed(&source, 1);
+        source.change_elsewhere(1, "theirs");
+        let reload = ctx.reload.get_untracked();
+        deletion.request(seen);
+        deletion.confirm();
+        settle();
+        reloaded = ctx.reload.get_untracked() != reload;
+    });
+
+    // The instance shows the current state of the entity it could not delete.
+    assert_that!(reloaded).is_true();
+    // Accepted deletions keep their entities while they run.
+    assert_that!(source.ids()).is_equal_to(vec![1, 2, 3]);
+    let texts = CrudUiTexts::default();
+    assert_that!(kinds_and_messages(&notifications)).is_equal_to(vec![
+        (CrudNotificationKind::Success, (texts.deletion_accepted)(1)),
+        (CrudNotificationKind::Success, (texts.deletion_accepted)(2)),
+        (
+            CrudNotificationKind::Warning,
+            texts.deletion_outdated.to_string(),
+        ),
+    ]);
+}
+
+#[test]
+fn deleting_an_edited_entity_is_based_on_its_last_saved_version() {
+    let source = MemorySource::with_items(1, MemoryPaging::Offset);
+    with_config(source.config(), |_ctx| {
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
+        settle();
+        edit.form.set_field(
+            DynUpdateField::from(ItemField::Name),
+            Ok(Value::String("renamed".to_owned())),
+        );
+        edit.save.run(CrudSaveFollowUp::Stay);
+        settle();
+
+        edit.delete.run(());
+        use_crud_delete().confirm();
+        settle();
+    });
+
+    let deleted = source
+        .operations()
+        .into_iter()
+        .find_map(|(operation, _)| match operation {
+            MemoryOperation::Delete(request) => Some(request),
+            _ => None,
+        })
+        .expect("a deletion");
+    assert_that!(deleted.version()).is_equal_to(Some(&CrudVersion::new("2")));
+    assert_that!(source.ids()).is_empty();
+}
+
+#[test]
+fn clean_forms_show_every_reloaded_version_in_place() {
+    let source = MemorySource::with_items(1, MemoryPaging::Offset);
+    with_config(source.config(), |ctx| {
+        let edit = use_crud_edit_form(edit_input(item(1).id()));
+        settle();
+        let note = edit.form.field(&DynUpdateField::from(ItemField::Note));
+
+        for change in ["first", "second"] {
+            source.change_elsewhere(1, change);
+            ctx.reload();
+            settle();
+            assert_that!(text_of(edit.form, ItemField::Note)).is_equal_to(Some(change.to_owned()));
+            assert_that!(edit.form.is_dirty.get_untracked()).is_false();
+        }
+        // The form kept the reactive value that its fields render.
+        assert_that!(note.and_then(|note| note.get_untracked().as_string().cloned()))
+            .is_equal_to(Some("second".to_owned()));
     });
 }

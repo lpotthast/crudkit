@@ -99,6 +99,15 @@ pub struct CrudUiTexts {
     pub create_failed: Text,
     /// Message after saving an entity failed.
     pub update_failed: Text,
+    /// Message after the data source accepted the creation of an entity, which it still sets up.
+    pub creation_accepted: Text,
+    /// Message after the data source accepted a change, which it still applies.
+    pub change_accepted: Text,
+    /// Explains that saving was refused, because someone else changed the entity since the form
+    /// loaded it.
+    pub outdated: Text,
+    /// Reloads the entity of a form, to show its current state while keeping the input.
+    pub show_current: Text,
     /// Title of deletion notifications.
     pub deletion: Text,
     /// Message after entities were deleted, given their number.
@@ -122,6 +131,11 @@ pub struct CrudUiTexts {
     pub deletion_rejected: ReasonText,
     /// Message after a deletion failed, given the error.
     pub deletion_failed: ReasonText,
+    /// Message after the deletion of entities was accepted and still runs, given their number.
+    pub deletion_accepted: CountText,
+    /// Message after a deletion was refused, because someone else changed the entity since the
+    /// user saw it.
+    pub deletion_outdated: Text,
 }
 
 impl fmt::Debug for CrudUiTexts {
@@ -198,6 +212,12 @@ impl CrudUiTexts {
             saved: "Änderungen wurden gespeichert.".into(),
             create_failed: "Eintrag konnte nicht erstellt werden.".into(),
             update_failed: "Eintrag konnte nicht gespeichert werden.".into(),
+            creation_accepted: "Eintrag wurde angelegt und wird eingerichtet.".into(),
+            change_accepted: "Änderungen wurden angenommen und werden umgesetzt.".into(),
+            outdated: "Jemand anderes hat diesen Eintrag inzwischen geändert. Lass dir den \
+                       aktuellen Stand zeigen und speichere erneut. Deine Eingaben bleiben erhalten."
+                .into(),
+            show_current: "Aktuellen Stand zeigen".into(),
             deletion: "Löschen".into(),
             deleted: Arc::new(move |count| {
                 format!("{count} {} erfolgreich gelöscht.", entries(count))
@@ -217,6 +237,13 @@ impl CrudUiTexts {
                 format!("Löschvorgang nicht möglich. Grund: {reason}")
             }),
             deletion_failed: Arc::new(|error| format!("Löschen fehlgeschlagen: {error}")),
+            deletion_accepted: Arc::new(|count| match count {
+                1 => "1 Eintrag wird gelöscht.".to_owned(),
+                _ => format!("{count} Einträge werden gelöscht."),
+            }),
+            deletion_outdated: "Jemand anderes hat diesen Eintrag inzwischen geändert. Prüfe die \
+                                Änderungen und lösche ihn erneut."
+                .into(),
         }
     }
     /// English texts.
@@ -274,6 +301,12 @@ impl CrudUiTexts {
             saved: "The changes were saved.".into(),
             create_failed: "The entry could not be created.".into(),
             update_failed: "The entry could not be saved.".into(),
+            creation_accepted: "The entry was created and is being set up.".into(),
+            change_accepted: "The changes were accepted and are being applied.".into(),
+            outdated: "Someone else changed this entry in the meantime. Show its current state, \
+                       then save again. Your input is kept."
+                .into(),
+            show_current: "Show current state".into(),
             deletion: "Deletion".into(),
             deleted: Arc::new(move |count| format!("{count} {} deleted.", entries(count))),
             deleted_partially: Arc::new(move |count| {
@@ -289,6 +322,13 @@ impl CrudUiTexts {
                 format!("Deletion not possible. Reason: {reason}")
             }),
             deletion_failed: Arc::new(|error| format!("Deletion failed: {error}")),
+            deletion_accepted: Arc::new(|count| match count {
+                1 => "1 entry is being deleted.".to_owned(),
+                _ => format!("{count} entries are being deleted."),
+            }),
+            deletion_outdated: "Someone else changed this entry in the meantime. Check the \
+                                changes and delete it again."
+                .into(),
         }
     }
 }

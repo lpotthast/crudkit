@@ -114,8 +114,13 @@ became empty, it moves to the first or to the previous page. The list acts only 
 generation, because a page of an earlier one may arrive late. The instance only orders by fields the data source can
 order by.
 
-An edit form keeps its unsaved changes when its entity reloads: the reloaded version only becomes what the draft is
-compared against. Other forms and clean drafts take the reloaded version.
+An edit form keeps its unsaved changes when its entity reloads: it applies them to the reloaded version, which becomes
+the draft's baseline. The fields that the user changed keep their input: those the user set to another value than the
+old baseline's, and those holding input that could not be read. The other fields take the reloaded values, and so does
+what the model holds besides its fields, such as its [version](data-sources.md#versions). So the form shows the
+current state of the entity, and saving changes only what the user changed. Other forms and clean drafts take the
+reloaded version; when it is a version of the entity they show, their rendered fields update in place. The values of
+the fields belong to the form's owner, not to the effect that loads them, so they survive the effect's next run.
 
 Selection belongs to the mounted list's `CrudListState`, not `CrudInstanceContext`. It is a
 `crudkit_web::list::Selection`. Select-all reads only the currently loaded page. Whenever the loaded page changes,
@@ -161,7 +166,9 @@ through the form, so the two cannot diverge.
 
 Create compares its current DTO with the original default DTO. Edit compares its current DTO with the
 last accepted server entity, its baseline. Saving an edit sends both to the data source in a `CrudUpdateRequest`, so
-that a data source can send only what changed. Those dirty signals are registered with navigation as described in
+that a data source can send only what changed, e.g. as a [merge patch](data-sources.md#changes). Deleting the entity of
+an edit form deletes the baseline, so that the deletion is based on the version that the data source returned last,
+also after a save. Those dirty signals are registered with navigation as described in
 [Views, Navigation Scopes, and Dirty Guards](views-and-navigation.md).
 
 ## Field Renderer Resolution
