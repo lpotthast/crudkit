@@ -84,8 +84,9 @@ pub struct MergePatchConflict {
 /// member that the patch changes, and that `theirs` changed to another value than the patch's.
 /// Applying the patch to `theirs` replaces the values of these members with the patch's.
 ///
-/// A member that both changed to the same value is no conflict. A member that is `null` counts as
-/// absent, as in [`merge_patch`].
+/// A member that both changed to the same value is no conflict. When `theirs` replaced or removed
+/// an object that encloses changed members, the conflict is the enclosing object, with its value
+/// in `theirs`. A member that is `null` counts as absent, as in [`merge_patch`].
 #[must_use]
 pub fn merge_patch_conflicts(
     patch: &Value,
@@ -113,14 +114,19 @@ fn collect_conflicts(
     conflicts: &mut Vec<MergePatchConflict>,
 ) {
     if let (Value::Object(members), Some(Value::Object(base))) = (patch, base) {
+        let Some(Value::Object(theirs)) = theirs else {
+            // The other version replaced or removed the object that the patch changes members of.
+            conflicts.push(MergePatchConflict {
+                pointer: pointer.clone(),
+                theirs: theirs.filter(|theirs| !theirs.is_null()).cloned(),
+            });
+            return;
+        };
         for (key, member) in members {
             let length = pointer.len();
             pointer.push('/');
             pointer.push_str(&escape_token(key));
-            let theirs = theirs
-                .and_then(Value::as_object)
-                .and_then(|theirs| theirs.get(key));
-            collect_conflicts(member, base.get(key), theirs, pointer, conflicts);
+            collect_conflicts(member, base.get(key), theirs.get(key), pointer, conflicts);
             pointer.truncate(length);
         }
         return;
@@ -233,6 +239,29 @@ mod tests {
         assert_that!(merged)
             .is_equal_to(json!({ "tags": { "a": "1", "mine": "m", "theirs": "t" }, "name": "y" }));
         assert_that!(merge_patch_conflicts(&patch, &base, &theirs)).is_empty();
+    }
+
+    #[test]
+    fn replacing_an_object_conflicts_with_changes_of_its_members() {
+        let base = json!({ "limits": { "cpu": 1, "memory": 1 }, "name": "x" });
+        let mine = json!({ "limits": { "cpu": 2, "memory": 1 }, "name": "x" });
+        let patch = merge_patch(&base, &mine);
+
+        let replaced = json!({ "limits": "unlimited", "name": "x" });
+        let removed = json!({ "name": "x" });
+
+        assert_that!(merge_patch_conflicts(&patch, &base, &replaced)).is_equal_to(vec![
+            MergePatchConflict {
+                pointer: "/limits".to_owned(),
+                theirs: Some(json!("unlimited")),
+            },
+        ]);
+        assert_that!(merge_patch_conflicts(&patch, &base, &removed)).is_equal_to(vec![
+            MergePatchConflict {
+                pointer: "/limits".to_owned(),
+                theirs: None,
+            },
+        ]);
     }
 
     #[test]
